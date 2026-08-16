@@ -18,6 +18,70 @@
 
 namespace OpenYAMM::Engine
 {
+struct AssetReadStream::Impl
+{
+    ~Impl()
+    {
+        if (pFile != nullptr)
+        {
+            PHYSFS_close(pFile);
+        }
+    }
+
+    PHYSFS_File *pFile = nullptr;
+    std::string virtualPath;
+};
+
+AssetReadStream::AssetReadStream(std::unique_ptr<Impl> pImpl)
+    : m_pImpl(std::move(pImpl))
+{
+}
+
+AssetReadStream::~AssetReadStream() = default;
+AssetReadStream::AssetReadStream(AssetReadStream &&) noexcept = default;
+AssetReadStream &AssetReadStream::operator=(AssetReadStream &&) noexcept = default;
+
+bool AssetReadStream::isOpen() const
+{
+    return m_pImpl != nullptr && m_pImpl->pFile != nullptr;
+}
+
+int64_t AssetReadStream::read(void *pBuffer, size_t byteCount)
+{
+    if (!isOpen() || (pBuffer == nullptr && byteCount > 0))
+    {
+        return -1;
+    }
+
+    if (byteCount == 0)
+    {
+        return 0;
+    }
+
+    return PHYSFS_readBytes(m_pImpl->pFile, pBuffer, byteCount);
+}
+
+bool AssetReadStream::seek(uint64_t absoluteOffset)
+{
+    return isOpen() && PHYSFS_seek(m_pImpl->pFile, absoluteOffset) != 0;
+}
+
+int64_t AssetReadStream::tell() const
+{
+    return isOpen() ? PHYSFS_tell(m_pImpl->pFile) : -1;
+}
+
+int64_t AssetReadStream::length() const
+{
+    return isOpen() ? PHYSFS_fileLength(m_pImpl->pFile) : -1;
+}
+
+const std::string &AssetReadStream::virtualPath() const
+{
+    static const std::string EmptyPath;
+    return m_pImpl != nullptr ? m_pImpl->virtualPath : EmptyPath;
+}
+
 namespace
 {
 constexpr const char *EditorDevelopmentRootName = "assets_editor_dev";
@@ -1116,42 +1180,51 @@ std::optional<std::string> AssetFileSystem::readTextFile(const std::string &virt
     return std::string(fileBytes->begin(), fileBytes->end());
 }
 
-std::optional<std::vector<uint8_t>> AssetFileSystem::readBinaryFile(const std::string &virtualPath) const
+std::unique_ptr<AssetReadStream> AssetFileSystem::openReadStream(const std::string &virtualPath) const
 {
     if (!isInitialized())
     {
-        return std::nullopt;
+        return nullptr;
     }
 
     const std::vector<std::string> resolvedPaths = resolveVirtualPathCandidates(virtualPath);
-    PHYSFS_File *pFile = nullptr;
 
     for (const std::string &resolvedPath : resolvedPaths)
     {
-        pFile = openReadExactOrCaseInsensitive(resolvedPath);
+        PHYSFS_File *pFile = openReadExactOrCaseInsensitive(resolvedPath);
 
-        if (pFile != nullptr)
+        if (pFile == nullptr)
         {
-            break;
+            continue;
         }
+
+        std::unique_ptr<AssetReadStream::Impl> pImpl = std::make_unique<AssetReadStream::Impl>();
+        pImpl->pFile = pFile;
+        pImpl->virtualPath = resolvedPath;
+        return std::unique_ptr<AssetReadStream>(new AssetReadStream(std::move(pImpl)));
     }
 
-    if (pFile == nullptr)
+    return nullptr;
+}
+
+std::optional<std::vector<uint8_t>> AssetFileSystem::readBinaryFile(const std::string &virtualPath) const
+{
+    std::unique_ptr<AssetReadStream> pStream = openReadStream(virtualPath);
+
+    if (pStream == nullptr)
     {
         return std::nullopt;
     }
 
-    const PHYSFS_sint64 fileLength = PHYSFS_fileLength(pFile);
+    const int64_t fileLength = pStream->length();
 
     if (fileLength < 0)
     {
-        PHYSFS_close(pFile);
         return std::nullopt;
     }
 
     std::vector<uint8_t> contents(static_cast<size_t>(fileLength));
-    const PHYSFS_sint64 bytesRead = PHYSFS_readBytes(pFile, contents.data(), fileLength);
-    PHYSFS_close(pFile);
+    const int64_t bytesRead = pStream->read(contents.data(), contents.size());
 
     if (bytesRead != fileLength)
     {

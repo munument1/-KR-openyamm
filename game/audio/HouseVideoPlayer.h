@@ -5,17 +5,15 @@
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
 
-#include <cstddef>
 #include <cstdint>
-#include <future>
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace OpenYAMM::Game
 {
+struct HouseVideoPlayerTestAccess;
+
 class HouseVideoPlayer
 {
 public:
@@ -38,13 +36,6 @@ public:
         const std::string &videoStem,
         const std::string &videoDirectory,
         bool loopPlayback);
-    bool preload(const Engine::AssetFileSystem &assetFileSystem, const std::string &videoStem);
-    bool preload(
-        const Engine::AssetFileSystem &assetFileSystem,
-        const std::string &videoStem,
-        const std::string &videoDirectory);
-    void queueBackgroundPreload(const std::string &videoStem);
-    void updateBackgroundPreloads(const Engine::AssetFileSystem &assetFileSystem);
     void setAudioVolume(float volume);
     void update(float deltaSeconds);
     bool hasActiveFrame() const;
@@ -54,44 +45,14 @@ public:
     int videoTextureHeight() const;
 
 private:
-    struct DecodedClip
-    {
-        std::string videoStem;
-        int width = 0;
-        int height = 0;
-        float framesPerSecond = 0.0f;
-        float durationSeconds = 0.0f;
-        size_t frameCount = 0;
-        size_t frameSizeBytes = 0;
-        std::vector<uint8_t> videoPixels;
-        int audioSampleRate = 0;
-        int audioChannels = 0;
-        std::vector<float> audioSamples;
-    };
-
-    struct BackgroundPreloadJob
-    {
-        std::string videoStem;
-        std::future<std::shared_ptr<DecodedClip>> future;
-    };
+    struct StreamingSession;
 
     bool ensureAudioStream();
     void ensureVideoTexture(int width, int height);
-    void uploadVideoFrame(size_t frameIndex);
+    bool uploadReadyVideoFrame(bool firstFrame);
     void updateAudioQueue();
-    void advancePlaybackWithoutAudio(float deltaSeconds);
     std::optional<float> playbackSecondsFromAudioQueue() const;
-    void warmUpPlaybackPath();
-    void finishCompletedBackgroundPreload();
-    void clearBackgroundPreloads();
-    std::shared_ptr<DecodedClip> getOrDecodeClip(
-        const Engine::AssetFileSystem &assetFileSystem,
-        const std::string &videoStem,
-        const std::string &videoDirectory);
-    static std::shared_ptr<DecodedClip> decodeClip(
-        const Engine::AssetFileSystem &assetFileSystem,
-        const std::string &videoStem,
-        const std::string &videoDirectory);
+    void updateFinishedPlaybackState(float deltaSeconds);
 
     bool m_isInitialized;
     bool m_initializedAudioSubsystem;
@@ -99,16 +60,18 @@ private:
     int m_videoTextureWidth;
     int m_videoTextureHeight;
     SDL_AudioStream *m_pAudioStream;
-    std::shared_ptr<DecodedClip> m_pActiveClip;
+    std::unique_ptr<StreamingSession> m_pStreamingSession;
     std::string m_activeClipKey;
     float m_playbackSeconds;
-    size_t m_uploadedFrameIndex;
-    size_t m_nextAudioSampleIndex;
     uint64_t m_totalQueuedAudioFrames;
     bool m_loopPlayback;
+    bool m_playbackStarted;
+    bool m_hasActiveFrame;
+    bool m_finishedPlayback;
+    double m_presentedFrameSeconds;
+    uint64_t m_presentedFrameSerial;
     float m_audioVolume;
-    std::unordered_map<std::string, std::shared_ptr<DecodedClip>> m_cachedClipsByKey;
-    std::vector<std::string> m_pendingBackgroundPreloadStems;
-    std::optional<BackgroundPreloadJob> m_backgroundPreloadJob;
+
+    friend struct HouseVideoPlayerTestAccess;
 };
 }

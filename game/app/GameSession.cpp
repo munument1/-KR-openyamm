@@ -535,7 +535,6 @@ bool GameSession::logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) 
         + diagnostics.combatEventsNanoseconds
         + diagnostics.interactionFrameNanoseconds
         + diagnostics.projectileAndCooldownNanoseconds
-        + diagnostics.preloadNanoseconds
         + diagnostics.performanceTraceLogNanoseconds;
     const uint64_t untrackedNanoseconds =
         diagnostics.totalNanoseconds > measuredNanoseconds
@@ -578,9 +577,6 @@ bool GameSession::logGameplayUpdatePerformanceDiagnostics(uint32_t currentTick) 
                   diagnostics.frames))
               << " avg_projectile_cooldown_us=" << nanosecondsToMicroseconds(averageNanoseconds(
                   diagnostics.projectileAndCooldownNanoseconds,
-                  diagnostics.frames))
-              << " avg_preload_us=" << nanosecondsToMicroseconds(averageNanoseconds(
-                  diagnostics.preloadNanoseconds,
                   diagnostics.frames))
               << " avg_performance_trace_log_us=" << nanosecondsToMicroseconds(averageNanoseconds(
                   diagnostics.performanceTraceLogNanoseconds,
@@ -948,14 +944,8 @@ void GameSession::updateGameplay(
             projectileCooldownBeginTickCount);
     }
 
-    const uint64_t preloadBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
-    m_gameplayScreenRuntime.updateHouseVideoBackgroundPreloads();
-
     if (collectPerformanceDiagnostics)
     {
-        const uint64_t preloadNanoseconds = SDL_GetTicksNS() - preloadBeginTickCount;
-        m_gameplayUpdatePerformanceDiagnostics.preloadNanoseconds += preloadNanoseconds;
-        m_lastGameplayUpdateFramePerformanceDiagnostics.preloadNanoseconds += preloadNanoseconds;
         const uint64_t totalNanoseconds = SDL_GetTicksNS() - totalBeginTickCount;
         m_gameplayUpdatePerformanceDiagnostics.totalNanoseconds += totalNanoseconds;
         m_lastGameplayUpdateFramePerformanceDiagnostics.totalNanoseconds += totalNanoseconds;

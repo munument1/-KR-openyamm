@@ -2,14 +2,42 @@
 
 #include "engine/AssetScaleTier.h"
 
-#include <filesystem>
 #include <cstdint>
+#include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 namespace OpenYAMM::Engine
 {
+class AssetReadStream
+{
+public:
+    ~AssetReadStream();
+
+    AssetReadStream(const AssetReadStream &) = delete;
+    AssetReadStream &operator=(const AssetReadStream &) = delete;
+    AssetReadStream(AssetReadStream &&) noexcept;
+    AssetReadStream &operator=(AssetReadStream &&) noexcept;
+
+    bool isOpen() const;
+    int64_t read(void *pBuffer, size_t byteCount);
+    bool seek(uint64_t absoluteOffset);
+    int64_t tell() const;
+    int64_t length() const;
+    const std::string &virtualPath() const;
+
+private:
+    struct Impl;
+
+    explicit AssetReadStream(std::unique_ptr<Impl> pImpl);
+
+    std::unique_ptr<Impl> m_pImpl;
+
+    friend class AssetFileSystem;
+};
+
 class AssetFileSystem
 {
 public:
@@ -41,6 +69,7 @@ public:
     bool mountDevelopmentRoot(const std::filesystem::path &assetRoot);
     bool exists(const std::string &virtualPath) const;
     std::vector<std::string> enumerate(const std::string &virtualPath) const;
+    std::unique_ptr<AssetReadStream> openReadStream(const std::string &virtualPath) const;
     std::optional<std::vector<uint8_t>> readBinaryFile(const std::string &virtualPath) const;
     std::optional<std::string> readTextFile(const std::string &virtualPath) const;
     std::optional<std::filesystem::path> resolvePhysicalPath(const std::string &virtualPath) const;

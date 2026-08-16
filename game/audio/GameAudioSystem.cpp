@@ -567,8 +567,7 @@ bool decodeAudioSamplesFromBytes(const std::vector<uint8_t> &bytes, std::vector<
 bool GameAudioSystem::initialize(
     const Engine::AssetFileSystem &assetFileSystem,
     const CharacterDollTable &characterDollTable,
-    const MergedCharacterVoiceTable &characterVoiceTable,
-    const SpellTable &spellTable)
+    const MergedCharacterVoiceTable &characterVoiceTable)
 {
     shutdown();
     if (!initializeSoundCatalog(assetFileSystem))
@@ -576,7 +575,7 @@ bool GameAudioSystem::initialize(
         return false;
     }
 
-    bindGameplayTables(characterDollTable, characterVoiceTable, spellTable);
+    bindGameplayTables(characterDollTable, characterVoiceTable);
     return true;
 }
 
@@ -588,13 +587,10 @@ bool GameAudioSystem::initializeMenuAudio(const Engine::AssetFileSystem &assetFi
 
 void GameAudioSystem::bindGameplayTables(
     const CharacterDollTable &characterDollTable,
-    const MergedCharacterVoiceTable &characterVoiceTable,
-    const SpellTable &spellTable)
+    const MergedCharacterVoiceTable &characterVoiceTable)
 {
     m_pCharacterDollTable = &characterDollTable;
     m_pCharacterVoiceTable = &characterVoiceTable;
-    preloadSpellEffectSounds(spellTable);
-    preloadArcomageUiSounds();
 }
 
 bool GameAudioSystem::initializeSoundCatalog(const Engine::AssetFileSystem &assetFileSystem)
@@ -870,57 +866,6 @@ void GameAudioSystem::preloadSpellEffectSounds(const SpellTable &spellTable)
         }
 
         preloadSound(engineSound(static_cast<uint32_t>(spellEntry.effectSoundId)));
-    }
-}
-
-void GameAudioSystem::preloadArcomageUiSounds()
-{
-    if (m_pAssetFileSystem == nullptr)
-    {
-        return;
-    }
-
-    const std::array<SoundId, 11> arcomageSounds = {
-        SoundId::ArcomageBricksDown,
-        SoundId::ArcomageBricksUp,
-        SoundId::ArcomageDamage,
-        SoundId::ArcomageDeal,
-        SoundId::ArcomageDefeat,
-        SoundId::ArcomageQuarryUp,
-        SoundId::ArcomageQuarryDown,
-        SoundId::ArcomageShuffle,
-        SoundId::ArcomageTowerUp,
-        SoundId::ArcomageVictory,
-        SoundId::ArcomageWallUp
-    };
-
-    for (SoundId soundId : arcomageSounds)
-    {
-        const std::optional<std::string> virtualPath = m_soundCatalog.buildVirtualPath(static_cast<uint32_t>(soundId));
-
-        if (!virtualPath)
-        {
-            continue;
-        }
-
-        const std::optional<std::vector<uint8_t>> soundBytes = m_pAssetFileSystem->readBinaryFile(*virtualPath);
-
-        if (!soundBytes || soundBytes->empty())
-        {
-            continue;
-        }
-
-        std::vector<float> decodedSamples;
-
-        if (!decodeAudioSamplesFromBytes(*soundBytes, decodedSamples) || decodedSamples.empty())
-        {
-            continue;
-        }
-
-        if (m_audioSystem.registerClip(*virtualPath, std::move(decodedSamples)))
-        {
-            m_persistentPreloadedClipKeys.insert(*virtualPath);
-        }
     }
 }
 

@@ -4,6 +4,7 @@
 #include <doctest/doctest.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -189,6 +190,41 @@ TEST_CASE("AssetFileSystem resolves package aliases before legacy asset paths")
     std::filesystem::remove_all(temporaryRoot);
 }
 
+TEST_CASE("AssetFileSystem streams and seeks through resolved package aliases")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+
+    writeTextFile(assetRoot / "engine" / "videos" / "Houses" / "Sample.ogv", "0123456789");
+
+    {
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1));
+
+        std::unique_ptr<OpenYAMM::Engine::AssetReadStream> pStream =
+            assetFileSystem.openReadStream("Videos/Houses/sample.ogv");
+        REQUIRE(pStream != nullptr);
+        CHECK(pStream->isOpen());
+        CHECK_EQ(pStream->length(), 10);
+
+        std::array<char, 4> firstBytes = {};
+        CHECK_EQ(pStream->read(firstBytes.data(), firstBytes.size()), 4);
+        CHECK_EQ(std::string(firstBytes.data(), firstBytes.size()), "0123");
+        CHECK_EQ(pStream->tell(), 4);
+
+        REQUIRE(pStream->seek(7));
+        std::array<char, 3> lastBytes = {};
+        CHECK_EQ(pStream->read(lastBytes.data(), lastBytes.size()), 3);
+        CHECK_EQ(std::string(lastBytes.data(), lastBytes.size()), "789");
+        CHECK_EQ(pStream->tell(), 10);
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}
+
 TEST_CASE("AssetFileSystem keeps legacy fallback and enumerates package aliases")
 {
     const std::filesystem::path temporaryRoot = makeTemporaryRoot();
@@ -240,7 +276,8 @@ TEST_CASE("AssetFileSystem mounts generated runtime zip package sets")
         assetRoot / "worlds" / "mm6.zip",
         {
             {"maps/shared.odm", "active-map"},
-            {"textures/shared.bmp", "active-texture"}
+            {"textures/shared.bmp", "active-texture"},
+            {"videos/Houses/sample.ogv", "0123456789"}
         });
     writeZipFile(
         assetRoot / "worlds" / "mm8.zip",
@@ -278,6 +315,15 @@ TEST_CASE("AssetFileSystem mounts generated runtime zip package sets")
             assetFileSystem.readTextFile("Data/bitmaps/shared.bmp");
         REQUIRE(sharedTextureText.has_value());
         CHECK_EQ(*sharedTextureText, "active-texture");
+
+        std::unique_ptr<OpenYAMM::Engine::AssetReadStream> pVideoStream =
+            assetFileSystem.openReadStream("Videos/Houses/sample.ogv");
+        REQUIRE(pVideoStream != nullptr);
+        REQUIRE(pVideoStream->seek(4));
+        std::array<char, 3> streamedBytes = {};
+        CHECK_EQ(pVideoStream->read(streamedBytes.data(), streamedBytes.size()), 3);
+        CHECK_EQ(std::string(streamedBytes.data(), streamedBytes.size()), "456");
+        pVideoStream.reset();
 
         CHECK_FALSE(assetFileSystem.resolvePhysicalPath("Data/games/shared.odm").has_value());
 

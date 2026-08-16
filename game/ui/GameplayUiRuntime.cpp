@@ -2214,22 +2214,6 @@ bool GameplayUiRuntime::playHouseVideo(const std::string &videoStem, const std::
         && m_houseVideoPlayer.play(*m_pAssetFileSystem, videoStem, videoDirectory);
 }
 
-void GameplayUiRuntime::queueBackgroundHouseVideoPreload(const std::string &videoStem)
-{
-    if (initializeHouseVideoPlayer())
-    {
-        m_houseVideoPlayer.queueBackgroundPreload(videoStem);
-    }
-}
-
-void GameplayUiRuntime::updateHouseVideoBackgroundPreloads()
-{
-    if (m_houseVideoPlayerInitialized && m_pAssetFileSystem != nullptr)
-    {
-        m_houseVideoPlayer.updateBackgroundPreloads(*m_pAssetFileSystem);
-    }
-}
-
 void GameplayUiRuntime::setHouseVideoAudioVolume(float volume)
 {
     if (initializeHouseVideoPlayer())

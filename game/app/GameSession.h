@@ -48,7 +48,6 @@ struct GameplayUpdateFramePerformanceDiagnostics
     uint64_t combatEventsNanoseconds = 0;
     uint64_t interactionFrameNanoseconds = 0;
     uint64_t projectileAndCooldownNanoseconds = 0;
-    uint64_t preloadNanoseconds = 0;
     uint64_t performanceTraceLogNanoseconds = 0;
     GameplayWorldMovementFrameDiagnostics worldMovement = {};
 };
@@ -235,7 +234,6 @@ private:
         uint64_t combatEventsNanoseconds = 0;
         uint64_t interactionFrameNanoseconds = 0;
         uint64_t projectileAndCooldownNanoseconds = 0;
-        uint64_t preloadNanoseconds = 0;
         uint64_t performanceTraceLogNanoseconds = 0;
 
         bool hasActivity() const

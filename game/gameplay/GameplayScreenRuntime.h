@@ -313,8 +313,6 @@ public:
     void stopHouseVideoPlayback();
     bool playHouseVideo(const std::string &videoStem);
     bool playHouseVideo(const std::string &videoStem, const std::string &videoDirectory);
-    void queueBackgroundHouseVideoPreload(const std::string &videoStem);
-    void updateHouseVideoBackgroundPreloads();
     void updateHouseVideoPlayback(float deltaSeconds);
     bool isControlsRenderButtonPressed(GameplayControlsRenderButton button) const;
     bool isVideoOptionsRenderButtonPressed(GameplayVideoOptionsRenderButton button) const;

@@ -1,9 +1,9 @@
 #include "game/audio/HouseVideoPlayer.h"
+
 #include "engine/BgfxContext.h"
 #include "game/render/TextureFiltering.h"
 
 #include <bgfx/bgfx.h>
-#include <bx/math.h>
 
 extern "C"
 {
@@ -19,15 +19,21 @@ extern "C"
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cerrno>
-#include <cctype>
-#include <chrono>
 #include <cmath>
-#include <cstring>
+#include <condition_variable>
+#include <cstdint>
+#include <cstdio>
+#include <deque>
 #include <iostream>
 #include <limits>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
+#include <utility>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -36,8 +42,9 @@ namespace
 {
 constexpr int HouseVideoAudioFrequency = 48000;
 constexpr int HouseVideoAudioChannels = 2;
-constexpr int HouseVideoAudioQueueTargetMilliseconds = 100;
-constexpr size_t InvalidFrameIndex = std::numeric_limits<size_t>::max();
+constexpr int HouseVideoAudioQueueTargetMilliseconds = 500;
+constexpr double HouseVideoDecodeAheadSeconds = 1.0;
+constexpr int HouseVideoAvioBufferSize = 64 * 1024;
 constexpr const char *DefaultHouseVideoDirectory = "Videos/Houses";
 
 bool canUseBgfxResources()
@@ -45,18 +52,17 @@ bool canUseBgfxResources()
     return Engine::BgfxContext::isBgfxInitialized();
 }
 
+bool isAudioSubsystemInitialized()
+{
+    return (SDL_WasInit(SDL_INIT_AUDIO) & SDL_INIT_AUDIO) != 0;
+}
+
 std::string makeClipKey(const std::string &videoDirectory, const std::string &videoStem)
 {
     return videoDirectory + "/" + videoStem;
 }
 
-struct ClipBytes
-{
-    std::string virtualPath;
-    std::vector<uint8_t> bytes;
-};
-
-std::optional<ClipBytes> readVideoClipBytes(
+std::unique_ptr<Engine::AssetReadStream> openVideoClipStream(
     const Engine::AssetFileSystem &assetFileSystem,
     const std::string &videoStem,
     const std::string &videoDirectory)
@@ -72,20 +78,22 @@ std::optional<ClipBytes> readVideoClipBytes(
     for (size_t index = 0; index < candidateCount; ++index)
     {
         const std::string virtualPath = std::string(candidateDirectories[index]) + "/" + videoStem + ".ogv";
-        std::optional<std::vector<uint8_t>> clipBytes = assetFileSystem.readBinaryFile(virtualPath);
+        std::unique_ptr<Engine::AssetReadStream> pStream = assetFileSystem.openReadStream(virtualPath);
 
-        if (clipBytes && !clipBytes->empty())
+        if (pStream != nullptr && pStream->length() > 0)
         {
-            return ClipBytes{virtualPath, std::move(*clipBytes)};
+            return pStream;
         }
     }
 
-    return std::nullopt;
+    return nullptr;
 }
 
-bool isAudioSubsystemInitialized()
+std::string ffmpegErrorString(int errorCode)
 {
-    return (SDL_WasInit(SDL_INIT_AUDIO) & SDL_INIT_AUDIO) != 0;
+    std::array<char, AV_ERROR_MAX_STRING_SIZE> buffer = {};
+    av_strerror(errorCode, buffer.data(), buffer.size());
+    return std::string(buffer.data());
 }
 
 struct AvFormatContextCloser
@@ -174,44 +182,6 @@ using SwsContextPtr = std::unique_ptr<SwsContext, SwsContextCloser>;
 using SwrContextPtr = std::unique_ptr<SwrContext, SwrContextCloser>;
 using AvioContextPtr = std::unique_ptr<AVIOContext, AvioContextCloser>;
 
-struct MemoryClipReader
-{
-    const std::vector<uint8_t> *pBytes = nullptr;
-    size_t position = 0;
-};
-
-std::string ffmpegErrorString(int errorCode)
-{
-    std::array<char, AV_ERROR_MAX_STRING_SIZE> buffer = {};
-    av_strerror(errorCode, buffer.data(), buffer.size());
-    return std::string(buffer.data());
-}
-
-std::optional<float> parseFrameRate(const AVRational &frameRate)
-{
-    if (frameRate.num <= 0 || frameRate.den <= 0)
-    {
-        return std::nullopt;
-    }
-
-    return static_cast<float>(frameRate.num) / static_cast<float>(frameRate.den);
-}
-
-std::optional<float> streamDurationSeconds(const AVStream &stream, const AVFormatContext &formatContext)
-{
-    if (stream.duration > 0 && stream.time_base.num > 0 && stream.time_base.den > 0)
-    {
-        return static_cast<float>(stream.duration) * av_q2d(stream.time_base);
-    }
-
-    if (formatContext.duration > 0)
-    {
-        return static_cast<float>(formatContext.duration) / static_cast<float>(AV_TIME_BASE);
-    }
-
-    return std::nullopt;
-}
-
 AvCodecContextPtr createDecoderContext(const AVStream &stream)
 {
     const AVCodec *pCodec = avcodec_find_decoder(stream.codecpar->codec_id);
@@ -221,14 +191,12 @@ AvCodecContextPtr createDecoderContext(const AVStream &stream)
         return nullptr;
     }
 
-    AVCodecContext *pRawCodecContext = avcodec_alloc_context3(pCodec);
+    AvCodecContextPtr pCodecContext(avcodec_alloc_context3(pCodec));
 
-    if (pRawCodecContext == nullptr)
+    if (pCodecContext == nullptr)
     {
         return nullptr;
     }
-
-    AvCodecContextPtr pCodecContext(pRawCodecContext);
 
     int result = avcodec_parameters_to_context(pCodecContext.get(), stream.codecpar);
 
@@ -250,27 +218,25 @@ AvCodecContextPtr createDecoderContext(const AVStream &stream)
     return pCodecContext;
 }
 
-bool appendVideoFrame(
+std::optional<std::vector<uint8_t>> convertVideoFrame(
     const AVFrame &frame,
     SwsContext &swsContext,
     int width,
-    int height,
-    std::vector<uint8_t> &videoPixels)
+    int height)
 {
     if (frame.width != width || frame.height != height)
     {
-        return false;
+        return std::nullopt;
     }
 
     const size_t frameSizeBytes = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
-    const size_t previousSize = videoPixels.size();
-    videoPixels.resize(previousSize + frameSizeBytes);
+    std::vector<uint8_t> pixels(frameSizeBytes);
     uint8_t *pDestinationData[4] = {};
     int destinationLinesize[4] = {};
     const int fillResult = av_image_fill_arrays(
         pDestinationData,
         destinationLinesize,
-        videoPixels.data() + previousSize,
+        pixels.data(),
         AV_PIX_FMT_BGRA,
         width,
         height,
@@ -278,7 +244,7 @@ bool appendVideoFrame(
 
     if (fillResult < 0)
     {
-        return false;
+        return std::nullopt;
     }
 
     sws_scale(
@@ -289,80 +255,93 @@ bool appendVideoFrame(
         height,
         pDestinationData,
         destinationLinesize);
-    return true;
+    return pixels;
 }
 
-bool appendAudioFrame(
+std::optional<std::vector<float>> convertAudioFrame(
     const AVFrame &frame,
     SwrContext &swrContext,
-    int outputSampleRate,
-    int outputChannels,
-    std::vector<float> &audioSamples)
+    int inputSampleRate)
 {
-    const int outputSampleCapacity = av_rescale_rnd(
-        swr_get_delay(&swrContext, frame.sample_rate) + frame.nb_samples,
-        outputSampleRate,
-        frame.sample_rate,
-        AV_ROUND_UP);
-
-    if (outputSampleCapacity <= 0)
+    if (inputSampleRate <= 0)
     {
-        return true;
+        return std::nullopt;
     }
 
-    std::vector<float> convertedSamples(static_cast<size_t>(outputSampleCapacity) * static_cast<size_t>(outputChannels));
-    uint8_t *pOutputData[1] = {reinterpret_cast<uint8_t *>(convertedSamples.data())};
-    const int convertedSampleCount = swr_convert(
+    const int outputFrameCapacity = av_rescale_rnd(
+        swr_get_delay(&swrContext, inputSampleRate) + frame.nb_samples,
+        HouseVideoAudioFrequency,
+        inputSampleRate,
+        AV_ROUND_UP);
+
+    if (outputFrameCapacity <= 0)
+    {
+        return std::vector<float>();
+    }
+
+    std::vector<float> samples(
+        static_cast<size_t>(outputFrameCapacity) * static_cast<size_t>(HouseVideoAudioChannels));
+    uint8_t *pOutputData[1] = {reinterpret_cast<uint8_t *>(samples.data())};
+    const int convertedFrameCount = swr_convert(
         &swrContext,
         pOutputData,
-        outputSampleCapacity,
+        outputFrameCapacity,
         const_cast<const uint8_t **>(frame.extended_data),
         frame.nb_samples);
 
-    if (convertedSampleCount < 0)
+    if (convertedFrameCount < 0)
     {
-        std::cerr << "HouseVideoPlayer: swr_convert failed: " << ffmpegErrorString(convertedSampleCount) << '\n';
-        return false;
+        return std::nullopt;
     }
 
-    convertedSamples.resize(static_cast<size_t>(convertedSampleCount) * static_cast<size_t>(outputChannels));
-    audioSamples.insert(audioSamples.end(), convertedSamples.begin(), convertedSamples.end());
-    return true;
+    samples.resize(static_cast<size_t>(convertedFrameCount) * static_cast<size_t>(HouseVideoAudioChannels));
+    return samples;
 }
 
-int readMemoryClip(void *pOpaque, uint8_t *pBuffer, int bufferSize)
+struct StreamClipReader
 {
-    MemoryClipReader *pReader = static_cast<MemoryClipReader *>(pOpaque);
+    Engine::AssetReadStream *pStream = nullptr;
+    std::atomic_bool *pStopRequested = nullptr;
+};
 
-    if (pReader == nullptr || pReader->pBytes == nullptr || bufferSize <= 0)
+int readStreamClip(void *pOpaque, uint8_t *pBuffer, int bufferSize)
+{
+    StreamClipReader *pReader = static_cast<StreamClipReader *>(pOpaque);
+
+    if (pReader == nullptr || pReader->pStream == nullptr || pBuffer == nullptr || bufferSize <= 0)
     {
         return AVERROR(EINVAL);
     }
 
-    if (pReader->position >= pReader->pBytes->size())
+    if (pReader->pStopRequested != nullptr && pReader->pStopRequested->load())
     {
-        return AVERROR_EOF;
+        return AVERROR_EXIT;
     }
 
-    const size_t remainingBytes = pReader->pBytes->size() - pReader->position;
-    const size_t copySize = std::min(remainingBytes, static_cast<size_t>(bufferSize));
-    std::memcpy(pBuffer, pReader->pBytes->data() + pReader->position, copySize);
-    pReader->position += copySize;
-    return static_cast<int>(copySize);
+    const int64_t bytesRead = pReader->pStream->read(pBuffer, static_cast<size_t>(bufferSize));
+
+    if (bytesRead < 0)
+    {
+        return AVERROR(EIO);
+    }
+
+    return bytesRead == 0 ? AVERROR_EOF : static_cast<int>(bytesRead);
 }
 
-int64_t seekMemoryClip(void *pOpaque, int64_t offset, int whence)
+int64_t seekStreamClip(void *pOpaque, int64_t offset, int whence)
 {
-    MemoryClipReader *pReader = static_cast<MemoryClipReader *>(pOpaque);
+    StreamClipReader *pReader = static_cast<StreamClipReader *>(pOpaque);
 
-    if (pReader == nullptr || pReader->pBytes == nullptr)
+    if (pReader == nullptr || pReader->pStream == nullptr)
     {
         return AVERROR(EINVAL);
     }
 
-    if (whence == AVSEEK_SIZE)
+    const int64_t streamLength = pReader->pStream->length();
+
+    if ((whence & AVSEEK_SIZE) != 0)
     {
-        return static_cast<int64_t>(pReader->pBytes->size());
+        return streamLength >= 0 ? streamLength : AVERROR(EIO);
     }
 
     const int seekMode = whence & ~AVSEEK_FORCE;
@@ -371,32 +350,834 @@ int64_t seekMemoryClip(void *pOpaque, int64_t offset, int whence)
     switch (seekMode)
     {
         case SEEK_SET:
-            baseOffset = 0;
             break;
 
         case SEEK_CUR:
-            baseOffset = static_cast<int64_t>(pReader->position);
+            baseOffset = pReader->pStream->tell();
             break;
 
         case SEEK_END:
-            baseOffset = static_cast<int64_t>(pReader->pBytes->size());
+            baseOffset = streamLength;
             break;
 
         default:
             return AVERROR(EINVAL);
     }
 
-    const int64_t targetOffset = baseOffset + offset;
-
-    if (targetOffset < 0 || static_cast<uint64_t>(targetOffset) > pReader->pBytes->size())
+    if (baseOffset < 0
+        || (offset > 0 && baseOffset > std::numeric_limits<int64_t>::max() - offset)
+        || (offset < 0 && offset < -baseOffset))
     {
         return AVERROR(EINVAL);
     }
 
-    pReader->position = static_cast<size_t>(targetOffset);
-    return targetOffset;
+    const int64_t targetOffset = baseOffset + offset;
+
+    if (targetOffset < 0 || streamLength < 0 || targetOffset > streamLength)
+    {
+        return AVERROR(EINVAL);
+    }
+
+    return pReader->pStream->seek(static_cast<uint64_t>(targetOffset)) ? targetOffset : AVERROR(EIO);
 }
+
+enum class DecoderDrainResult
+{
+    NeedsInput,
+    EndOfStream,
+    Failed,
+    Stopped
+};
+
+template <typename FrameHandler>
+DecoderDrainResult drainDecoder(
+    AVCodecContext &codecContext,
+    AVFrame &frame,
+    FrameHandler &frameHandler,
+    const std::atomic_bool &stopRequested,
+    const std::string &virtualPath,
+    bool *pProducedFrame = nullptr)
+{
+    while (!stopRequested.load())
+    {
+        const int result = avcodec_receive_frame(&codecContext, &frame);
+
+        if (result == AVERROR(EAGAIN))
+        {
+            return DecoderDrainResult::NeedsInput;
+        }
+
+        if (result == AVERROR_EOF)
+        {
+            return DecoderDrainResult::EndOfStream;
+        }
+
+        if (result < 0)
+        {
+            std::cerr << "HouseVideoPlayer: avcodec_receive_frame failed for " << virtualPath
+                      << ": " << ffmpegErrorString(result) << '\n';
+            return DecoderDrainResult::Failed;
+        }
+
+        const bool handled = frameHandler(frame);
+        av_frame_unref(&frame);
+
+        if (pProducedFrame != nullptr)
+        {
+            *pProducedFrame = true;
+        }
+
+        if (!handled)
+        {
+            return stopRequested.load() ? DecoderDrainResult::Stopped : DecoderDrainResult::Failed;
+        }
+    }
+
+    return DecoderDrainResult::Stopped;
 }
+
+template <typename FrameHandler>
+bool submitDecoderPacket(
+    AVCodecContext &codecContext,
+    const AVPacket *pPacket,
+    AVFrame &frame,
+    FrameHandler &frameHandler,
+    const std::atomic_bool &stopRequested,
+    const std::string &virtualPath)
+{
+    while (!stopRequested.load())
+    {
+        const int sendResult = avcodec_send_packet(&codecContext, pPacket);
+
+        if (sendResult == 0)
+        {
+            break;
+        }
+
+        if (sendResult == AVERROR_EOF && pPacket == nullptr)
+        {
+            return true;
+        }
+
+        if (sendResult != AVERROR(EAGAIN))
+        {
+            std::cerr << "HouseVideoPlayer: avcodec_send_packet failed for " << virtualPath
+                      << ": " << ffmpegErrorString(sendResult) << '\n';
+            return false;
+        }
+
+        bool producedFrame = false;
+        const DecoderDrainResult drainResult = drainDecoder(
+            codecContext,
+            frame,
+            frameHandler,
+            stopRequested,
+            virtualPath,
+            &producedFrame);
+
+        if (drainResult == DecoderDrainResult::Failed || drainResult == DecoderDrainResult::Stopped)
+        {
+            return false;
+        }
+
+        if (drainResult == DecoderDrainResult::NeedsInput && !producedFrame)
+        {
+            std::cerr << "HouseVideoPlayer: decoder made no progress for " << virtualPath << '\n';
+            return false;
+        }
+    }
+
+    if (stopRequested.load())
+    {
+        return false;
+    }
+
+    const DecoderDrainResult drainResult = drainDecoder(
+        codecContext,
+        frame,
+        frameHandler,
+        stopRequested,
+        virtualPath);
+    return drainResult != DecoderDrainResult::Failed && drainResult != DecoderDrainResult::Stopped;
+}
+
+struct DecodedVideoFrame
+{
+    double presentationSeconds = 0.0;
+    int width = 0;
+    int height = 0;
+    std::vector<uint8_t> pixels;
+};
+
+struct DecodedAudioChunk
+{
+    std::vector<float> samples;
+};
+}
+
+struct HouseVideoPlayer::StreamingSession
+{
+    StreamingSession(
+        std::unique_ptr<Engine::AssetReadStream> pInputStreamValue,
+        bool loopPlaybackValue)
+        : virtualPath(pInputStreamValue != nullptr ? pInputStreamValue->virtualPath() : std::string())
+        , pInputStream(std::move(pInputStreamValue))
+        , loopPlayback(loopPlaybackValue)
+    {
+    }
+
+    ~StreamingSession()
+    {
+        stop();
+    }
+
+    void start()
+    {
+        worker = std::thread([this]()
+        {
+            run();
+        });
+    }
+
+    void stop()
+    {
+        stopRequested.store(true);
+
+        if (worker.joinable())
+        {
+            queueChanged.notify_all();
+            worker.join();
+        }
+    }
+
+    bool enqueueVideoFrame(DecodedVideoFrame frame, double frameEndSeconds)
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        endTimeSeconds = std::max(endTimeSeconds, frameEndSeconds);
+        decodedVideoEndSeconds = std::max(decodedVideoEndSeconds, frameEndSeconds);
+        videoFrames.push_back(std::move(frame));
+        queueChanged.notify_all();
+        return !stopRequested.load();
+    }
+
+    bool enqueueAudioChunk(
+        DecodedAudioChunk chunk,
+        size_t frameCount,
+        double chunkEndSeconds)
+    {
+        if (frameCount == 0)
+        {
+            return true;
+        }
+
+        std::lock_guard<std::mutex> lock(queueMutex);
+        bufferedAudioFrames += frameCount;
+        endTimeSeconds = std::max(endTimeSeconds, chunkEndSeconds);
+        decodedAudioEndSeconds = std::max(decodedAudioEndSeconds, chunkEndSeconds);
+        audioChunks.push_back(std::move(chunk));
+        queueChanged.notify_all();
+        return !stopRequested.load();
+    }
+
+    bool waitForDecodeWindow()
+    {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        queueChanged.wait(lock, [this]()
+        {
+            if (stopRequested.load())
+            {
+                return true;
+            }
+
+            const double decodeLimitSeconds = playbackPositionSeconds + HouseVideoDecodeAheadSeconds;
+            const bool videoBufferedAhead = decodedVideoEndSeconds >= decodeLimitSeconds;
+            const bool audioBufferedAhead = !hasAudio || decodedAudioEndSeconds >= decodeLimitSeconds;
+            return !videoBufferedAhead || !audioBufferedAhead;
+        });
+        return !stopRequested.load();
+    }
+
+    void setPlaybackPosition(double playbackSeconds)
+    {
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            playbackPositionSeconds = std::max(playbackPositionSeconds, playbackSeconds);
+        }
+
+        queueChanged.notify_all();
+    }
+
+    void fail()
+    {
+        if (stopRequested.load())
+        {
+            return;
+        }
+
+        std::lock_guard<std::mutex> lock(queueMutex);
+        failed = true;
+        endOfStream = true;
+        queueChanged.notify_all();
+    }
+
+    void run()
+    {
+        if (pInputStream == nullptr)
+        {
+            fail();
+            return;
+        }
+
+        StreamClipReader streamReader = {pInputStream.get(), &stopRequested};
+        uint8_t *pAvioBuffer = static_cast<uint8_t *>(av_malloc(HouseVideoAvioBufferSize));
+
+        if (pAvioBuffer == nullptr)
+        {
+            std::cerr << "HouseVideoPlayer: av_malloc failed for " << virtualPath << '\n';
+            fail();
+            return;
+        }
+
+        AvioContextPtr pAvioContext(avio_alloc_context(
+            pAvioBuffer,
+            HouseVideoAvioBufferSize,
+            0,
+            &streamReader,
+            &readStreamClip,
+            nullptr,
+            &seekStreamClip));
+
+        if (pAvioContext == nullptr)
+        {
+            av_free(pAvioBuffer);
+            std::cerr << "HouseVideoPlayer: avio_alloc_context failed for " << virtualPath << '\n';
+            fail();
+            return;
+        }
+
+        AVFormatContext *pRawFormatContext = avformat_alloc_context();
+
+        if (pRawFormatContext == nullptr)
+        {
+            std::cerr << "HouseVideoPlayer: avformat_alloc_context failed for " << virtualPath << '\n';
+            fail();
+            return;
+        }
+
+        pRawFormatContext->pb = pAvioContext.get();
+        pRawFormatContext->flags |= AVFMT_FLAG_CUSTOM_IO;
+        pRawFormatContext->interrupt_callback.callback = [](void *pOpaque)
+        {
+            const StreamingSession *pSession = static_cast<const StreamingSession *>(pOpaque);
+            return pSession != nullptr && pSession->stopRequested.load() ? 1 : 0;
+        };
+        pRawFormatContext->interrupt_callback.opaque = this;
+
+        int result = avformat_open_input(&pRawFormatContext, virtualPath.c_str(), nullptr, nullptr);
+
+        if (result < 0 || pRawFormatContext == nullptr)
+        {
+            if (pRawFormatContext != nullptr)
+            {
+                avformat_free_context(pRawFormatContext);
+            }
+
+            if (!stopRequested.load())
+            {
+                std::cerr << "HouseVideoPlayer: avformat_open_input failed for " << virtualPath
+                          << ": " << ffmpegErrorString(result) << '\n';
+                fail();
+            }
+            return;
+        }
+
+        AvFormatContextPtr pFormatContext(pRawFormatContext);
+        result = avformat_find_stream_info(pFormatContext.get(), nullptr);
+
+        if (result < 0)
+        {
+            if (!stopRequested.load())
+            {
+                std::cerr << "HouseVideoPlayer: avformat_find_stream_info failed for " << virtualPath
+                          << ": " << ffmpegErrorString(result) << '\n';
+                fail();
+            }
+            return;
+        }
+
+        const int videoStreamIndex = av_find_best_stream(
+            pFormatContext.get(),
+            AVMEDIA_TYPE_VIDEO,
+            -1,
+            -1,
+            nullptr,
+            0);
+
+        if (videoStreamIndex < 0)
+        {
+            std::cerr << "HouseVideoPlayer: no video stream found for " << virtualPath << '\n';
+            fail();
+            return;
+        }
+
+        AVStream &videoStream = *pFormatContext->streams[videoStreamIndex];
+        AvCodecContextPtr pVideoCodecContext = createDecoderContext(videoStream);
+
+        if (pVideoCodecContext == nullptr || pVideoCodecContext->width <= 0 || pVideoCodecContext->height <= 0)
+        {
+            std::cerr << "HouseVideoPlayer: failed to create video decoder for " << virtualPath << '\n';
+            fail();
+            return;
+        }
+
+        const int videoWidth = pVideoCodecContext->width;
+        const int videoHeight = pVideoCodecContext->height;
+        SwsContextPtr pSwsContext(sws_getContext(
+            videoWidth,
+            videoHeight,
+            pVideoCodecContext->pix_fmt,
+            videoWidth,
+            videoHeight,
+            AV_PIX_FMT_BGRA,
+            SWS_BILINEAR,
+            nullptr,
+            nullptr,
+            nullptr));
+
+        if (pSwsContext == nullptr)
+        {
+            std::cerr << "HouseVideoPlayer: sws_getContext failed for " << virtualPath << '\n';
+            fail();
+            return;
+        }
+
+        const int audioStreamIndex = av_find_best_stream(
+            pFormatContext.get(),
+            AVMEDIA_TYPE_AUDIO,
+            -1,
+            -1,
+            nullptr,
+            0);
+        AvCodecContextPtr pAudioCodecContext;
+        SwrContextPtr pSwrContext;
+
+        if (audioStreamIndex >= 0)
+        {
+            pAudioCodecContext = createDecoderContext(*pFormatContext->streams[audioStreamIndex]);
+
+            if (pAudioCodecContext != nullptr && pAudioCodecContext->sample_rate > 0)
+            {
+                AVChannelLayout inputChannelLayout = {};
+
+                if (av_channel_layout_check(&pAudioCodecContext->ch_layout) > 0)
+                {
+                    result = av_channel_layout_copy(&inputChannelLayout, &pAudioCodecContext->ch_layout);
+                }
+                else
+                {
+                    av_channel_layout_default(
+                        &inputChannelLayout,
+                        std::max(1, pAudioCodecContext->ch_layout.nb_channels));
+                    result = 0;
+                }
+
+                if (result >= 0)
+                {
+                    AVChannelLayout outputChannelLayout = AV_CHANNEL_LAYOUT_STEREO;
+                    SwrContext *pRawSwrContext = nullptr;
+                    result = swr_alloc_set_opts2(
+                        &pRawSwrContext,
+                        &outputChannelLayout,
+                        AV_SAMPLE_FMT_FLT,
+                        HouseVideoAudioFrequency,
+                        &inputChannelLayout,
+                        pAudioCodecContext->sample_fmt,
+                        pAudioCodecContext->sample_rate,
+                        0,
+                        nullptr);
+
+                    if (result >= 0 && pRawSwrContext != nullptr)
+                    {
+                        result = swr_init(pRawSwrContext);
+
+                        if (result >= 0)
+                        {
+                            pSwrContext.reset(pRawSwrContext);
+                        }
+                        else
+                        {
+                            swr_free(&pRawSwrContext);
+                        }
+                    }
+
+                    av_channel_layout_uninit(&inputChannelLayout);
+                }
+
+                if (result < 0)
+                {
+                    std::cerr << "HouseVideoPlayer: audio resampler setup failed for " << virtualPath
+                              << ": " << ffmpegErrorString(result) << '\n';
+                    pAudioCodecContext.reset();
+                    pSwrContext.reset();
+                }
+            }
+            else
+            {
+                pAudioCodecContext.reset();
+            }
+        }
+
+        const bool streamHasAudio = pAudioCodecContext != nullptr && pSwrContext != nullptr;
+        double containerDurationSeconds = 0.0;
+
+        if (pFormatContext->duration > 0)
+        {
+            containerDurationSeconds = static_cast<double>(pFormatContext->duration) / AV_TIME_BASE;
+        }
+        else if (videoStream.duration > 0)
+        {
+            containerDurationSeconds = videoStream.duration * av_q2d(videoStream.time_base);
+        }
+
+        AVRational guessedFrameRate = av_guess_frame_rate(pFormatContext.get(), &videoStream, nullptr);
+        double fallbackFrameDuration = 1.0 / 15.0;
+
+        if (guessedFrameRate.num > 0 && guessedFrameRate.den > 0)
+        {
+            fallbackFrameDuration = av_q2d(av_inv_q(guessedFrameRate));
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            hasAudio = streamHasAudio;
+            endTimeSeconds = std::max(0.0, containerDurationSeconds);
+            queueChanged.notify_all();
+        }
+
+        AvPacketPtr pPacket(av_packet_alloc());
+        AvFramePtr pFrame(av_frame_alloc());
+
+        if (pPacket == nullptr || pFrame == nullptr)
+        {
+            std::cerr << "HouseVideoPlayer: failed to allocate decode buffers for " << virtualPath << '\n';
+            fail();
+            return;
+        }
+
+        double loopOffsetSeconds = 0.0;
+        std::optional<double> firstVideoTimestampSeconds;
+        double nextFallbackVideoTimestampSeconds = 0.0;
+        double iterationVideoEndSeconds = 0.0;
+        size_t iterationAudioFrameCount = 0;
+
+        while (!stopRequested.load())
+        {
+            const auto handleVideoFrame = [&](const AVFrame &frame)
+            {
+                std::optional<std::vector<uint8_t>> pixels = convertVideoFrame(
+                    frame,
+                    *pSwsContext,
+                    videoWidth,
+                    videoHeight);
+
+                if (!pixels)
+                {
+                    std::cerr << "HouseVideoPlayer: failed to convert video frame for " << virtualPath << '\n';
+                    return false;
+                }
+
+                double frameTimestampSeconds = nextFallbackVideoTimestampSeconds;
+
+                if (frame.best_effort_timestamp != AV_NOPTS_VALUE)
+                {
+                    const double rawTimestampSeconds =
+                        frame.best_effort_timestamp * av_q2d(videoStream.time_base);
+
+                    if (!firstVideoTimestampSeconds)
+                    {
+                        firstVideoTimestampSeconds = rawTimestampSeconds;
+                    }
+
+                    frameTimestampSeconds = loopOffsetSeconds
+                        + std::max(0.0, rawTimestampSeconds - *firstVideoTimestampSeconds);
+                }
+
+                double frameDurationSeconds = fallbackFrameDuration;
+
+                if (frame.duration > 0)
+                {
+                    frameDurationSeconds = frame.duration * av_q2d(videoStream.time_base);
+                }
+
+                if (!std::isfinite(frameDurationSeconds) || frameDurationSeconds <= 0.0)
+                {
+                    frameDurationSeconds = fallbackFrameDuration;
+                }
+
+                nextFallbackVideoTimestampSeconds = frameTimestampSeconds + frameDurationSeconds;
+                iterationVideoEndSeconds = std::max(
+                    iterationVideoEndSeconds,
+                    nextFallbackVideoTimestampSeconds);
+                DecodedVideoFrame decodedFrame;
+                decodedFrame.presentationSeconds = frameTimestampSeconds;
+                decodedFrame.width = videoWidth;
+                decodedFrame.height = videoHeight;
+                decodedFrame.pixels = std::move(*pixels);
+                return enqueueVideoFrame(
+                    std::move(decodedFrame),
+                    nextFallbackVideoTimestampSeconds);
+            };
+
+            const auto handleAudioFrame = [&](const AVFrame &frame)
+            {
+                std::optional<std::vector<float>> samples = convertAudioFrame(
+                    frame,
+                    *pSwrContext,
+                    pAudioCodecContext->sample_rate);
+
+                if (!samples)
+                {
+                    std::cerr << "HouseVideoPlayer: failed to convert audio frame for " << virtualPath << '\n';
+                    return false;
+                }
+
+                const size_t convertedFrameCount = samples->size() / HouseVideoAudioChannels;
+                iterationAudioFrameCount += convertedFrameCount;
+                const double audioEndSeconds = loopOffsetSeconds
+                    + static_cast<double>(iterationAudioFrameCount) / HouseVideoAudioFrequency;
+                return enqueueAudioChunk(
+                    DecodedAudioChunk{std::move(*samples)},
+                    convertedFrameCount,
+                    audioEndSeconds);
+            };
+
+            while (!stopRequested.load()
+                && (result = av_read_frame(pFormatContext.get(), pPacket.get())) >= 0)
+            {
+                bool decoded = true;
+
+                if (pPacket->stream_index == videoStreamIndex)
+                {
+                    decoded = submitDecoderPacket(
+                        *pVideoCodecContext,
+                        pPacket.get(),
+                        *pFrame,
+                        handleVideoFrame,
+                        stopRequested,
+                        virtualPath);
+                }
+                else if (streamHasAudio && pPacket->stream_index == audioStreamIndex)
+                {
+                    decoded = submitDecoderPacket(
+                        *pAudioCodecContext,
+                        pPacket.get(),
+                        *pFrame,
+                        handleAudioFrame,
+                        stopRequested,
+                        virtualPath);
+                }
+
+                av_packet_unref(pPacket.get());
+
+                if (!decoded)
+                {
+                    if (!stopRequested.load())
+                    {
+                        fail();
+                    }
+                    return;
+                }
+
+                if (!waitForDecodeWindow())
+                {
+                    return;
+                }
+            }
+
+            if (stopRequested.load())
+            {
+                return;
+            }
+
+            if (result != AVERROR_EOF)
+            {
+                std::cerr << "HouseVideoPlayer: av_read_frame failed for " << virtualPath
+                          << ": " << ffmpegErrorString(result) << '\n';
+                fail();
+                return;
+            }
+
+            if (!submitDecoderPacket(
+                    *pVideoCodecContext,
+                    nullptr,
+                    *pFrame,
+                    handleVideoFrame,
+                    stopRequested,
+                    virtualPath))
+            {
+                if (!stopRequested.load())
+                {
+                    fail();
+                }
+                return;
+            }
+
+            if (streamHasAudio
+                && !submitDecoderPacket(
+                    *pAudioCodecContext,
+                    nullptr,
+                    *pFrame,
+                    handleAudioFrame,
+                    stopRequested,
+                    virtualPath))
+            {
+                if (!stopRequested.load())
+                {
+                    fail();
+                }
+                return;
+            }
+
+            if (streamHasAudio)
+            {
+                while (!stopRequested.load())
+                {
+                    const int delayFrames = av_rescale_rnd(
+                        swr_get_delay(pSwrContext.get(), pAudioCodecContext->sample_rate),
+                        HouseVideoAudioFrequency,
+                        pAudioCodecContext->sample_rate,
+                        AV_ROUND_UP);
+
+                    if (delayFrames <= 0)
+                    {
+                        break;
+                    }
+
+                    std::vector<float> samples(
+                        static_cast<size_t>(delayFrames) * static_cast<size_t>(HouseVideoAudioChannels));
+                    uint8_t *pOutputData[1] = {reinterpret_cast<uint8_t *>(samples.data())};
+                    const int convertedFrameCount = swr_convert(
+                        pSwrContext.get(),
+                        pOutputData,
+                        delayFrames,
+                        nullptr,
+                        0);
+
+                    if (convertedFrameCount < 0)
+                    {
+                        std::cerr << "HouseVideoPlayer: audio resampler flush failed for " << virtualPath
+                                  << ": " << ffmpegErrorString(convertedFrameCount) << '\n';
+                        fail();
+                        return;
+                    }
+
+                    if (convertedFrameCount == 0)
+                    {
+                        break;
+                    }
+
+                    samples.resize(
+                        static_cast<size_t>(convertedFrameCount) * static_cast<size_t>(HouseVideoAudioChannels));
+                    iterationAudioFrameCount += static_cast<size_t>(convertedFrameCount);
+                    const double audioEndSeconds = loopOffsetSeconds
+                        + static_cast<double>(iterationAudioFrameCount) / HouseVideoAudioFrequency;
+
+                    if (!enqueueAudioChunk(
+                            DecodedAudioChunk{std::move(samples)},
+                            static_cast<size_t>(convertedFrameCount),
+                            audioEndSeconds))
+                    {
+                        return;
+                    }
+                }
+            }
+
+            const double iterationAudioDuration =
+                static_cast<double>(iterationAudioFrameCount) / HouseVideoAudioFrequency;
+            const double iterationVideoDuration = std::max(0.0, iterationVideoEndSeconds - loopOffsetSeconds);
+            const double iterationDuration = std::max({
+                containerDurationSeconds,
+                iterationAudioDuration,
+                iterationVideoDuration,
+                fallbackFrameDuration
+            });
+
+            {
+                std::lock_guard<std::mutex> lock(queueMutex);
+                endTimeSeconds = std::max(endTimeSeconds, loopOffsetSeconds + iterationDuration);
+
+                if (!loopPlayback)
+                {
+                    endOfStream = true;
+                    queueChanged.notify_all();
+                    return;
+                }
+            }
+
+            result = avformat_seek_file(
+                pFormatContext.get(),
+                -1,
+                std::numeric_limits<int64_t>::min(),
+                0,
+                std::numeric_limits<int64_t>::max(),
+                AVSEEK_FLAG_BACKWARD);
+
+            if (result < 0)
+            {
+                result = av_seek_frame(pFormatContext.get(), -1, 0, AVSEEK_FLAG_BACKWARD);
+            }
+
+            if (result < 0)
+            {
+                std::cerr << "HouseVideoPlayer: loop seek failed for " << virtualPath
+                          << ": " << ffmpegErrorString(result) << '\n';
+                fail();
+                return;
+            }
+
+            avcodec_flush_buffers(pVideoCodecContext.get());
+
+            if (streamHasAudio)
+            {
+                avcodec_flush_buffers(pAudioCodecContext.get());
+                swr_close(pSwrContext.get());
+                result = swr_init(pSwrContext.get());
+
+                if (result < 0)
+                {
+                    std::cerr << "HouseVideoPlayer: audio resampler reset failed for " << virtualPath
+                              << ": " << ffmpegErrorString(result) << '\n';
+                    fail();
+                    return;
+                }
+            }
+
+            loopOffsetSeconds += iterationDuration;
+            firstVideoTimestampSeconds.reset();
+            nextFallbackVideoTimestampSeconds = loopOffsetSeconds;
+            iterationVideoEndSeconds = loopOffsetSeconds;
+            iterationAudioFrameCount = 0;
+        }
+    }
+
+    std::string virtualPath;
+    std::unique_ptr<Engine::AssetReadStream> pInputStream;
+    bool loopPlayback = true;
+    std::mutex queueMutex;
+    std::condition_variable queueChanged;
+    std::deque<DecodedVideoFrame> videoFrames;
+    std::deque<DecodedAudioChunk> audioChunks;
+    size_t bufferedAudioFrames = 0;
+    bool hasAudio = false;
+    bool endOfStream = false;
+    bool failed = false;
+    double endTimeSeconds = 0.0;
+    double decodedVideoEndSeconds = 0.0;
+    double decodedAudioEndSeconds = 0.0;
+    double playbackPositionSeconds = 0.0;
+    std::atomic_bool stopRequested = false;
+    std::thread worker;
+};
 
 HouseVideoPlayer::HouseVideoPlayer()
     : m_isInitialized(false)
@@ -405,12 +1186,15 @@ HouseVideoPlayer::HouseVideoPlayer()
     , m_videoTextureWidth(0)
     , m_videoTextureHeight(0)
     , m_pAudioStream(nullptr)
-    , m_pActiveClip(nullptr)
+    , m_pStreamingSession(nullptr)
     , m_playbackSeconds(0.0f)
-    , m_uploadedFrameIndex(InvalidFrameIndex)
-    , m_nextAudioSampleIndex(0)
     , m_totalQueuedAudioFrames(0)
     , m_loopPlayback(true)
+    , m_playbackStarted(false)
+    , m_hasActiveFrame(false)
+    , m_finishedPlayback(false)
+    , m_presentedFrameSeconds(0.0)
+    , m_presentedFrameSerial(0)
     , m_audioVolume(1.0f)
 {
 }
@@ -446,8 +1230,6 @@ bool HouseVideoPlayer::initialize()
 void HouseVideoPlayer::shutdown()
 {
     stop();
-    clearBackgroundPreloads();
-    m_cachedClipsByKey.clear();
 
     if (m_pAudioStream != nullptr)
     {
@@ -483,17 +1265,39 @@ void HouseVideoPlayer::shutdown()
 
 void HouseVideoPlayer::stop()
 {
-    m_pActiveClip.reset();
+    if (m_pStreamingSession == nullptr && m_activeClipKey.empty() && !m_hasActiveFrame)
+    {
+        return;
+    }
+
+    if (m_pStreamingSession != nullptr)
+    {
+        m_pStreamingSession->stop();
+        m_pStreamingSession.reset();
+    }
+
     m_activeClipKey.clear();
     m_playbackSeconds = 0.0f;
-    m_uploadedFrameIndex = InvalidFrameIndex;
-    m_nextAudioSampleIndex = 0;
     m_totalQueuedAudioFrames = 0;
+    m_playbackStarted = false;
+    m_hasActiveFrame = false;
+    m_finishedPlayback = false;
+    m_presentedFrameSeconds = 0.0;
+    m_presentedFrameSerial = 0;
 
     if (m_pAudioStream != nullptr && isAudioSubsystemInitialized())
     {
         SDL_ClearAudioStream(m_pAudioStream);
     }
+
+    if (canUseBgfxResources() && bgfx::isValid(m_videoTextureHandle))
+    {
+        bgfx::destroy(m_videoTextureHandle);
+    }
+
+    m_videoTextureHandle = BGFX_INVALID_HANDLE;
+    m_videoTextureWidth = 0;
+    m_videoTextureHeight = 0;
 }
 
 bool HouseVideoPlayer::play(const Engine::AssetFileSystem &assetFileSystem, const std::string &videoStem)
@@ -526,112 +1330,33 @@ bool HouseVideoPlayer::play(
         initialize();
     }
 
-    finishCompletedBackgroundPreload();
-
     const std::string clipKey = makeClipKey(videoDirectory, videoStem);
 
-    if (m_pActiveClip != nullptr && m_activeClipKey == clipKey)
+    if (m_pStreamingSession != nullptr
+        && m_activeClipKey == clipKey
+        && m_loopPlayback == loopPlayback)
     {
-        m_loopPlayback = loopPlayback;
-        return true;
+        std::lock_guard<std::mutex> lock(m_pStreamingSession->queueMutex);
+        return !m_pStreamingSession->failed;
     }
 
-    const std::shared_ptr<DecodedClip> pClip = getOrDecodeClip(assetFileSystem, videoStem, videoDirectory);
+    stop();
+    std::unique_ptr<Engine::AssetReadStream> pStream = openVideoClipStream(
+        assetFileSystem,
+        videoStem,
+        videoDirectory);
 
-    if (pClip == nullptr)
+    if (pStream == nullptr)
     {
-        stop();
+        std::cerr << "HouseVideoPlayer: missing clip for stem " << videoStem << '\n';
         return false;
     }
 
-    m_pActiveClip = pClip;
     m_activeClipKey = clipKey;
-    m_playbackSeconds = 0.0f;
-    m_uploadedFrameIndex = InvalidFrameIndex;
-    m_nextAudioSampleIndex = 0;
-    m_totalQueuedAudioFrames = 0;
     m_loopPlayback = loopPlayback;
-    ensureVideoTexture(pClip->width, pClip->height);
-    uploadVideoFrame(0);
-
-    if (m_pAudioStream != nullptr)
-    {
-        SDL_ClearAudioStream(m_pAudioStream);
-    }
-
-    updateAudioQueue();
+    m_pStreamingSession = std::make_unique<StreamingSession>(std::move(pStream), loopPlayback);
+    m_pStreamingSession->start();
     return true;
-}
-
-bool HouseVideoPlayer::preload(const Engine::AssetFileSystem &assetFileSystem, const std::string &videoStem)
-{
-    return preload(assetFileSystem, videoStem, DefaultHouseVideoDirectory);
-}
-
-bool HouseVideoPlayer::preload(
-    const Engine::AssetFileSystem &assetFileSystem,
-    const std::string &videoStem,
-    const std::string &videoDirectory)
-{
-    if (videoStem.empty())
-    {
-        return false;
-    }
-
-    if (!m_isInitialized)
-    {
-        initialize();
-    }
-
-    finishCompletedBackgroundPreload();
-
-    return getOrDecodeClip(assetFileSystem, videoStem, videoDirectory) != nullptr;
-}
-
-void HouseVideoPlayer::queueBackgroundPreload(const std::string &videoStem)
-{
-    if (videoStem.empty()
-        || m_cachedClipsByKey.contains(makeClipKey(DefaultHouseVideoDirectory, videoStem))
-        || std::find(m_pendingBackgroundPreloadStems.begin(), m_pendingBackgroundPreloadStems.end(), videoStem)
-            != m_pendingBackgroundPreloadStems.end()
-        || (m_backgroundPreloadJob.has_value() && m_backgroundPreloadJob->videoStem == videoStem))
-    {
-        return;
-    }
-
-    m_pendingBackgroundPreloadStems.push_back(videoStem);
-}
-
-void HouseVideoPlayer::updateBackgroundPreloads(const Engine::AssetFileSystem &assetFileSystem)
-{
-    warmUpPlaybackPath();
-    finishCompletedBackgroundPreload();
-
-    if (m_backgroundPreloadJob.has_value())
-    {
-        return;
-    }
-
-    while (!m_pendingBackgroundPreloadStems.empty())
-    {
-        const std::string videoStem = m_pendingBackgroundPreloadStems.front();
-        m_pendingBackgroundPreloadStems.erase(m_pendingBackgroundPreloadStems.begin());
-
-        if (videoStem.empty() || m_cachedClipsByKey.contains(makeClipKey(DefaultHouseVideoDirectory, videoStem)))
-        {
-            continue;
-        }
-
-        m_backgroundPreloadJob = BackgroundPreloadJob{
-            videoStem,
-            std::async(
-                std::launch::async,
-                [&assetFileSystem, videoStem]()
-                {
-                    return decodeClip(assetFileSystem, videoStem, DefaultHouseVideoDirectory);
-                })};
-        break;
-    }
 }
 
 void HouseVideoPlayer::setAudioVolume(float volume)
@@ -644,60 +1369,64 @@ void HouseVideoPlayer::setAudioVolume(float volume)
     }
 }
 
-void HouseVideoPlayer::warmUpPlaybackPath()
-{
-    if (!m_isInitialized)
-    {
-        initialize();
-    }
-
-    if (m_pAudioStream == nullptr)
-    {
-        ensureAudioStream();
-    }
-}
-
 void HouseVideoPlayer::update(float deltaSeconds)
 {
-    if (m_pActiveClip == nullptr || m_pActiveClip->frameCount == 0 || m_pActiveClip->durationSeconds <= 0.0f)
+    if (m_pStreamingSession == nullptr)
     {
         return;
     }
 
-    updateAudioQueue();
+    {
+        std::lock_guard<std::mutex> lock(m_pStreamingSession->queueMutex);
 
+        if (m_pStreamingSession->failed)
+        {
+            m_finishedPlayback = true;
+            return;
+        }
+    }
+
+    if (!m_playbackStarted)
+    {
+        if (!uploadReadyVideoFrame(true))
+        {
+            updateFinishedPlaybackState(deltaSeconds);
+            return;
+        }
+
+        m_playbackStarted = true;
+        m_playbackSeconds = 0.0f;
+        updateAudioQueue();
+        m_pStreamingSession->setPlaybackPosition(m_playbackSeconds);
+        updateFinishedPlaybackState(0.0f);
+        return;
+    }
+
+    updateAudioQueue();
     const std::optional<float> audioPlaybackSeconds = playbackSecondsFromAudioQueue();
 
     if (audioPlaybackSeconds)
     {
-        m_playbackSeconds = *audioPlaybackSeconds;
+        m_playbackSeconds = std::max(m_playbackSeconds, *audioPlaybackSeconds);
     }
     else
     {
-        advancePlaybackWithoutAudio(deltaSeconds);
+        m_playbackSeconds += std::max(0.0f, deltaSeconds);
     }
 
-    size_t frameIndex = static_cast<size_t>(m_playbackSeconds * m_pActiveClip->framesPerSecond);
-
-    if (frameIndex >= m_pActiveClip->frameCount)
-    {
-        frameIndex = m_pActiveClip->frameCount - 1;
-    }
-
-    uploadVideoFrame(frameIndex);
+    m_pStreamingSession->setPlaybackPosition(m_playbackSeconds);
+    uploadReadyVideoFrame(false);
+    updateFinishedPlaybackState(deltaSeconds);
 }
 
 bool HouseVideoPlayer::hasActiveFrame() const
 {
-    return m_pActiveClip != nullptr && bgfx::isValid(m_videoTextureHandle);
+    return m_hasActiveFrame && bgfx::isValid(m_videoTextureHandle);
 }
 
 bool HouseVideoPlayer::hasFinishedPlayback() const
 {
-    return !m_loopPlayback
-        && m_pActiveClip != nullptr
-        && m_pActiveClip->durationSeconds > 0.0f
-        && m_playbackSeconds >= m_pActiveClip->durationSeconds;
+    return m_finishedPlayback;
 }
 
 bgfx::TextureHandle HouseVideoPlayer::textureHandle() const
@@ -720,6 +1449,11 @@ bool HouseVideoPlayer::ensureAudioStream()
     if (m_pAudioStream != nullptr)
     {
         return true;
+    }
+
+    if (!isAudioSubsystemInitialized())
+    {
+        return false;
     }
 
     SDL_AudioSpec desiredSpec = {};
@@ -785,650 +1519,207 @@ void HouseVideoPlayer::ensureVideoTexture(int width, int height)
     m_videoTextureHeight = height;
 }
 
-void HouseVideoPlayer::uploadVideoFrame(size_t frameIndex)
+bool HouseVideoPlayer::uploadReadyVideoFrame(bool firstFrame)
 {
-    if (m_pActiveClip == nullptr
-        || !bgfx::isValid(m_videoTextureHandle)
-        || frameIndex >= m_pActiveClip->frameCount
-        || frameIndex == m_uploadedFrameIndex)
+    if (m_pStreamingSession == nullptr)
     {
-        return;
+        return false;
     }
 
-    const size_t frameOffset = frameIndex * m_pActiveClip->frameSizeBytes;
+    std::optional<DecodedVideoFrame> selectedFrame;
 
-    if (frameOffset + m_pActiveClip->frameSizeBytes > m_pActiveClip->videoPixels.size())
     {
-        return;
+        std::lock_guard<std::mutex> lock(m_pStreamingSession->queueMutex);
+
+        if (firstFrame && !m_pStreamingSession->videoFrames.empty())
+        {
+            selectedFrame = std::move(m_pStreamingSession->videoFrames.front());
+            m_pStreamingSession->videoFrames.pop_front();
+        }
+        else
+        {
+            while (!m_pStreamingSession->videoFrames.empty()
+                && m_pStreamingSession->videoFrames.front().presentationSeconds
+                    <= static_cast<double>(m_playbackSeconds) + 0.001)
+            {
+                selectedFrame = std::move(m_pStreamingSession->videoFrames.front());
+                m_pStreamingSession->videoFrames.pop_front();
+            }
+        }
     }
 
-    const bgfx::Memory *pMemory = copyBgraTextureUploadMemory(
-        m_pActiveClip->videoPixels.data() + frameOffset,
-        static_cast<uint32_t>(m_pActiveClip->frameSizeBytes));
-    bgfx::updateTexture2D(
-        m_videoTextureHandle,
-        0,
-        0,
-        0,
-        0,
-        static_cast<uint16_t>(m_pActiveClip->width),
-        static_cast<uint16_t>(m_pActiveClip->height),
-        pMemory);
-    m_uploadedFrameIndex = frameIndex;
+    if (!selectedFrame)
+    {
+        return false;
+    }
+
+    m_presentedFrameSeconds = selectedFrame->presentationSeconds;
+    ++m_presentedFrameSerial;
+    m_pStreamingSession->queueChanged.notify_all();
+    ensureVideoTexture(selectedFrame->width, selectedFrame->height);
+
+    if (bgfx::isValid(m_videoTextureHandle))
+    {
+        const bgfx::Memory *pMemory = copyBgraTextureUploadMemory(
+            selectedFrame->pixels.data(),
+            static_cast<uint32_t>(selectedFrame->pixels.size()));
+        bgfx::updateTexture2D(
+            m_videoTextureHandle,
+            0,
+            0,
+            0,
+            0,
+            static_cast<uint16_t>(selectedFrame->width),
+            static_cast<uint16_t>(selectedFrame->height),
+            pMemory);
+        m_hasActiveFrame = true;
+    }
+
+    return true;
 }
 
 void HouseVideoPlayer::updateAudioQueue()
 {
-    if (m_pActiveClip == nullptr || m_pActiveClip->audioSamples.empty())
+    if (m_pStreamingSession == nullptr)
+    {
+        return;
+    }
+
+    bool hasAudio = false;
+
+    {
+        std::lock_guard<std::mutex> lock(m_pStreamingSession->queueMutex);
+        hasAudio = m_pStreamingSession->hasAudio;
+    }
+
+    if (!hasAudio)
     {
         return;
     }
 
     if (!ensureAudioStream())
     {
+        std::lock_guard<std::mutex> lock(m_pStreamingSession->queueMutex);
+        m_pStreamingSession->audioChunks.clear();
+        m_pStreamingSession->bufferedAudioFrames = 0;
+        m_pStreamingSession->queueChanged.notify_all();
         return;
     }
 
-    const size_t clipAudioFrameCount =
-        m_pActiveClip->audioChannels > 0 ? (m_pActiveClip->audioSamples.size() / m_pActiveClip->audioChannels) : 0;
-
-    if (clipAudioFrameCount == 0)
-    {
-        return;
-    }
-
-    const int bytesPerAudioFrame = m_pActiveClip->audioChannels * static_cast<int>(sizeof(float));
-    const int targetQueuedBytes =
-        (m_pActiveClip->audioSampleRate * bytesPerAudioFrame * HouseVideoAudioQueueTargetMilliseconds) / 1000;
+    constexpr int BytesPerAudioFrame = HouseVideoAudioChannels * static_cast<int>(sizeof(float));
+    constexpr int TargetQueuedBytes =
+        (HouseVideoAudioFrequency * BytesPerAudioFrame * HouseVideoAudioQueueTargetMilliseconds) / 1000;
     int queuedBytes = SDL_GetAudioStreamQueued(m_pAudioStream);
 
-    while (queuedBytes >= 0 && queuedBytes < targetQueuedBytes)
+    while (queuedBytes >= 0 && queuedBytes < TargetQueuedBytes)
     {
-        if (m_nextAudioSampleIndex >= m_pActiveClip->audioSamples.size())
+        DecodedAudioChunk chunk;
+        size_t chunkFrameCount = 0;
+
         {
-            m_nextAudioSampleIndex = 0;
+            std::lock_guard<std::mutex> lock(m_pStreamingSession->queueMutex);
+
+            if (m_pStreamingSession->audioChunks.empty())
+            {
+                break;
+            }
+
+            chunk = std::move(m_pStreamingSession->audioChunks.front());
+            m_pStreamingSession->audioChunks.pop_front();
+            chunkFrameCount = chunk.samples.size() / HouseVideoAudioChannels;
+            m_pStreamingSession->bufferedAudioFrames -= std::min(
+                m_pStreamingSession->bufferedAudioFrames,
+                chunkFrameCount);
         }
 
-        const size_t remainingSamples = m_pActiveClip->audioSamples.size() - m_nextAudioSampleIndex;
+        m_pStreamingSession->queueChanged.notify_all();
+        const size_t chunkBytes = chunk.samples.size() * sizeof(float);
 
-        if (remainingSamples == 0)
-        {
-            break;
-        }
-
-        const int remainingTargetBytes = targetQueuedBytes - queuedBytes;
-
-        if (remainingTargetBytes <= 0)
-        {
-            break;
-        }
-
-        const size_t availableFrames = remainingSamples / m_pActiveClip->audioChannels;
-        const size_t requestedFrames = static_cast<size_t>(remainingTargetBytes / bytesPerAudioFrame);
-        const size_t chunkFrames = std::min(availableFrames, std::max<size_t>(1, requestedFrames));
-
-        if (chunkFrames == 0)
-        {
-            break;
-        }
-
-        const size_t chunkSampleCount = chunkFrames * m_pActiveClip->audioChannels;
-        const size_t chunkBytes = chunkSampleCount * sizeof(float);
-
-        if (!SDL_PutAudioStreamData(
-                m_pAudioStream,
-                m_pActiveClip->audioSamples.data() + m_nextAudioSampleIndex,
-                static_cast<int>(chunkBytes)))
+        if (!SDL_PutAudioStreamData(m_pAudioStream, chunk.samples.data(), static_cast<int>(chunkBytes)))
         {
             std::cerr << "HouseVideoPlayer: SDL_PutAudioStreamData failed: " << SDL_GetError() << '\n';
             break;
         }
 
         queuedBytes += static_cast<int>(chunkBytes);
-        m_nextAudioSampleIndex += chunkSampleCount;
-        m_totalQueuedAudioFrames += chunkFrames;
-    }
-}
-
-void HouseVideoPlayer::advancePlaybackWithoutAudio(float deltaSeconds)
-{
-    if (m_pActiveClip == nullptr || m_pActiveClip->durationSeconds <= 0.0f)
-    {
-        return;
-    }
-
-    m_playbackSeconds += std::max(0.0f, deltaSeconds);
-
-    if (!m_loopPlayback)
-    {
-        m_playbackSeconds = std::min(m_playbackSeconds, m_pActiveClip->durationSeconds);
-        return;
-    }
-
-    while (m_playbackSeconds >= m_pActiveClip->durationSeconds)
-    {
-        m_playbackSeconds -= m_pActiveClip->durationSeconds;
+        m_totalQueuedAudioFrames += chunkFrameCount;
     }
 }
 
 std::optional<float> HouseVideoPlayer::playbackSecondsFromAudioQueue() const
 {
-    if (m_pActiveClip == nullptr
-        || m_pAudioStream == nullptr
-        || m_pActiveClip->audioSamples.empty()
-        || m_pActiveClip->audioSampleRate <= 0
-        || m_pActiveClip->audioChannels <= 0)
+    if (m_pAudioStream == nullptr || m_totalQueuedAudioFrames == 0)
     {
         return std::nullopt;
     }
 
     const int queuedBytes = SDL_GetAudioStreamQueued(m_pAudioStream);
 
-    if (queuedBytes < 0)
+    if (queuedBytes <= 0)
     {
         return std::nullopt;
     }
 
-    const size_t bytesPerAudioFrame = static_cast<size_t>(m_pActiveClip->audioChannels) * sizeof(float);
-
-    if (bytesPerAudioFrame == 0)
-    {
-        return std::nullopt;
-    }
-
-    const uint64_t queuedAudioFrames = static_cast<uint64_t>(queuedBytes) / bytesPerAudioFrame;
-    const uint64_t playedAudioFrames =
-        m_totalQueuedAudioFrames > queuedAudioFrames ? (m_totalQueuedAudioFrames - queuedAudioFrames) : 0;
-    const size_t clipAudioFrameCount = m_pActiveClip->audioSamples.size() / m_pActiveClip->audioChannels;
-
-    if (clipAudioFrameCount == 0)
-    {
-        return std::nullopt;
-    }
-
-    if (!m_loopPlayback && playedAudioFrames >= clipAudioFrameCount)
-    {
-        return m_pActiveClip->durationSeconds;
-    }
-
-    const uint64_t loopedAudioFrame = playedAudioFrames % clipAudioFrameCount;
-    return static_cast<float>(loopedAudioFrame) / static_cast<float>(m_pActiveClip->audioSampleRate);
+    constexpr uint64_t BytesPerAudioFrame = HouseVideoAudioChannels * sizeof(float);
+    const uint64_t queuedAudioFrames = static_cast<uint64_t>(queuedBytes) / BytesPerAudioFrame;
+    const uint64_t playedAudioFrames = m_totalQueuedAudioFrames > queuedAudioFrames
+        ? m_totalQueuedAudioFrames - queuedAudioFrames
+        : 0;
+    return static_cast<float>(playedAudioFrames) / HouseVideoAudioFrequency;
 }
 
-void HouseVideoPlayer::finishCompletedBackgroundPreload()
+void HouseVideoPlayer::updateFinishedPlaybackState(float deltaSeconds)
 {
-    if (!m_backgroundPreloadJob.has_value())
+    if (m_pStreamingSession == nullptr || m_loopPlayback)
     {
         return;
     }
 
-    if (m_backgroundPreloadJob->future.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+    bool failed = false;
+    bool endOfStream = false;
+    bool queuesEmpty = false;
+    bool hasAudio = false;
+    double endTimeSeconds = 0.0;
+
+    {
+        std::lock_guard<std::mutex> lock(m_pStreamingSession->queueMutex);
+        failed = m_pStreamingSession->failed;
+        endOfStream = m_pStreamingSession->endOfStream;
+        queuesEmpty = m_pStreamingSession->videoFrames.empty()
+            && m_pStreamingSession->audioChunks.empty();
+        hasAudio = m_pStreamingSession->hasAudio;
+        endTimeSeconds = m_pStreamingSession->endTimeSeconds;
+    }
+
+    if (failed)
+    {
+        m_finishedPlayback = true;
+        return;
+    }
+
+    if (!endOfStream || !queuesEmpty)
     {
         return;
     }
 
-    const std::shared_ptr<DecodedClip> pClip = m_backgroundPreloadJob->future.get();
+    int queuedAudioBytes = 0;
 
-    if (pClip != nullptr)
+    if (hasAudio && m_pAudioStream != nullptr)
     {
-        m_cachedClipsByKey[makeClipKey(DefaultHouseVideoDirectory, m_backgroundPreloadJob->videoStem)] = pClip;
+        queuedAudioBytes = std::max(0, SDL_GetAudioStreamQueued(m_pAudioStream));
     }
 
-    m_backgroundPreloadJob.reset();
-}
-
-void HouseVideoPlayer::clearBackgroundPreloads()
-{
-    m_pendingBackgroundPreloadStems.clear();
-
-    if (!m_backgroundPreloadJob.has_value())
+    if (queuedAudioBytes > 0)
     {
         return;
     }
 
-    const std::shared_ptr<DecodedClip> pClip = m_backgroundPreloadJob->future.get();
-
-    if (pClip != nullptr)
+    if (m_playbackStarted && m_playbackSeconds < endTimeSeconds)
     {
-        m_cachedClipsByKey[makeClipKey(DefaultHouseVideoDirectory, m_backgroundPreloadJob->videoStem)] = pClip;
+        m_playbackSeconds += std::max(0.0f, deltaSeconds);
     }
 
-    m_backgroundPreloadJob.reset();
+    m_finishedPlayback = !m_playbackStarted
+        || m_playbackSeconds + 0.001 >= endTimeSeconds;
 }
-
-std::shared_ptr<HouseVideoPlayer::DecodedClip> HouseVideoPlayer::getOrDecodeClip(
-    const Engine::AssetFileSystem &assetFileSystem,
-    const std::string &videoStem,
-    const std::string &videoDirectory)
-{
-    finishCompletedBackgroundPreload();
-    const std::string clipKey = makeClipKey(videoDirectory, videoStem);
-
-    const std::unordered_map<std::string, std::shared_ptr<DecodedClip>>::const_iterator cachedIt =
-        m_cachedClipsByKey.find(clipKey);
-
-    if (cachedIt != m_cachedClipsByKey.end())
-    {
-        return cachedIt->second;
-    }
-
-    if (videoDirectory == DefaultHouseVideoDirectory
-        && m_backgroundPreloadJob.has_value()
-        && m_backgroundPreloadJob->videoStem == videoStem)
-    {
-        const std::shared_ptr<DecodedClip> pClip = m_backgroundPreloadJob->future.get();
-
-        if (pClip != nullptr)
-        {
-            m_cachedClipsByKey.emplace(clipKey, pClip);
-        }
-
-        m_backgroundPreloadJob.reset();
-        return pClip;
-    }
-
-    const std::shared_ptr<DecodedClip> pClip = decodeClip(assetFileSystem, videoStem, videoDirectory);
-
-    if (pClip != nullptr)
-    {
-        m_cachedClipsByKey.emplace(clipKey, pClip);
-    }
-
-    return pClip;
-}
-
-std::shared_ptr<HouseVideoPlayer::DecodedClip> HouseVideoPlayer::decodeClip(
-    const Engine::AssetFileSystem &assetFileSystem,
-    const std::string &videoStem,
-    const std::string &videoDirectory)
-{
-    const std::optional<ClipBytes> clipBytes = readVideoClipBytes(assetFileSystem, videoStem, videoDirectory);
-
-    if (!clipBytes)
-    {
-        std::cerr << "HouseVideoPlayer: missing clip bytes for stem " << videoStem << '\n';
-        return nullptr;
-    }
-
-    MemoryClipReader memoryClipReader = {};
-    memoryClipReader.pBytes = &clipBytes->bytes;
-    const std::string &virtualPath = clipBytes->virtualPath;
-    constexpr int AvioBufferSize = 4096;
-    uint8_t *pAvioBuffer = static_cast<uint8_t *>(av_malloc(AvioBufferSize));
-
-    if (pAvioBuffer == nullptr)
-    {
-        std::cerr << "HouseVideoPlayer: av_malloc failed for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    AVIOContext *pRawAvioContext = avio_alloc_context(
-        pAvioBuffer,
-        AvioBufferSize,
-        0,
-        &memoryClipReader,
-        &readMemoryClip,
-        nullptr,
-        &seekMemoryClip);
-
-    if (pRawAvioContext == nullptr)
-    {
-        av_free(pAvioBuffer);
-        std::cerr << "HouseVideoPlayer: avio_alloc_context failed for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    AvioContextPtr pAvioContext(pRawAvioContext);
-    AVFormatContext *pRawFormatContext = avformat_alloc_context();
-
-    if (pRawFormatContext == nullptr)
-    {
-        std::cerr << "HouseVideoPlayer: avformat_alloc_context failed for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    pRawFormatContext->pb = pAvioContext.get();
-    pRawFormatContext->flags |= AVFMT_FLAG_CUSTOM_IO;
-
-    int result = avformat_open_input(&pRawFormatContext, virtualPath.c_str(), nullptr, nullptr);
-
-    if (result < 0 || pRawFormatContext == nullptr)
-    {
-        if (pRawFormatContext != nullptr)
-        {
-            avformat_free_context(pRawFormatContext);
-        }
-
-        std::cerr << "HouseVideoPlayer: avformat_open_input failed for " << virtualPath
-                  << ": " << ffmpegErrorString(result) << '\n';
-        return nullptr;
-    }
-
-    AvFormatContextPtr pFormatContext(pRawFormatContext);
-    result = avformat_find_stream_info(pFormatContext.get(), nullptr);
-
-    if (result < 0)
-    {
-        std::cerr << "HouseVideoPlayer: avformat_find_stream_info failed for " << virtualPath
-                  << ": " << ffmpegErrorString(result) << '\n';
-        return nullptr;
-    }
-
-    const int videoStreamIndex = av_find_best_stream(pFormatContext.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
-
-    if (videoStreamIndex < 0)
-    {
-        std::cerr << "HouseVideoPlayer: no video stream found for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    const AVStream &videoStream = *pFormatContext->streams[videoStreamIndex];
-    AvCodecContextPtr pVideoCodecContext = createDecoderContext(videoStream);
-
-    if (pVideoCodecContext == nullptr)
-    {
-        std::cerr << "HouseVideoPlayer: failed to create video decoder for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    const int width = pVideoCodecContext->width;
-    const int height = pVideoCodecContext->height;
-
-    if (width <= 0 || height <= 0)
-    {
-        std::cerr << "HouseVideoPlayer: invalid video dimensions for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    SwsContext *pRawSwsContext = sws_getContext(
-        width,
-        height,
-        pVideoCodecContext->pix_fmt,
-        width,
-        height,
-        AV_PIX_FMT_BGRA,
-        SWS_BILINEAR,
-        nullptr,
-        nullptr,
-        nullptr);
-
-    if (pRawSwsContext == nullptr)
-    {
-        std::cerr << "HouseVideoPlayer: sws_getContext failed for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    SwsContextPtr pSwsContext(pRawSwsContext);
-    const int audioStreamIndex = av_find_best_stream(pFormatContext.get(), AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
-    AvCodecContextPtr pAudioCodecContext;
-    SwrContextPtr pSwrContext;
-
-    if (audioStreamIndex >= 0)
-    {
-        pAudioCodecContext = createDecoderContext(*pFormatContext->streams[audioStreamIndex]);
-
-        if (pAudioCodecContext != nullptr && pAudioCodecContext->sample_rate > 0)
-        {
-            AVChannelLayout inputChannelLayout = {};
-
-            if (av_channel_layout_check(&pAudioCodecContext->ch_layout) > 0)
-            {
-                result = av_channel_layout_copy(&inputChannelLayout, &pAudioCodecContext->ch_layout);
-            }
-            else
-            {
-                av_channel_layout_default(
-                    &inputChannelLayout,
-                    std::max(1, pAudioCodecContext->ch_layout.nb_channels));
-                result = 0;
-            }
-
-            if (result >= 0)
-            {
-                AVChannelLayout outputChannelLayout = AV_CHANNEL_LAYOUT_STEREO;
-                SwrContext *pRawSwrContext = nullptr;
-                result = swr_alloc_set_opts2(
-                    &pRawSwrContext,
-                    &outputChannelLayout,
-                    AV_SAMPLE_FMT_FLT,
-                    HouseVideoAudioFrequency,
-                    &inputChannelLayout,
-                    pAudioCodecContext->sample_fmt,
-                    pAudioCodecContext->sample_rate,
-                    0,
-                    nullptr);
-
-                if (result >= 0 && pRawSwrContext != nullptr)
-                {
-                    result = swr_init(pRawSwrContext);
-
-                    if (result >= 0)
-                    {
-                        pSwrContext.reset(pRawSwrContext);
-                    }
-                    else
-                    {
-                        swr_free(&pRawSwrContext);
-                    }
-                }
-
-                av_channel_layout_uninit(&inputChannelLayout);
-            }
-
-            if (result < 0)
-            {
-                std::cerr << "HouseVideoPlayer: audio resampler setup failed for " << virtualPath
-                          << ": " << ffmpegErrorString(result) << '\n';
-                pAudioCodecContext.reset();
-                pSwrContext.reset();
-            }
-        }
-        else
-        {
-            pAudioCodecContext.reset();
-        }
-    }
-
-    AvPacketPtr pPacket(av_packet_alloc());
-    AvFramePtr pFrame(av_frame_alloc());
-
-    if (pPacket == nullptr || pFrame == nullptr)
-    {
-        std::cerr << "HouseVideoPlayer: failed to allocate decode buffers for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    std::vector<uint8_t> videoPixels;
-    std::vector<float> audioSamples;
-    const size_t frameSizeBytes = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
-
-    while ((result = av_read_frame(pFormatContext.get(), pPacket.get())) >= 0)
-    {
-        AVCodecContext *pTargetCodecContext = nullptr;
-        const bool isVideoPacket = pPacket->stream_index == videoStreamIndex;
-        const bool isAudioPacket = pAudioCodecContext != nullptr && pPacket->stream_index == audioStreamIndex;
-
-        if (isVideoPacket)
-        {
-            pTargetCodecContext = pVideoCodecContext.get();
-        }
-        else if (isAudioPacket)
-        {
-            pTargetCodecContext = pAudioCodecContext.get();
-        }
-
-        if (pTargetCodecContext == nullptr)
-        {
-            av_packet_unref(pPacket.get());
-            continue;
-        }
-
-        if (pPacket->size <= 0)
-        {
-            av_packet_unref(pPacket.get());
-            continue;
-        }
-
-        result = avcodec_send_packet(pTargetCodecContext, pPacket.get());
-        av_packet_unref(pPacket.get());
-
-        if (result < 0)
-        {
-            std::cerr << "HouseVideoPlayer: avcodec_send_packet failed for " << virtualPath
-                      << ": " << ffmpegErrorString(result) << '\n';
-            return nullptr;
-        }
-
-        while (true)
-        {
-            result = avcodec_receive_frame(pTargetCodecContext, pFrame.get());
-
-            if (result == AVERROR(EAGAIN) || result == AVERROR_EOF)
-            {
-                break;
-            }
-
-            if (result < 0)
-            {
-                std::cerr << "HouseVideoPlayer: avcodec_receive_frame failed for " << virtualPath
-                          << ": " << ffmpegErrorString(result) << '\n';
-                return nullptr;
-            }
-
-            const bool appendResult = isVideoPacket
-                ? appendVideoFrame(*pFrame, *pSwsContext, width, height, videoPixels)
-                : (pSwrContext != nullptr
-                    ? appendAudioFrame(
-                        *pFrame,
-                        *pSwrContext,
-                        HouseVideoAudioFrequency,
-                        HouseVideoAudioChannels,
-                        audioSamples)
-                    : true);
-
-            av_frame_unref(pFrame.get());
-
-            if (!appendResult)
-            {
-                std::cerr << "HouseVideoPlayer: failed to append decoded frame for " << virtualPath << '\n';
-                return nullptr;
-            }
-        }
-    }
-
-    if (result != AVERROR_EOF)
-    {
-        std::cerr << "HouseVideoPlayer: av_read_frame failed for " << virtualPath
-                  << ": " << ffmpegErrorString(result) << '\n';
-        return nullptr;
-    }
-
-    const std::array<AVCodecContext *, 2> codecContexts = {pVideoCodecContext.get(), pAudioCodecContext.get()};
-
-    for (AVCodecContext *pCodecContext : codecContexts)
-    {
-        if (pCodecContext == nullptr)
-        {
-            continue;
-        }
-
-        result = avcodec_send_packet(pCodecContext, nullptr);
-
-        if (result < 0 && result != AVERROR_EOF)
-        {
-            std::cerr << "HouseVideoPlayer: decoder flush failed for " << virtualPath
-                      << ": " << ffmpegErrorString(result) << '\n';
-            return nullptr;
-        }
-
-        while (true)
-        {
-            result = avcodec_receive_frame(pCodecContext, pFrame.get());
-
-            if (result == AVERROR(EAGAIN) || result == AVERROR_EOF)
-            {
-                break;
-            }
-
-            if (result < 0)
-            {
-                std::cerr << "HouseVideoPlayer: decoder flush receive failed for " << virtualPath
-                          << ": " << ffmpegErrorString(result) << '\n';
-                return nullptr;
-            }
-
-            const bool isVideoFrame = pCodecContext == pVideoCodecContext.get();
-            const bool appendResult = isVideoFrame
-                ? appendVideoFrame(*pFrame, *pSwsContext, width, height, videoPixels)
-                : (pSwrContext != nullptr
-                    ? appendAudioFrame(
-                        *pFrame,
-                        *pSwrContext,
-                        HouseVideoAudioFrequency,
-                        HouseVideoAudioChannels,
-                        audioSamples)
-                    : true);
-
-            av_frame_unref(pFrame.get());
-
-            if (!appendResult)
-            {
-                std::cerr << "HouseVideoPlayer: failed to append flushed frame for " << virtualPath << '\n';
-                return nullptr;
-            }
-        }
-    }
-
-    if (videoPixels.size() < frameSizeBytes)
-    {
-        std::cerr << "HouseVideoPlayer: decoded video too small for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    const size_t frameCount = videoPixels.size() / frameSizeBytes;
-
-    if (frameCount == 0)
-    {
-        std::cerr << "HouseVideoPlayer: zero decoded frames for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    std::optional<float> frameRate = parseFrameRate(videoStream.avg_frame_rate);
-
-    if ((!frameRate || *frameRate <= 0.0f))
-    {
-        frameRate = parseFrameRate(videoStream.r_frame_rate);
-    }
-
-    if ((!frameRate || *frameRate <= 0.0f))
-    {
-        const std::optional<float> durationSeconds = streamDurationSeconds(videoStream, *pFormatContext);
-
-        if (durationSeconds && *durationSeconds > 0.0f)
-        {
-            frameRate = static_cast<float>(frameCount) / *durationSeconds;
-        }
-    }
-
-    if (!frameRate || *frameRate <= 0.0f)
-    {
-        std::cerr << "HouseVideoPlayer: invalid frame rate for " << virtualPath << '\n';
-        return nullptr;
-    }
-
-    std::shared_ptr<DecodedClip> pClip = std::make_shared<DecodedClip>();
-    pClip->videoStem = videoStem;
-    pClip->width = width;
-    pClip->height = height;
-    pClip->framesPerSecond = *frameRate;
-    pClip->durationSeconds = static_cast<float>(frameCount) / *frameRate;
-    pClip->frameCount = frameCount;
-    pClip->frameSizeBytes = frameSizeBytes;
-    pClip->videoPixels = std::move(videoPixels);
-    pClip->audioSampleRate = HouseVideoAudioFrequency;
-    pClip->audioChannels = HouseVideoAudioChannels;
-    pClip->audioSamples = std::move(audioSamples);
-    return pClip;
-}
-
 }

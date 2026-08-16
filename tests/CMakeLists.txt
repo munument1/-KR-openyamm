@@ -229,3 +229,29 @@ if (UNIX AND NOT APPLE)
 endif()
 
 add_test(NAME openyamm_unit_tests COMMAND openyamm_unit_tests)
+
+add_executable(openyamm_video_streaming_tests
+    VideoStreamingTests.cpp
+)
+
+target_include_directories(openyamm_video_streaming_tests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/third_party/doctest
+)
+
+target_compile_features(openyamm_video_streaming_tests PRIVATE cxx_std_20)
+
+target_compile_definitions(openyamm_video_streaming_tests
+    PRIVATE
+        OPENYAMM_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
+
+target_link_libraries(openyamm_video_streaming_tests
+    PRIVATE
+        openyamm_game
+        openyamm_bgfx
+        SDL3::SDL3
+)
+
+add_test(NAME openyamm_video_streaming_tests COMMAND openyamm_video_streaming_tests)

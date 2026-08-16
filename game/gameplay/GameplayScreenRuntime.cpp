@@ -3039,16 +3039,6 @@ bool GameplayScreenRuntime::playHouseVideo(const std::string &videoStem, const s
     return uiRuntime().playHouseVideo(videoStem, videoDirectory);
 }
 
-void GameplayScreenRuntime::queueBackgroundHouseVideoPreload(const std::string &videoStem)
-{
-    uiRuntime().queueBackgroundHouseVideoPreload(videoStem);
-}
-
-void GameplayScreenRuntime::updateHouseVideoBackgroundPreloads()
-{
-    uiRuntime().updateHouseVideoBackgroundPreloads();
-}
-
 void GameplayScreenRuntime::updateHouseVideoPlayback(float deltaSeconds)
 {
     if (m_pAudioSystem != nullptr)

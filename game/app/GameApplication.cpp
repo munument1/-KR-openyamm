@@ -5652,8 +5652,7 @@ bool GameApplication::ensureCommonGameDataLoaded()
     m_gameSession.bindDataRepository(&m_gameDataRepository);
     m_gameAudioSystem.bindGameplayTables(
         m_gameDataLoader.getCharacterDollTable(),
-        m_gameDataLoader.getMergedCharacterVoiceTable(),
-        m_gameDataLoader.getSpellTable());
+        m_gameDataLoader.getMergedCharacterVoiceTable());
 
     if (gameplayDebugTraceEnabled() && !m_traceSessionHeaderLogged)
     {
@@ -6812,7 +6811,6 @@ void GameApplication::logFrameHitchDiagnostics(const FramePerformanceDiagnostics
             + gameplayUpdate.combatEventsNanoseconds
             + gameplayUpdate.interactionFrameNanoseconds
             + gameplayUpdate.projectileAndCooldownNanoseconds
-            + gameplayUpdate.preloadNanoseconds
             + gameplayUpdate.performanceTraceLogNanoseconds;
         const uint64_t gameplayUpdateUntrackedNanoseconds =
             gameplayUpdate.totalNanoseconds > gameplayUpdateMeasuredNanoseconds
@@ -6836,7 +6834,6 @@ void GameApplication::logFrameHitchDiagnostics(const FramePerformanceDiagnostics
                   << nanosecondsToMicroseconds(gameplayUpdate.interactionFrameNanoseconds)
                   << " projectile_cooldown_us="
                   << nanosecondsToMicroseconds(gameplayUpdate.projectileAndCooldownNanoseconds)
-                  << " preload_us=" << nanosecondsToMicroseconds(gameplayUpdate.preloadNanoseconds)
                   << " performance_trace_log_us="
                   << nanosecondsToMicroseconds(gameplayUpdate.performanceTraceLogNanoseconds)
                   << '\n';

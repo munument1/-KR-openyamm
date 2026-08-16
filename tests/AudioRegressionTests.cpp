@@ -84,8 +84,7 @@ bool initializeRegressionAudioSystem(
     if (!audioSystem.initialize(
             assetFileSystem,
             gameData.characterDollTable,
-            gameData.mergedCharacterVoiceTable,
-            gameData.spellTable))
+            gameData.mergedCharacterVoiceTable))
     {
         failure = "could not initialize game audio system for regression audio tests";
         return false;
@@ -194,6 +193,41 @@ TEST_CASE("background music pause remains active across cutscene track requests"
 
     audioSystem.resumeBackgroundMusic();
     CHECK_FALSE(audioSystem.isBackgroundMusicPaused());
+}
+
+TEST_CASE("spell and Arcomage sounds load on demand from an empty cache")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    OpenYAMM::Game::GameAudioSystem audioSystem;
+    std::string failure;
+
+    REQUIRE_MESSAGE(
+        initializeRegressionAudioSystem(gameData, assetFileSystem, audioSystem, failure),
+        failure.c_str());
+    CHECK_EQ(audioSystem.cacheStats().clipCount, 0);
+    CHECK_EQ(audioSystem.cacheStats().sampleBytes, 0);
+
+    const OpenYAMM::Game::SpellEntry *pFireBolt =
+        gameData.spellTable.findById(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::FireBolt));
+    REQUIRE(pFireBolt != nullptr);
+    REQUIRE(pFireBolt->effectSoundId > 0);
+    REQUIRE(audioSystem.playSound(
+        static_cast<uint32_t>(pFireBolt->effectSoundId),
+        OpenYAMM::Game::GameAudioSystem::PlaybackGroup::Ui));
+
+    const OpenYAMM::Engine::AudioSystem::CacheStats spellCacheStats = audioSystem.cacheStats();
+    CHECK_EQ(spellCacheStats.clipCount, 1);
+    CHECK(spellCacheStats.sampleBytes > 0);
+
+    REQUIRE(audioSystem.playCommonSound(
+        OpenYAMM::Game::SoundId::ArcomageDeal,
+        OpenYAMM::Game::GameAudioSystem::PlaybackGroup::Ui));
+
+    const OpenYAMM::Engine::AudioSystem::CacheStats arcomageCacheStats = audioSystem.cacheStats();
+    CHECK_EQ(arcomageCacheStats.clipCount, 2);
+    CHECK(arcomageCacheStats.sampleBytes > spellCacheStats.sampleBytes);
+    audioSystem.shutdown();
 }
 
 TEST_CASE("map music starts after replacing an in-flight menu music decode")
