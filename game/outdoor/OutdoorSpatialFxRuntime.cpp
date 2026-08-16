@@ -800,7 +800,7 @@ void OutdoorSpatialFxRuntime::addContactShadow(
     float radius,
     float heightScale)
 {
-    if (!view.m_gameSettings.shadows || !view.m_outdoorMapData.has_value())
+    if (!view.m_gameSettings.shadows || view.m_pOutdoorMapData == nullptr)
     {
         return;
     }
@@ -813,7 +813,7 @@ void OutdoorSpatialFxRuntime::addContactShadow(
     }
     else
     {
-        floorHeight = sampleOutdoorSupportFloorHeight(*view.m_outdoorMapData, x, y, z);
+        floorHeight = sampleOutdoorSupportFloorHeight(*view.m_pOutdoorMapData, x, y, z);
     }
 
     const float heightAboveFloor = std::max(0.0f, z - floorHeight);

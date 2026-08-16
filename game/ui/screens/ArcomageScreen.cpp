@@ -206,25 +206,12 @@ void ArcomageScreen::drawScreen(float deltaSeconds)
         drawScreenText(layout, ArrusFontName, hoverText, LogicalWidth * 0.5f, 458.0f, true);
     }
 
-#if defined(__ANDROID__)
-    if (m_state.currentPlayerIndex == 0)
-    {
-        drawScreenText(
-            layout,
-            ArrusFontName,
-            m_state.mustDiscard ? "Tap a card to discard." : "Tap a card to play. Swipe up to discard.",
-            LogicalWidth * 0.5f,
-            306.0f,
-            true
-        );
-    }
-#else
+#if !defined(__ANDROID__)
     if (m_state.mustDiscard)
     {
         drawScreenText(layout, ArrusFontName, "Right-click a card to discard.", LogicalWidth * 0.5f, 306.0f, true);
     }
 #endif
-
 }
 
 MenuScreenBase::Rect ArcomageScreen::scaleLogicalRect(const LogicalLayout &layout, const Rect &logicalRect) const

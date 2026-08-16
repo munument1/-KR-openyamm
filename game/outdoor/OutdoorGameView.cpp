@@ -2904,7 +2904,7 @@ bgfx::VertexLayout OutdoorGameView::ForcePerspectiveVertex::ms_layout;
 OutdoorGameView::OutdoorGameView(GameSession &gameSession)
     : m_isInitialized(false)
     , m_isRenderable(false)
-    , m_outdoorMapData(std::nullopt)
+    , m_pOutdoorMapData(nullptr)
     , m_vertexBufferHandle(BGFX_INVALID_HANDLE)
     , m_indexBufferHandle(BGFX_INVALID_HANDLE)
     , m_skyVertexBufferHandle(BGFX_INVALID_HANDLE)
@@ -2985,7 +2985,6 @@ OutdoorGameView::OutdoorGameView(GameSession &gameSession)
     , m_pOutdoorWorldRuntime(nullptr)
     , m_pGameAudioSystem(nullptr)
     , m_nextPendingSpriteFrameWarmupIndex(0)
-    , m_runtimeActorBillboardTexturesQueuedCount(0)
     , m_renderableStartTickNanoseconds(0)
     , m_renderFrameIndex(0)
     , m_lastFootstepX(0.0f)
@@ -3031,7 +3030,7 @@ bool OutdoorGameView::initialize(
     m_isInitialized = true;
     m_pAssetFileSystem = &assetFileSystem;
     m_map = map;
-    m_outdoorMapData = outdoorMapData;
+    m_pOutdoorMapData = &outdoorMapData;
     m_outdoorDecorationBillboardSet = outdoorDecorationBillboardSet;
     m_outdoorActorPreviewBillboardSet = outdoorActorPreviewBillboardSet;
     m_outdoorSpriteObjectBillboardSet = outdoorSpriteObjectBillboardSet;
@@ -3434,29 +3433,16 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
         m_nextPendingSpriteFrameWarmupIndex < m_pendingSpriteFrameWarmups.size()
             ? m_pendingSpriteFrameWarmups.size() - m_nextPendingSpriteFrameWarmupIndex
             : 0;
-    const size_t pendingActorTextureUploadsBefore =
-        m_pendingActorPreviewTexturePreload
-            && m_nextPendingActorPreviewTextureUploadIndex < m_pendingActorPreviewTexturePreload->size()
-            ? m_pendingActorPreviewTexturePreload->size() - m_nextPendingActorPreviewTextureUploadIndex
-            : 0;
-    OutdoorBillboardRenderer::queueRuntimeActorBillboardTextureWarmup(*this);
     const bool processSpriteWarmupsThisFrame = !cameraMotionInput;
-    OutdoorBillboardRenderer::processActorPreviewTexturePreload(*this, 1);
 
     if (processSpriteWarmupsThisFrame)
     {
-        OutdoorBillboardRenderer::processActorPreviewTexturePreload(*this, 2);
         OutdoorBillboardRenderer::processPendingSpriteFrameWarmups(*this, 1);
     }
 
     const size_t pendingSpriteWarmupsAfter =
         m_nextPendingSpriteFrameWarmupIndex < m_pendingSpriteFrameWarmups.size()
             ? m_pendingSpriteFrameWarmups.size() - m_nextPendingSpriteFrameWarmupIndex
-            : 0;
-    const size_t pendingActorTextureUploadsAfter =
-        m_pendingActorPreviewTexturePreload
-            && m_nextPendingActorPreviewTextureUploadIndex < m_pendingActorPreviewTexturePreload->size()
-            ? m_pendingActorPreviewTexturePreload->size() - m_nextPendingActorPreviewTextureUploadIndex
             : 0;
     captureFrameTimingStage(spriteWarmupStageNanoseconds);
 
@@ -3582,8 +3568,6 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
                 << " sprite_warmup_processed=" << (processSpriteWarmupsThisFrame ? 1 : 0)
                 << " pending_warmups_before=" << pendingSpriteWarmupsBefore
                 << " pending_warmups_after=" << pendingSpriteWarmupsAfter
-                << " pending_actor_texture_uploads_before=" << pendingActorTextureUploadsBefore
-                << " pending_actor_texture_uploads_after=" << pendingActorTextureUploadsAfter
                 << '\n';
         }
 
@@ -3610,8 +3594,6 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
                 << " sprite_warmup_processed=" << (processSpriteWarmupsThisFrame ? 1 : 0)
                 << " pending_warmups_before=" << pendingSpriteWarmupsBefore
                 << " pending_warmups_after=" << pendingSpriteWarmupsAfter
-                << " pending_actor_texture_uploads_before=" << pendingActorTextureUploadsBefore
-                << " pending_actor_texture_uploads_after=" << pendingActorTextureUploadsAfter
                 << '\n';
         }
     }
@@ -3656,7 +3638,7 @@ void OutdoorGameView::shutdown()
         m_isRenderable = false;
         m_isInitialized = false;
         m_map.reset();
-        m_outdoorMapData.reset();
+        m_pOutdoorMapData = nullptr;
         m_pOutdoorPartyRuntime = nullptr;
         m_pAssetFileSystem = nullptr;
         m_pOutdoorSceneRuntime = nullptr;
@@ -3688,7 +3670,6 @@ void OutdoorGameView::shutdown()
         m_outdoorForcePerspectiveProgramHandle = BGFX_INVALID_HANDLE;
         m_bloodSplatVertexBufferHandle = BGFX_INVALID_HANDLE;
         m_terrainTextureAtlasHandle = BGFX_INVALID_HANDLE;
-        m_terrainTextureAtlasMipPixels.clear();
         m_terrainTextureAtlasWidth = 0;
         m_terrainTextureAtlasHeight = 0;
         m_bloodSplatTextureHandle = BGFX_INVALID_HANDLE;
@@ -3779,7 +3760,6 @@ void OutdoorGameView::shutdown()
         bgfx::destroy(m_terrainTextureAtlasHandle);
         m_terrainTextureAtlasHandle = BGFX_INVALID_HANDLE;
     }
-    m_terrainTextureAtlasMipPixels.clear();
     m_terrainTextureAtlasWidth = 0;
     m_terrainTextureAtlasHeight = 0;
 
@@ -4327,7 +4307,7 @@ const GameplayWorldHit &OutdoorGameView::rightMouseInspectWorldHit(
 {
     if (!input.rightMouseButton.held
         || m_pOutdoorWorldRuntime == nullptr
-        || !m_outdoorMapData.has_value()
+        || m_pOutdoorMapData == nullptr
         || width <= 0
         || height <= 0)
     {
@@ -4412,7 +4392,7 @@ void OutdoorGameView::updateItemInspectOverlayState(int width, int height, const
             GameplayStandardWorldInspectOverlayConfig{
                 .width = width,
                 .height = height,
-                .worldReady = m_pOutdoorWorldRuntime != nullptr && m_outdoorMapData.has_value(),
+                .worldReady = m_pOutdoorWorldRuntime != nullptr && m_pOutdoorMapData != nullptr,
                 .hasHeldItem = heldInventoryItem().active,
                 .hasPendingSpellTarget = m_gameSession.gameplayScreenState().pendingSpellTarget().active,
                 .hasActiveLootView = hasActiveLootView,
@@ -5093,7 +5073,7 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
             GameplayStandardWorldInspectOverlayConfig{
                 .width = width,
                 .height = height,
-                .worldReady = m_pOutdoorWorldRuntime != nullptr && m_outdoorMapData.has_value(),
+                .worldReady = m_pOutdoorWorldRuntime != nullptr && m_pOutdoorMapData != nullptr,
                 .hasHeldItem = heldInventoryItem().active,
                 .hasPendingSpellTarget = m_gameSession.gameplayScreenState().pendingSpellTarget().active,
                 .hasActiveLootView = hasActiveLootView,

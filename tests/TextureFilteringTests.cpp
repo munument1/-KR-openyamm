@@ -106,13 +106,6 @@ TEST_CASE("Map render source cleanup releases decoded pixels while preserving te
     mapAssetInfo.outdoorDecorationBillboardSet->textures.push_back(textureWithBytes(7));
     mapAssetInfo.outdoorActorPreviewBillboardSet.emplace();
     mapAssetInfo.outdoorActorPreviewBillboardSet->textures.push_back(textureWithBytes(11));
-    std::promise<std::shared_ptr<std::vector<OutdoorBitmapTexture>>> actorTexturePromise;
-    std::shared_ptr<std::vector<OutdoorBitmapTexture>> pActorTextures =
-        std::make_shared<std::vector<OutdoorBitmapTexture>>();
-    pActorTextures->push_back(textureWithBytes(31));
-    actorTexturePromise.set_value(pActorTextures);
-    mapAssetInfo.outdoorActorPreviewBillboardSet->texturePreloadFuture =
-        actorTexturePromise.get_future().share();
     mapAssetInfo.outdoorSpriteObjectBillboardSet.emplace();
     mapAssetInfo.outdoorSpriteObjectBillboardSet->textures.push_back(textureWithBytes(13));
     mapAssetInfo.indoorDecorationBillboardSet.emplace();
@@ -124,7 +117,7 @@ TEST_CASE("Map render source cleanup releases decoded pixels while preserving te
     mapAssetInfo.indoorTextureSet.emplace();
     mapAssetInfo.indoorTextureSet->textures.push_back(textureWithBytes(29));
 
-    CHECK_EQ(mapRenderSourcePixelBytes(mapAssetInfo), 164);
+    CHECK_EQ(mapRenderSourcePixelBytes(mapAssetInfo), 133);
 
     clearMapRenderSourcePixels(mapAssetInfo);
 
@@ -133,5 +126,4 @@ TEST_CASE("Map render source cleanup releases decoded pixels while preserving te
     REQUIRE_EQ(mapAssetInfo.outdoorBModelTextureSet->textures.size(), 1);
     CHECK_EQ(mapAssetInfo.outdoorBModelTextureSet->textures[0].textureName, "texture");
     CHECK(mapAssetInfo.outdoorTerrainTextureAtlas->animatedWaterTiles[0].framePixels.empty());
-    CHECK_FALSE(mapAssetInfo.outdoorActorPreviewBillboardSet->texturePreloadFuture.valid());
 }

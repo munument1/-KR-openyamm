@@ -6512,6 +6512,10 @@ bool GameApplication::loadCurrentSessionMap(
     const bool forceReloadSelectedMap =
         forceReloadSelectedMapForRespawn || forceReloadSelectedMapForRenderer;
 
+    timingLogger.beginStage("renderer shutdown");
+    shutdownRenderer();
+    timingLogger.stage("renderer shutdown");
+
     if (!selectedMapMatchesSession || forceReloadSelectedMap)
     {
         timingLogger.beginStage("game data loader map load");
@@ -6542,10 +6546,6 @@ bool GameApplication::loadCurrentSessionMap(
     {
         progressCallback(55);
     }
-
-    timingLogger.beginStage("renderer shutdown");
-    shutdownRenderer();
-    timingLogger.stage("renderer shutdown");
 
     timingLogger.beginStage(initializeView ? "runtime and view initialization" : "runtime initialization");
     if (!initializeSelectedMapRuntime(initializeView))
@@ -7196,6 +7196,7 @@ void GameApplication::restoreSavedOutdoorWorldStateForSelectedMap()
 
 void GameApplication::shutdownRenderer()
 {
+    m_gameAudioSystem.stopAllPlayback();
     MenuScreenBase::shutdownSharedResources();
     m_mainMenuChildScreensPrepared = false;
     m_outdoorGameView.shutdown();
@@ -8837,15 +8838,25 @@ bool GameApplication::processPendingMapMove()
                 renderLoadingOverlayProgress(remapLoadingProgress(localProgress, 20, 85));
             }))
     {
-        if (pLeavingRuntimeState != nullptr
-            && m_pMapSceneRuntime != nullptr
-            && m_pMapSceneRuntime->eventRuntimeState() == pLeavingRuntimeState)
+        m_gameSession.setCurrentMapFileName(previousMapFileName);
+        const bool previousMapRestored = loadCurrentSessionMap(
+            true,
+            [this](int localProgress)
+            {
+                renderLoadingOverlayProgress(remapLoadingProgress(localProgress, 20, 85));
+            });
+
+        if (previousMapRestored && m_pMapSceneRuntime != nullptr)
         {
-            appendPendingMapLeaveOutputs(*pLeavingRuntimeState, std::move(onLeaveOutputs));
+            EventRuntimeState *pRestoredRuntimeState = m_pMapSceneRuntime->eventRuntimeState();
+
+            if (pRestoredRuntimeState != nullptr)
+            {
+                appendPendingMapLeaveOutputs(*pRestoredRuntimeState, std::move(onLeaveOutputs));
+            }
         }
 
         cancelLoadingOverlay();
-        m_gameSession.setCurrentMapFileName(previousMapFileName);
         return false;
     }
 

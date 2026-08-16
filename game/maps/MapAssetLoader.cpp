@@ -1988,67 +1988,6 @@ OutdoorBitmapTexture decodeActorBitmapTextureRequest(
     return texture;
 }
 
-std::shared_ptr<std::vector<OutdoorBitmapTexture>> decodeActorBitmapTextureRequests(
-    const Engine::AssetFileSystem &assetFileSystem,
-    const std::vector<BitmapTextureRequest> &textureRequests,
-    Engine::AssetScaleTier spriteAssetScaleTier,
-    const std::string &worldId)
-{
-    std::shared_ptr<std::vector<OutdoorBitmapTexture>> pTextures =
-        std::make_shared<std::vector<OutdoorBitmapTexture>>();
-
-    if (textureRequests.empty())
-    {
-        return pTextures;
-    }
-
-    const size_t workerCount = actorTexturePreloadWorkerCount(textureRequests.size());
-    std::vector<std::future<std::vector<OutdoorBitmapTexture>>> futures;
-    futures.reserve(workerCount);
-
-    for (size_t workerIndex = 0; workerIndex < workerCount; ++workerIndex)
-    {
-        futures.push_back(std::async(
-            std::launch::async,
-            [&assetFileSystem, &textureRequests, spriteAssetScaleTier, worldId, workerIndex, workerCount]()
-            {
-                BitmapLoadCache workerBitmapLoadCache = {};
-                workerBitmapLoadCache.retainBinaryFiles = false;
-                workerBitmapLoadCache.retainDecodedPixels = false;
-                std::vector<OutdoorBitmapTexture> textures;
-
-                for (size_t requestIndex = workerIndex; requestIndex < textureRequests.size(); requestIndex += workerCount)
-                {
-                    OutdoorBitmapTexture texture =
-                        decodeActorBitmapTextureRequest(
-                            assetFileSystem,
-                            textureRequests[requestIndex],
-                            spriteAssetScaleTier,
-                            worldId,
-                            workerBitmapLoadCache);
-
-                    if (!texture.pixels.empty() && texture.physicalWidth > 0 && texture.physicalHeight > 0)
-                    {
-                        textures.push_back(std::move(texture));
-                    }
-                }
-
-                return textures;
-            }));
-    }
-
-    for (std::future<std::vector<OutdoorBitmapTexture>> &future : futures)
-    {
-        std::vector<OutdoorBitmapTexture> workerTextures = future.get();
-        pTextures->insert(
-            pTextures->end(),
-            std::make_move_iterator(workerTextures.begin()),
-            std::make_move_iterator(workerTextures.end()));
-    }
-
-    return pTextures;
-}
-
 std::optional<std::vector<uint8_t>> loadTerrainBitmapPixelsBgra(
     const Engine::AssetFileSystem &assetFileSystem,
     const std::string &textureName,
@@ -3143,7 +3082,7 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
     const std::vector<SpawnType> &spawns,
     BitmapLoadCache &bitmapLoadCache,
     const OutdoorMapData *pOutdoorMapData = nullptr,
-    bool decodeTextures = true,
+    bool decodeAllTextures = true,
     const MapLoadProgressPump &progressPump = {},
     MapAssetLoadSharedCache *pSharedCache = nullptr
 )
@@ -3202,7 +3141,7 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
         return std::nullopt;
     }
 
-    if (decodeTextures)
+    if (decodeAllTextures)
     {
         const Engine::AssetScaleTier spriteAssetScaleTier =
             assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Sprites);
@@ -3226,24 +3165,6 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
             billboardSet.textures.push_back(std::move(texture));
         }
     }
-    else if (!textureRequests.empty())
-    {
-        const Engine::AssetScaleTier spriteAssetScaleTier =
-            assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Sprites);
-        const std::vector<BitmapTextureRequest> asyncTextureRequests = textureRequests;
-        const std::string worldId = map.worldId;
-        billboardSet.texturePreloadFuture =
-            std::async(
-                std::launch::async,
-                [&assetFileSystem, asyncTextureRequests, spriteAssetScaleTier, worldId]()
-                {
-                    return decodeActorBitmapTextureRequests(
-                        assetFileSystem,
-                        asyncTextureRequests,
-                        spriteAssetScaleTier,
-                        worldId);
-                }).share();
-    }
 
     for (const ActorPreviewBillboard &billboard : billboardSet.billboards)
     {
@@ -3255,7 +3176,7 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
             continue;
         }
 
-        if (!decodeTextures)
+        if (!decodeAllTextures)
         {
             ++billboardSet.texturedActorCount;
         }
@@ -3987,26 +3908,7 @@ size_t billboardSetPixelBytes(const std::optional<DecorationBillboardSet> &billb
 
 size_t billboardSetPixelBytes(const std::optional<ActorPreviewBillboardSet> &billboardSet)
 {
-    if (!billboardSet)
-    {
-        return 0;
-    }
-
-    size_t byteCount = texturePixelBytes(billboardSet->textures);
-
-    if (billboardSet->texturePreloadFuture.valid()
-        && billboardSet->texturePreloadFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
-    {
-        const std::shared_ptr<std::vector<OutdoorBitmapTexture>> pTextures =
-            billboardSet->texturePreloadFuture.get();
-
-        if (pTextures != nullptr)
-        {
-            byteCount += texturePixelBytes(*pTextures);
-        }
-    }
-
-    return byteCount;
+    return billboardSet ? texturePixelBytes(billboardSet->textures) : 0;
 }
 
 size_t billboardSetPixelBytes(const std::optional<SpriteObjectBillboardSet> &billboardSet)
@@ -4084,16 +3986,6 @@ void clearMapRenderSourcePixels(MapAssetInfo &mapAssetInfo)
     clearBillboardSetPixels(mapAssetInfo.indoorDecorationBillboardSet);
     clearBillboardSetPixels(mapAssetInfo.indoorActorPreviewBillboardSet);
     clearBillboardSetPixels(mapAssetInfo.indoorSpriteObjectBillboardSet);
-
-    if (mapAssetInfo.outdoorActorPreviewBillboardSet)
-    {
-        mapAssetInfo.outdoorActorPreviewBillboardSet->texturePreloadFuture = {};
-    }
-
-    if (mapAssetInfo.indoorActorPreviewBillboardSet)
-    {
-        mapAssetInfo.indoorActorPreviewBillboardSet->texturePreloadFuture = {};
-    }
 
     if (mapAssetInfo.indoorTextureSet)
     {
@@ -4327,6 +4219,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         assetInfo.outdoorMapData->spawns,
                         bitmapLoadCache,
                         &*assetInfo.outdoorMapData,
+                        // Gameplay streams exact actor frames and viewing angles through OutdoorGameView.
                         purpose != MapLoadPurpose::FullGameplay,
                         progressPump,
                         pSharedCache

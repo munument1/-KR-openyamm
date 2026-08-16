@@ -21,7 +21,6 @@
 
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -535,18 +534,6 @@ bool OutdoorBillboardRenderer::uploadBillboardTexture(OutdoorGameView &view, con
     return true;
 }
 
-bool OutdoorBillboardRenderer::hasActorPreviewTexturePreloadWork(const OutdoorGameView &view)
-{
-    if (view.m_pendingActorPreviewTexturePreload
-        && view.m_nextPendingActorPreviewTextureUploadIndex < view.m_pendingActorPreviewTexturePreload->size())
-    {
-        return true;
-    }
-
-    return view.m_outdoorActorPreviewBillboardSet
-        && view.m_outdoorActorPreviewBillboardSet->texturePreloadFuture.valid();
-}
-
 void OutdoorBillboardRenderer::applyBillboardFogUniforms(OutdoorGameView &view, float renderDistance)
 {
     if (!bgfx::isValid(view.m_outdoorFogColorUniformHandle)
@@ -893,76 +880,18 @@ void OutdoorBillboardRenderer::initializeBillboardResources(OutdoorGameView &vie
 
 }
 
-void OutdoorBillboardRenderer::processActorPreviewTexturePreload(OutdoorGameView &view, size_t maxTextureUploads)
-{
-    if (maxTextureUploads == 0 || !view.m_outdoorActorPreviewBillboardSet)
-    {
-        return;
-    }
-
-    ActorPreviewBillboardSet &billboardSet = *view.m_outdoorActorPreviewBillboardSet;
-
-    if (!view.m_pendingActorPreviewTexturePreload && billboardSet.texturePreloadFuture.valid())
-    {
-        if (billboardSet.texturePreloadFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
-        {
-            return;
-        }
-
-        view.m_pendingActorPreviewTexturePreload = billboardSet.texturePreloadFuture.get();
-        view.m_nextPendingActorPreviewTextureUploadIndex = 0;
-        billboardSet.texturePreloadFuture = {};
-    }
-
-    if (!view.m_pendingActorPreviewTexturePreload)
-    {
-        return;
-    }
-
-    size_t uploadedCount = 0;
-
-    while (uploadedCount < maxTextureUploads
-        && view.m_nextPendingActorPreviewTextureUploadIndex < view.m_pendingActorPreviewTexturePreload->size())
-    {
-        const OutdoorBitmapTexture &texture =
-            (*view.m_pendingActorPreviewTexturePreload)[view.m_nextPendingActorPreviewTextureUploadIndex];
-
-        if (uploadBillboardTexture(view, texture))
-        {
-            ++uploadedCount;
-        }
-
-        ++view.m_nextPendingActorPreviewTextureUploadIndex;
-    }
-
-    if (view.m_nextPendingActorPreviewTextureUploadIndex >= view.m_pendingActorPreviewTexturePreload->size())
-    {
-        view.m_pendingActorPreviewTexturePreload.reset();
-        view.m_nextPendingActorPreviewTextureUploadIndex = 0;
-    }
-}
-
 void OutdoorBillboardRenderer::preloadPendingLevelSpriteTextures(OutdoorGameView &view)
 {
     if (view.m_outdoorActorPreviewBillboardSet)
     {
         ActorPreviewBillboardSet &billboardSet = *view.m_outdoorActorPreviewBillboardSet;
-
-        if (!view.m_pendingActorPreviewTexturePreload && billboardSet.texturePreloadFuture.valid())
-        {
-            view.m_pendingActorPreviewTexturePreload = billboardSet.texturePreloadFuture.get();
-            view.m_nextPendingActorPreviewTextureUploadIndex = 0;
-            billboardSet.texturePreloadFuture = {};
-        }
-
-        processActorPreviewTexturePreload(view, std::numeric_limits<size_t>::max());
         std::vector<OutdoorBitmapTexture>().swap(billboardSet.textures);
     }
 
     preloadPendingSpriteFrameWarmupsParallel(view);
 
-    // Saved state and on-load events can change actor visuals after the map asset set was predicted.
-    // Sweep the final runtime actors while the loading screen is still active.
+    // Saved state and on-load events can change actor visuals after map assets are prepared. Warm only the exact
+    // texture each final runtime actor currently needs; other frames and viewing angles load when first rendered.
     if (view.m_pOutdoorWorldRuntime == nullptr || !view.m_outdoorActorPreviewBillboardSet)
     {
         view.m_spriteLoadCache.binaryFilesByPath.clear();
@@ -982,12 +911,30 @@ void OutdoorBillboardRenderer::preloadPendingLevelSpriteTextures(OutdoorGameView
             continue;
         }
 
-        view.preloadSpriteFrameTextures(spriteFrameTable, pActorState->spriteFrameIndex, nullptr);
+        uint16_t spriteFrameIndex = pActorState->spriteFrameIndex;
+        const size_t animationIndex = static_cast<size_t>(pActorState->animation);
 
-        for (uint16_t actionSpriteFrameIndex : pActorState->actionSpriteFrameIndices)
+        if (animationIndex < pActorState->actionSpriteFrameIndices.size()
+            && pActorState->actionSpriteFrameIndices[animationIndex] != 0)
         {
-            view.preloadSpriteFrameTextures(spriteFrameTable, actionSpriteFrameIndex, nullptr);
+            spriteFrameIndex = pActorState->actionSpriteFrameIndices[animationIndex];
         }
+
+        const uint32_t frameTimeTicks = static_cast<uint32_t>(std::max(0.0f, pActorState->animationTimeTicks));
+        const SpriteFrameEntry *pFrame = spriteFrameTable.getFrame(spriteFrameIndex, frameTimeTicks);
+
+        if (pFrame == nullptr)
+        {
+            continue;
+        }
+
+        const float angleToCamera = std::atan2(
+            static_cast<float>(pActorState->y) - view.m_cameraTargetY,
+            static_cast<float>(pActorState->x) - view.m_cameraTargetX);
+        const float octantAngle = pActorState->yawRadians - angleToCamera + Pi + (Pi / 8.0f);
+        const int octant = static_cast<int>(std::floor(octantAngle / (Pi / 4.0f))) & 7;
+        const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, octant);
+        ensureSpriteBillboardTexture(view, resolvedTexture.textureName, pFrame->paletteId, "level_warmup");
     }
 
     view.m_spriteLoadCache.binaryFilesByPath.clear();
@@ -1064,9 +1011,9 @@ void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
 
             std::optional<uint16_t> directEventId;
 
-            if (view.m_outdoorMapData && billboard.entityIndex < view.m_outdoorMapData->entities.size())
+            if (view.m_pOutdoorMapData && billboard.entityIndex < view.m_pOutdoorMapData->entities.size())
             {
-                const OutdoorEntity &entity = view.m_outdoorMapData->entities[billboard.entityIndex];
+                const OutdoorEntity &entity = view.m_pOutdoorMapData->entities[billboard.entityIndex];
                 if (entity.eventIdSecondary != 0)
                 {
                     directEventId = entity.eventIdSecondary;
@@ -1157,9 +1104,9 @@ void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
             candidate.inspectHit.decorationId = billboard.decorationId;
             candidate.inspectHit.distance = cameraDepth;
 
-            if (view.m_outdoorMapData && billboard.entityIndex < view.m_outdoorMapData->entities.size())
+            if (view.m_pOutdoorMapData && billboard.entityIndex < view.m_pOutdoorMapData->entities.size())
             {
-                const OutdoorEntity &entity = view.m_outdoorMapData->entities[billboard.entityIndex];
+                const OutdoorEntity &entity = view.m_pOutdoorMapData->entities[billboard.entityIndex];
                 candidate.inspectHit.eventIdPrimary = entity.eventIdPrimary;
                 candidate.inspectHit.eventIdSecondary = entity.eventIdSecondary;
             }
@@ -1572,92 +1519,6 @@ void OutdoorBillboardRenderer::queueEventBillboardTextureWarmup(
     }
 }
 
-void OutdoorBillboardRenderer::queueRuntimeActorBillboardTextureWarmup(OutdoorGameView &view)
-{
-    if (hasActorPreviewTexturePreloadWork(view))
-    {
-        return;
-    }
-
-    if (view.m_pOutdoorWorldRuntime == nullptr || !view.m_outdoorActorPreviewBillboardSet)
-    {
-        return;
-    }
-
-    const size_t actorCount = view.m_pOutdoorWorldRuntime->mapActorCount();
-
-    if (view.m_runtimeActorBillboardTexturesQueuedCount == 0 && actorCount > 0)
-    {
-        std::vector<size_t> actorIndices(actorCount);
-
-        for (size_t actorIndex = 0; actorIndex < actorCount; ++actorIndex)
-        {
-            actorIndices[actorIndex] = actorIndex;
-        }
-
-        std::sort(
-            actorIndices.begin(),
-            actorIndices.end(),
-            [&view](size_t left, size_t right)
-            {
-                const OutdoorWorldRuntime::MapActorState *pLeft = view.m_pOutdoorWorldRuntime->mapActorState(left);
-                const OutdoorWorldRuntime::MapActorState *pRight = view.m_pOutdoorWorldRuntime->mapActorState(right);
-
-                if (pLeft == nullptr || pRight == nullptr)
-                {
-                    return left < right;
-                }
-
-                const float leftDeltaX = static_cast<float>(pLeft->x) - view.m_cameraTargetX;
-                const float leftDeltaY = static_cast<float>(pLeft->y) - view.m_cameraTargetY;
-                const float leftDistanceSquared = leftDeltaX * leftDeltaX + leftDeltaY * leftDeltaY;
-                const float rightDeltaX = static_cast<float>(pRight->x) - view.m_cameraTargetX;
-                const float rightDeltaY = static_cast<float>(pRight->y) - view.m_cameraTargetY;
-                const float rightDistanceSquared = rightDeltaX * rightDeltaX + rightDeltaY * rightDeltaY;
-                return leftDistanceSquared < rightDistanceSquared;
-            });
-
-        for (size_t actorIndex : actorIndices)
-        {
-            const OutdoorWorldRuntime::MapActorState *pActorState = view.m_pOutdoorWorldRuntime->mapActorState(actorIndex);
-
-            if (pActorState == nullptr)
-            {
-                continue;
-            }
-
-            view.queueSpriteFrameWarmup(pActorState->spriteFrameIndex);
-
-            for (uint16_t actionSpriteFrameIndex : pActorState->actionSpriteFrameIndices)
-            {
-                view.queueSpriteFrameWarmup(actionSpriteFrameIndex);
-            }
-        }
-
-        view.m_runtimeActorBillboardTexturesQueuedCount = actorCount;
-        return;
-    }
-
-    for (size_t actorIndex = view.m_runtimeActorBillboardTexturesQueuedCount; actorIndex < actorCount; ++actorIndex)
-    {
-        const OutdoorWorldRuntime::MapActorState *pActorState = view.m_pOutdoorWorldRuntime->mapActorState(actorIndex);
-
-        if (pActorState == nullptr)
-        {
-            continue;
-        }
-
-        view.queueSpriteFrameWarmup(pActorState->spriteFrameIndex);
-
-        for (uint16_t actionSpriteFrameIndex : pActorState->actionSpriteFrameIndices)
-        {
-            view.queueSpriteFrameWarmup(actionSpriteFrameIndex);
-        }
-    }
-
-    view.m_runtimeActorBillboardTexturesQueuedCount = actorCount;
-}
-
 void OutdoorBillboardRenderer::preloadPendingSpriteFrameWarmupsParallel(OutdoorGameView &view)
 {
     if (view.m_pendingSpriteFrameWarmups.empty() || view.m_pAssetFileSystem == nullptr)
@@ -2047,7 +1908,8 @@ const OutdoorGameView::BillboardTextureHandle *OutdoorBillboardRenderer::ensureS
     view.m_billboardTextureHandles.push_back(std::move(billboardTexture));
     view.m_billboardTextureIndexByPalette[paletteId][view.m_billboardTextureHandles.back().textureName] =
         view.m_billboardTextureHandles.size() - 1;
-    logLoadResult("loaded", textureWidth, textureHeight);
+    // Successful runtime loads are expected now that outdoor actor sprites stream on demand.
+    // logLoadResult("loaded", textureWidth, textureHeight);
     return &view.m_billboardTextureHandles.back();
 }
 
@@ -2068,7 +1930,6 @@ void OutdoorBillboardRenderer::invalidateRenderAssets(OutdoorGameView &view)
     view.m_pendingSpriteFrameWarmups.clear();
     view.m_queuedSpriteFrameWarmups.clear();
     view.m_nextPendingSpriteFrameWarmupIndex = 0;
-    view.m_runtimeActorBillboardTexturesQueuedCount = 0;
 }
 
 void OutdoorBillboardRenderer::destroyRenderAssets(OutdoorGameView &view)
@@ -2640,7 +2501,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             const OutdoorGameView::BillboardTextureHandle *pExistingTexture =
                 view.findBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
             const OutdoorGameView::BillboardTextureHandle *pTexture =
-                pExistingTexture != nullptr || hasActorPreviewTexturePreloadWork(view)
+                pExistingTexture != nullptr
                     ? pExistingTexture
                     : ensureSpriteBillboardTexture(view, resolvedTexture.textureName, pFrame->paletteId);
 

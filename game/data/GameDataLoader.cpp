@@ -3331,6 +3331,9 @@ bool GameDataLoader::loadSelectedMap(
     const MapLoadProgressPump &progressPump
 )
 {
+    m_selectedMap.reset();
+    m_selectedMapRenderSourcePixelsReleased = false;
+    m_lastReleasedMapRenderSourcePixelBytes = 0;
     m_mapAssetLoadSharedCache.clearTransientBitmapData();
     const std::optional<MapStatsEntry> selectedMap = m_mapRegistry.findById(mapId);
 
@@ -3355,9 +3358,6 @@ bool GameDataLoader::loadSelectedMap(
 
     if (!loadedMap)
     {
-        m_selectedMap.reset();
-        m_selectedMapRenderSourcePixelsReleased = false;
-        m_lastReleasedMapRenderSourcePixelBytes = 0;
         std::cerr << "Failed to load initial map asset for " << selectedMap->fileName << '\n';
         return false;
     }

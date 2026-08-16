@@ -20,8 +20,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <future>
-#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -145,7 +143,6 @@ struct ActorPreviewBillboardSet
 {
     SpriteFrameTable spriteFrameTable;
     std::vector<OutdoorBitmapTexture> textures;
-    std::shared_future<std::shared_ptr<std::vector<OutdoorBitmapTexture>>> texturePreloadFuture;
     std::vector<ActorPreviewBillboard> billboards;
     size_t mapDeltaActorCount = 0;
     size_t spawnActorCount = 0;

@@ -139,7 +139,7 @@ void OutdoorGameplayInputController::updateCameraFromInput(
         }
     }
 
-    if (view.m_outdoorMapData)
+    if (view.m_pOutdoorMapData)
     {
         if (view.m_pOutdoorPartyRuntime)
         {

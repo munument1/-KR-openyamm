@@ -16,8 +16,6 @@ class OutdoorBillboardRenderer
 public:
     static void initializeBillboardResources(OutdoorGameView &view);
     static void queueEventBillboardTextureWarmup(OutdoorGameView &view, const ScriptedEventProgram &eventProgram);
-    static void queueRuntimeActorBillboardTextureWarmup(OutdoorGameView &view);
-    static void processActorPreviewTexturePreload(OutdoorGameView &view, size_t maxTextureUploads);
     static void preloadPendingLevelSpriteTextures(OutdoorGameView &view);
     static void preloadPendingSpriteFrameWarmupsParallel(OutdoorGameView &view);
     static void processPendingSpriteFrameWarmups(OutdoorGameView &view, size_t maxSpriteFrames);
@@ -76,7 +74,6 @@ public:
 
 private:
     static bool uploadBillboardTexture(OutdoorGameView &view, const OutdoorBitmapTexture &texture);
-    static bool hasActorPreviewTexturePreloadWork(const OutdoorGameView &view);
     static void appendWorldQuadVertices(
         std::vector<OutdoorGameView::TerrainVertex> &vertices,
         const bx::Vec3 &center,

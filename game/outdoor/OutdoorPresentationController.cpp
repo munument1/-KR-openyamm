@@ -137,7 +137,7 @@ void OutdoorPresentationController::consumePendingWorldAudioEvents(OutdoorGameVi
 
 void OutdoorPresentationController::updateFootstepAudio(OutdoorGameView &view, float deltaSeconds)
 {
-    if (deltaSeconds <= 0.0f || view.m_pGameAudioSystem == nullptr || view.m_pOutdoorPartyRuntime == nullptr || !view.m_outdoorMapData)
+    if (deltaSeconds <= 0.0f || view.m_pGameAudioSystem == nullptr || view.m_pOutdoorPartyRuntime == nullptr || !view.m_pOutdoorMapData)
     {
         return;
     }
@@ -201,14 +201,14 @@ void OutdoorPresentationController::updateFootstepAudio(OutdoorGameView &view, f
     const auto chooseBModelFootstepSound =
         [&view, running, &moveState]() -> SoundId
         {
-            if (!view.m_outdoorMapData
+            if (!view.m_pOutdoorMapData
                 || moveState.supportKind != OutdoorSupportKind::BModelFace
-                || moveState.supportBModelIndex >= view.m_outdoorMapData->bmodels.size())
+                || moveState.supportBModelIndex >= view.m_pOutdoorMapData->bmodels.size())
             {
                 return running ? SoundId::RunStone : SoundId::WalkStone;
             }
 
-            const OutdoorBModel &bmodel = view.m_outdoorMapData->bmodels[moveState.supportBModelIndex];
+            const OutdoorBModel &bmodel = view.m_pOutdoorMapData->bmodels[moveState.supportBModelIndex];
 
             if (moveState.supportFaceIndex >= bmodel.faces.size())
             {
@@ -243,13 +243,13 @@ void OutdoorPresentationController::updateFootstepAudio(OutdoorGameView &view, f
     const auto chooseTerrainFootstepSound =
         [&view, running, &moveState]() -> SoundId
         {
-            if (!view.m_outdoorMapData || moveState.supportKind != OutdoorSupportKind::Terrain)
+            if (!view.m_pOutdoorMapData || moveState.supportKind != OutdoorSupportKind::Terrain)
             {
                 return running ? SoundId::RunGrass : SoundId::WalkGrass;
             }
 
             const std::optional<uint8_t> terrainTileId =
-                sampleOutdoorTerrainTileId(*view.m_outdoorMapData, moveState.x, moveState.y);
+                sampleOutdoorTerrainTileId(*view.m_pOutdoorMapData, moveState.x, moveState.y);
 
             if (!terrainTileId.has_value())
             {
@@ -257,7 +257,7 @@ void OutdoorPresentationController::updateFootstepAudio(OutdoorGameView &view, f
             }
 
             const std::optional<SoundId> overrideSoundId =
-                terrainFootstepSoundOverride(*view.m_outdoorMapData, *terrainTileId, running);
+                terrainFootstepSoundOverride(*view.m_pOutdoorMapData, *terrainTileId, running);
 
             if (overrideSoundId)
             {

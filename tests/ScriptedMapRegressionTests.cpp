@@ -8088,7 +8088,7 @@ TEST_CASE("full gameplay map load preloads object sprites that are not placed in
     CHECK(foundAnimationEnd);
 }
 
-TEST_CASE("full gameplay New Sorpigal load prepares actor animation textures")
+TEST_CASE("full gameplay New Sorpigal load keeps outdoor actor textures lazy")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
     const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedOutdoorMapWithCompanionOptions(
@@ -8105,28 +8105,28 @@ TEST_CASE("full gameplay New Sorpigal load prepares actor animation textures")
 
     const OpenYAMM::Game::ActorPreviewBillboardSet &billboardSet =
         *pLoadedMap->outdoorActorPreviewBillboardSet;
-    REQUIRE(billboardSet.texturePreloadFuture.valid());
-    const std::shared_ptr<std::vector<OpenYAMM::Game::OutdoorBitmapTexture>> pTextures =
-        billboardSet.texturePreloadFuture.get();
-    REQUIRE(pTextures != nullptr);
+    CHECK(billboardSet.textures.empty());
+    REQUIRE_FALSE(billboardSet.billboards.empty());
 
-    const auto textureLoaded =
-        [&pTextures](const std::string &textureName, int16_t paletteId)
+    bool resolvedActorTexture = false;
+
+    for (const OpenYAMM::Game::ActorPreviewBillboard &billboard : billboardSet.billboards)
+    {
+        const OpenYAMM::Game::SpriteFrameEntry *pFrame =
+            billboardSet.spriteFrameTable.getFrame(billboard.spriteFrameIndex, 0);
+
+        if (pFrame == nullptr)
         {
-            return std::any_of(
-                pTextures->begin(),
-                pTextures->end(),
-                [&](const OpenYAMM::Game::OutdoorBitmapTexture &texture)
-                {
-                    return texture.textureName == textureName && texture.paletteId == paletteId;
-                });
-        };
+            continue;
+        }
 
-    CHECK(textureLoaded("pfemwae2", 788));
-    CHECK(textureLoaded("pmanwae2", 799));
-    CHECK(textureLoaded("guawalf2", 748));
-    CHECK(textureLoaded("pmn2sta0", 802));
-    CHECK(textureLoaded("pmn2sta0", 803));
+        const OpenYAMM::Game::ResolvedSpriteTexture resolvedTexture =
+            OpenYAMM::Game::SpriteFrameTable::resolveTexture(*pFrame, 0);
+        CHECK_FALSE(resolvedTexture.textureName.empty());
+        resolvedActorTexture = true;
+    }
+
+    CHECK(resolvedActorTexture);
 
     REQUIRE(pLoadedMap->outdoorDecorationBillboardSet.has_value());
     const OpenYAMM::Game::DecorationBillboardSet &decorationSet =
@@ -8149,6 +8149,29 @@ TEST_CASE("full gameplay New Sorpigal load prepares actor animation textures")
     CHECK(decorationTextureLoaded("shp1", 547));
     CHECK(decorationTextureLoaded("searka06", 873));
     CHECK(decorationTextureLoaded("searkb05", 873));
+}
+
+TEST_CASE("full gameplay Dagger Wound load does not decode predicted actor textures")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedOutdoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "out01.odm",
+        OpenYAMM::Game::MapLoadPurpose::FullGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->outdoorActorPreviewBillboardSet.has_value());
+
+    const OpenYAMM::Game::ActorPreviewBillboardSet &billboardSet =
+        *pLoadedMap->outdoorActorPreviewBillboardSet;
+    CHECK(billboardSet.textures.empty());
+    CHECK_FALSE(billboardSet.billboards.empty());
+    CHECK_EQ(billboardSet.texturedActorCount, billboardSet.billboards.size());
+    CHECK_EQ(billboardSet.missingTextureActorCount, 0);
 }
 
 TEST_CASE("mm6 darkmoor indoor decoration billboards keep editor room ownership")

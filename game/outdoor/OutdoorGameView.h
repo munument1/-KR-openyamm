@@ -84,13 +84,6 @@ class ItemTable;
 struct GameApplicationTestAccess;
 struct ItemDefinition;
 
-struct TerrainTextureAtlasMipPixels
-{
-    int width = 0;
-    int height = 0;
-    std::vector<uint8_t> pixels;
-};
-
 class OutdoorGameView
     : public IGameplayOverlaySceneAdapter
 {
@@ -589,7 +582,7 @@ private:
     bool m_isInitialized;
     bool m_isRenderable;
     std::optional<MapStatsEntry> m_map;
-    std::optional<OutdoorMapData> m_outdoorMapData;
+    const OutdoorMapData *m_pOutdoorMapData;
     std::optional<DecorationBillboardSet> m_outdoorDecorationBillboardSet;
     std::optional<ActorPreviewBillboardSet> m_outdoorActorPreviewBillboardSet;
     std::optional<SpriteObjectBillboardSet> m_outdoorSpriteObjectBillboardSet;
@@ -616,7 +609,6 @@ private:
     bgfx::ProgramHandle m_outdoorTexturedFogProgramHandle;
     bgfx::ProgramHandle m_outdoorForcePerspectiveProgramHandle;
     bgfx::TextureHandle m_terrainTextureAtlasHandle;
-    std::vector<TerrainTextureAtlasMipPixels> m_terrainTextureAtlasMipPixels;
     int m_terrainTextureAtlasWidth = 0;
     int m_terrainTextureAtlasHeight = 0;
     bgfx::TextureHandle m_bloodSplatTextureHandle;
@@ -709,8 +701,6 @@ private:
     std::vector<ForcePerspectiveVertex> m_cachedSkyVertices;
     std::string m_cachedSkyTextureName;
     float m_lastSkyUpdateElapsedTime = -1.0f;
-    std::shared_ptr<std::vector<OutdoorBitmapTexture>> m_pendingActorPreviewTexturePreload;
-    size_t m_nextPendingActorPreviewTextureUploadIndex = 0;
     std::vector<AnimatedWaterTerrainTileState> m_animatedWaterTerrainTiles;
     std::optional<uint32_t> m_lastAnimatedWaterAnimationTicks;
     SpriteLoadCache m_spriteLoadCache;
@@ -718,7 +708,6 @@ private:
     std::vector<uint16_t> m_pendingSpriteFrameWarmups;
     std::vector<bool> m_queuedSpriteFrameWarmups;
     size_t m_nextPendingSpriteFrameWarmupIndex;
-    size_t m_runtimeActorBillboardTexturesQueuedCount;
     uint64_t m_renderableStartTickNanoseconds = 0;
     uint64_t m_renderFrameIndex = 0;
     WorldFxSystem m_worldFxSystem;

@@ -631,7 +631,7 @@ private:
     std::optional<MonsterTable> m_monsterTable;
     std::optional<ObjectTable> m_objectTable;
     const ItemTable *m_pItemTable = nullptr;
-    std::optional<IndoorMapData> m_indoorMapData;
+    const IndoorMapData *m_pIndoorMapData;
     std::optional<IndoorPortalGraph> m_indoorPortalGraph;
     std::vector<IndoorVertex> m_renderVertices;
     std::vector<std::vector<uint16_t>> m_neighboringSectorIds;

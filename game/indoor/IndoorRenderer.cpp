@@ -2616,7 +2616,7 @@ std::array<float, 4> IndoorRenderer::billboardLightingUniform(
 IndoorRenderer::IndoorRenderer()
     : m_isInitialized(false)
     , m_isRenderable(false)
-    , m_indoorMapData(std::nullopt)
+    , m_pIndoorMapData(nullptr)
     , m_wireframeVertexBufferHandle(BGFX_INVALID_HANDLE)
     , m_portalVertexBufferHandle(BGFX_INVALID_HANDLE)
     , m_entityMarkerVertexBufferHandle(BGFX_INVALID_HANDLE)
@@ -2694,7 +2694,7 @@ bool IndoorRenderer::initialize(
     m_monsterTable = monsterTable;
     m_objectTable = objectTable;
     m_pItemTable = &itemTable;
-    m_indoorMapData = indoorMapData;
+    m_pIndoorMapData = &indoorMapData;
     m_billboardLightingCache.clear();
     clearPortalVisibilityCaches();
     m_pSceneRuntime = &sceneRuntime;
@@ -3069,7 +3069,7 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &came
     const bool collectDiagnostics = m_logIndoorPerformanceDiagnostics;
     const uint64_t totalBeginTickCount = collectDiagnostics ? SDL_GetTicksNS() : 0;
 
-    if (!m_indoorMapData || m_indoorMapData->sectors.empty())
+    if (!m_pIndoorMapData || m_pIndoorMapData->sectors.empty())
     {
         return {};
     }
@@ -3079,7 +3079,7 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &came
     if (m_pSceneRuntime != nullptr)
     {
         const IndoorMoveState &moveState = m_pSceneRuntime->partyRuntime().movementState();
-        const size_t sectorCount = m_indoorMapData->sectors.size();
+        const size_t sectorCount = m_pIndoorMapData->sectors.size();
 
         if (moveState.eyeSectorId >= 0 && static_cast<size_t>(moveState.eyeSectorId) < sectorCount)
         {
@@ -3107,7 +3107,7 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &came
 
     if (cache.valid
         && cache.sectorId == startSectorId
-        && cache.visibleSectorMask.size() == m_indoorMapData->sectors.size()
+        && cache.visibleSectorMask.size() == m_pIndoorMapData->sectors.size()
         && cache.cameraX == cameraPosition.x
         && cache.cameraY == cameraPosition.y
         && cache.cameraZ == cameraPosition.z
@@ -3132,10 +3132,10 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &came
     const float cosYaw = std::cos(m_cameraYawRadians);
     const float sinYaw = std::sin(m_cameraYawRadians);
     IndoorPortalVisibilityInput input = {};
-    input.pMapData = &m_indoorMapData.value();
+    input.pMapData = m_pIndoorMapData;
     input.pPortalGraph = m_indoorPortalGraph ? &m_indoorPortalGraph.value() : nullptr;
     input.pVertices = &m_renderVertices;
-    input.pPortalVertices = &m_indoorMapData->vertices;
+    input.pPortalVertices = &m_pIndoorMapData->vertices;
     input.pMapDeltaData = mapDeltaData ? &mapDeltaData.value() : nullptr;
     input.pEventRuntimeState = &eventRuntimeState;
     input.cameraPosition = cameraPosition;
@@ -3194,7 +3194,7 @@ void IndoorRenderer::logIndoorVisibilityDiagnostics(
     constexpr uint32_t LogIntervalMs = 1000;
 
     if (currentTick - m_lastVisibilityDiagnosticsLogTick < LogIntervalMs
-        || !m_indoorMapData
+        || !m_pIndoorMapData
         || m_pSceneRuntime == nullptr)
     {
         return;
@@ -3601,14 +3601,14 @@ std::vector<int16_t> IndoorRenderer::visibleIndoorMapRevealSectorIds(int16_t sec
 {
     std::vector<int16_t> sectorIds;
 
-    if (!m_indoorMapData)
+    if (!m_pIndoorMapData)
     {
         return sectorIds;
     }
 
     const auto appendSectorId = [&](int16_t candidateSectorId)
     {
-        if (candidateSectorId < 0 || static_cast<size_t>(candidateSectorId) >= m_indoorMapData->sectors.size())
+        if (candidateSectorId < 0 || static_cast<size_t>(candidateSectorId) >= m_pIndoorMapData->sectors.size())
         {
             return;
         }
@@ -3731,12 +3731,12 @@ std::vector<int16_t> IndoorRenderer::visibleIndoorMapRevealSectorIds(int16_t sec
 
     const auto portalFaceOnScreen = [&](uint16_t faceId) -> bool
     {
-        if (faceId >= m_indoorMapData->faces.size())
+        if (faceId >= m_pIndoorMapData->faces.size())
         {
             return false;
         }
 
-        const IndoorFace &face = m_indoorMapData->faces[faceId];
+        const IndoorFace &face = m_pIndoorMapData->faces[faceId];
 
         if (!face.isPortal
             || face.vertexIndices.empty()
@@ -4067,7 +4067,7 @@ void IndoorRenderer::render(
         collectRenderDiagnostics ? &m_indoorPerformanceDiagnostics.lightingStats : nullptr;
     const uint64_t lightingBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     IndoorLightingFrameInput lightingInput = {};
-    lightingInput.pMapData = m_indoorMapData ? &m_indoorMapData.value() : nullptr;
+    lightingInput.pMapData = m_pIndoorMapData;
     lightingInput.pEventRuntimeState = runtimeEventRuntimeState();
     lightingInput.pDecorationBillboardSet =
         m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr;
@@ -4116,7 +4116,7 @@ void IndoorRenderer::render(
     float mouseX = input.pointerX;
     float mouseY = input.pointerY;
 
-    if (m_indoorMapData)
+    if (m_pIndoorMapData)
     {
         if (m_gameplayMouseLookEnabled && !m_gameplayCursorMode)
         {
@@ -4163,7 +4163,7 @@ void IndoorRenderer::render(
             {
                 const std::vector<uint8_t> interactionVisibleSectorMask = buildVisibleSectorMask(eye);
                 m_cachedInspectHit = inspectAtCursor(
-                    *m_indoorMapData,
+                    *m_pIndoorMapData,
                     m_renderVertices,
                     interactionVisibleSectorMask,
                     rayOrigin,
@@ -4614,7 +4614,7 @@ IndoorRenderer::gameplayActorPickAtCursor(
 {
     if (!m_isInitialized
         || !m_isRenderable
-        || !m_indoorMapData
+        || !m_pIndoorMapData
         || m_pSceneRuntime == nullptr
         || viewWidth <= 0
         || viewHeight <= 0)
@@ -4859,7 +4859,7 @@ IndoorRenderer::gameplayActorPickAtCursor(
     }
 
     const InspectHit inspectHit =
-        inspectAtCursor(*m_indoorMapData, m_renderVertices, visibleSectorMask, rayOrigin, rayDirection);
+        inspectAtCursor(*m_pIndoorMapData, m_renderVertices, visibleSectorMask, rayOrigin, rayDirection);
 
     if (!inspectHit.hasHit || inspectHit.kind != "actor")
     {
@@ -5003,7 +5003,7 @@ std::optional<IndoorRenderer::InspectHit> IndoorRenderer::inspectGameplayWorldHi
 {
     if (!m_isInitialized
         || !m_isRenderable
-        || !m_indoorMapData
+        || !m_pIndoorMapData
         || request.viewWidth <= 0
         || request.viewHeight <= 0)
     {
@@ -5031,7 +5031,7 @@ std::optional<IndoorRenderer::InspectHit> IndoorRenderer::inspectGameplayWorldHi
 
     const std::vector<uint8_t> visibleSectorMask = buildVisibleSectorMask(rayRequest.eye);
     return inspectAtCursor(
-        *m_indoorMapData,
+        *m_pIndoorMapData,
         m_renderVertices,
         visibleSectorMask,
         rayRequest.rayOrigin,
@@ -5168,7 +5168,7 @@ uint16_t IndoorRenderer::inspectHitEventId(const InspectHit &inspectHit) const
 
         const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
 
-        if (!m_indoorMapData || pEventRuntimeState == nullptr)
+        if (!m_pIndoorMapData || pEventRuntimeState == nullptr)
         {
             return 0;
         }
@@ -5344,7 +5344,7 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
 
     if (!m_isInitialized
         || !m_isRenderable
-        || !m_indoorMapData
+        || !m_pIndoorMapData
         || rayRequest.viewWidth <= 0
         || rayRequest.viewHeight <= 0)
     {
@@ -5379,13 +5379,13 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
 
             const bx::Vec3 rayDirection = vecNormalize(toPoint);
 
-            for (size_t faceIndex = 0; faceIndex < m_indoorMapData->faces.size(); ++faceIndex)
+            for (size_t faceIndex = 0; faceIndex < m_pIndoorMapData->faces.size(); ++faceIndex)
             {
-                const IndoorFace &face = m_indoorMapData->faces[faceIndex];
+                const IndoorFace &face = m_pIndoorMapData->faces[faceIndex];
 
                 if (face.vertexIndices.size() < 3
                     || face.isPortal
-                    || indoorFaceMarkedAsCeiling(*m_indoorMapData, faceIndex, face)
+                    || indoorFaceMarkedAsCeiling(*m_pIndoorMapData, faceIndex, face)
                     || hasFaceAttribute(face.attributes, FaceAttribute::IsPortal)
                     || !isFaceVisible(faceIndex, face, runtimeMapDeltaData(), runtimeEventRuntimeStateStorage())
                     || (!visibleSectorMask.empty()
@@ -5616,9 +5616,9 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
         }
     }
 
-    for (size_t faceIndex = 0; faceIndex < m_indoorMapData->faces.size(); ++faceIndex)
+    for (size_t faceIndex = 0; faceIndex < m_pIndoorMapData->faces.size(); ++faceIndex)
     {
-        const IndoorFace &face = m_indoorMapData->faces[faceIndex];
+        const IndoorFace &face = m_pIndoorMapData->faces[faceIndex];
 
         if (face.vertexIndices.empty()
             || (face.cogTriggered == 0 && face.cogNumber == 0)
@@ -5687,9 +5687,9 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
         appendProjectedWorldHitCandidate(center, worldHit, KeyboardEventFaceScreenRadius);
     }
 
-    if (m_indoorMapData)
+    if (m_pIndoorMapData)
     {
-        for (const IndoorEntity &entity : m_indoorMapData->entities)
+        for (const IndoorEntity &entity : m_pIndoorMapData->entities)
         {
             appendProjectedCandidate(
                 {
@@ -5744,12 +5744,12 @@ GameplayWorldHit IndoorRenderer::pickKeyboardGameplayWorldHit(const GameplayWorl
 
             for (uint16_t faceId : door.faceIds)
             {
-                if (faceId >= m_indoorMapData->faces.size())
+                if (faceId >= m_pIndoorMapData->faces.size())
                 {
                     continue;
                 }
 
-                const IndoorFace &face = m_indoorMapData->faces[faceId];
+                const IndoorFace &face = m_pIndoorMapData->faces[faceId];
 
                 if (indoorFaceHasActualEvent(m_pSceneRuntime, face)
                     && isFaceVisible(faceId, face, runtimeMapDeltaData(), runtimeEventRuntimeStateStorage()))
@@ -6232,7 +6232,7 @@ bool IndoorRenderer::canActivateGameplayWorldHit(const GameplayWorldHit &hit) co
 
         if (eventTarget.targetKind == GameplayWorldEventTargetKind::Surface)
         {
-            if (!m_indoorMapData)
+            if (!m_pIndoorMapData)
             {
                 return false;
             }
@@ -6242,12 +6242,12 @@ bool IndoorRenderer::canActivateGameplayWorldHit(const GameplayWorldHit &hit) co
                     ? eventTarget.secondaryIndex
                     : eventTarget.targetIndex;
 
-            if (faceIndex >= m_indoorMapData->faces.size())
+            if (faceIndex >= m_pIndoorMapData->faces.size())
             {
                 return false;
             }
 
-            const IndoorFace &face = m_indoorMapData->faces[faceIndex];
+            const IndoorFace &face = m_pIndoorMapData->faces[faceIndex];
             const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
             const uint32_t effectiveAttributes =
                 mapDeltaData && faceIndex < mapDeltaData->faceAttributes.size()
@@ -6257,7 +6257,7 @@ bool IndoorRenderer::canActivateGameplayWorldHit(const GameplayWorldHit &hit) co
             if (!indoorFaceHasActualEvent(m_pSceneRuntime, face)
                 || !isFaceVisible(faceIndex, face, runtimeMapDeltaData(), runtimeEventRuntimeStateStorage())
                 || indoorFaceSuppressedForContextAction(
-                    *m_indoorMapData,
+                    *m_pIndoorMapData,
                     faceIndex,
                     face,
                     effectiveAttributes,
@@ -6332,7 +6332,7 @@ bool IndoorRenderer::activateGameplayWorldHit(const GameplayWorldHit &hit)
 
 void IndoorRenderer::shutdown()
 {
-    m_indoorMapData.reset();
+    m_pIndoorMapData = nullptr;
     m_indoorPortalGraph.reset();
     m_indoorLightingRuntime.clearStaticCache();
     m_billboardLightingCache.clear();
@@ -6624,7 +6624,7 @@ const EventRuntimeState *IndoorRenderer::runtimeEventRuntimeState() const
 
 void IndoorRenderer::rebuildIndoorRenderMemberships()
 {
-    const size_t sectorCount = m_indoorMapData ? m_indoorMapData->sectors.size() : 0;
+    const size_t sectorCount = m_pIndoorMapData ? m_pIndoorMapData->sectors.size() : 0;
     m_decorationBillboardIndicesBySector.assign(sectorCount, {});
     m_staticSpriteObjectBillboardIndicesBySector.assign(sectorCount, {});
 
@@ -9219,7 +9219,7 @@ void IndoorRenderer::renderContextActionGeometryHighlight(
     if (pHit == nullptr
         || pHit->kind != GameplayWorldHitKind::EventTarget
         || !pHit->eventTarget.has_value()
-        || !m_indoorMapData
+        || !m_pIndoorMapData
         || !bgfx::isValid(m_programHandle))
     {
         return;
@@ -9238,7 +9238,7 @@ void IndoorRenderer::renderContextActionGeometryHighlight(
         const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
 
         if (eventTarget.secondaryIndex != GameplayInvalidWorldIndex
-            && eventTarget.secondaryIndex < m_indoorMapData->faces.size())
+            && eventTarget.secondaryIndex < m_pIndoorMapData->faces.size())
         {
             faceIndices.push_back(eventTarget.secondaryIndex);
         }
@@ -9266,18 +9266,18 @@ void IndoorRenderer::renderContextActionGeometryHighlight(
     const uint32_t color = contextActionGeometryHighlightColor(m_elapsedTime);
     std::vector<TerrainVertex> highlightVertices;
     highlightVertices.reserve(faceIndices.size() * 12);
-    IndoorFaceGeometryCache geometryCache(m_indoorMapData->faces.size());
+    IndoorFaceGeometryCache geometryCache(m_pIndoorMapData->faces.size());
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
     geometryCache.setAttributeOverrides(mapDeltaData ? &*mapDeltaData : nullptr);
 
     for (size_t faceIndex : faceIndices)
     {
-        if (faceIndex >= m_indoorMapData->faces.size())
+        if (faceIndex >= m_pIndoorMapData->faces.size())
         {
             continue;
         }
 
-        const IndoorFace &face = m_indoorMapData->faces[faceIndex];
+        const IndoorFace &face = m_pIndoorMapData->faces[faceIndex];
 
         if (!indoorFaceHasActualEvent(m_pSceneRuntime, face))
         {
@@ -9286,13 +9286,13 @@ void IndoorRenderer::renderContextActionGeometryHighlight(
 
         if (eventTarget.targetKind == GameplayWorldEventTargetKind::Mechanism)
         {
-            if (face.facetType == 3 || indoorFaceMarkedAsCeiling(*m_indoorMapData, faceIndex, face))
+            if (face.facetType == 3 || indoorFaceMarkedAsCeiling(*m_pIndoorMapData, faceIndex, face))
             {
                 continue;
             }
         }
         else if (indoorFaceSuppressedForContextAction(
-                *m_indoorMapData,
+                *m_pIndoorMapData,
                 faceIndex,
                 face,
                 eventTarget.attributes,
@@ -9303,7 +9303,7 @@ void IndoorRenderer::renderContextActionGeometryHighlight(
         }
 
         const IndoorFaceGeometryData *pGeometry =
-            geometryCache.geometryForFace(*m_indoorMapData, m_renderVertices, faceIndex);
+            geometryCache.geometryForFace(*m_pIndoorMapData, m_renderVertices, faceIndex);
 
         if (pGeometry == nullptr || pGeometry->vertices.size() < 3)
         {
@@ -9445,7 +9445,7 @@ void IndoorRenderer::rebuildMechanismBindings()
     const std::optional<ScriptedEventProgram> &globalEventProgram =
         m_pSceneRuntime != nullptr ? m_pSceneRuntime->globalEventProgram() : std::optional<ScriptedEventProgram>{};
 
-    if (!mapDeltaData || !m_indoorMapData)
+    if (!mapDeltaData || !m_pIndoorMapData)
     {
         return;
     }
@@ -9463,7 +9463,7 @@ void IndoorRenderer::rebuildMechanismBindings()
 
         for (uint16_t faceId : door.faceIds)
         {
-            if (faceId >= m_indoorMapData->faces.size())
+            if (faceId >= m_pIndoorMapData->faces.size())
             {
                 continue;
             }
@@ -9475,7 +9475,7 @@ void IndoorRenderer::rebuildMechanismBindings()
 
             ++shownFaceCount;
 
-            const IndoorFace &linkedFace = m_indoorMapData->faces[faceId];
+            const IndoorFace &linkedFace = m_pIndoorMapData->faces[faceId];
 
             if (linkedFace.cogTriggered == 0)
             {
@@ -9541,12 +9541,12 @@ std::vector<size_t> IndoorRenderer::collectMovingMechanismFaceIndices() const
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
     const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
 
-    if (!mapDeltaData || pEventRuntimeState == nullptr || !m_indoorMapData)
+    if (!mapDeltaData || pEventRuntimeState == nullptr || !m_pIndoorMapData)
     {
         return faceIndices;
     }
 
-    std::vector<bool> seen(m_indoorMapData->faces.size(), false);
+    std::vector<bool> seen(m_pIndoorMapData->faces.size(), false);
 
     for (const MapDeltaDoor &door : mapDeltaData->doors)
     {
@@ -9618,12 +9618,12 @@ std::vector<size_t> IndoorRenderer::collectMechanismFaceIndicesForDoorIds(
     std::vector<size_t> faceIndices;
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
 
-    if (!mapDeltaData || !m_indoorMapData || doorIds.empty())
+    if (!mapDeltaData || !m_pIndoorMapData || doorIds.empty())
     {
         return faceIndices;
     }
 
-    std::vector<bool> seen(m_indoorMapData->faces.size(), false);
+    std::vector<bool> seen(m_pIndoorMapData->faces.size(), false);
 
     for (const MapDeltaDoor &door : mapDeltaData->doors)
     {
@@ -9652,12 +9652,12 @@ std::vector<uint8_t> IndoorRenderer::collectMechanismFaceMask() const
     std::vector<uint8_t> faceMask;
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
 
-    if (!mapDeltaData || !m_indoorMapData)
+    if (!mapDeltaData || !m_pIndoorMapData)
     {
         return faceMask;
     }
 
-    faceMask.assign(m_indoorMapData->faces.size(), 0);
+    faceMask.assign(m_pIndoorMapData->faces.size(), 0);
 
     for (const MapDeltaDoor &door : mapDeltaData->doors)
     {
@@ -9675,7 +9675,7 @@ std::vector<uint8_t> IndoorRenderer::collectMechanismFaceMask() const
 
 bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanoseconds)
 {
-    if (!m_indoorTextureSet || !m_indoorMapData)
+    if (!m_indoorTextureSet || !m_pIndoorMapData)
     {
         m_texturedBatches.clear();
         m_indoorLightingSelectionCache.clear();
@@ -9685,8 +9685,8 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
         m_texturedBatchGeometryRevision = currentTexturedBatchGeometryRevision();
         m_bakedStaticLightRevision = currentBakedStaticLightRevision();
         m_bakedStaticLightEnabledStates =
-            m_indoorMapData
-                ? bakedStaticLightEnabledStates(*m_indoorMapData, runtimeEventRuntimeState())
+            m_pIndoorMapData
+                ? bakedStaticLightEnabledStates(*m_pIndoorMapData, runtimeEventRuntimeState())
                 : std::vector<uint8_t>();
         return true;
     }
@@ -9694,29 +9694,29 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
     std::vector<TexturedBatch> previousBatches = std::move(m_texturedBatches);
     m_texturedBatches.clear();
     m_indoorLightingSelectionCache.clear();
-    m_faceBatchIndices.assign(m_indoorMapData->faces.size(), -1);
-    m_faceVertexOffsets.assign(m_indoorMapData->faces.size(), 0);
-    m_faceVertexCounts.assign(m_indoorMapData->faces.size(), 0);
+    m_faceBatchIndices.assign(m_pIndoorMapData->faces.size(), -1);
+    m_faceVertexOffsets.assign(m_pIndoorMapData->faces.size(), 0);
+    m_faceVertexCounts.assign(m_pIndoorMapData->faces.size(), 0);
 
     std::unordered_map<std::string, size_t> batchIndicesByTexture;
     const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
     const std::vector<uint8_t> mechanismFaceMask = collectMechanismFaceMask();
     const std::vector<BakedStaticLightSource> bakedStaticLightSources =
         buildBakedStaticLightSources(
-            *m_indoorMapData,
+            *m_pIndoorMapData,
             eventRuntimeState ? &eventRuntimeState.value() : nullptr,
             m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
             false);
     const std::vector<BakedStaticLightSource> bakedStaticLightSubdivisionSources =
         buildBakedStaticLightSources(
-            *m_indoorMapData,
+            *m_pIndoorMapData,
             eventRuntimeState ? &eventRuntimeState.value() : nullptr,
             m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
             true);
 
-    for (size_t faceIndex = 0; faceIndex < m_indoorMapData->faces.size(); ++faceIndex)
+    for (size_t faceIndex = 0; faceIndex < m_pIndoorMapData->faces.size(); ++faceIndex)
     {
-        const IndoorFace &face = m_indoorMapData->faces[faceIndex];
+        const IndoorFace &face = m_pIndoorMapData->faces[faceIndex];
         const std::string textureName = resolveFaceTextureName(faceIndex, face, eventRuntimeState);
 
         if (face.isPortal || textureName.empty() || face.vertexIndices.size() < 3)
@@ -9731,9 +9731,9 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
 
         const std::string normalizedTextureName = toLowerCopy(textureName);
         const int16_t sectorId =
-            face.roomNumber < m_indoorMapData->sectors.size() ? static_cast<int16_t>(face.roomNumber) : int16_t(-1);
+            face.roomNumber < m_pIndoorMapData->sectors.size() ? static_cast<int16_t>(face.roomNumber) : int16_t(-1);
         const int16_t backSectorId =
-            face.roomBehindNumber < m_indoorMapData->sectors.size()
+            face.roomBehindNumber < m_pIndoorMapData->sectors.size()
                 ? static_cast<int16_t>(face.roomBehindNumber)
                 : int16_t(-1);
         const std::string batchKey = normalizedTextureName
@@ -9866,7 +9866,7 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
 
         const uint64_t faceBuildBeginTickCount = SDL_GetTicksNS();
         const std::vector<TexturedVertex> faceVertices = buildFaceTexturedVertices(
-            *m_indoorMapData,
+            *m_pIndoorMapData,
             m_renderVertices,
             *pTexture,
             faceIndex,
@@ -9922,7 +9922,7 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
     m_texturedBatchGeometryRevision = currentTexturedBatchGeometryRevision();
     m_bakedStaticLightRevision = currentBakedStaticLightRevision();
     m_bakedStaticLightEnabledStates =
-        bakedStaticLightEnabledStates(*m_indoorMapData, runtimeEventRuntimeState());
+        bakedStaticLightEnabledStates(*m_pIndoorMapData, runtimeEventRuntimeState());
     return true;
 }
 
@@ -9934,14 +9934,14 @@ bool IndoorRenderer::refreshBakedStaticLighting(
     refreshedVertexCount = 0;
     uploadedBatchCount = 0;
 
-    if (!m_indoorMapData)
+    if (!m_pIndoorMapData)
     {
         return false;
     }
 
     const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
     std::vector<uint8_t> enabledStates =
-        bakedStaticLightEnabledStates(*m_indoorMapData, pEventRuntimeState);
+        bakedStaticLightEnabledStates(*m_pIndoorMapData, pEventRuntimeState);
     std::vector<BakedStaticLightSource> changedLightSources;
 
     if (enabledStates.size() != m_bakedStaticLightEnabledStates.size())
@@ -9958,7 +9958,7 @@ bool IndoorRenderer::refreshBakedStaticLighting(
             }
 
             changedLightSources.push_back(
-                bakedStaticLightSourceForIndoorLight(m_indoorMapData->lights[lightId]));
+                bakedStaticLightSourceForIndoorLight(m_pIndoorMapData->lights[lightId]));
         }
     }
 
@@ -9971,7 +9971,7 @@ bool IndoorRenderer::refreshBakedStaticLighting(
 
     const std::vector<BakedStaticLightSource> activeLightSources =
         buildBakedStaticLightSources(
-            *m_indoorMapData,
+            *m_pIndoorMapData,
             pEventRuntimeState,
             m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
             false);
@@ -10103,7 +10103,7 @@ bool IndoorRenderer::updateMechanismFaceVertices(
     size_t *pDirtyBatchCount
 )
 {
-    if (!m_indoorMapData || !m_indoorTextureSet)
+    if (!m_pIndoorMapData || !m_indoorTextureSet)
     {
         return false;
     }
@@ -10126,7 +10126,7 @@ bool IndoorRenderer::updateMechanismFaceVertices(
     const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
     const std::vector<BakedStaticLightSource> bakedStaticLightSources =
         buildBakedStaticLightSources(
-            *m_indoorMapData,
+            *m_pIndoorMapData,
             eventRuntimeState ? &eventRuntimeState.value() : nullptr,
             m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
             false);
@@ -10144,12 +10144,12 @@ bool IndoorRenderer::updateMechanismFaceVertices(
 
         if (batchIndex < 0 || static_cast<size_t>(batchIndex) >= m_texturedBatches.size())
         {
-            if (faceIndex >= m_indoorMapData->faces.size())
+            if (faceIndex >= m_pIndoorMapData->faces.size())
             {
                 continue;
             }
 
-            const IndoorFace &face = m_indoorMapData->faces[faceIndex];
+            const IndoorFace &face = m_pIndoorMapData->faces[faceIndex];
             const std::string textureName = resolveFaceTextureName(faceIndex, face, eventRuntimeState);
 
             if (face.isPortal || textureName.empty() || face.vertexIndices.size() < 3)
@@ -10176,7 +10176,7 @@ bool IndoorRenderer::updateMechanismFaceVertices(
 
             const uint64_t faceBuildBeginTickCount = SDL_GetTicksNS();
             const std::vector<TexturedVertex> faceVertices = buildFaceTexturedVertices(
-                *m_indoorMapData,
+                *m_pIndoorMapData,
                 m_renderVertices,
                 *pTexture,
                 faceIndex,
@@ -10225,7 +10225,7 @@ bool IndoorRenderer::updateMechanismFaceVertices(
 
         const uint64_t faceBuildBeginTickCount = SDL_GetTicksNS();
         const std::vector<TexturedVertex> faceVertices = buildFaceTexturedVertices(
-            *m_indoorMapData,
+            *m_pIndoorMapData,
             m_renderVertices,
             *pTexture,
             faceIndex,
@@ -10361,7 +10361,7 @@ void IndoorRenderer::destroyIndoorTextureHandles()
 
 bool IndoorRenderer::rebuildDerivedGeometryResources()
 {
-    if (!m_indoorMapData)
+    if (!m_pIndoorMapData)
     {
         std::cerr << "IndoorRenderer: rebuildDerivedGeometryResources has no indoor map data\n";
         return false;
@@ -10370,7 +10370,7 @@ bool IndoorRenderer::rebuildDerivedGeometryResources()
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
     const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
 
-    m_renderVertices = buildMechanismAdjustedVertices(*m_indoorMapData, mapDeltaData, eventRuntimeState);
+    m_renderVertices = buildMechanismAdjustedVertices(*m_pIndoorMapData, mapDeltaData, eventRuntimeState);
 
     if (bgfx::getRendererType() == bgfx::RendererType::Noop)
     {
@@ -10378,8 +10378,8 @@ bool IndoorRenderer::rebuildDerivedGeometryResources()
     }
 
     const std::vector<TerrainVertex> wireframeVertices =
-        buildWireframeVertices(*m_indoorMapData, m_renderVertices, mapDeltaData, eventRuntimeState);
-    const std::vector<TerrainVertex> portalVertices = buildPortalVertices(*m_indoorMapData, m_renderVertices);
+        buildWireframeVertices(*m_pIndoorMapData, m_renderVertices, mapDeltaData, eventRuntimeState);
+    const std::vector<TerrainVertex> portalVertices = buildPortalVertices(*m_pIndoorMapData, m_renderVertices);
     const std::vector<TerrainVertex> doorMarkerVertices =
         mapDeltaData
             ? buildDoorMarkerVertices(m_renderVertices, *mapDeltaData, eventRuntimeState)
@@ -10490,7 +10490,7 @@ bool IndoorRenderer::updateMechanismGeometryResourcesForDoorIds(
     size_t *pUpdatedFaceCount,
     size_t *pDirtyBatchCount)
 {
-    if (!m_indoorMapData)
+    if (!m_pIndoorMapData)
     {
         return false;
     }
@@ -10610,7 +10610,7 @@ bool IndoorRenderer::updateMovingMechanismRenderVertices()
 
 bool IndoorRenderer::updateMechanismRenderVerticesForDoorIds(const std::vector<uint32_t> &doorIds)
 {
-    if (!m_indoorMapData)
+    if (!m_pIndoorMapData)
     {
         return false;
     }
@@ -10618,10 +10618,10 @@ bool IndoorRenderer::updateMechanismRenderVerticesForDoorIds(const std::vector<u
     const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
     const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
 
-    if (m_renderVertices.size() != m_indoorMapData->vertices.size())
+    if (m_renderVertices.size() != m_pIndoorMapData->vertices.size())
     {
         m_renderVertices = buildIndoorMechanismAdjustedVertices(
-            *m_indoorMapData,
+            *m_pIndoorMapData,
             mapDeltaData ? &mapDeltaData.value() : nullptr,
             pEventRuntimeState);
         return true;
@@ -10688,7 +10688,7 @@ bool IndoorRenderer::updateMechanismRenderVerticesForDoorIds(const std::vector<u
 
 bool IndoorRenderer::tryActivateInspectEvent(const InspectHit &inspectHit)
 {
-    if (!m_indoorMapData || m_pSceneRuntime == nullptr)
+    if (!m_pIndoorMapData || m_pSceneRuntime == nullptr)
     {
         return false;
     }
@@ -10711,7 +10711,7 @@ bool IndoorRenderer::tryActivateInspectEvent(const InspectHit &inspectHit)
 
     if (inspectHit.kind == "entity"
         && resolveIndoorEntityScriptEventId(inspectHit.eventIdSecondary) == 0
-        && m_indoorMapData)
+        && m_pIndoorMapData)
     {
         const std::optional<IndoorInteractiveDecorationBinding> binding =
             resolveIndoorInteractiveDecorationBinding(

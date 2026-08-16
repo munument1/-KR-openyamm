@@ -557,115 +557,8 @@ float resolveActorAabbBaseZ(
         static_cast<float>(actorZ));
 }
 
-std::vector<uint8_t> downsampleBgraRegion(const std::vector<uint8_t> &sourcePixels, int sourceWidth, int sourceHeight)
-{
-    if (sourceWidth <= 0
-        || sourceHeight <= 0
-        || sourcePixels.size() < static_cast<size_t>(sourceWidth * sourceHeight * 4))
-    {
-        return {};
-    }
-
-    const int targetWidth = std::max(1, (sourceWidth + 1) / 2);
-    const int targetHeight = std::max(1, (sourceHeight + 1) / 2);
-    std::vector<uint8_t> targetPixels(static_cast<size_t>(targetWidth * targetHeight * 4), 0);
-
-    for (int targetY = 0; targetY < targetHeight; ++targetY)
-    {
-        for (int targetX = 0; targetX < targetWidth; ++targetX)
-        {
-            uint32_t blue = 0;
-            uint32_t green = 0;
-            uint32_t red = 0;
-            uint32_t alpha = 0;
-            uint32_t sampleCount = 0;
-
-            for (int offsetY = 0; offsetY < 2; ++offsetY)
-            {
-                const int sourceY = targetY * 2 + offsetY;
-
-                if (sourceY >= sourceHeight)
-                {
-                    continue;
-                }
-
-                for (int offsetX = 0; offsetX < 2; ++offsetX)
-                {
-                    const int sourceX = targetX * 2 + offsetX;
-
-                    if (sourceX >= sourceWidth)
-                    {
-                        continue;
-                    }
-
-                    const size_t sourceOffset = static_cast<size_t>((sourceY * sourceWidth + sourceX) * 4);
-
-                    blue += sourcePixels[sourceOffset + 0];
-                    green += sourcePixels[sourceOffset + 1];
-                    red += sourcePixels[sourceOffset + 2];
-                    alpha += sourcePixels[sourceOffset + 3];
-                    ++sampleCount;
-                }
-            }
-
-            if (sampleCount == 0)
-            {
-                continue;
-            }
-
-            const size_t targetOffset = static_cast<size_t>((targetY * targetWidth + targetX) * 4);
-            targetPixels[targetOffset + 0] = static_cast<uint8_t>((blue + sampleCount / 2) / sampleCount);
-            targetPixels[targetOffset + 1] = static_cast<uint8_t>((green + sampleCount / 2) / sampleCount);
-            targetPixels[targetOffset + 2] = static_cast<uint8_t>((red + sampleCount / 2) / sampleCount);
-            targetPixels[targetOffset + 3] = static_cast<uint8_t>((alpha + sampleCount / 2) / sampleCount);
-        }
-    }
-
-    return targetPixels;
-}
-
-std::vector<TerrainTextureAtlasMipPixels> buildTerrainAtlasMipPixels(
-    const std::vector<uint8_t> &atlasPixels,
-    int atlasWidth,
-    int atlasHeight)
-{
-    std::vector<TerrainTextureAtlasMipPixels> mipPixels;
-
-    if (atlasWidth <= 0
-        || atlasHeight <= 0
-        || atlasPixels.size() < static_cast<size_t>(atlasWidth * atlasHeight * 4))
-    {
-        return mipPixels;
-    }
-
-    TerrainTextureAtlasMipPixels baseMip = {};
-    baseMip.width = atlasWidth;
-    baseMip.height = atlasHeight;
-    baseMip.pixels = atlasPixels;
-    mipPixels.push_back(std::move(baseMip));
-
-    while (mipPixels.back().width > 1 || mipPixels.back().height > 1)
-    {
-        const TerrainTextureAtlasMipPixels &previousMip = mipPixels.back();
-        TerrainTextureAtlasMipPixels nextMip = {};
-        nextMip.width = std::max(1, (previousMip.width + 1) / 2);
-        nextMip.height = std::max(1, (previousMip.height + 1) / 2);
-        nextMip.pixels = downsampleBgraRegion(previousMip.pixels, previousMip.width, previousMip.height);
-
-        if (nextMip.pixels.empty())
-        {
-            break;
-        }
-
-        mipPixels.push_back(std::move(nextMip));
-    }
-
-    return mipPixels;
-}
-
 void updateTerrainAtlasTileTexture(
     bgfx::TextureHandle textureHandle,
-    std::vector<TerrainTextureAtlasMipPixels> &atlasMipPixels,
     int atlasWidth,
     int atlasHeight,
     uint16_t innerAtlasX,
@@ -679,10 +572,6 @@ void updateTerrainAtlasTileTexture(
         || atlasHeight <= 0
         || tileSize <= 0
         || tilePadding < 0
-        || atlasMipPixels.empty()
-        || atlasMipPixels.front().width != atlasWidth
-        || atlasMipPixels.front().height != atlasHeight
-        || atlasMipPixels.front().pixels.size() < static_cast<size_t>(atlasWidth * atlasHeight * 4)
         || tilePixels.size() < static_cast<size_t>(tileSize * tileSize * 4))
     {
         return;
@@ -709,135 +598,111 @@ void updateTerrainAtlasTileTexture(
 
     const int atlasX = innerAtlasX - tilePadding;
     const int atlasY = innerAtlasY - tilePadding;
-    TerrainTextureAtlasMipPixels &baseMip = atlasMipPixels.front();
+    int regionX = std::max(0, atlasX);
+    int regionY = std::max(0, atlasY);
+    int regionWidth = std::min(atlasWidth, atlasX + paddedTileSize) - regionX;
+    int regionHeight = std::min(atlasHeight, atlasY + paddedTileSize) - regionY;
 
-    for (int paddedY = 0; paddedY < paddedTileSize; ++paddedY)
+    if (regionWidth <= 0 || regionHeight <= 0)
     {
-        const int targetY = atlasY + paddedY;
-
-        if (targetY < 0 || targetY >= atlasHeight)
-        {
-            continue;
-        }
-
-        for (int paddedX = 0; paddedX < paddedTileSize; ++paddedX)
-        {
-            const int targetX = atlasX + paddedX;
-
-            if (targetX < 0 || targetX >= atlasWidth)
-            {
-                continue;
-            }
-
-            const size_t sourceOffset = static_cast<size_t>((paddedY * paddedTileSize + paddedX) * 4);
-            const size_t targetOffset = static_cast<size_t>((targetY * atlasWidth + targetX) * 4);
-            std::memcpy(
-                baseMip.pixels.data() + static_cast<ptrdiff_t>(targetOffset),
-                paddedPixels.data() + static_cast<ptrdiff_t>(sourceOffset),
-                4);
-        }
+        return;
     }
 
-    for (uint8_t mipLevel = 0; mipLevel < atlasMipPixels.size(); ++mipLevel)
+    std::vector<uint8_t> regionPixels(static_cast<size_t>(regionWidth * regionHeight * 4), 0);
+    const int paddedSourceX = regionX - atlasX;
+    const int paddedSourceY = regionY - atlasY;
+
+    for (int row = 0; row < regionHeight; ++row)
     {
-        const int mipScale = 1 << mipLevel;
-        TerrainTextureAtlasMipPixels &targetMip = atlasMipPixels[mipLevel];
-        const int mipX0 = atlasX / mipScale;
-        const int mipY0 = atlasY / mipScale;
-        const int mipX1 = std::min(targetMip.width, (atlasX + paddedTileSize + mipScale - 1) / mipScale);
-        const int mipY1 = std::min(targetMip.height, (atlasY + paddedTileSize + mipScale - 1) / mipScale);
-        const int updateWidth = std::max(1, mipX1 - mipX0);
-        const int updateHeight = std::max(1, mipY1 - mipY0);
-        std::vector<uint8_t> updatePixels(static_cast<size_t>(updateWidth * updateHeight * 4), 0);
+        const size_t sourceOffset =
+            static_cast<size_t>(((paddedSourceY + row) * paddedTileSize + paddedSourceX) * 4);
+        const size_t targetOffset = static_cast<size_t>(row * regionWidth * 4);
+        std::memcpy(
+            regionPixels.data() + static_cast<ptrdiff_t>(targetOffset),
+            paddedPixels.data() + static_cast<ptrdiff_t>(sourceOffset),
+            static_cast<size_t>(regionWidth * 4));
+    }
 
-        if (mipLevel == 0)
-        {
-            updatePixels = paddedPixels;
-        }
-        else
-        {
-            const TerrainTextureAtlasMipPixels &sourceMip = atlasMipPixels[mipLevel - 1];
+    int mipWidth = atlasWidth;
+    int mipHeight = atlasHeight;
+    uint8_t mipLevel = 0;
 
-            for (int targetY = 0; targetY < updateHeight; ++targetY)
-            {
-                const int mipY = mipY0 + targetY;
-
-                for (int targetX = 0; targetX < updateWidth; ++targetX)
-                {
-                    const int mipX = mipX0 + targetX;
-                    uint32_t blue = 0;
-                    uint32_t green = 0;
-                    uint32_t red = 0;
-                    uint32_t alpha = 0;
-                    uint32_t sampleCount = 0;
-
-                    for (int offsetY = 0; offsetY < 2; ++offsetY)
-                    {
-                        const int sourceY = mipY * 2 + offsetY;
-
-                        if (sourceY >= sourceMip.height)
-                        {
-                            continue;
-                        }
-
-                        for (int offsetX = 0; offsetX < 2; ++offsetX)
-                        {
-                            const int sourceX = mipX * 2 + offsetX;
-
-                            if (sourceX >= sourceMip.width)
-                            {
-                                continue;
-                            }
-
-                            const size_t sourceOffset =
-                                static_cast<size_t>((sourceY * sourceMip.width + sourceX) * 4);
-                            blue += sourceMip.pixels[sourceOffset + 0];
-                            green += sourceMip.pixels[sourceOffset + 1];
-                            red += sourceMip.pixels[sourceOffset + 2];
-                            alpha += sourceMip.pixels[sourceOffset + 3];
-                            ++sampleCount;
-                        }
-                    }
-
-                    if (sampleCount == 0)
-                    {
-                        continue;
-                    }
-
-                    const size_t updateOffset = static_cast<size_t>((targetY * updateWidth + targetX) * 4);
-                    updatePixels[updateOffset + 0] = static_cast<uint8_t>((blue + sampleCount / 2) / sampleCount);
-                    updatePixels[updateOffset + 1] = static_cast<uint8_t>((green + sampleCount / 2) / sampleCount);
-                    updatePixels[updateOffset + 2] = static_cast<uint8_t>((red + sampleCount / 2) / sampleCount);
-                    updatePixels[updateOffset + 3] = static_cast<uint8_t>((alpha + sampleCount / 2) / sampleCount);
-                }
-            }
-
-            for (int targetY = 0; targetY < updateHeight; ++targetY)
-            {
-                const size_t sourceOffset = static_cast<size_t>(targetY * updateWidth * 4);
-                const size_t targetOffset =
-                    static_cast<size_t>(((mipY0 + targetY) * targetMip.width + mipX0) * 4);
-                std::memcpy(
-                    targetMip.pixels.data() + static_cast<ptrdiff_t>(targetOffset),
-                    updatePixels.data() + static_cast<ptrdiff_t>(sourceOffset),
-                    static_cast<size_t>(updateWidth * 4));
-            }
-        }
+    while (true)
+    {
 
         bgfx::updateTexture2D(
             textureHandle,
             0,
             mipLevel,
-            static_cast<uint16_t>(mipX0),
-            static_cast<uint16_t>(mipY0),
-            static_cast<uint16_t>(updateWidth),
-            static_cast<uint16_t>(updateHeight),
-            copyBgraTextureUploadMemory(updatePixels.data(), static_cast<uint32_t>(updatePixels.size())));
+            static_cast<uint16_t>(regionX),
+            static_cast<uint16_t>(regionY),
+            static_cast<uint16_t>(regionWidth),
+            static_cast<uint16_t>(regionHeight),
+            copyBgraTextureUploadMemory(regionPixels.data(), static_cast<uint32_t>(regionPixels.size())));
 
-        if (targetMip.width == 1 && targetMip.height == 1)
+        if (mipWidth == 1 && mipHeight == 1)
         {
             break;
         }
+
+        const int nextMipWidth = std::max(1, (mipWidth + 1) / 2);
+        const int nextMipHeight = std::max(1, (mipHeight + 1) / 2);
+        const int nextRegionX = regionX / 2;
+        const int nextRegionY = regionY / 2;
+        const int nextRegionRight = std::min(nextMipWidth, (regionX + regionWidth + 1) / 2);
+        const int nextRegionBottom = std::min(nextMipHeight, (regionY + regionHeight + 1) / 2);
+        const int nextRegionWidth = std::max(1, nextRegionRight - nextRegionX);
+        const int nextRegionHeight = std::max(1, nextRegionBottom - nextRegionY);
+        std::vector<uint8_t> nextRegionPixels(
+            static_cast<size_t>(nextRegionWidth * nextRegionHeight * 4),
+            0);
+
+        for (int targetY = 0; targetY < nextRegionHeight; ++targetY)
+        {
+            for (int targetX = 0; targetX < nextRegionWidth; ++targetX)
+            {
+                uint32_t channels[4] = {};
+
+                for (int offsetY = 0; offsetY < 2; ++offsetY)
+                {
+                    const int sourceY = std::clamp(
+                        (nextRegionY + targetY) * 2 + offsetY,
+                        regionY,
+                        regionY + regionHeight - 1);
+
+                    for (int offsetX = 0; offsetX < 2; ++offsetX)
+                    {
+                        const int sourceX = std::clamp(
+                            (nextRegionX + targetX) * 2 + offsetX,
+                            regionX,
+                            regionX + regionWidth - 1);
+                        const size_t sourceOffset = static_cast<size_t>(
+                            ((sourceY - regionY) * regionWidth + sourceX - regionX) * 4);
+
+                        for (size_t channel = 0; channel < 4; ++channel)
+                        {
+                            channels[channel] += regionPixels[sourceOffset + channel];
+                        }
+                    }
+                }
+
+                const size_t targetOffset = static_cast<size_t>((targetY * nextRegionWidth + targetX) * 4);
+
+                for (size_t channel = 0; channel < 4; ++channel)
+                {
+                    nextRegionPixels[targetOffset + channel] = static_cast<uint8_t>((channels[channel] + 2) / 4);
+                }
+            }
+        }
+
+        regionX = nextRegionX;
+        regionY = nextRegionY;
+        regionWidth = nextRegionWidth;
+        regionHeight = nextRegionHeight;
+        regionPixels = std::move(nextRegionPixels);
+        mipWidth = nextMipWidth;
+        mipHeight = nextMipHeight;
+        ++mipLevel;
     }
 }
 
@@ -1620,12 +1485,12 @@ void OutdoorRenderer::rebuildResolvedBModelDrawGroups(OutdoorGameView &view)
         float secretPulse = batch.vertices.empty() ? 0.0f : batch.vertices.front().secretPulse;
         std::array<float, 4> flowInfo = {0.0f, 0.0f, 0.0f, 0.0f};
 
-        if (view.m_outdoorMapData
-            && batch.bModelIndex < view.m_outdoorMapData->bmodels.size()
-            && batch.faceIndex < view.m_outdoorMapData->bmodels[batch.bModelIndex].faces.size())
+        if (view.m_pOutdoorMapData
+            && batch.bModelIndex < view.m_pOutdoorMapData->bmodels.size()
+            && batch.faceIndex < view.m_pOutdoorMapData->bmodels[batch.bModelIndex].faces.size())
         {
             OutdoorBModelFace effectiveFace =
-                view.m_outdoorMapData->bmodels[batch.bModelIndex].faces[batch.faceIndex];
+                view.m_pOutdoorMapData->bmodels[batch.bModelIndex].faces[batch.faceIndex];
             effectiveFace.attributes = effectiveAttributes;
             flowInfo = outdoorFaceFlowInfo(effectiveFace, batch.textureWidth, batch.textureHeight);
         }
@@ -1694,7 +1559,6 @@ void OutdoorRenderer::initializeAnimatedWaterTileState(
 {
     view.m_animatedWaterTerrainTiles.clear();
     view.m_lastAnimatedWaterAnimationTicks.reset();
-    view.m_terrainTextureAtlasMipPixels.clear();
     view.m_terrainTextureAtlasWidth = 0;
     view.m_terrainTextureAtlasHeight = 0;
 
@@ -1705,10 +1569,6 @@ void OutdoorRenderer::initializeAnimatedWaterTileState(
 
     view.m_terrainTextureAtlasWidth = outdoorTerrainTextureAtlas->width;
     view.m_terrainTextureAtlasHeight = outdoorTerrainTextureAtlas->height;
-    view.m_terrainTextureAtlasMipPixels = buildTerrainAtlasMipPixels(
-        outdoorTerrainTextureAtlas->pixels,
-        outdoorTerrainTextureAtlas->width,
-        outdoorTerrainTextureAtlas->height);
     view.m_animatedWaterTerrainTiles.reserve(outdoorTerrainTextureAtlas->animatedWaterTiles.size());
 
     for (const OutdoorAnimatedWaterTileSource &source : outdoorTerrainTextureAtlas->animatedWaterTiles)
@@ -1733,7 +1593,6 @@ void OutdoorRenderer::updateAnimatedWaterTileTexture(OutdoorGameView &view)
 {
     if (!bgfx::isValid(view.m_terrainTextureAtlasHandle)
         || view.m_animatedWaterTerrainTiles.empty()
-        || view.m_terrainTextureAtlasMipPixels.empty()
         || view.m_terrainTextureAtlasWidth <= 0
         || view.m_terrainTextureAtlasHeight <= 0)
     {
@@ -1792,7 +1651,6 @@ void OutdoorRenderer::updateAnimatedWaterTileTexture(OutdoorGameView &view)
 
         updateTerrainAtlasTileTexture(
             view.m_terrainTextureAtlasHandle,
-            view.m_terrainTextureAtlasMipPixels,
             view.m_terrainTextureAtlasWidth,
             view.m_terrainTextureAtlasHeight,
             atlasX,
@@ -3074,12 +2932,12 @@ void OutdoorRenderer::renderContextActionGeometryHighlight(OutdoorGameView &view
             outdoorBModelRuntimeOffset(pEventRuntimeState, batch.bModelIndex);
         bx::Vec3 normal = {0.0f, 0.0f, 0.0f};
 
-        if (view.m_outdoorMapData
-            && batch.bModelIndex < view.m_outdoorMapData->bmodels.size()
-            && batch.faceIndex < view.m_outdoorMapData->bmodels[batch.bModelIndex].faces.size())
+        if (view.m_pOutdoorMapData
+            && batch.bModelIndex < view.m_pOutdoorMapData->bmodels.size()
+            && batch.faceIndex < view.m_pOutdoorMapData->bmodels[batch.bModelIndex].faces.size())
         {
             OutdoorFaceGeometryData geometry = {};
-            const OutdoorBModel &bmodel = view.m_outdoorMapData->bmodels[batch.bModelIndex];
+            const OutdoorBModel &bmodel = view.m_pOutdoorMapData->bmodels[batch.bModelIndex];
             const OutdoorBModelFace &face = bmodel.faces[batch.faceIndex];
 
             if (buildOutdoorFaceGeometry(bmodel, batch.bModelIndex, face, batch.faceIndex, geometry, true)
@@ -3205,7 +3063,7 @@ void OutdoorRenderer::renderWorldPasses(
         const bool showTerrain = view.m_showFilledTerrain;
         const bool showFilledTerrain =
             showTerrain
-            && !(view.m_outdoorMapData.has_value() && view.m_outdoorMapData->noTerrain);
+            && !(view.m_pOutdoorMapData != nullptr && view.m_pOutdoorMapData->noTerrain);
 
         if (showFilledTerrain && bgfx::isValid(view.m_filledTerrainVertexBufferHandle))
         {
@@ -3220,7 +3078,7 @@ void OutdoorRenderer::renderWorldPasses(
         }
 
         if (showTerrain
-            && !(view.m_outdoorMapData.has_value() && view.m_outdoorMapData->noTerrain)
+            && !(view.m_pOutdoorMapData != nullptr && view.m_pOutdoorMapData->noTerrain)
             && bgfx::isValid(view.m_outdoorTexturedFogProgramHandle)
             && bgfx::isValid(view.m_terrainTextureAtlasHandle)
             && bgfx::isValid(view.m_terrainTextureSamplerHandle)
@@ -3531,12 +3389,12 @@ void OutdoorRenderer::renderWorldPasses(
 
                     std::array<float, 4> flowInfo = {0.0f, 0.0f, 0.0f, 0.0f};
 
-                    if (view.m_outdoorMapData
-                        && batch.bModelIndex < view.m_outdoorMapData->bmodels.size()
-                        && batch.faceIndex < view.m_outdoorMapData->bmodels[batch.bModelIndex].faces.size())
+                    if (view.m_pOutdoorMapData
+                        && batch.bModelIndex < view.m_pOutdoorMapData->bmodels.size()
+                        && batch.faceIndex < view.m_pOutdoorMapData->bmodels[batch.bModelIndex].faces.size())
                     {
                         OutdoorBModelFace effectiveFace =
-                            view.m_outdoorMapData->bmodels[batch.bModelIndex].faces[batch.faceIndex];
+                            view.m_pOutdoorMapData->bmodels[batch.bModelIndex].faces[batch.faceIndex];
                         effectiveFace.attributes = effectiveAttributes;
                         flowInfo = outdoorFaceFlowInfo(effectiveFace, batch.textureWidth, batch.textureHeight);
                     }
@@ -3850,8 +3708,8 @@ void OutdoorRenderer::renderPendingSpellAreaPreview(
                     [&view, &targetPoint, PreviewHeightOffset](float x, float y) -> bx::Vec3
                     {
                         const float terrainZ =
-                            view.m_outdoorMapData.has_value()
-                                ? sampleOutdoorRenderedTerrainHeight(*view.m_outdoorMapData, x, y)
+                            view.m_pOutdoorMapData != nullptr
+                                ? sampleOutdoorRenderedTerrainHeight(*view.m_pOutdoorMapData, x, y)
                                 : targetPoint->z;
                         const float supportZ = view.m_pOutdoorWorldRuntime->sampleSupportFloorHeight(
                             x,
@@ -4724,9 +4582,9 @@ void OutdoorRenderer::renderActorCollisionOverlays(
             const float maxX = static_cast<float>(actorX) + halfExtent;
             const float minY = static_cast<float>(actorY) - halfExtent;
             const float maxY = static_cast<float>(actorY) + halfExtent;
-            const float minZ = view.m_outdoorMapData.has_value()
+            const float minZ = view.m_pOutdoorMapData != nullptr
                 ? resolveActorAabbBaseZ(
-                    *view.m_outdoorMapData,
+                    *view.m_pOutdoorMapData,
                     nullptr,
                     actorX,
                     actorY,

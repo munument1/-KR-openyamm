@@ -2959,13 +2959,13 @@ bool prepareSharedHeadlessGameApplication(
         GameApplicationTestAccess::captureCurrentSceneState(session.application);
     }
 
+    GameApplicationTestAccess::shutdownRenderer(session.application);
+
     if (!GameApplicationTestAccess::loadMapByFileNameForGameplay(session.application, assetFileSystem, mapFileName))
     {
         failure = "could not load gameplay map";
         return false;
     }
-
-    GameApplicationTestAccess::shutdownRenderer(session.application);
 
     if (!GameApplicationTestAccess::initializeSelectedMapRuntime(session.application, initializeView))
     {
@@ -2989,14 +2989,13 @@ bool loadHeadlessGameApplicationMap(
     std::string &failure)
 {
     GameApplicationTestAccess::captureCurrentSceneState(application);
+    GameApplicationTestAccess::shutdownRenderer(application);
 
     if (!GameApplicationTestAccess::loadMapByFileNameForGameplay(application, assetFileSystem, mapFileName))
     {
         failure = "could not load target gameplay map";
         return false;
     }
-
-    GameApplicationTestAccess::shutdownRenderer(application);
 
     if (!GameApplicationTestAccess::initializeSelectedMapRuntime(application, false))
     {

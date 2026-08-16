@@ -1292,7 +1292,7 @@ std::optional<bx::Vec3> OutdoorInteractionController::resolveQuickCastCursorTarg
     float cursorX,
     float cursorY)
 {
-    if (!view.m_outdoorMapData.has_value() || view.m_lastRenderWidth <= 0 || view.m_lastRenderHeight <= 0)
+    if (view.m_pOutdoorMapData == nullptr || view.m_lastRenderWidth <= 0 || view.m_lastRenderHeight <= 0)
     {
         return std::nullopt;
     }
@@ -1340,7 +1340,7 @@ std::optional<bx::Vec3> OutdoorInteractionController::resolveQuickCastCursorTarg
 
     const OutdoorGameView::InspectHit inspectHit = OutdoorInteractionController::inspectBModelFace(
         const_cast<OutdoorGameView &>(view),
-        *view.m_outdoorMapData,
+        *view.m_pOutdoorMapData,
         rayOrigin,
         rayDirection,
         cursorX,
@@ -1351,9 +1351,9 @@ std::optional<bx::Vec3> OutdoorInteractionController::resolveQuickCastCursorTarg
         projectionMatrix,
         OutdoorGameView::DecorationPickMode::Interaction);
     const std::optional<float> terrainDistance =
-        outdoorMapUsesBModelGround(*view.m_outdoorMapData)
+        outdoorMapUsesBModelGround(*view.m_pOutdoorMapData)
             ? std::nullopt
-            : intersectOutdoorTerrainRay(*view.m_outdoorMapData, rayOrigin, rayDirection);
+            : intersectOutdoorTerrainRay(*view.m_pOutdoorMapData, rayOrigin, rayDirection);
     const std::optional<bx::Vec3> fallbackGroundTargetPoint =
         terrainDistance
             ? std::optional<bx::Vec3>(bx::Vec3 {
@@ -1598,7 +1598,7 @@ void OutdoorInteractionController::rebuildInteractiveDecorationBindings(OutdoorG
 {
     view.m_interactiveDecorationBindings.clear();
 
-    if (!view.m_outdoorMapData || !view.m_outdoorDecorationBillboardSet)
+    if (!view.m_pOutdoorMapData || !view.m_outdoorDecorationBillboardSet)
     {
         return;
     }
@@ -1606,11 +1606,11 @@ void OutdoorInteractionController::rebuildInteractiveDecorationBindings(OutdoorG
     const DecorationTable &decorationTable = view.m_outdoorDecorationBillboardSet->decorationTable;
     uint8_t decorVarIndex = 0;
     constexpr uint8_t MaxDecorationVarCount = 125;
-    view.m_interactiveDecorationBindings.resize(view.m_outdoorMapData->entities.size());
+    view.m_interactiveDecorationBindings.resize(view.m_pOutdoorMapData->entities.size());
 
-    for (size_t entityIndex = 0; entityIndex < view.m_outdoorMapData->entities.size(); ++entityIndex)
+    for (size_t entityIndex = 0; entityIndex < view.m_pOutdoorMapData->entities.size(); ++entityIndex)
     {
-        const OutdoorEntity &entity = view.m_outdoorMapData->entities[entityIndex];
+        const OutdoorEntity &entity = view.m_pOutdoorMapData->entities[entityIndex];
 
         if (resolveOutdoorEntityScriptEventId(entity) != 0)
         {
@@ -1649,7 +1649,7 @@ void OutdoorInteractionController::rebuildInteractiveDecorationBindings(OutdoorG
 
 void OutdoorInteractionController::seedInteractiveDecorationRuntimeStateIfNeeded(OutdoorGameView &view)
 {
-    if (!view.m_outdoorMapData.has_value() || view.m_pOutdoorWorldRuntime == nullptr)
+    if (view.m_pOutdoorMapData == nullptr || view.m_pOutdoorWorldRuntime == nullptr)
     {
         return;
     }
@@ -1690,12 +1690,12 @@ void OutdoorInteractionController::seedInteractiveDecorationRuntimeStateIfNeeded
 
     for (const OutdoorGameView::InteractiveDecorationBinding &binding : view.m_interactiveDecorationBindings)
     {
-        if (!binding.active || binding.entityIndex >= view.m_outdoorMapData->entities.size())
+        if (!binding.active || binding.entityIndex >= view.m_pOutdoorMapData->entities.size())
         {
             continue;
         }
 
-        const OutdoorEntity &entity = view.m_outdoorMapData->entities[binding.entityIndex];
+        const OutdoorEntity &entity = view.m_pOutdoorMapData->entities[binding.entityIndex];
         uint8_t initialState = binding.initialState;
 
         if (binding.useSeededInitialState)
@@ -2133,16 +2133,16 @@ uint16_t OutdoorInteractionController::inspectEventId(
     }
 
     if (inspectHit.kind == "decoration"
-        && view.m_outdoorMapData
+        && view.m_pOutdoorMapData
         && view.m_outdoorDecorationBillboardSet
         && inspectHit.bModelIndex < view.m_outdoorDecorationBillboardSet->billboards.size())
     {
         const DecorationBillboard &decoration =
             view.m_outdoorDecorationBillboardSet->billboards[inspectHit.bModelIndex];
 
-        if (decoration.entityIndex < view.m_outdoorMapData->entities.size())
+        if (decoration.entityIndex < view.m_pOutdoorMapData->entities.size())
         {
-            return resolveOutdoorEntityScriptEventId(view.m_outdoorMapData->entities[decoration.entityIndex]);
+            return resolveOutdoorEntityScriptEventId(view.m_pOutdoorMapData->entities[decoration.entityIndex]);
         }
     }
 
@@ -2312,9 +2312,9 @@ std::optional<std::string> OutdoorInteractionController::resolveEventTargetHover
 
         std::optional<uint16_t> directEventId;
 
-        if (view.m_outdoorMapData && decoration.entityIndex < view.m_outdoorMapData->entities.size())
+        if (view.m_pOutdoorMapData && decoration.entityIndex < view.m_pOutdoorMapData->entities.size())
         {
-            const OutdoorEntity &entity = view.m_outdoorMapData->entities[decoration.entityIndex];
+            const OutdoorEntity &entity = view.m_pOutdoorMapData->entities[decoration.entityIndex];
             directEventId = resolveOutdoorEntityScriptEventId(entity);
         }
 
@@ -2657,7 +2657,7 @@ GameplayWorldPickRequest OutdoorInteractionController::buildWorldPickRequest(
 
 bool OutdoorInteractionController::worldInspectModeActive(const OutdoorGameView &view)
 {
-    return view.m_isInitialized && view.m_pOutdoorWorldRuntime != nullptr && view.m_outdoorMapData.has_value();
+    return view.m_isInitialized && view.m_pOutdoorWorldRuntime != nullptr && view.m_pOutdoorMapData != nullptr;
 }
 
 std::optional<GameplayHeldItemDropRequest> OutdoorInteractionController::buildHeldItemDropRequest(
@@ -2999,7 +2999,7 @@ GameplayWorldHit OutdoorInteractionController::pickCurrentInteractionTarget(
 std::optional<bx::Vec3> OutdoorInteractionController::resolveSpellActionForwardGroundTargetPoint(
     const OutdoorGameView &view)
 {
-    if (view.m_outdoorMapData.has_value())
+    if (view.m_pOutdoorMapData != nullptr)
     {
         const bx::Vec3 rayOrigin = {
             view.m_cameraTargetX,
@@ -3015,9 +3015,9 @@ std::optional<bx::Vec3> OutdoorInteractionController::resolveSpellActionForwardG
             std::sin(cameraPitchRadians)
         };
         const std::optional<float> terrainDistance =
-            outdoorMapUsesBModelGround(*view.m_outdoorMapData)
+            outdoorMapUsesBModelGround(*view.m_pOutdoorMapData)
                 ? std::nullopt
-                : intersectOutdoorTerrainRay(*view.m_outdoorMapData, rayOrigin, rayDirection);
+                : intersectOutdoorTerrainRay(*view.m_pOutdoorMapData, rayOrigin, rayDirection);
 
         if (terrainDistance)
         {
@@ -3995,9 +3995,9 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
                 resolveInteractiveDecorationEventId(view, decoration.entityIndex);
             std::optional<uint16_t> directEventId;
 
-            if (view.m_outdoorMapData && decoration.entityIndex < view.m_outdoorMapData->entities.size())
+            if (view.m_pOutdoorMapData && decoration.entityIndex < view.m_pOutdoorMapData->entities.size())
             {
-                const OutdoorEntity &entity = view.m_outdoorMapData->entities[decoration.entityIndex];
+                const OutdoorEntity &entity = view.m_pOutdoorMapData->entities[decoration.entityIndex];
                 directEventId = resolveOutdoorEntityScriptEventId(entity);
             }
             const bool interactiveDecoration = interactiveEventId.has_value() || directEventId.has_value();
@@ -4111,9 +4111,9 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
                 bestHit.distance = distance;
                 bestHit.decorationId = decoration.decorationId;
 
-                if (view.m_outdoorMapData && decoration.entityIndex < view.m_outdoorMapData->entities.size())
+                if (view.m_pOutdoorMapData && decoration.entityIndex < view.m_pOutdoorMapData->entities.size())
                 {
-                    const OutdoorEntity &entity = view.m_outdoorMapData->entities[decoration.entityIndex];
+                    const OutdoorEntity &entity = view.m_pOutdoorMapData->entities[decoration.entityIndex];
                     bestHit.eventIdPrimary = entity.eventIdPrimary;
                     bestHit.eventIdSecondary = entity.eventIdSecondary;
                 }
@@ -4873,7 +4873,7 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
     EventRuntimeState *pEventRuntimeState =
         view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->eventRuntimeState() : nullptr;
 
-    if (!view.m_outdoorMapData || pEventRuntimeState == nullptr)
+    if (!view.m_pOutdoorMapData || pEventRuntimeState == nullptr)
     {
         return false;
     }
@@ -5273,7 +5273,7 @@ bool OutdoorInteractionController::tryActivateEventTargetInspectEvent(
     EventRuntimeState *pEventRuntimeState =
         view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->eventRuntimeState() : nullptr;
 
-    if (!view.m_outdoorMapData || pEventRuntimeState == nullptr)
+    if (!view.m_pOutdoorMapData || pEventRuntimeState == nullptr)
     {
         return false;
     }
@@ -5371,7 +5371,7 @@ bool OutdoorInteractionController::tryActivateEventTargetInspectEvent(
     size_t previousMessageCount = 0;
     const std::optional<EventRuntimeState::MapNoteSourcePoint> previousMapNoteSourcePoint =
         pEventRuntimeState->activeEventMapNoteSourcePoint;
-    const OutdoorMapData *pMapData = view.m_outdoorMapData ? &*view.m_outdoorMapData : nullptr;
+    const OutdoorMapData *pMapData = view.m_pOutdoorMapData;
     pEventRuntimeState->activeEventMapNoteSourcePoint = mapNoteSourcePointForInspectHit(pMapData, inspectHit);
 
     if (view.m_pOutdoorWorldRuntime != nullptr)
@@ -5481,7 +5481,7 @@ bool OutdoorInteractionController::canActivateActorInspectEvent(
     const EventRuntimeState *pEventRuntimeState =
         view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->eventRuntimeState() : nullptr;
 
-    if (!view.m_outdoorMapData || pEventRuntimeState == nullptr)
+    if (!view.m_pOutdoorMapData || pEventRuntimeState == nullptr)
     {
         return false;
     }
@@ -5575,7 +5575,7 @@ bool OutdoorInteractionController::canActivateEventTargetInspectEvent(
     const EventRuntimeState *pEventRuntimeState =
         view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->eventRuntimeState() : nullptr;
 
-    if (!view.m_outdoorMapData || pEventRuntimeState == nullptr)
+    if (!view.m_pOutdoorMapData || pEventRuntimeState == nullptr)
     {
         return false;
     }
@@ -5600,9 +5600,9 @@ bool OutdoorInteractionController::canActivateEventTargetInspectEvent(
         }
 
         const DecorationBillboard &decoration = view.m_outdoorDecorationBillboardSet->billboards[inspectHit.bModelIndex];
-        if (view.m_outdoorMapData && decoration.entityIndex < view.m_outdoorMapData->entities.size())
+        if (view.m_pOutdoorMapData && decoration.entityIndex < view.m_pOutdoorMapData->entities.size())
         {
-            const OutdoorEntity &entity = view.m_outdoorMapData->entities[decoration.entityIndex];
+            const OutdoorEntity &entity = view.m_pOutdoorMapData->entities[decoration.entityIndex];
 
             if (resolveOutdoorEntityScriptEventId(entity) != 0)
             {
