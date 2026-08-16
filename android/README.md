@@ -90,14 +90,14 @@ OPENYAMM_ANDROID_UNINSTALL_ON_SIGNATURE_MISMATCH=0 android/run_release_emulator.
 OPENYAMM_ANDROID_RELEASE_ABIS=arm64-v8a android/run_release_emulator.sh
 ```
 
-Before each public update, bump `openyamm.android.versionName` and
-`openyamm.android.versionCode` in `android/gradle.properties`. See
+For manual public builds, bump `openyamm.android.versionName` and `openyamm.android.versionCode` in
+`android/gradle.properties`. Tagged CI builds derive both values from an `X.Y` release tag. See
 `android/WEB_HOSTING_CHECKLIST.md` for the hosted APK checklist.
 
-## Nightly CI Signing
+## Package CI Signing
 
-The nightly GitHub Actions workflow builds the release APK with the same release path. Configure these repository
-secrets before running it:
+The GitHub Actions workflow uses the same signed release path for nightly and tagged packages. Configure these
+repository secrets before running it:
 
 - `OPENYAMM_ANDROID_KEYSTORE_BASE64`: the release keystore encoded as one-line base64
 - `OPENYAMM_ANDROID_KEYSTORE_PASSWORD`: the keystore password

@@ -41,7 +41,7 @@ package_asset_root()
             \( -path "./_legacy" -o -path "./_legacy/*" \) -prune \
             -o -printf "%P\n" \
             | LC_ALL=C sort \
-            | zip -q -X -@ "${temp_zip}"
+            | zip -q -X -n .ogv -@ "${temp_zip}"
     )
 
     mv "${temp_zip}" "${output_zip}"

@@ -53,8 +53,22 @@ if (profileableValue == null || profileableValue.toString().trim().isEmpty()) {
 }
 def profileableFromShell = profileableValue != null
     && ["1", "true", "yes", "on"].contains(profileableValue.toString().trim().toLowerCase())
-def appVersionName = project.findProperty("openyamm.android.versionName").toString()
-def appVersionCode = project.findProperty("openyamm.android.versionCode").toString().toInteger()
+def androidVersionValue = { environmentName, propertyName ->
+    def value = System.getenv(environmentName)
+    if (value == null || value.toString().trim().isEmpty()) {
+        value = project.findProperty(propertyName)
+    }
+    if (value == null || value.toString().trim().isEmpty()) {
+        throw new GradleException("Missing Android version value: ${propertyName}")
+    }
+    return value.toString().trim()
+}
+
+def appVersionName = androidVersionValue("OPENYAMM_ANDROID_VERSION_NAME", "openyamm.android.versionName")
+def appVersionCode = androidVersionValue(
+    "OPENYAMM_ANDROID_VERSION_CODE",
+    "openyamm.android.versionCode"
+).toInteger()
 
 android {
     namespace "org.openyamm.android"

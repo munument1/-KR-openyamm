@@ -124,6 +124,23 @@ the nightly. Android may ask you to allow installs from the browser or file mana
 Nightly packages are development snapshots and may be unstable. Back up existing saves before using them. Publishing
 packaged game assets remains subject to the asset distribution rights noted in the Windows distribution documentation.
 
+## Tagged Releases
+
+Pushing a canonical `X.Y` tag, such as `0.7`, runs the same validated package builds and creates a normal GitHub
+release for that tag. The release contains versioned Windows, Flatpak, and signed Android packages plus SHA256 files.
+The Android version name matches the tag; its monotonically increasing version code is calculated as
+`major * 10000 + minor * 100` (`0.7` becomes `700`).
+
+Create a release only after the workflow changes are present on the commit being tagged:
+
+```sh
+git tag -a 0.7 -m "OpenYAMM 0.7"
+git push origin 0.7
+```
+
+The workflow rejects non-canonical versions, does not mark tagged releases as prereleases, and does not overwrite an
+existing release with the same tag.
+
 ## Useful CMake Options
 
 ```text
