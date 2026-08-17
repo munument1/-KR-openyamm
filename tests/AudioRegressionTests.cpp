@@ -671,6 +671,39 @@ TEST_CASE("lich character speech audio resolves from character data voice ids")
     CHECK(audioSystem.playSpeech(femaleLich, OpenYAMM::Game::SpeechId::DamageMinor, 0x5200u, 2u));
 }
 
+TEST_CASE("lich item inspection speech audio resolves for identify and repair outcomes")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    OpenYAMM::Game::GameAudioSystem audioSystem;
+    std::string failure;
+
+    REQUIRE_MESSAGE(
+        initializeRegressionAudioSystem(gameData, assetFileSystem, audioSystem, failure),
+        failure.c_str());
+
+    OpenYAMM::Game::Character maleLich = {};
+    maleLich.characterDataId = 27;
+
+    const std::array<OpenYAMM::Game::SpeechId, 5> itemInspectionSpeechIds = {{
+        OpenYAMM::Game::SpeechId::IdentifyWeakItem,
+        OpenYAMM::Game::SpeechId::IdentifyGreatItem,
+        OpenYAMM::Game::SpeechId::IdentifyFailItem,
+        OpenYAMM::Game::SpeechId::RepairSuccess,
+        OpenYAMM::Game::SpeechId::RepairFail,
+    }};
+
+    for (size_t reactionIndex = 0; reactionIndex < itemInspectionSpeechIds.size(); ++reactionIndex)
+    {
+        CAPTURE(reactionIndex);
+        CHECK(audioSystem.playSpeech(
+            maleLich,
+            itemInspectionSpeechIds[reactionIndex],
+            0x5300u + static_cast<uint32_t>(reactionIndex),
+            1u));
+    }
+}
+
 TEST_CASE("ordinary damage queues minor speech reaction")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -757,6 +790,31 @@ TEST_CASE("damage major speech bypasses active speech cooldowns")
         0,
         OpenYAMM::Game::SpeechId::DamageMajor,
         1500u));
+}
+
+TEST_CASE("item inspection speech bypasses active speech cooldowns")
+{
+    OpenYAMM::Game::GameplayPortraitPresentationState presentationState = {};
+    presentationState.memberSpeechCooldownUntilTicks = {4000u};
+    presentationState.memberCombatSpeechCooldownUntilTicks = {4000u};
+
+    const std::array<OpenYAMM::Game::SpeechId, 5> itemInspectionSpeechIds = {{
+        OpenYAMM::Game::SpeechId::IdentifyWeakItem,
+        OpenYAMM::Game::SpeechId::IdentifyGreatItem,
+        OpenYAMM::Game::SpeechId::IdentifyFailItem,
+        OpenYAMM::Game::SpeechId::RepairSuccess,
+        OpenYAMM::Game::SpeechId::RepairFail,
+    }};
+
+    for (const OpenYAMM::Game::SpeechId speechId : itemInspectionSpeechIds)
+    {
+        CAPTURE(static_cast<uint32_t>(speechId));
+        CHECK(OpenYAMM::Game::canPlaySpeechReactionForPresentationState(
+            presentationState,
+            0,
+            speechId,
+            1500u));
+    }
 }
 
 TEST_CASE("damage impact sound request uses armor family mapping")

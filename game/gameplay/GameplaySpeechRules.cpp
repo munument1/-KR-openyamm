@@ -10,9 +10,15 @@ bool bypassSpeechCooldown(SpeechId speechId)
     {
         case SpeechId::DamageMinor:
         case SpeechId::DamageMajor:
+        case SpeechId::IdentifyWeakItem:
+        case SpeechId::IdentifyGreatItem:
+        case SpeechId::IdentifyFailItem:
+        case SpeechId::RepairSuccess:
+        case SpeechId::RepairFail:
         case SpeechId::LeaveDungeon:
         case SpeechId::EnterDungeon:
             return true;
+
         default:
             return false;
     }
