@@ -51,8 +51,9 @@ constexpr float IndoorSkyProjectionPitchOffsetRadians = 3.14159265358979323846f 
 constexpr float IndoorSkyProjectionFarClipDistance = 50000.0f;
 constexpr float IndoorBakedStaticLightScale = 1.35f;
 constexpr uint8_t IndoorBakedStaticLightAlpha = 224;
-constexpr float IndoorBakedStaticLightSubdivisionEdgeLength = 96.0f;
-constexpr int IndoorBakedStaticLightSubdivisionMaxDepth = 5;
+// Static lights are baked once. One typical torch radius is enough mesh resolution while keeping vertex growth bounded.
+constexpr float IndoorBakedStaticLightSubdivisionEdgeLength = 512.0f;
+constexpr int IndoorBakedStaticLightSubdivisionMaxDepth = 16;
 constexpr float IndoorBillboardStaticLightingSampleIntervalSeconds = 0.05f;
 constexpr uint32_t IndoorLightSelectionCacheMaxAgeFrames = 180;
 constexpr uint64_t IndoorBillboardDrawState =
@@ -2189,6 +2190,60 @@ float pointAabbDistanceSquared(
     return dx * dx + dy * dy + dz * dz;
 }
 
+float pointSegmentDistanceSquared(
+    const bx::Vec3 &point,
+    const bx::Vec3 &first,
+    const bx::Vec3 &second)
+{
+    const bx::Vec3 segment = vecSubtract(second, first);
+    const float segmentLengthSquared = vecDot(segment, segment);
+    const float segmentProgress = segmentLengthSquared > 0.0001f
+        ? std::clamp(vecDot(vecSubtract(point, first), segment) / segmentLengthSquared, 0.0f, 1.0f)
+        : 0.0f;
+    const bx::Vec3 closestPoint = vecAdd(first, vecScale(segment, segmentProgress));
+    const bx::Vec3 delta = vecSubtract(point, closestPoint);
+    return vecDot(delta, delta);
+}
+
+float pointTriangleDistanceSquared(
+    const bx::Vec3 &point,
+    const bx::Vec3 &first,
+    const bx::Vec3 &second,
+    const bx::Vec3 &third)
+{
+    const bx::Vec3 firstToSecond = vecSubtract(second, first);
+    const bx::Vec3 firstToThird = vecSubtract(third, first);
+    const bx::Vec3 normal = vecCross(firstToSecond, firstToThird);
+    const float normalLengthSquared = vecDot(normal, normal);
+
+    if (normalLengthSquared <= 0.0001f)
+    {
+        return std::min(
+            pointSegmentDistanceSquared(point, first, second),
+            std::min(
+                pointSegmentDistanceSquared(point, second, third),
+                pointSegmentDistanceSquared(point, third, first)));
+    }
+
+    const float planeProjection = vecDot(vecSubtract(point, first), normal);
+    const bx::Vec3 projectedPoint = vecSubtract(point, vecScale(normal, planeProjection / normalLengthSquared));
+    const bool insideTriangle =
+        vecDot(vecCross(firstToSecond, vecSubtract(projectedPoint, first)), normal) >= -0.0001f
+        && vecDot(vecCross(vecSubtract(third, second), vecSubtract(projectedPoint, second)), normal) >= -0.0001f
+        && vecDot(vecCross(vecSubtract(first, third), vecSubtract(projectedPoint, third)), normal) >= -0.0001f;
+
+    if (insideTriangle)
+    {
+        return planeProjection * planeProjection / normalLengthSquared;
+    }
+
+    return std::min(
+        pointSegmentDistanceSquared(point, first, second),
+        std::min(
+            pointSegmentDistanceSquared(point, second, third),
+            pointSegmentDistanceSquared(point, third, first)));
+}
+
 uint32_t resolveHoveredIndoorActorOutlineColor(
     const MapDeltaActor &actor,
     const IndoorWorldRuntime::MapActorAiState *pAiState)
@@ -2371,22 +2426,21 @@ bool IndoorRenderer::bakedStaticLightMayAffectTriangle(
     const std::vector<BakedStaticLightSource> &bakedStaticLightSources,
     const TexturedVertex (&triangleVertices)[3])
 {
-    bx::Vec3 minBounds = {
+    const bx::Vec3 first = {
         triangleVertices[0].x,
         triangleVertices[0].y,
         triangleVertices[0].z
     };
-    bx::Vec3 maxBounds = minBounds;
-
-    for (size_t vertexIndex = 1; vertexIndex < 3; ++vertexIndex)
-    {
-        minBounds.x = std::min(minBounds.x, triangleVertices[vertexIndex].x);
-        minBounds.y = std::min(minBounds.y, triangleVertices[vertexIndex].y);
-        minBounds.z = std::min(minBounds.z, triangleVertices[vertexIndex].z);
-        maxBounds.x = std::max(maxBounds.x, triangleVertices[vertexIndex].x);
-        maxBounds.y = std::max(maxBounds.y, triangleVertices[vertexIndex].y);
-        maxBounds.z = std::max(maxBounds.z, triangleVertices[vertexIndex].z);
-    }
+    const bx::Vec3 second = {
+        triangleVertices[1].x,
+        triangleVertices[1].y,
+        triangleVertices[1].z
+    };
+    const bx::Vec3 third = {
+        triangleVertices[2].x,
+        triangleVertices[2].y,
+        triangleVertices[2].z
+    };
 
     for (const BakedStaticLightSource &source : bakedStaticLightSources)
     {
@@ -2395,7 +2449,7 @@ bool IndoorRenderer::bakedStaticLightMayAffectTriangle(
             continue;
         }
 
-        if (pointAabbDistanceSquared(source.position, minBounds, maxBounds) <= source.radius * source.radius)
+        if (pointTriangleDistanceSquared(source.position, first, second, third) <= source.radius * source.radius)
         {
             return true;
         }
