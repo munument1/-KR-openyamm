@@ -2068,6 +2068,13 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         {
             partyInputSpeed.z -= flyVerticalSpeed;
         }
+
+        if (partyInputSpeed.z > 0.0f)
+        {
+            const float remainingFlightAscent = std::max(0.0f, maxFlightHeight - partyNewPosition.z);
+            const float maxFlightAscentSpeed = remainingFlightAscent / std::max(deltaSeconds, CollisionEpsilon);
+            partyInputSpeed.z = std::min(partyInputSpeed.z, maxFlightAscentSpeed);
+        }
     }
     else if ((!partyAtHighSlope || currentFloor.fromBModel) &&
              (!partyNotTouchingFloor || (partyCloseToGround && partyInputSpeed.z <= 0.0f)) &&
@@ -2780,16 +2787,6 @@ OutdoorMoveState OutdoorMovementController::resolveMoveForBody(
         fallDistance = std::max(0.0f, fallStartZ - finalGroundLevel);
         partyNewPosition.z = finalGroundLevel;
         partyInputSpeed.z = 0.0f;
-    }
-
-    if (flyingActive && partyNewPosition.z > maxFlightHeight)
-    {
-        partyNewPosition.z = maxFlightHeight;
-
-        if (partyInputSpeed.z > 0.0f)
-        {
-            partyInputSpeed.z = 0.0f;
-        }
     }
 
     OutdoorMoveState result = {};
