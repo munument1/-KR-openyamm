@@ -5104,6 +5104,8 @@ void OutdoorWorldRuntime::initialize(
     m_gameMinutes = 9.0f * 60.0f;
     m_atmosphereState = buildAtmosphereSourceState(map, outdoorMapData, outdoorMapDeltaData);
     m_outdoorWeatherProfile = outdoorWeatherProfile;
+    m_mergedWeatherStateCacheValid = false;
+    m_mergedPrecipitationCacheValid = false;
     m_timers.clear();
     m_timerDefinitionsInitialized = false;
     m_resetLegacyTimersOnInitialize = false;
@@ -7364,6 +7366,23 @@ void OutdoorWorldRuntime::applyInitialWeatherProfile()
     syncAtmosphereStateToMapDelta();
 }
 
+int OutdoorWorldRuntime::cachedMergedWeatherState(const OutdoorWeatherProfile &profile)
+{
+    const int hourIndex = std::max(0, static_cast<int>(std::floor(m_gameMinutes / 60.0f)));
+
+    if (!m_mergedWeatherStateCacheValid
+        || m_cachedMergedWeatherMapId != m_mapId
+        || m_cachedMergedWeatherHourIndex != hourIndex)
+    {
+        m_cachedMergedWeatherState = mergedWeatherStateForProfile(profile, m_gameMinutes, m_mapId);
+        m_cachedMergedWeatherMapId = m_mapId;
+        m_cachedMergedWeatherHourIndex = hourIndex;
+        m_mergedWeatherStateCacheValid = true;
+    }
+
+    return m_cachedMergedWeatherState;
+}
+
 bool OutdoorWorldRuntime::applyMergedWeatherProfile()
 {
     if (!m_outdoorWeatherProfile.has_value()
@@ -7374,7 +7393,7 @@ bool OutdoorWorldRuntime::applyMergedWeatherProfile()
     }
 
     const OutdoorWeatherProfile &profile = *m_outdoorWeatherProfile;
-    const int weatherState = mergedWeatherStateForProfile(profile, m_gameMinutes, m_mapId);
+    const int weatherState = cachedMergedWeatherState(profile);
     const std::string skyTextureName = mergedSkyTextureNameForProfile(profile, weatherState);
 
     if (!skyTextureName.empty())
@@ -7418,20 +7437,33 @@ bool OutdoorWorldRuntime::applyMergedWeatherProfile()
         m_atmosphereState.fogStrongDistance = 0;
     }
 
-    const MergedPrecipitationRoll precipitationRoll =
-        mergedPrecipitationRoll(profile, m_mapId, weatherDayIndexForMinutes(m_gameMinutes));
+    const int precipitationDayIndex = weatherDayIndexForMinutes(m_gameMinutes);
 
-    if (precipitationRoll.snow)
+    if (!m_mergedPrecipitationCacheValid
+        || m_cachedMergedPrecipitationMapId != m_mapId
+        || m_cachedMergedPrecipitationDayIndex != precipitationDayIndex)
+    {
+        const MergedPrecipitationRoll precipitationRoll =
+            mergedPrecipitationRoll(profile, m_mapId, precipitationDayIndex);
+        m_cachedMergedSnow = precipitationRoll.snow;
+        m_cachedMergedRain = precipitationRoll.rain;
+        m_cachedMergedRainIntensity = precipitationRoll.rainIntensity;
+        m_cachedMergedPrecipitationMapId = m_mapId;
+        m_cachedMergedPrecipitationDayIndex = precipitationDayIndex;
+        m_mergedPrecipitationCacheValid = true;
+    }
+
+    if (m_cachedMergedSnow)
     {
         m_atmosphereState.weatherFlags &= ~MapWeatherRaining;
         m_atmosphereState.weatherFlags |= MapWeatherSnowing;
         m_atmosphereState.rainIntensity = 0.0f;
     }
-    else if (precipitationRoll.rain)
+    else if (m_cachedMergedRain)
     {
         m_atmosphereState.weatherFlags &= ~MapWeatherSnowing;
         m_atmosphereState.weatherFlags |= MapWeatherRaining;
-        m_atmosphereState.rainIntensity = rainIntensityValue(precipitationRoll.rainIntensity);
+        m_atmosphereState.rainIntensity = rainIntensityValue(m_cachedMergedRainIntensity);
     }
     else
     {
@@ -7683,7 +7715,7 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         && m_outdoorWeatherProfile->mergedWeatherConfigured
         && m_outdoorWeatherProfile->mergedMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
     {
-        const int weatherState = mergedWeatherStateForProfile(*m_outdoorWeatherProfile, m_gameMinutes, m_mapId);
+        const int weatherState = cachedMergedWeatherState(*m_outdoorWeatherProfile);
         const std::string skyTextureName = mergedSkyTextureNameForProfile(*m_outdoorWeatherProfile, weatherState);
         m_atmosphereState.skyTextureName = !skyTextureName.empty()
             ? skyTextureName

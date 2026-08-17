@@ -187,6 +187,13 @@ public:
     void setHudLayoutRuntimeWidthOverride(const std::string &layoutId, float width);
     void setHudLayoutRuntimeHeightOverride(const std::string &layoutId, float height);
     const UiLayoutManager::LayoutElement *findHudLayoutElement(const std::string &layoutId) const;
+
+    template <size_t Size>
+    const UiLayoutManager::LayoutElement *findHudLayoutElement(const char (&layoutId)[Size]) const
+    {
+        return findStaticHudLayoutElement(layoutId);
+    }
+
     int defaultHudLayoutZIndexForScreen(const std::string &screen) const;
     const std::vector<std::string> &sortedHudLayoutIdsForScreen(const std::string &screen) const;
     std::optional<GameplayResolvedHudLayoutElement> resolveHudLayoutElement(
@@ -335,6 +342,7 @@ private:
         size_t operator()(const HudLayoutResolutionCacheKey &key) const;
     };
 
+    const UiLayoutManager::LayoutElement *findStaticHudLayoutElement(const char *pLayoutId) const;
     void clearHudLayoutLookupCaches() const;
 
     const Engine::AssetFileSystem *m_pAssetFileSystem = nullptr;
@@ -354,6 +362,8 @@ private:
     GameplayAssetLoadCache m_assetLoadCache;
     UiLayoutManager m_layoutManager;
     mutable std::unordered_map<std::string, const UiLayoutManager::LayoutElement *> m_hudLayoutElementLookupCache;
+    mutable std::unordered_map<const char *, const UiLayoutManager::LayoutElement *>
+        m_staticHudLayoutElementLookupCache;
     mutable std::unordered_map<
         HudLayoutResolutionCacheKey,
         std::optional<GameplayResolvedHudLayoutElement>,

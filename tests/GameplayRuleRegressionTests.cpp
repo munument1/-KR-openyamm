@@ -58,12 +58,16 @@
 
 TEST_CASE("full-screen gameplay HUD states occlude world rendering")
 {
+    using OpenYAMM::Game::EventDialogContent;
+    using OpenYAMM::Game::EventDialogPresentation;
     using OpenYAMM::Game::GameplayHudScreenState;
 
-    CHECK_FALSE(OpenYAMM::Game::gameplayHudScreenFullyOccludesWorld(GameplayHudScreenState::Gameplay));
+    const EventDialogContent inactiveDialog = {};
+    CHECK_FALSE(OpenYAMM::Game::gameplayHudScreenFullyOccludesWorld(
+        GameplayHudScreenState::Gameplay,
+        inactiveDialog));
 
-    constexpr std::array<GameplayHudScreenState, 15> occludingStates = {
-        GameplayHudScreenState::Dialogue,
+    constexpr std::array<GameplayHudScreenState, 14> occludingStates = {
         GameplayHudScreenState::Character,
         GameplayHudScreenState::TownPortal,
         GameplayHudScreenState::LloydsBeacon,
@@ -82,8 +86,28 @@ TEST_CASE("full-screen gameplay HUD states occlude world rendering")
 
     for (GameplayHudScreenState state : occludingStates)
     {
-        CHECK(OpenYAMM::Game::gameplayHudScreenFullyOccludesWorld(state));
+        CHECK(OpenYAMM::Game::gameplayHudScreenFullyOccludesWorld(state, inactiveDialog));
     }
+
+    EventDialogContent houseServiceDialog = {};
+    houseServiceDialog.isActive = true;
+    houseServiceDialog.isHouseDialog = true;
+    CHECK(OpenYAMM::Game::gameplayHudScreenFullyOccludesWorld(
+        GameplayHudScreenState::Dialogue,
+        houseServiceDialog));
+
+    EventDialogContent npcDialog = {};
+    npcDialog.isActive = true;
+    CHECK_FALSE(OpenYAMM::Game::gameplayHudScreenFullyOccludesWorld(
+        GameplayHudScreenState::Dialogue,
+        npcDialog));
+
+    EventDialogContent transitionDialog = {};
+    transitionDialog.isActive = true;
+    transitionDialog.presentation = EventDialogPresentation::Transition;
+    CHECK_FALSE(OpenYAMM::Game::gameplayHudScreenFullyOccludesWorld(
+        GameplayHudScreenState::Dialogue,
+        transitionDialog));
 }
 
 namespace

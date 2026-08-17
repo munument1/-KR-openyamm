@@ -2882,6 +2882,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
 
     const uint32_t vertexCount = 6;
     applyBillboardFogUniforms(view, view.m_viewDistanceCache.actorBillboardDistance);
+    applyBillboardAmbientUniform(view);
 
     struct CombinedBillboardBatch
     {
@@ -2891,9 +2892,6 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
         size_t decorationItems = 0;
     };
 
-    std::vector<CombinedBillboardBatch> billboardBatches;
-    billboardBatches.reserve(32);
-
     const auto resetBillboardBatch =
         [](CombinedBillboardBatch &batch)
         {
@@ -2901,6 +2899,27 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             batch.pTexture = nullptr;
             batch.actorItems = 0;
             batch.decorationItems = 0;
+        };
+
+    thread_local std::vector<CombinedBillboardBatch> billboardBatchPool;
+
+    if (billboardBatchPool.capacity() < 32)
+    {
+        billboardBatchPool.reserve(32);
+    }
+
+    bool standardBillboardEffectUniformsActive = false;
+    const auto ensureStandardBillboardEffectUniforms =
+        [&]()
+        {
+            if (standardBillboardEffectUniformsActive)
+            {
+                return;
+            }
+
+            applyBillboardOverrideColorUniform(view, 0, 0.0f);
+            applyBillboardOutlineParamsUniform(view, 0.0f, 0.0f, 0.0f);
+            standardBillboardEffectUniformsActive = true;
         };
 
     const auto submitBillboardBatch =
@@ -2939,9 +2958,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                     batch.pTexture->textureHandle,
                     TextureFilterProfile::Billboard,
                     BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-                applyBillboardAmbientUniform(view);
-                applyBillboardOverrideColorUniform(view, 0, 0.0f);
-                applyBillboardOutlineParamsUniform(view, 0.0f, 0.0f, 0.0f);
+                ensureStandardBillboardEffectUniforms();
                 bgfx::setState(BillboardAlphaRenderState);
                 bgfx::submit(viewId, view.m_outdoorLitBillboardProgramHandle);
                 ++textureGroupCount;
@@ -3135,13 +3152,13 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                     pTexture->textureHandle,
                     TextureFilterProfile::Billboard,
                     BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-                applyBillboardAmbientUniform(view);
                 applyBillboardOverrideColorUniform(view, drawItem.hoveredOutlineColorAbgr, 1.0f);
                 applyBillboardOutlineParamsUniform(
                     view,
                     1.0f / static_cast<float>(pTexture->width),
                     1.0f / static_cast<float>(pTexture->height),
                     HoveredActorOutlineThicknessPixels);
+                standardBillboardEffectUniformsActive = false;
                 bgfx::setState(BillboardAlphaRenderState);
                 bgfx::submit(viewId, view.m_outdoorLitBillboardProgramHandle);
                 if (collectRenderDiagnostics)
@@ -3199,9 +3216,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                 pTexture->textureHandle,
                 TextureFilterProfile::Billboard,
                 BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-            applyBillboardAmbientUniform(view);
-            applyBillboardOverrideColorUniform(view, 0, 0.0f);
-            applyBillboardOutlineParamsUniform(view, 0.0f, 0.0f, 0.0f);
+            ensureStandardBillboardEffectUniforms();
             bgfx::setState(BillboardAlphaRenderState);
             bgfx::submit(viewId, view.m_outdoorLitBillboardProgramHandle);
 
@@ -3229,7 +3244,8 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
 
     if (depthSliceSize <= 0.0f)
     {
-        CombinedBillboardBatch exactBatch = {};
+        thread_local CombinedBillboardBatch exactBatch;
+        resetBillboardBatch(exactBatch);
         exactBatch.vertices.reserve(drawItems.size() * 6);
 
         for (const BillboardDrawItem &drawItem : drawItems)
@@ -3272,7 +3288,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
 
             const float sliceNearDepth = firstDrawItem.cameraDepth - depthSliceSize;
             size_t sliceItemCount = 0;
-            billboardBatches.clear();
+            size_t activeBillboardBatchCount = 0;
 
             while (drawItemIndex < drawItems.size())
             {
@@ -3289,8 +3305,10 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                 {
                     CombinedBillboardBatch *pBatch = nullptr;
 
-                    for (CombinedBillboardBatch &batch : billboardBatches)
+                    for (size_t batchIndex = 0; batchIndex < activeBillboardBatchCount; ++batchIndex)
                     {
+                        CombinedBillboardBatch &batch = billboardBatchPool[batchIndex];
+
                         if (batch.pTexture == pTexture)
                         {
                             pBatch = &batch;
@@ -3300,8 +3318,14 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
 
                     if (pBatch == nullptr)
                     {
-                        billboardBatches.push_back({});
-                        pBatch = &billboardBatches.back();
+                        if (activeBillboardBatchCount == billboardBatchPool.size())
+                        {
+                            billboardBatchPool.emplace_back();
+                        }
+
+                        pBatch = &billboardBatchPool[activeBillboardBatchCount];
+                        ++activeBillboardBatchCount;
+                        resetBillboardBatch(*pBatch);
                         pBatch->pTexture = pTexture;
                     }
 
@@ -3317,13 +3341,13 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             if (view.m_gameSettings.performanceTrace && sliceItemCount > 0)
             {
                 ++view.m_outdoorSpriteRenderDiagnostics.combinedDepthSlices;
-                view.m_outdoorSpriteRenderDiagnostics.combinedDepthSliceTextureGroups += billboardBatches.size();
+                view.m_outdoorSpriteRenderDiagnostics.combinedDepthSliceTextureGroups += activeBillboardBatchCount;
                 view.m_outdoorSpriteRenderDiagnostics.combinedDepthSliceItems += sliceItemCount;
             }
 
-            for (CombinedBillboardBatch &batch : billboardBatches)
+            for (size_t batchIndex = 0; batchIndex < activeBillboardBatchCount; ++batchIndex)
             {
-                submitBillboardBatch(batch);
+                submitBillboardBatch(billboardBatchPool[batchIndex]);
             }
         }
     }

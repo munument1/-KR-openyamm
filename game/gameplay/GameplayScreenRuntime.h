@@ -322,6 +322,13 @@ public:
 
     const HouseEntry *findHouseEntry(uint32_t houseId) const;
     const HudLayoutElement *findHudLayoutElement(const std::string &layoutId) const;
+
+    template <size_t Size>
+    const HudLayoutElement *findHudLayoutElement(const char (&layoutId)[Size]) const
+    {
+        return gameplayUiRuntime().findHudLayoutElement(layoutId);
+    }
+
     int defaultHudLayoutZIndexForScreen(const std::string &screen) const;
     GameplayHudScreenState currentHudScreenState() const;
     const std::vector<std::string> &sortedHudLayoutIdsForScreen(const std::string &screen) const;

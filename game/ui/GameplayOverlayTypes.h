@@ -36,9 +36,21 @@ enum class GameplayHudScreenState
     QuickReference
 };
 
-inline bool gameplayHudScreenFullyOccludesWorld(GameplayHudScreenState state)
+inline bool gameplayHudScreenFullyOccludesWorld(
+    GameplayHudScreenState state,
+    const EventDialogContent &activeEventDialog)
 {
-    return state != GameplayHudScreenState::Gameplay;
+    if (state == GameplayHudScreenState::Gameplay)
+    {
+        return false;
+    }
+
+    if (state == GameplayHudScreenState::Dialogue)
+    {
+        return activeEventDialog.isActive && activeEventDialog.isHouseDialog;
+    }
+
+    return true;
 }
 
 inline GameplayHudScreenState resolveGameplayHudScreenState(

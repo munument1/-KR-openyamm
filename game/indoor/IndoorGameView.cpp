@@ -1205,7 +1205,9 @@ void IndoorGameView::render(int width, int height, const GameplayInputFrame &inp
     const bool worldCaptureRequired = captureSavePreviewThisFrame || captureLloydsBeaconPreviewThisFrame;
     const bool renderWorldThisFrame =
         worldCaptureRequired
-        || !gameplayHudScreenFullyOccludesWorld(overlayContext.currentHudScreenState());
+        || !gameplayHudScreenFullyOccludesWorld(
+            overlayContext.currentHudScreenState(),
+            overlayContext.activeEventDialog());
 
     if (m_pIndoorRenderer != nullptr && renderWorldThisFrame)
     {

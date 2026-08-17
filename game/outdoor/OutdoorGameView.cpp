@@ -3431,7 +3431,9 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
     const bool worldCaptureRequired = captureSavePreviewThisFrame || captureLloydsBeaconPreviewThisFrame;
 
     if (!worldCaptureRequired
-        && gameplayHudScreenFullyOccludesWorld(overlayContext.currentHudScreenState()))
+        && gameplayHudScreenFullyOccludesWorld(
+            overlayContext.currentHudScreenState(),
+            overlayContext.activeEventDialog()))
     {
         bgfx::touch(SkyViewId);
         bgfx::touch(MainViewId);

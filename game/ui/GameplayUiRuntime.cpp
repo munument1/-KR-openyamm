@@ -394,6 +394,7 @@ void GameplayUiRuntime::recordPerformanceAssetLoad(
 void GameplayUiRuntime::clearHudLayoutLookupCaches() const
 {
     m_hudLayoutElementLookupCache.clear();
+    m_staticHudLayoutElementLookupCache.clear();
     m_hudLayoutResolutionCache.clear();
 }
 
@@ -947,6 +948,21 @@ const UiLayoutManager::LayoutElement *GameplayUiRuntime::findHudLayoutElement(co
 
     const UiLayoutManager::LayoutElement *pElement = m_layoutManager.findElement(layoutId);
     m_hudLayoutElementLookupCache.emplace(layoutId, pElement);
+    return pElement;
+}
+
+const UiLayoutManager::LayoutElement *GameplayUiRuntime::findStaticHudLayoutElement(const char *pLayoutId) const
+{
+    const std::unordered_map<const char *, const UiLayoutManager::LayoutElement *>::const_iterator cachedIterator =
+        m_staticHudLayoutElementLookupCache.find(pLayoutId);
+
+    if (cachedIterator != m_staticHudLayoutElementLookupCache.end())
+    {
+        return cachedIterator->second;
+    }
+
+    const UiLayoutManager::LayoutElement *pElement = m_layoutManager.findElement(pLayoutId);
+    m_staticHudLayoutElementLookupCache.emplace(pLayoutId, pElement);
     return pElement;
 }
 

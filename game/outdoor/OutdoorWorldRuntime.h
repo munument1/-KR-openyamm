@@ -1252,6 +1252,16 @@ private:
     float m_gameMinutes = 9.0f * 60.0f;
     AtmosphereState m_atmosphereState = {};
     std::optional<OutdoorWeatherProfile> m_outdoorWeatherProfile;
+    bool m_mergedWeatherStateCacheValid = false;
+    int m_cachedMergedWeatherMapId = 0;
+    int m_cachedMergedWeatherHourIndex = 0;
+    int m_cachedMergedWeatherState = 0;
+    bool m_mergedPrecipitationCacheValid = false;
+    int m_cachedMergedPrecipitationMapId = 0;
+    int m_cachedMergedPrecipitationDayIndex = 0;
+    bool m_cachedMergedSnow = false;
+    bool m_cachedMergedRain = false;
+    RainIntensityPreset m_cachedMergedRainIntensity = RainIntensityPreset::Off;
     std::vector<TimerState> m_timers;
     bool m_timerDefinitionsInitialized = false;
     bool m_resetLegacyTimersOnInitialize = false;
@@ -1442,6 +1452,7 @@ private:
         double registrationGameMinutes
     );
     void applyInitialWeatherProfile();
+    int cachedMergedWeatherState(const OutdoorWeatherProfile &profile);
     bool applyMergedWeatherProfile();
     void applyDailyWeatherRollover(int weatherDayIndex);
     void applyFogDistances(const OutdoorFogDistances &distances, bool foggy);
