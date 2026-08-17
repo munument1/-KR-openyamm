@@ -497,6 +497,20 @@ bool UiLayoutManager::loadLayoutFile(const Engine::AssetFileSystem &assetFileSys
                 }
                 else
                 {
+                    if (existingElementIterator->second.parentId != element.parentId)
+                    {
+                        m_layoutOrder.erase(
+                            std::remove_if(
+                                m_layoutOrder.begin(),
+                                m_layoutOrder.end(),
+                                [&element](const std::string &layoutId)
+                                {
+                                    return toLowerCopy(layoutId) == element.normalizedId;
+                                }),
+                            m_layoutOrder.end());
+                        m_layoutOrder.push_back(element.id);
+                    }
+
                     m_layoutElementByLookupId.erase(existingElementIterator->second.id);
                     m_layoutElementByLookupId.erase(existingElementIterator->second.normalizedId);
                 }

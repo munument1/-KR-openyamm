@@ -36,4 +36,28 @@ TEST_CASE("mobile gameplay layout overrides preserve follower child draw order")
         layoutManager.findElement("OutdoorFollowerPortrait_1");
     REQUIRE(pPortrait != nullptr);
     CHECK_EQ(pPortrait->parentId, "OutdoorFollowerPanel");
+
+    const std::vector<std::string>::const_iterator goldBarIterator =
+        std::find(layoutIds.begin(), layoutIds.end(), "OutdoorGoldBar");
+    REQUIRE(goldBarIterator != layoutIds.end());
+
+    const char *pTopBarButtonIds[] = {
+        "OutdoorButtonRest",
+        "OutdoorButtonBooks",
+        "OutdoorButtonQuickReference",
+        "OutdoorButtonOptions",
+    };
+
+    for (const char *pButtonId : pTopBarButtonIds)
+    {
+        CHECK_EQ(std::count(layoutIds.begin(), layoutIds.end(), pButtonId), 1);
+        const std::vector<std::string>::const_iterator buttonIterator =
+            std::find(layoutIds.begin(), layoutIds.end(), pButtonId);
+        REQUIRE(buttonIterator != layoutIds.end());
+        CHECK(goldBarIterator < buttonIterator);
+
+        const OpenYAMM::Game::UiLayoutManager::LayoutElement *pButton = layoutManager.findElement(pButtonId);
+        REQUIRE(pButton != nullptr);
+        CHECK_EQ(pButton->parentId, "OutdoorGoldBar");
+    }
 }
