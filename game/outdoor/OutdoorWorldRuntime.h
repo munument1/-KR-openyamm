@@ -526,6 +526,7 @@ public:
         RainIntensityPreset rainIntensityPreset = RainIntensityPreset::Off;
         std::vector<uint8_t> fullyRevealedCells;
         std::vector<uint8_t> partiallyRevealedCells;
+        std::vector<uint32_t> faceAttributes;
         bool hasOutdoorRuntimeSaveParityFields = false;
     };
 

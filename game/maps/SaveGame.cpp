@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 68;
+constexpr uint32_t SaveVersion = 69;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -65,6 +65,7 @@ constexpr uint32_t SaveVersionHeldCursorItem = 65;
 constexpr uint32_t SaveVersionActorDiagnosticSource = 66;
 constexpr uint32_t SaveVersionLegacyEvtTimers = 67;
 constexpr uint32_t SaveVersionHiredNpcFollowerIdentity = 68;
+constexpr uint32_t SaveVersionOutdoorFaceAttributes = 69;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -3297,6 +3298,7 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::Snapshot &value
     writeValue(writer, value.hasRainIntensityOverride);
     writeValue(writer, value.rainIntensityPreset);
     writeValue(writer, value.bloodSplats);
+    writeValue(writer, value.faceAttributes);
 }
 
 bool readValue(BinaryReader &reader, OutdoorWorldRuntime::Snapshot &value)
@@ -3338,7 +3340,9 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::Snapshot &value)
                 && readValue(reader, value.armageddon)
                 && readValue(reader, value.hasRainIntensityOverride)
                 && readValue(reader, value.rainIntensityPreset)
-                && readValue(reader, value.bloodSplats)));
+                && readValue(reader, value.bloodSplats)))
+        && (reader.version() < SaveVersionOutdoorFaceAttributes
+            || readValue(reader, value.faceAttributes));
 
     if (loaded && reader.version() >= SaveVersionOutdoorRuntimeSaveParity)
     {

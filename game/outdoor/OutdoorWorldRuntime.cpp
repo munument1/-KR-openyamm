@@ -6975,6 +6975,7 @@ OutdoorWorldRuntime::Snapshot OutdoorWorldRuntime::snapshot() const
     {
         snapshot.fullyRevealedCells = m_pOutdoorMapDeltaData->fullyRevealedCells;
         snapshot.partiallyRevealedCells = m_pOutdoorMapDeltaData->partiallyRevealedCells;
+        snapshot.faceAttributes = m_pOutdoorMapDeltaData->faceAttributes;
     }
     snapshot.openedChestFlags.reserve(m_openedChests.size());
 
@@ -7048,6 +7049,14 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     {
         m_pOutdoorMapDeltaData->fullyRevealedCells = snapshot.fullyRevealedCells;
         m_pOutdoorMapDeltaData->partiallyRevealedCells = snapshot.partiallyRevealedCells;
+    }
+    if (m_pOutdoorMapDeltaData != nullptr
+        && !snapshot.faceAttributes.empty()
+        && m_pOutdoorMapDeltaData->faceAttributes != snapshot.faceAttributes)
+    {
+        m_pOutdoorMapDeltaData->faceAttributes = snapshot.faceAttributes;
+        ++m_pOutdoorMapDeltaData->surfaceRevision;
+        syncOutdoorFaceGeometryAttributesFromMapDelta();
     }
     m_openedChests.clear();
     m_openedChests.reserve(snapshot.openedChestFlags.size());

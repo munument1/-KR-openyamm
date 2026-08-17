@@ -651,7 +651,16 @@ function MM7.UpdateTulareanArtifactBattle()
         SetValue(MapVar(11), 0)
     end
 
-    if not IsQBitSet(QBit(591)) or IsAtLeast(MapVar(11), 1) then
+    if not IsQBitSet(QBit(591)) then
+        return
+    end
+
+    -- Keep the artifact chest derived from the active quest state. This also repairs saves made before outdoor
+    -- facet attributes were included in travel/save snapshots.
+    evt.SetFacetBit(1, FacetBits.Untouchable, 0)
+    evt.SetFacetBit(1, FacetBits.Invisible, 0)
+
+    if IsAtLeast(MapVar(11), 1) then
         return
     end
 
