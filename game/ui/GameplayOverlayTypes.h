@@ -36,6 +36,11 @@ enum class GameplayHudScreenState
     QuickReference
 };
 
+inline bool gameplayHudScreenFullyOccludesWorld(GameplayHudScreenState state)
+{
+    return state != GameplayHudScreenState::Gameplay;
+}
+
 inline GameplayHudScreenState resolveGameplayHudScreenState(
     const GameplayUiController &uiController,
     const EventDialogContent &activeEventDialog,

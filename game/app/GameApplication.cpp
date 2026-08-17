@@ -6465,6 +6465,8 @@ bool GameApplication::loadCurrentSessionMap(
     bool initializeView,
     const std::function<void(int)> &progressCallback)
 {
+    setGprofProfilingEnabled(false);
+
     if (m_pAssetFileSystem == nullptr || !m_gameSession.hasCurrentMapFileName())
     {
         std::cerr
@@ -6481,7 +6483,6 @@ bool GameApplication::loadCurrentSessionMap(
         return false;
     }
 
-    GprofProfilingScope gprofProfilingScope;
     MapLoadTimingLogger timingLogger(m_gameSession.currentMapFileName(), "current_session_map");
 
     if (progressCallback)
@@ -6595,6 +6596,8 @@ bool GameApplication::loadCurrentSessionMap(
 
 void GameApplication::beginLoadingOverlay(LoadingOverlayScreen::Presentation presentation)
 {
+    setGprofProfilingEnabled(false);
+
     if (m_pAssetFileSystem == nullptr)
     {
         return;
@@ -8240,6 +8243,13 @@ void GameApplication::reportQuickSaveStatus(const std::string &status)
 
 void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, float deltaSeconds)
 {
+    const bool gameplayLoaded =
+        !m_loadingOverlayActive
+        && m_screenManager.activeScreen() == nullptr
+        && m_pMapSceneRuntime != nullptr
+        && m_gameSession.activeWorldRuntime() != nullptr;
+    setGprofProfilingEnabled(gameplayLoaded);
+
     const bool collectFrameDiagnostics = m_config.performanceTrace;
     const uint64_t frameBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
     std::optional<FramePerformanceDiagnostics> frameDiagnosticsAtStart;

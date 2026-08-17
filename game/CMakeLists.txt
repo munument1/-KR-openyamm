@@ -269,6 +269,18 @@ if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
 
     target_compile_features(openyamm PRIVATE cxx_std_20)
 
+    if (OPENYAMM_ENABLE_GPROF_SAMPLING)
+        if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR NOT UNIX OR APPLE)
+            message(FATAL_ERROR "OPENYAMM_ENABLE_GPROF_SAMPLING requires GNU C++ on Linux.")
+        endif()
+
+        target_link_options(openyamm
+            PRIVATE
+                -pg
+                -no-pie
+        )
+    endif()
+
     if (WIN32)
         file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/packaging/windows/openyamm.ico" openyammWindowsIconPath)
         configure_file(

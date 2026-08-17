@@ -1240,6 +1240,44 @@ std::optional<GameplayHudTextureHandle> GameplayUiRuntime::ensureDynamicHudTextu
     return result;
 }
 
+std::optional<GameplayHudTextureHandle> GameplayUiRuntime::findCachedDynamicHudTexture(
+    const std::string &textureName,
+    const std::string &contentSignature) const
+{
+    const std::string normalizedTextureName = toLowerCopy(textureName);
+    const auto signatureIterator = m_dynamicHudTextureContentSignatures.find(normalizedTextureName);
+
+    if (signatureIterator == m_dynamicHudTextureContentSignatures.end()
+        || signatureIterator->second != contentSignature)
+    {
+        return std::nullopt;
+    }
+
+    const GameplayHudTextureData *pTexture = GameplayHudCommon::findHudTexture(
+        m_hudTextureHandles,
+        m_hudTextureIndexByName,
+        normalizedTextureName);
+
+    if (pTexture == nullptr || !bgfx::isValid(pTexture->textureHandle))
+    {
+        return std::nullopt;
+    }
+
+    return GameplayHudTextureHandle{
+        .textureName = pTexture->textureName,
+        .width = pTexture->width,
+        .height = pTexture->height,
+        .textureHandle = pTexture->textureHandle,
+    };
+}
+
+void GameplayUiRuntime::setDynamicHudTextureContentSignature(
+    const std::string &textureName,
+    const std::string &contentSignature)
+{
+    m_dynamicHudTextureContentSignatures[toLowerCopy(textureName)] = contentSignature;
+}
+
 const std::vector<uint8_t> *GameplayUiRuntime::hudTexturePixels(
     const std::string &textureName,
     int &width,
@@ -2275,6 +2313,7 @@ void GameplayUiRuntime::clearHudResources()
 
         m_hudTextureHandles.clear();
         m_hudTextureIndexByName.clear();
+        m_dynamicHudTextureContentSignatures.clear();
         m_hudFontHandles.clear();
         m_hudFontColorTextureHandles.clear();
         m_hudTextureColorTextureHandles.clear();
@@ -2325,6 +2364,7 @@ void GameplayUiRuntime::clearHudResources()
 
     m_hudTextureHandles.clear();
     m_hudTextureIndexByName.clear();
+    m_dynamicHudTextureContentSignatures.clear();
     m_hudFontHandles.clear();
     m_hudFontColorTextureHandles.clear();
     m_hudTextureColorTextureHandles.clear();

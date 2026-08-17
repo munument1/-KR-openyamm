@@ -8453,6 +8453,10 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
         pOffHandItem != nullptr && pOffHandItem->equipStat != "Shield";
     std::optional<NativePaperdollComposite> nativePaperdollComposite;
     std::optional<GameplayResolvedHudLayoutElement> nativePaperdollResolved;
+    std::optional<GameplayHudTextureHandle> cachedPaperdollTexture;
+    const std::string paperdollTextureName =
+        "character_paperdoll_composite_" + std::to_string(characterSourceIndex);
+    std::string paperdollContentSignature;
     const bool useNativePaperdollComposite =
         !isAdventurersInnRoster
         && !characterScreen.dollJewelryOverlayOpen
@@ -8467,6 +8471,63 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
 
         if (pBackgroundLayout != nullptr && shouldRenderInCurrentPass(pBackgroundLayout->zIndex))
         {
+            const auto appendSignatureNumber = [&paperdollContentSignature](uint64_t value)
+            {
+                paperdollContentSignature.append(std::to_string(value));
+                paperdollContentSignature.push_back('|');
+            };
+            const auto appendSignatureText = [&paperdollContentSignature](const std::string &value)
+            {
+                paperdollContentSignature.append(value);
+                paperdollContentSignature.push_back('|');
+            };
+
+            paperdollContentSignature.reserve(256);
+            appendSignatureNumber(static_cast<uint64_t>(characterScreen.source));
+            appendSignatureNumber(characterSourceIndex);
+            appendSignatureNumber(static_cast<uint64_t>(width));
+            appendSignatureNumber(static_cast<uint64_t>(height));
+            appendSignatureNumber(pCharacterDollEntry->id);
+            appendSignatureNumber(pCharacterDollEntry->dollTypeId);
+            appendSignatureNumber(static_cast<uint64_t>(spearMastery));
+            appendSignatureText(pCharacterDollEntry->backgroundAsset);
+            appendSignatureText(pCharacterDollEntry->bodyAsset);
+            appendSignatureText(pCharacterDollEntry->leftHandClosedAsset);
+            appendSignatureText(pCharacterDollEntry->leftHandHoldAsset);
+            appendSignatureText(pCharacterDollEntry->leftHandOpenAsset);
+            appendSignatureText(pCharacterDollEntry->rightHandFingersAsset);
+            appendSignatureText(pCharacterDollEntry->rightHandOpenAsset);
+            appendSignatureText(pCharacterDollEntry->rightHandHoldAsset);
+
+            const std::array<uint32_t, 9> visibleEquipmentIds = {
+                pCharacter->equipment.offHand,
+                pCharacter->equipment.mainHand,
+                pCharacter->equipment.bow,
+                pCharacter->equipment.armor,
+                pCharacter->equipment.helm,
+                pCharacter->equipment.belt,
+                pCharacter->equipment.cloak,
+                pCharacter->equipment.gauntlets,
+                pCharacter->equipment.boots,
+            };
+            const std::array<bool, 9> visibleEquipmentBrokenStates = {
+                pCharacter->equipmentRuntime.offHand.broken,
+                pCharacter->equipmentRuntime.mainHand.broken,
+                pCharacter->equipmentRuntime.bow.broken,
+                pCharacter->equipmentRuntime.armor.broken,
+                pCharacter->equipmentRuntime.helm.broken,
+                pCharacter->equipmentRuntime.belt.broken,
+                pCharacter->equipmentRuntime.cloak.broken,
+                pCharacter->equipmentRuntime.gauntlets.broken,
+                pCharacter->equipmentRuntime.boots.broken,
+            };
+
+            for (size_t equipmentIndex = 0; equipmentIndex < visibleEquipmentIds.size(); ++equipmentIndex)
+            {
+                appendSignatureNumber(visibleEquipmentIds[equipmentIndex]);
+                appendSignatureNumber(visibleEquipmentBrokenStates[equipmentIndex] ? 1 : 0);
+            }
+
             std::string backgroundAssetName = pBackgroundLayout->primaryAsset;
 
             if (!pCharacterDollEntry->backgroundAsset.empty() && pCharacterDollEntry->backgroundAsset != "none")
@@ -8476,8 +8537,6 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
 
             const std::optional<GameplayHudTextureHandle> backgroundTexture =
                 context.gameplayUiRuntime().ensureHudTextureLoaded(backgroundAssetName);
-            const std::optional<NativeBgraLayer> backgroundLayer =
-                loadHudNativeBgraLayer(context, backgroundAssetName, false);
             const std::optional<GameplayResolvedHudLayoutElement> resolvedBackground =
                 context.resolveHudLayoutElement(
                     pBackgroundLayout->id,
@@ -8486,11 +8545,27 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                     pBackgroundLayout->width,
                     pBackgroundLayout->height);
 
-            if (backgroundTexture.has_value()
-                && backgroundLayer.has_value()
+            const bool canUsePaperdollBackground =
+                backgroundTexture.has_value()
                 && resolvedBackground.has_value()
                 && backgroundTexture->width > 0
-                && backgroundTexture->height > 0)
+                && backgroundTexture->height > 0;
+
+            if (canUsePaperdollBackground)
+            {
+                appendSignatureText(backgroundAssetName);
+                cachedPaperdollTexture = context.gameplayUiRuntime().findCachedDynamicHudTexture(
+                    paperdollTextureName,
+                    paperdollContentSignature);
+                nativePaperdollResolved = *resolvedBackground;
+            }
+
+            const std::optional<NativeBgraLayer> backgroundLayer =
+                canUsePaperdollBackground && !cachedPaperdollTexture.has_value()
+                    ? loadHudNativeBgraLayer(context, backgroundAssetName, false)
+                    : std::nullopt;
+
+            if (backgroundLayer.has_value())
             {
                 nativePaperdollComposite = NativePaperdollComposite{
                     backgroundLayer->width,
@@ -8498,7 +8573,6 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                     backgroundTexture->width,
                     backgroundTexture->height,
                     backgroundLayer->pixels};
-                nativePaperdollResolved = *resolvedBackground;
                 const float physicalScaleX = static_cast<float>(nativePaperdollComposite->physicalWidth)
                     / static_cast<float>(std::max(1, nativePaperdollComposite->logicalWidth));
                 const float physicalScaleY = static_cast<float>(nativePaperdollComposite->physicalHeight)
@@ -9052,14 +9126,26 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
 
         if (normalizedLayoutId == "characterdollbackground")
         {
-            if (nativePaperdollComposite.has_value() && nativePaperdollResolved.has_value())
+            if (nativePaperdollResolved.has_value()
+                && (cachedPaperdollTexture.has_value() || nativePaperdollComposite.has_value()))
             {
-                const std::optional<GameplayHudTextureHandle> compositeTexture =
-                    context.gameplayUiRuntime().ensureDynamicHudTexture(
-                        "character_paperdoll_composite_" + std::to_string(characterSourceIndex),
+                std::optional<GameplayHudTextureHandle> compositeTexture = cachedPaperdollTexture;
+
+                if (!compositeTexture.has_value())
+                {
+                    compositeTexture = context.gameplayUiRuntime().ensureDynamicHudTexture(
+                        paperdollTextureName,
                         nativePaperdollComposite->physicalWidth,
                         nativePaperdollComposite->physicalHeight,
                         nativePaperdollComposite->pixels);
+
+                    if (compositeTexture.has_value())
+                    {
+                        context.gameplayUiRuntime().setDynamicHudTextureContentSignature(
+                            paperdollTextureName,
+                            paperdollContentSignature);
+                    }
+                }
 
                 if (compositeTexture.has_value())
                 {

@@ -565,7 +565,9 @@ void updateTerrainAtlasTileTexture(
     uint16_t innerAtlasY,
     int tileSize,
     int tilePadding,
-    const std::vector<uint8_t> &tilePixels)
+    const std::vector<uint8_t> &tilePixels,
+    std::vector<uint8_t> &regionPixels,
+    std::vector<uint8_t> &nextRegionPixels)
 {
     if (!bgfx::isValid(textureHandle)
         || atlasWidth <= 0
@@ -578,24 +580,6 @@ void updateTerrainAtlasTileTexture(
     }
 
     const int paddedTileSize = tileSize + tilePadding * 2;
-    std::vector<uint8_t> paddedPixels(static_cast<size_t>(paddedTileSize * paddedTileSize * 4), 0);
-
-    for (int paddedY = 0; paddedY < paddedTileSize; ++paddedY)
-    {
-        const int sourceY = std::clamp(paddedY - tilePadding, 0, tileSize - 1);
-
-        for (int paddedX = 0; paddedX < paddedTileSize; ++paddedX)
-        {
-            const int sourceX = std::clamp(paddedX - tilePadding, 0, tileSize - 1);
-            const size_t sourceOffset = static_cast<size_t>((sourceY * tileSize + sourceX) * 4);
-            const size_t targetOffset = static_cast<size_t>((paddedY * paddedTileSize + paddedX) * 4);
-            std::memcpy(
-                paddedPixels.data() + static_cast<ptrdiff_t>(targetOffset),
-                tilePixels.data() + static_cast<ptrdiff_t>(sourceOffset),
-                4);
-        }
-    }
-
     const int atlasX = innerAtlasX - tilePadding;
     const int atlasY = innerAtlasY - tilePadding;
     int regionX = std::max(0, atlasX);
@@ -608,19 +592,22 @@ void updateTerrainAtlasTileTexture(
         return;
     }
 
-    std::vector<uint8_t> regionPixels(static_cast<size_t>(regionWidth * regionHeight * 4), 0);
-    const int paddedSourceX = regionX - atlasX;
-    const int paddedSourceY = regionY - atlasY;
+    regionPixels.resize(static_cast<size_t>(regionWidth * regionHeight * 4));
 
-    for (int row = 0; row < regionHeight; ++row)
+    for (int targetY = 0; targetY < regionHeight; ++targetY)
     {
-        const size_t sourceOffset =
-            static_cast<size_t>(((paddedSourceY + row) * paddedTileSize + paddedSourceX) * 4);
-        const size_t targetOffset = static_cast<size_t>(row * regionWidth * 4);
-        std::memcpy(
-            regionPixels.data() + static_cast<ptrdiff_t>(targetOffset),
-            paddedPixels.data() + static_cast<ptrdiff_t>(sourceOffset),
-            static_cast<size_t>(regionWidth * 4));
+        const int sourceY = std::clamp(regionY + targetY - static_cast<int>(innerAtlasY), 0, tileSize - 1);
+
+        for (int targetX = 0; targetX < regionWidth; ++targetX)
+        {
+            const int sourceX = std::clamp(regionX + targetX - static_cast<int>(innerAtlasX), 0, tileSize - 1);
+            const size_t sourceOffset = static_cast<size_t>((sourceY * tileSize + sourceX) * 4);
+            const size_t targetOffset = static_cast<size_t>((targetY * regionWidth + targetX) * 4);
+            std::memcpy(
+                regionPixels.data() + static_cast<ptrdiff_t>(targetOffset),
+                tilePixels.data() + static_cast<ptrdiff_t>(sourceOffset),
+                4);
+        }
     }
 
     int mipWidth = atlasWidth;
@@ -653,9 +640,7 @@ void updateTerrainAtlasTileTexture(
         const int nextRegionBottom = std::min(nextMipHeight, (regionY + regionHeight + 1) / 2);
         const int nextRegionWidth = std::max(1, nextRegionRight - nextRegionX);
         const int nextRegionHeight = std::max(1, nextRegionBottom - nextRegionY);
-        std::vector<uint8_t> nextRegionPixels(
-            static_cast<size_t>(nextRegionWidth * nextRegionHeight * 4),
-            0);
+        nextRegionPixels.resize(static_cast<size_t>(nextRegionWidth * nextRegionHeight * 4));
 
         for (int targetY = 0; targetY < nextRegionHeight; ++targetY)
         {
@@ -699,7 +684,7 @@ void updateTerrainAtlasTileTexture(
         regionY = nextRegionY;
         regionWidth = nextRegionWidth;
         regionHeight = nextRegionHeight;
-        regionPixels = std::move(nextRegionPixels);
+        regionPixels.swap(nextRegionPixels);
         mipWidth = nextMipWidth;
         mipHeight = nextMipHeight;
         ++mipLevel;
@@ -1558,6 +1543,8 @@ void OutdoorRenderer::initializeAnimatedWaterTileState(
     const std::optional<OutdoorTerrainTextureAtlas> &outdoorTerrainTextureAtlas)
 {
     view.m_animatedWaterTerrainTiles.clear();
+    view.m_animatedWaterUploadScratchPixels = {};
+    view.m_animatedWaterNextMipScratchPixels = {};
     view.m_lastAnimatedWaterAnimationTicks.reset();
     view.m_terrainTextureAtlasWidth = 0;
     view.m_terrainTextureAtlasHeight = 0;
@@ -1657,7 +1644,9 @@ void OutdoorRenderer::updateAnimatedWaterTileTexture(OutdoorGameView &view)
             atlasY,
             tileSize,
             tileState.tilePadding,
-            framePixels);
+            framePixels,
+            view.m_animatedWaterUploadScratchPixels,
+            view.m_animatedWaterNextMipScratchPixels);
 
         tileState.currentFrameIndex = frameIndex;
     }

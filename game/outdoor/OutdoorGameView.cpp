@@ -3428,6 +3428,19 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
     updateActorInspectOverlayState(width, height, input);
     captureFrameTimingStage(overlayStageNanoseconds);
 
+    const bool worldCaptureRequired = captureSavePreviewThisFrame || captureLloydsBeaconPreviewThisFrame;
+
+    if (!worldCaptureRequired
+        && gameplayHudScreenFullyOccludesWorld(overlayContext.currentHudScreenState()))
+    {
+        bgfx::touch(SkyViewId);
+        bgfx::touch(MainViewId);
+        updateFootstepAudio(deltaSeconds);
+        consumePendingWorldAudioEvents();
+        updateCombatFeedback(deltaSeconds);
+        return;
+    }
+
     const bool cameraMotionInput = hasOutdoorCameraMotionInput(input);
     const size_t pendingSpriteWarmupsBefore =
         m_nextPendingSpriteFrameWarmupIndex < m_pendingSpriteFrameWarmups.size()

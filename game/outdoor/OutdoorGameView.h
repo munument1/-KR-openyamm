@@ -702,6 +702,8 @@ private:
     std::string m_cachedSkyTextureName;
     float m_lastSkyUpdateElapsedTime = -1.0f;
     std::vector<AnimatedWaterTerrainTileState> m_animatedWaterTerrainTiles;
+    std::vector<uint8_t> m_animatedWaterUploadScratchPixels;
+    std::vector<uint8_t> m_animatedWaterNextMipScratchPixels;
     std::optional<uint32_t> m_lastAnimatedWaterAnimationTicks;
     SpriteLoadCache m_spriteLoadCache;
     std::unordered_set<std::string> m_runtimeBillboardLoadWarningKeys;

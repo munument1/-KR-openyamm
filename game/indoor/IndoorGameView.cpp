@@ -59,6 +59,7 @@ constexpr float MaxUiViewportAspect = 4.0f / 3.0f;
 constexpr float WalkingSoundMovementSpeedThreshold = 20.0f;
 constexpr float WalkingMotionHoldSeconds = 0.125f;
 constexpr float CombatTargetPanelDurationSeconds = 4.0f;
+constexpr uint16_t MainViewId = 0;
 constexpr uint16_t HudViewId = 2;
 constexpr uint64_t GameplayMouseLookCursorSyncIntervalTicks = 100;
 const std::filesystem::path AutosavePath = std::filesystem::path("saves") / "autosave.oysav";
@@ -1201,7 +1202,12 @@ void IndoorGameView::render(int width, int height, const GameplayInputFrame &inp
             sharedInputFrameResult.mouseLookPolicy.cursorModeActive);
     }
 
-    if (m_pIndoorRenderer != nullptr)
+    const bool worldCaptureRequired = captureSavePreviewThisFrame || captureLloydsBeaconPreviewThisFrame;
+    const bool renderWorldThisFrame =
+        worldCaptureRequired
+        || !gameplayHudScreenFullyOccludesWorld(overlayContext.currentHudScreenState());
+
+    if (m_pIndoorRenderer != nullptr && renderWorldThisFrame)
     {
         const bool pendingSpellTargetActive = m_gameSession.gameplayScreenState().pendingSpellTarget().active;
         const bool allowWorldInput =
@@ -1223,6 +1229,14 @@ void IndoorGameView::render(int width, int height, const GameplayInputFrame &inp
             allowWorldInput,
             allowWorldSimulation);
     }
+    else if (!renderWorldThisFrame)
+    {
+        const uint16_t viewWidth = static_cast<uint16_t>(std::max(width, 1));
+        const uint16_t viewHeight = static_cast<uint16_t>(std::max(height, 1));
+        bgfx::setViewRect(MainViewId, 0, 0, viewWidth, viewHeight);
+        bgfx::setViewClear(MainViewId, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ffu, 1.0f, 0);
+        bgfx::touch(MainViewId);
+    }
 
     if (captureSavePreviewThisFrame)
     {
@@ -1241,7 +1255,12 @@ void IndoorGameView::render(int width, int height, const GameplayInputFrame &inp
     presentPendingEventFeedback();
 
     updateCombatFeedback(deltaSeconds);
-    renderCombatFeedbackOverlay(width, height);
+
+    if (renderWorldThisFrame)
+    {
+        renderCombatFeedbackOverlay(width, height);
+    }
+
     updateActorInspectOverlayState(width, height, input);
 }
 

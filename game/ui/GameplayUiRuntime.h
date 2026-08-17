@@ -209,6 +209,12 @@ public:
         int width,
         int height,
         const std::vector<uint8_t> &bgraPixels);
+    std::optional<GameplayHudTextureHandle> findCachedDynamicHudTexture(
+        const std::string &textureName,
+        const std::string &contentSignature) const;
+    void setDynamicHudTextureContentSignature(
+        const std::string &textureName,
+        const std::string &contentSignature);
     const std::vector<uint8_t> *hudTexturePixels(const std::string &textureName, int &width, int &height);
     bool ensureHudTextureDimensions(const std::string &textureName, int &width, int &height);
     bool ensureItemIconTextureDimensions(const std::string &textureName, int &width, int &height);
@@ -354,6 +360,7 @@ private:
         HudLayoutResolutionCacheKeyHash> m_hudLayoutResolutionCache;
     std::vector<GameplayHudTextureData> m_hudTextureHandles;
     std::unordered_map<std::string, size_t> m_hudTextureIndexByName;
+    std::unordered_map<std::string, std::string> m_dynamicHudTextureContentSignatures;
     std::vector<GameplayHudFontData> m_hudFontHandles;
     std::vector<GameplayHudFontColorTextureData> m_hudFontColorTextureHandles;
     std::vector<GameplayHudTextureColorTextureData> m_hudTextureColorTextureHandles;

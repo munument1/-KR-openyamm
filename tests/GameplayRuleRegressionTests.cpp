@@ -37,6 +37,7 @@
 #include "game/tables/MonsterTable.h"
 #include "game/tables/SpriteTables.h"
 #include "game/tables/SurfaceMaterialTable.h"
+#include "game/ui/GameplayOverlayTypes.h"
 
 #include "tests/RegressionGameData.h"
 #include "tests/PartySpellTestHarness.h"
@@ -54,6 +55,36 @@
 #include <sstream>
 #include <utility>
 #include <vector>
+
+TEST_CASE("full-screen gameplay HUD states occlude world rendering")
+{
+    using OpenYAMM::Game::GameplayHudScreenState;
+
+    CHECK_FALSE(OpenYAMM::Game::gameplayHudScreenFullyOccludesWorld(GameplayHudScreenState::Gameplay));
+
+    constexpr std::array<GameplayHudScreenState, 15> occludingStates = {
+        GameplayHudScreenState::Dialogue,
+        GameplayHudScreenState::Character,
+        GameplayHudScreenState::TownPortal,
+        GameplayHudScreenState::LloydsBeacon,
+        GameplayHudScreenState::Chest,
+        GameplayHudScreenState::Spellbook,
+        GameplayHudScreenState::Rest,
+        GameplayHudScreenState::Menu,
+        GameplayHudScreenState::Controls,
+        GameplayHudScreenState::Keyboard,
+        GameplayHudScreenState::VideoOptions,
+        GameplayHudScreenState::SaveGame,
+        GameplayHudScreenState::LoadGame,
+        GameplayHudScreenState::Journal,
+        GameplayHudScreenState::QuickReference,
+    };
+
+    for (GameplayHudScreenState state : occludingStates)
+    {
+        CHECK(OpenYAMM::Game::gameplayHudScreenFullyOccludesWorld(state));
+    }
+}
 
 namespace
 {
