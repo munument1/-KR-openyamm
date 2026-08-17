@@ -708,6 +708,90 @@ TEST_CASE("outdoor fly command is refused above maximum flight height")
     CHECK_GT(movementDriver.state().footZ, movementDriver.tuning().maxFlightHeight);
 }
 
+TEST_CASE("outdoor flight ceiling limits ascent without pushing party below terrain")
+{
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    mapData.heightMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        160);
+    mapData.attributeMap.assign(
+        OpenYAMM::Game::OutdoorMapData::TerrainWidth * OpenYAMM::Game::OutdoorMapData::TerrainHeight,
+        0);
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+
+    const float x = OpenYAMM::Game::outdoorGridCornerWorldX(64);
+    const float y = OpenYAMM::Game::outdoorGridCornerWorldY(64);
+    const float terrainFootZ = OpenYAMM::Game::sampleOutdoorRenderedTerrainHeight(mapData, x, y) + 1.0f;
+    REQUIRE_GT(terrainFootZ, 4000.0f);
+
+    OpenYAMM::Game::OutdoorMoveState state = {};
+    state.x = x;
+    state.y = y;
+    state.footZ = 4000.0f;
+    state.airborne = true;
+    state.fallStartZ = state.footZ;
+
+    const OpenYAMM::Game::OutdoorMoveState resolved = movementController.resolveMove(
+        state,
+        0.0f,
+        0.0f,
+        512.0f,
+        false,
+        false,
+        false,
+        true,
+        false,
+        512.0f,
+        256.0f,
+        4000.0f,
+        0.1f);
+
+    CHECK_EQ(resolved.footZ, doctest::Approx(terrainFootZ));
+    CHECK_EQ(resolved.verticalVelocity, doctest::Approx(0.0f));
+}
+
+TEST_CASE("outdoor flight ceiling stops player-controlled ascent")
+{
+    const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
+    OpenYAMM::Game::OutdoorMovementController movementController(
+        boundary.mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+
+    OpenYAMM::Game::OutdoorMoveState state = movementController.initializeState(
+        boundary.landX,
+        boundary.landY,
+        3990.0f);
+    state.footZ = 3990.0f;
+    state.airborne = true;
+    state.fallStartZ = state.footZ;
+
+    const OpenYAMM::Game::OutdoorMoveState resolved = movementController.resolveMove(
+        state,
+        0.0f,
+        0.0f,
+        512.0f,
+        false,
+        true,
+        false,
+        true,
+        false,
+        512.0f,
+        256.0f,
+        4000.0f,
+        0.1f);
+
+    CHECK_EQ(resolved.footZ, doctest::Approx(4000.0f));
+    CHECK_EQ(resolved.verticalVelocity, doctest::Approx(100.0f));
+}
+
 TEST_CASE("outdoor terrain descriptors expose liquid flags for non-default tilesets")
 {
     OpenYAMM::Engine::AssetFileSystem assetFileSystem;

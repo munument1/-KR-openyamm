@@ -2654,7 +2654,7 @@ TEST_CASE("mm7 phase1 mmmerge map overlays compile and expose expected event ids
     const std::array<Case, 24> Cases = {{
         {"7out01", "7out01_mmmerge", {65001}, {}},
         {"7out02", "7out02_mmmerge", {37, 301, 65002, 65003}, {65002}},
-        {"7out03", "7out03_mmmerge", {65004, 65005}, {65005}},
+        {"7out03", "7out03_mmmerge", {65004, 65005, 65006}, {65005, 65006}},
         {"7out04", "7out04_mmmerge", {401, 503, 504}, {401}},
         {"7out05", "7out05_mmmerge", {65005, 65006}, {65005}},
         {"7out13", "7out13_mmmerge", {82}, {}},
@@ -2736,7 +2736,7 @@ TEST_CASE("mm8 mmmerge map overlays compile and expose expected event ids")
         {"out02", "out02_mmmerge", {504}, {}},
         {"out05", "out05_mmmerge", {131}, {}},
         {"out07", "out07_mmmerge", {132, 133, 134, 135, 136, 455, 500, 901, 902}, {901}},
-        {"out13", "out13_mmmerge", {451, 452}, {}},
+        {"out13", "out13_mmmerge", {451, 452, 901}, {901}},
         {"pbp", "pbp_mmmerge", {502, 503, 504, 505}, {}},
     }};
 
@@ -2760,6 +2760,127 @@ TEST_CASE("mm8 mmmerge map overlays compile and expose expected event ids")
                 localEventProgram->onLoadEventIds().end(),
                 eventId) != localEventProgram->onLoadEventIds().end());
         }
+    }
+}
+
+TEST_CASE("outdoor facet overlays reconstruct old saves from durable progress")
+{
+    const uint32_t invisibleMask =
+        OpenYAMM::Game::faceAttributeBit(OpenYAMM::Game::FaceAttribute::Invisible);
+    const uint32_t untouchableMask =
+        OpenYAMM::Game::faceAttributeBit(OpenYAMM::Game::FaceAttribute::Untouchable);
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "outc3", "outc3_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+        CHECK(localEventProgram->hasEvent(65031));
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::MapDeltaData openDelta = {};
+        openDelta.eventVariables.mapVars[11] = 1;
+        OpenYAMM::Game::EventRuntimeState openState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, openDelta, openState, &party));
+        CHECK_EQ(openState.facetClearMasks[4] & invisibleMask, invisibleMask);
+
+        OpenYAMM::Game::EventRuntimeState closedState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, closedState, &party));
+        CHECK_EQ(closedState.facetSetMasks[4] & invisibleMask, invisibleMask);
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "outd3", "outd3_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+        CHECK(localEventProgram->hasEvent(65032));
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::MapDeltaData enabledDelta = {};
+        enabledDelta.eventVariables.mapVars[11] = 1;
+        enabledDelta.eventVariables.mapVars[16] = 1;
+        OpenYAMM::Game::EventRuntimeState enabledState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(
+            localEventProgram,
+            std::nullopt,
+            enabledDelta,
+            enabledState,
+            &party));
+        CHECK_EQ(enabledState.facetSetMasks[1] & invisibleMask, invisibleMask);
+        CHECK_EQ(enabledState.facetSetMasks[1] & untouchableMask, untouchableMask);
+
+        OpenYAMM::Game::EventRuntimeState disabledState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, disabledState, &party));
+        CHECK_EQ(disabledState.facetClearMasks[1] & invisibleMask, invisibleMask);
+        CHECK_EQ(disabledState.facetClearMasks[1] & untouchableMask, untouchableMask);
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm7MapOverlayProgram(OPENYAMM_SOURCE_DIR, "7out03", "7out03_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party completedParty = makeScriptedRegressionParty();
+        completedParty.setQuestBit(569, true);
+        OpenYAMM::Game::EventRuntimeState completedState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(
+            localEventProgram,
+            std::nullopt,
+            std::nullopt,
+            completedState,
+            &completedParty));
+        CHECK_EQ(completedState.facetSetMasks[16] & invisibleMask, invisibleMask);
+        CHECK_EQ(completedState.facetSetMasks[16] & untouchableMask, untouchableMask);
+        CHECK_EQ(completedState.facetClearMasks[17] & invisibleMask, invisibleMask);
+
+        OpenYAMM::Game::Party pendingParty = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState pendingState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(
+            localEventProgram,
+            std::nullopt,
+            std::nullopt,
+            pendingState,
+            &pendingParty));
+        CHECK_EQ(pendingState.facetSetMasks[16] & (invisibleMask | untouchableMask), 0u);
+        CHECK_EQ(pendingState.facetClearMasks[17] & invisibleMask, 0u);
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm8MapOverlayProgram(OPENYAMM_SOURCE_DIR, "out13", "out13_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party completedParty = makeScriptedRegressionParty();
+        completedParty.setQuestBit(37, true);
+        OpenYAMM::Game::EventRuntimeState completedState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(
+            localEventProgram,
+            std::nullopt,
+            std::nullopt,
+            completedState,
+            &completedParty));
+        CHECK_EQ(completedState.facetClearMasks[31] & invisibleMask, invisibleMask);
+        CHECK_EQ(completedState.facetClearMasks[31] & untouchableMask, untouchableMask);
+        CHECK_EQ(completedState.facetSetMasks[30] & invisibleMask, invisibleMask);
+        CHECK_EQ(completedState.facetSetMasks[30] & untouchableMask, untouchableMask);
+
+        OpenYAMM::Game::Party pendingParty = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState pendingState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(
+            localEventProgram,
+            std::nullopt,
+            std::nullopt,
+            pendingState,
+            &pendingParty));
+        CHECK_EQ(pendingState.facetClearMasks[31] & (invisibleMask | untouchableMask), 0u);
+        CHECK_EQ(pendingState.facetSetMasks[30] & (invisibleMask | untouchableMask), 0u);
     }
 }
 
