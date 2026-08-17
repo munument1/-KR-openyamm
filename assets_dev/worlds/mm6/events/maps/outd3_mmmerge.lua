@@ -70,3 +70,10 @@ ReplaceMapEvent(210, nil, function(continueStep)
         })
     return nil
 end)
+
+-- MapVars 11 and 16 are the durable states for the two Castle Ironfist cog
+-- attributes. Reapply them on load for saves without outdoor facet deltas.
+RegisterMapOnLoadEvent(65032, "Restore Castle Ironfist cog state", function()
+    evt.SetFacetBit(1, FacetBits.Invisible, IsAtLeast(MapVar(11), 1) and 1 or 0)
+    evt.SetFacetBit(1, FacetBits.Untouchable, IsAtLeast(MapVar(16), 1) and 1 or 0)
+end)

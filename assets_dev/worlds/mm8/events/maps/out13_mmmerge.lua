@@ -17,6 +17,19 @@ ReplaceMapEvent(451, "Fire the cannon !", function()
     evt.StatusText("You do not see the right kind of ammunition anywhere")
 end, "Fire the cannon !")
 
+-- QBit 37 records that the Regnan fleet was sunk. Reapply the resulting cannon
+-- geometry on load for saves without outdoor facet deltas.
+RegisterMapOnLoadEvent(901, "Restore Regnan cannon state", function()
+    if not IsQBitSet(QBit(37)) then
+        return
+    end
+
+    evt.SetFacetBit(31, FacetBits.Invisible, 0)
+    evt.SetFacetBit(31, FacetBits.Untouchable, 0)
+    evt.SetFacetBit(30, FacetBits.Invisible, 1)
+    evt.SetFacetBit(30, FacetBits.Untouchable, 1)
+end)
+
 RegisterMapTimerEvent(452, 60, function()
     if not IsAtLeast(MapVar(41), 1) then
         return

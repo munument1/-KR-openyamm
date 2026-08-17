@@ -26,6 +26,18 @@ RegisterMapOnLoadEvent(65005, "MMMerge Erathia contest transport", function()
     end
 end)
 
+-- QBit 569 records completion of the Erathian obelisk puzzle. Reapply its
+-- finished geometry on load for saves without outdoor facet deltas.
+RegisterMapOnLoadEvent(65006, "Restore Erathian obelisk state", function()
+    if not IsQBitSet(QBit(569)) then
+        return
+    end
+
+    evt.SetFacetBit(16, FacetBits.Untouchable, 1)
+    evt.SetFacetBit(17, FacetBits.Invisible, 0)
+    evt.SetFacetBit(16, FacetBits.Invisible, 1)
+end)
+
 RegisterMapTimerEvent(65004, 180, function()
     MM7.GiveScavengerAdvertisementIfNear(-10511, 6119, false)
 end, "MMMerge Erathia scavenger advertisement")
