@@ -5158,10 +5158,6 @@ void OutdoorGameView::updateActorInspectOverlayState(int width, int height, cons
                 << " actor_index=" << runtimeActorIndex
                 << " unique_actor=" << inspectState.uniqueActorIndex
                 << " name=\"" << inspectState.displayName << "\"\n";
-            overlayContext.setStatusBarEvent(
-                "Actor unique_actor=" + std::to_string(inspectState.uniqueActorIndex),
-                4.0f);
-
             if (!pActorState->isDead)
             {
                 const MonsterTable::MonsterStatsEntry *pStats =

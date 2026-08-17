@@ -2304,9 +2304,6 @@ void IndoorGameView::updateActorInspectOverlayState(int width, int height, const
             << "\" actor_index=" << pick->runtimeActorIndex
             << " unique_actor=" << inspectState.uniqueActorIndex
             << " name=\"" << inspectState.displayName << "\"\n";
-        screenRuntime.setStatusBarEvent(
-            "Actor unique_actor=" + std::to_string(inspectState.uniqueActorIndex),
-            4.0f);
     }
 
     if (input.rightMouseButton.pressed && !inspectState.isDead)
