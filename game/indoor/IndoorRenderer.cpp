@@ -7244,7 +7244,8 @@ void IndoorRenderer::renderDecorationBillboards(
         const float octantAngle = facingRadians - angleToCamera + Pi + (Pi / 8.0f);
         const int octant = static_cast<int>(std::floor(octantAngle / (Pi / 4.0f))) & 7;
         const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, octant);
-        const BillboardTextureHandle *pTexture = findBillboardTexture(resolvedTexture.textureName);
+        const BillboardTextureHandle *pTexture =
+            findBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
 
         if (pTexture == nullptr
             || !bgfx::isValid(pTexture->textureHandle)
@@ -11579,7 +11580,8 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
             const float octantAngle = facingRadians - angleToCamera + Pi + (Pi / 8.0f);
             const int octant = static_cast<int>(std::floor(octantAngle / (Pi / 4.0f))) & 7;
             const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, octant);
-            const BillboardTextureHandle *pTexture = findBillboardTexture(resolvedTexture.textureName);
+            const BillboardTextureHandle *pTexture =
+                findBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
 
             if (pTexture == nullptr || pTexture->width <= 0 || pTexture->height <= 0)
             {

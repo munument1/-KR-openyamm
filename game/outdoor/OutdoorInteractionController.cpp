@@ -4052,7 +4052,8 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
                     const float octantAngle = facingRadians - angleToCamera + Pi + (Pi / 8.0f);
                     const int octant = static_cast<int>(std::floor(octantAngle / (Pi / 4.0f))) & 7;
                     const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, octant);
-                    const OutdoorGameView::BillboardTextureHandle *pTexture = view.findBillboardTexture(resolvedTexture.textureName);
+                    const OutdoorGameView::BillboardTextureHandle *pTexture =
+                        view.findBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
 
                     if (pTexture != nullptr && bgfx::isValid(pTexture->textureHandle))
                     {

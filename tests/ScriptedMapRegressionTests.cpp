@@ -4599,6 +4599,11 @@ TEST_CASE("mm7 global mmmerge supplement applies remaining original quest fixups
         CHECK(runtimeState.grantedItems.front().identified);
         CHECK_EQ(runtimeState.grantedItems.front().currentCharges, 30u);
         CHECK_EQ(runtimeState.grantedItems.front().maxCharges, 30u);
+        CHECK(party.hasQuestBit(526));
+        CHECK_EQ(runtimeState.npcItemOverrides[345], 0u);
+        CHECK_EQ(runtimeState.npcTopicOverrides[345][0], 767u);
+        CHECK_EQ(runtimeState.npcTopicOverrides[345][1], 0u);
+        CHECK_EQ(runtimeState.npcGreetingOverrides[345], 122u);
     }
 
     {
@@ -4616,6 +4621,9 @@ TEST_CASE("mm7 global mmmerge supplement applies remaining original quest fixups
             &sceneContext));
         CHECK(sceneContext.summonMonstersCalls.empty());
         CHECK_FALSE(resolvedState.actorGroupSetMasks.contains(59));
+        REQUIRE_FALSE(resolvedState.messages.empty());
+        CHECK_EQ(resolvedState.npcTopicOverrides[461][0], 0u);
+        CHECK_EQ(resolvedState.npcTopicOverrides[461][1], 0u);
 
         OpenYAMM::Game::Party activeParty = makeScriptedRegressionParty();
         OpenYAMM::Game::EventRuntimeState activeState = {};
@@ -4630,6 +4638,27 @@ TEST_CASE("mm7 global mmmerge supplement applies remaining original quest fixups
         CHECK_EQ(sceneContext.summonMonstersCalls.back().group, 59u);
         REQUIRE(activeState.actorGroupSetMasks.contains(59));
         CHECK_EQ(activeState.actorGroupSetMasks[59] & hostileBit, hostileBit);
+        REQUIRE_FALSE(activeState.messages.empty());
+        CHECK_EQ(activeState.npcTopicOverrides[461][0], 0u);
+        CHECK_EQ(activeState.npcTopicOverrides[461][1], 0u);
+
+        OpenYAMM::Game::Party paidParty = makeScriptedRegressionParty();
+        paidParty.addGold(1000);
+        OpenYAMM::Game::EventRuntimeState paidState = {};
+        RecordingSceneEventContext paidSceneContext = {};
+        REQUIRE(eventRuntime.executeEventById(
+            std::nullopt,
+            globalEventProgram,
+            513,
+            paidState,
+            &paidParty,
+            &paidSceneContext));
+        CHECK(paidParty.hasQuestBit(761));
+        CHECK_EQ(paidParty.gold(), 0);
+        CHECK(paidSceneContext.summonMonstersCalls.empty());
+        REQUIRE_FALSE(paidState.messages.empty());
+        CHECK_EQ(paidState.npcTopicOverrides[461][0], 0u);
+        CHECK_EQ(paidState.npcTopicOverrides[461][1], 0u);
 
         OpenYAMM::Game::EventRuntimeState forcedState = {};
         OpenYAMM::Game::Party forcedParty = makeScriptedRegressionParty();
@@ -4643,6 +4672,9 @@ TEST_CASE("mm7 global mmmerge supplement applies remaining original quest fixups
             &sceneContext));
         REQUIRE(forcedState.actorGroupSetMasks.contains(59));
         CHECK_EQ(forcedState.actorGroupSetMasks[59] & hostileBit, hostileBit);
+        REQUIRE_FALSE(forcedState.messages.empty());
+        CHECK_EQ(forcedState.npcTopicOverrides[461][0], 0u);
+        CHECK_EQ(forcedState.npcTopicOverrides[461][1], 0u);
     }
 
     {
@@ -7797,6 +7829,63 @@ TEST_CASE("mm7 dragon lair loads indoor billboards and lights")
     CHECK_EQ(
         pLoadedMap->indoorActorPreviewBillboardSet->texturedActorCount,
         pLoadedMap->indoorActorPreviewBillboardSet->billboards.size());
+}
+
+TEST_CASE("mm7 red dwarf mine statues preload their nonzero-palette textures")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "7d34.blv",
+        OpenYAMM::Game::MapLoadPurpose::BillboardPreviews,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorDecorationBillboardSet.has_value());
+
+    const OpenYAMM::Game::DecorationBillboardSet &billboardSet =
+        *pLoadedMap->indoorDecorationBillboardSet;
+    const auto textureLoaded =
+        [&billboardSet](const std::string &textureName, int16_t paletteId)
+        {
+            return std::any_of(
+                billboardSet.textures.begin(),
+                billboardSet.textures.end(),
+                [&](const OpenYAMM::Game::OutdoorBitmapTexture &texture)
+                {
+                    return texture.textureName == textureName && texture.paletteId == paletteId;
+                });
+        };
+
+    for (uint16_t eventId = 376; eventId <= 382; ++eventId)
+    {
+        const std::vector<OpenYAMM::Game::DecorationBillboard>::const_iterator billboardIterator =
+            std::find_if(
+                billboardSet.billboards.begin(),
+                billboardSet.billboards.end(),
+                [eventId](const OpenYAMM::Game::DecorationBillboard &billboard)
+                {
+                    return billboard.eventIdSecondary == eventId;
+                });
+        REQUIRE_MESSAGE(
+            billboardIterator != billboardSet.billboards.end(),
+            ("missing Red Dwarf Mines statue event " + std::to_string(eventId)).c_str());
+
+        const OpenYAMM::Game::SpriteFrameEntry *pFrame =
+            billboardSet.spriteFrameTable.getFrame(billboardIterator->spriteId, 0);
+        REQUIRE(pFrame != nullptr);
+        CHECK_EQ(pFrame->paletteId, 3);
+
+        for (int octant = 0; octant < 8; ++octant)
+        {
+            const OpenYAMM::Game::ResolvedSpriteTexture resolvedTexture =
+                OpenYAMM::Game::SpriteFrameTable::resolveTexture(*pFrame, octant);
+            CHECK(textureLoaded(resolvedTexture.textureName, pFrame->paletteId));
+        }
+    }
 }
 
 TEST_CASE("mm8 abandoned temple buttons resolve SetLight by authored light group id")

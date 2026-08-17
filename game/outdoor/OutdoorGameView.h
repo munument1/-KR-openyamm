@@ -556,7 +556,7 @@ private:
     void syncGameplayMouseLookMode(SDL_Window *pWindow, bool enabled);
     void syncCursorToGameplayCrosshair(SDL_Window *pWindow = nullptr);
     void refreshViewDistanceCache();
-    const BillboardTextureHandle *findBillboardTexture(const std::string &textureName, int16_t paletteId = 0) const;
+    const BillboardTextureHandle *findBillboardTexture(const std::string &textureName, int16_t paletteId) const;
 
     struct CombatFloatingText
     {

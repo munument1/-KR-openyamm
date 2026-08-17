@@ -820,7 +820,7 @@ void OutdoorBillboardRenderer::applyBillboardOutlineParamsUniform(
 
 void OutdoorBillboardRenderer::initializeBillboardResources(OutdoorGameView &view)
 {
-    if (view.findBillboardTexture(ContactShadowTextureName) == nullptr)
+    if (view.findBillboardTexture(ContactShadowTextureName, 0) == nullptr)
     {
         OutdoorGameView::BillboardTextureHandle shadowTexture = {};
         shadowTexture.textureName = ContactShadowTextureName;
@@ -4333,7 +4333,8 @@ void OutdoorBillboardRenderer::renderFxContactShadows(
         return;
     }
 
-    const OutdoorGameView::BillboardTextureHandle *pShadowTexture = view.findBillboardTexture(ContactShadowTextureName);
+    const OutdoorGameView::BillboardTextureHandle *pShadowTexture =
+        view.findBillboardTexture(ContactShadowTextureName, 0);
 
     if (pShadowTexture == nullptr)
     {
@@ -4564,7 +4565,8 @@ void OutdoorBillboardRenderer::renderSpriteObjectBillboards(
         }
 
         const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, 0);
-        const OutdoorGameView::BillboardTextureHandle *pTexture = view.findBillboardTexture(resolvedTexture.textureName);
+        const OutdoorGameView::BillboardTextureHandle *pTexture =
+            view.findBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
 
         if (pTexture == nullptr || !bgfx::isValid(pTexture->textureHandle))
         {

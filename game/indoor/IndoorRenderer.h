@@ -473,7 +473,7 @@ private:
         const std::string &textureName,
         int16_t paletteId);
     void registerBillboardTextureIndex(size_t textureIndex);
-    const BillboardTextureHandle *findBillboardTexture(const std::string &textureName, int16_t paletteId = 0) const;
+    const BillboardTextureHandle *findBillboardTexture(const std::string &textureName, int16_t paletteId) const;
     const BillboardTextureHandle *ensureSpriteBillboardTexture(const std::string &textureName, int16_t paletteId);
     const std::optional<MapDeltaData> &runtimeMapDeltaData() const;
     const std::optional<EventRuntimeState> &runtimeEventRuntimeStateStorage() const;
