@@ -1019,15 +1019,15 @@ ReplaceGlobalEvent(1788, "MMMerge Verdant connector stone", function()
     CrossContinents.HandleConnectorStone()
 end)
 
-ReplaceGlobalEvent(513, "MMMerge Malwick conditional ambush", function()
+AppendGlobalEvent(513, function()
     MM7.SummonMalwickAmbush(false)
 end)
 
-ReplaceGlobalEvent(514, "MMMerge Malwick forced ambush", function()
+AppendGlobalEvent(514, function()
     MM7.SummonMalwickAmbush(true)
 end)
 
-ReplaceGlobalEvent(769, "MMMerge Malwick wand", function()
+AppendGlobalEvent(769, function()
     evt.SetHeldItem(947, {
         identified = true,
         charges = 30,
