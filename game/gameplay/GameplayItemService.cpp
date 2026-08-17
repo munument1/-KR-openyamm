@@ -1017,7 +1017,7 @@ bool GameplayItemService::tryRepairInspectedItem(
 {
     statusText.clear();
 
-    Party *pParty = m_session.partyState() ? &*m_session.partyState() : nullptr;
+    Party *pParty = activeParty(m_session);
     IGameplayWorldRuntime *pWorldRuntime = m_session.activeWorldRuntime();
     const ItemTable *pItemTable = m_session.hasDataRepository() ? &m_session.data().itemTable() : nullptr;
 
