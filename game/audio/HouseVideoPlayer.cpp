@@ -445,6 +445,11 @@ bool submitDecoderPacket(
     const std::atomic_bool &stopRequested,
     const std::string &virtualPath)
 {
+    if (pPacket != nullptr && pPacket->size <= 0)
+    {
+        return true;
+    }
+
     while (!stopRequested.load())
     {
         const int sendResult = avcodec_send_packet(&codecContext, pPacket);

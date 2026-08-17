@@ -145,3 +145,34 @@ TEST_CASE("HouseVideoPlayer streams a complete OGV without predecoding the clip"
 
     videoPlayer.stop();
 }
+
+TEST_CASE("HouseVideoPlayer streams MM7 event cutscenes")
+{
+    SDL_setenv_unsafe("SDL_AUDIODRIVER", "dummy", 1);
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    REQUIRE(assetFileSystem.initialize(
+        sourceRoot,
+        sourceRoot / "assets_dev",
+        OpenYAMM::Engine::AssetScaleTier::X1,
+        "mm7"));
+
+    OpenYAMM::Game::HouseVideoPlayer videoPlayer;
+    REQUIRE(videoPlayer.initialize());
+    REQUIRE(videoPlayer.play(assetFileSystem, "arbiter good", "Videos/Cutscenes", false));
+
+    const std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::now() + std::chrono::seconds(5);
+
+    while (!videoPlayer.hasFinishedPlayback()
+        && OpenYAMM::Game::HouseVideoPlayerTestAccess::presentedFrameSeconds(videoPlayer) < 1.5
+        && std::chrono::steady_clock::now() < deadline)
+    {
+        videoPlayer.update(0.1f);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    CHECK_FALSE(videoPlayer.hasFinishedPlayback());
+    CHECK_GT(OpenYAMM::Game::HouseVideoPlayerTestAccess::presentedFrameSerial(videoPlayer), 0);
+    CHECK_GE(OpenYAMM::Game::HouseVideoPlayerTestAccess::presentedFrameSeconds(videoPlayer), 1.5);
+}

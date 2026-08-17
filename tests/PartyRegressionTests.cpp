@@ -428,6 +428,7 @@ TEST_CASE("outdoor location reset metadata survives save data round trip")
     saveData.outdoorWorld.locationTime.lastVisitTime = 987654;
     saveData.outdoorWorld.locationTime.skyTextureName = "plansky";
     saveData.outdoorWorld.hasLocationTime = true;
+    saveData.outdoorWorld.faceAttributes = {0x20000000u, 0x00002000u, 0u};
 
     OpenYAMM::Game::ScriptedEventTimerState timer = {};
     timer.definition.scope = OpenYAMM::Game::ScriptedEventScope::Map;
@@ -463,6 +464,7 @@ TEST_CASE("outdoor location reset metadata survives save data round trip")
     CHECK(loaded->outdoorWorld.hasLocationTime);
     CHECK_EQ(loaded->outdoorWorld.locationTime.lastVisitTime, 987654);
     CHECK_EQ(loaded->outdoorWorld.locationTime.skyTextureName, "plansky");
+    CHECK_EQ(loaded->outdoorWorld.faceAttributes, saveData.outdoorWorld.faceAttributes);
     REQUIRE_EQ(loaded->outdoorWorld.timers.size(), 1u);
     CHECK_EQ(loaded->outdoorWorld.timers[0].definition.eventId, 65000);
     CHECK_EQ(loaded->outdoorWorld.timers[0].definition.sourceEventId, 130);
@@ -474,6 +476,9 @@ TEST_CASE("outdoor location reset metadata survives save data round trip")
     REQUIRE(loaded->outdoorWorldStates.contains("out02.odm"));
     CHECK_EQ(loaded->outdoorWorldStates.at("out02.odm").locationInfo.lastRespawnDay, 124);
     CHECK_EQ(loaded->outdoorWorldStates.at("out02.odm").locationTime.lastVisitTime, 987654);
+    CHECK_EQ(
+        loaded->outdoorWorldStates.at("out02.odm").faceAttributes,
+        saveData.outdoorWorld.faceAttributes);
     REQUIRE(loaded->outdoorWorldStates.contains("legacy_absent.odm"));
     CHECK_FALSE(loaded->outdoorWorldStates.at("legacy_absent.odm").hasLocationTime);
 }

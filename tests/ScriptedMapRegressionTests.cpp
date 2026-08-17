@@ -4000,6 +4000,30 @@ TEST_CASE("mm7 tularean forest mmmerge artifact and clanker overlays apply")
         CHECK_EQ(runtimeState.pendingDialogueContext->kind, OpenYAMM::Game::DialogueContextKind::HouseService);
         CHECK_EQ(runtimeState.pendingDialogueContext->sourceId, 395u);
     }
+
+    {
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.setQuestBit(591, true);
+        party.setQuestBit(649, true);
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        runtimeState.mapVars[11] = 1;
+        RecordingSceneEventContext sceneContext = {};
+
+        REQUIRE(eventRuntime.executeEventById(
+            localEventProgram,
+            std::nullopt,
+            401,
+            runtimeState,
+            &party,
+            &sceneContext));
+        CHECK(sceneContext.summonMonstersCalls.empty());
+        REQUIRE(runtimeState.facetClearMasks.contains(1));
+        CHECK((runtimeState.facetClearMasks.at(1)
+            & OpenYAMM::Game::faceAttributeBit(OpenYAMM::Game::FaceAttribute::Invisible)) != 0);
+        CHECK((runtimeState.facetClearMasks.at(1)
+            & OpenYAMM::Game::faceAttributeBit(OpenYAMM::Game::FaceAttribute::Untouchable)) != 0);
+    }
 }
 
 TEST_CASE("mm7 harmondale erathia shoals and strange temple mmmerge overlays apply")
