@@ -2898,6 +2898,22 @@ void GameApplication::registerDebugConsoleCommands()
         return m_pMapSceneRuntime != nullptr ? m_pMapSceneRuntime->eventRuntimeState() : nullptr;
     };
 
+    const auto activeGameplayWorld = [this]() -> IGameplayWorldRuntime *
+    {
+        if (m_pMapSceneRuntime == nullptr)
+        {
+            return nullptr;
+        }
+
+        if (m_pMapSceneRuntime->kind() == SceneKind::Outdoor)
+        {
+            return m_pOutdoorWorldRuntime.get();
+        }
+
+        IndoorSceneRuntime *pIndoorRuntime = static_cast<IndoorSceneRuntime *>(m_pMapSceneRuntime.get());
+        return &pIndoorRuntime->worldRuntime();
+    };
+
     m_debugConsole.registerCommand({
         .name = "help",
         .description = "Show available commands.",
@@ -2906,6 +2922,7 @@ void GameApplication::registerDebugConsoleCommands()
         {
             std::ostringstream out;
             out << "Commands: help, cls, map, setup breach, event <id>, "
+                << "actor count <monster-id> [monster-id...], "
                 << "time [advance [days]], "
                 << "qbit get|set|clear <id> [id...], qbit dump [active|all|filter], "
                 << "npc greeting get|reset|set <npc-id> [greeting-id], "
@@ -2917,6 +2934,111 @@ void GameApplication::registerDebugConsoleCommands()
                 << "food get|add|set <amount>, hp full, item search <text>, item give <id|text> [qty], "
                 << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, "
                 << "memory, reload map";
+            return commandResult(true, out.str());
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "actor",
+        .description = "Count remaining actors for one or more monster-table ids on the current map.",
+        .usage = "actor count <monster-id> [monster-id...]",
+        .callback = [this, activeGameplayWorld, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (context.args.size() < 2 || toLowerCopy(context.args[0]) != "count")
+            {
+                return commandResult(false, "Usage: actor count <monster-id> [monster-id...]");
+            }
+
+            IGameplayWorldRuntime *pWorldRuntime = activeGameplayWorld();
+
+            if (pWorldRuntime == nullptr)
+            {
+                return commandResult(false, "No active map runtime.");
+            }
+
+            const MonsterTable &monsterTable = m_gameDataLoader.getMonsterTable();
+            std::vector<int16_t> monsterIds;
+            std::unordered_set<int16_t> seenMonsterIds;
+
+            for (size_t argumentIndex = 1; argumentIndex < context.args.size(); ++argumentIndex)
+            {
+                const std::optional<int32_t> parsedId = parseInt32Argument(context.args[argumentIndex]);
+
+                if (!parsedId || *parsedId <= 0 || *parsedId > std::numeric_limits<int16_t>::max())
+                {
+                    return commandResult(false, "Invalid monster id: " + context.args[argumentIndex]);
+                }
+
+                const int16_t monsterId = static_cast<int16_t>(*parsedId);
+
+                if (monsterTable.findStatsById(monsterId) == nullptr)
+                {
+                    return commandResult(false, "Unknown monster id: " + std::to_string(monsterId));
+                }
+
+                if (seenMonsterIds.insert(monsterId).second)
+                {
+                    monsterIds.push_back(monsterId);
+                }
+            }
+
+            struct ActorCounts
+            {
+                size_t total = 0;
+                size_t remaining = 0;
+            };
+
+            std::unordered_map<int16_t, ActorCounts> countsByMonsterId;
+
+            for (size_t actorIndex = 0; actorIndex < pWorldRuntime->mapActorCount(); ++actorIndex)
+            {
+                GameplayRuntimeActorState runtimeState = {};
+
+                if (!pWorldRuntime->actorRuntimeState(actorIndex, runtimeState)
+                    || !seenMonsterIds.contains(runtimeState.monsterId))
+                {
+                    continue;
+                }
+
+                GameplayActorInspectState inspectState = {};
+                const bool hasInspectState = pWorldRuntime->actorInspectState(actorIndex, 0, inspectState);
+                const bool defeated = runtimeState.isDead
+                    || runtimeState.isInvisible
+                    || (hasInspectState && inspectState.currentHp <= 0);
+                ActorCounts &counts = countsByMonsterId[runtimeState.monsterId];
+                ++counts.total;
+
+                if (!defeated)
+                {
+                    ++counts.remaining;
+                }
+            }
+
+            std::ostringstream out;
+            size_t combinedRemaining = 0;
+
+            for (size_t idIndex = 0; idIndex < monsterIds.size(); ++idIndex)
+            {
+                const int16_t monsterId = monsterIds[idIndex];
+                const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(monsterId);
+                const ActorCounts &counts = countsByMonsterId[monsterId];
+                combinedRemaining += counts.remaining;
+
+                if (idIndex > 0)
+                {
+                    out << '\n';
+                }
+
+                out << monsterId << ' ' << pStats->name
+                    << ": remaining=" << counts.remaining
+                    << " defeated=" << (counts.total - counts.remaining)
+                    << " total=" << counts.total;
+            }
+
+            if (monsterIds.size() > 1)
+            {
+                out << "\nCombined remaining=" << combinedRemaining;
+            }
+
             return commandResult(true, out.str());
         }});
 
