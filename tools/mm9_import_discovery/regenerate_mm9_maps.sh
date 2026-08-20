@@ -18,8 +18,8 @@ editor_textures_root="${editor_world_root}/textures"
 editor_audio_root="${editor_world_root}/audio"
 scripts_root="${MM9_SCRIPT_ROOT:-${extracted_root}/SCRIPTS/SCRIPTS}"
 source_sounds_root="${MM9_SOURCE_SOUNDS_ROOT:-${extracted_root}/SOUNDS/SOUNDS}"
-events_root="${world_root}/events"
-editor_events_root="${editor_world_root}/events"
+events_root="${world_root}/events/maps"
+editor_events_root="${editor_world_root}/events/maps"
 scale="${MM9_SCALE:-2.56}"
 sector_mode="${MM9_SECTOR_MODE:-leaf_grid}"
 sector_grid="${MM9_SECTOR_GRID:-4}"
@@ -28,6 +28,7 @@ copy_editor=1
 compile_indoor=1
 generate_events=1
 editor_world_root_explicit=0
+defer_shared_editor_copy=0
 mode="curated"
 outdoor_maps=("GUBERLAND")
 indoor_maps=("DARKPASSAGEWAY")
@@ -39,17 +40,17 @@ usage: regenerate_mm9_maps.sh [options]
 
 Regenerates MM9 map geometry and scene sidecars from extracted WORLDS/*.dat.
 
-Default mode regenerates the curated maps currently used by OpenYAMM:
-  outdoor: GUBERLAND -> ODM
-  indoor:  DARKPASSAGEWAY -> BLV prototype
+Default mode regenerates the curated maps currently used by OpenYAMM as ODM BModel worlds:
+  exterior: GUBERLAND
+  enclosed: DARKPASSAGEWAY
 
 Options:
   --all-odm              Convert every DAT under --dat-root as an outdoor ODM shell.
   --all-blv              Convert every DAT under --dat-root as an indoor BLV prototype.
-  --all-classified       Convert outdoor-like DATs as ODM and every other DAT as BLV.
+  --all-classified       Convert every DAT as ODM and classify exterior/enclosed semantics.
   --clear-defaults       Empty the curated default map lists.
   --outdoor NAME         Add one DAT stem to convert as ODM.
-  --indoor NAME          Add one DAT stem to convert as BLV.
+  --indoor NAME          Add one DAT stem to convert as an enclosed ODM BModel world.
   --dat-root PATH        Directory containing extracted DAT files.
   --extracted-root PATH  Extracted MM9 REZ root. Default: mm9/extracted
   --world-root PATH      Development MM9 world root. Default: assets_dev/worlds/mm9
@@ -112,7 +113,7 @@ do
             maps_root="${world_root}/maps"
             textures_root="${world_root}/textures"
             audio_root="${world_root}/audio"
-            events_root="${world_root}/events"
+            events_root="${world_root}/events/maps"
             if [[ "${editor_world_root_explicit}" != 1 ]]
             then
                 if [[ "${world_root}" == assets_dev/* ]]
@@ -124,7 +125,7 @@ do
                 editor_maps_root="${editor_world_root}/maps"
                 editor_textures_root="${editor_world_root}/textures"
                 editor_audio_root="${editor_world_root}/audio"
-                editor_events_root="${editor_world_root}/events"
+                editor_events_root="${editor_world_root}/events/maps"
             fi
             shift 2
             ;;
@@ -133,7 +134,7 @@ do
             editor_maps_root="${editor_world_root}/maps"
             editor_textures_root="${editor_world_root}/textures"
             editor_audio_root="${editor_world_root}/audio"
-            editor_events_root="${editor_world_root}/events"
+            editor_events_root="${editor_world_root}/events/maps"
             editor_world_root_explicit=1
             shift 2
             ;;
@@ -253,7 +254,7 @@ copy_event_outputs_to_editor() {
 }
 
 copy_texture_outputs_to_editor() {
-    if [[ "${copy_editor}" != 1 ]]
+    if [[ "${copy_editor}" != 1 || "${defer_shared_editor_copy}" == 1 ]]
     then
         return 0
     fi
@@ -274,7 +275,7 @@ copy_texture_outputs_to_editor() {
 }
 
 copy_audio_outputs_to_editor() {
-    if [[ "${copy_editor}" != 1 ]]
+    if [[ "${copy_editor}" != 1 || "${defer_shared_editor_copy}" == 1 ]]
     then
         return 0
     fi
@@ -323,6 +324,16 @@ generate_map_events() {
         return 0
     fi
 
+    rm -f \
+        "${world_root}/events/${name}.lua" \
+        "${world_root}/events/${name}.script_ir.yml"
+    if [[ "${copy_editor}" == 1 ]]
+    then
+        rm -f \
+            "${editor_world_root}/events/${name}.lua" \
+            "${editor_world_root}/events/${name}.script_ir.yml"
+    fi
+
     "${python_bin}" tools/mm9_import_discovery/generate_mm9_events.py \
         --maps-root "${maps_root}" \
         --scripts-root "${scripts_root}" \
@@ -337,6 +348,7 @@ generate_map_events() {
 
 convert_odm() {
     local dat_path="$1"
+    local location_type="${2:-exterior}"
     local name
     name="$(lower_stem "${dat_path}")"
     echo "MM9 ODM ${name}"
@@ -348,6 +360,7 @@ convert_odm() {
         --scale "${scale}" \
         --extracted-root "${extracted_root}" \
         --bitmap-dir "${textures_root}" \
+        --location-type "${location_type}" \
         || return $?
     generate_map_events "${name}" || return $?
     copy_texture_outputs_to_editor
@@ -380,48 +393,13 @@ convert_blv() {
         fi
         args+=(--compile-tool "${compile_tool}")
     fi
-    convert_blv_failure_stage="transcode_blv"
     "${python_bin}" tools/mm9_import_discovery/transcode_mm9_dat_to_blv.py "${args[@]}" || return $?
-    convert_blv_failure_stage="events"
     generate_map_events "${name}" || return $?
-    convert_blv_failure_stage=""
     copy_texture_outputs_to_editor
     copy_map_outputs_to_editor "${name}"
 }
 
-convert_blv_with_odm_fallback() {
-    local dat_path="$1"
-    local name
-    name="$(lower_stem "${dat_path}")"
-    local log_path
-    log_path="$(mktemp)"
-
-    convert_blv_failure_stage=""
-    if convert_blv "${dat_path}" >"${log_path}" 2>&1
-    then
-        cat "${log_path}"
-        rm -f "${log_path}"
-        return 0
-    fi
-    local status=$?
-    cat "${log_path}" >&2
-    if [[ "${convert_blv_failure_stage}" != "transcode_blv" ]]
-    then
-        rm -f "${log_path}"
-        return "${status}"
-    fi
-    if ! grep -q "indoor source compiler exceeded 65535 faces" "${log_path}"
-    then
-        rm -f "${log_path}"
-        return "${status}"
-    fi
-    rm -f "${log_path}"
-
-    echo "MM9 BLV ${name} failed; falling back to ODM shell" >&2
-    convert_odm "${dat_path}" || return $?
-}
-
-classify_dat_export_kind() {
+classify_dat_location_type() {
     local dat_path="$1"
     "${python_bin}" - "${dat_path}" "${classification_map_root}" <<'PY'
 import sys
@@ -431,39 +409,39 @@ sys.path.insert(0, str(Path("tools/mm9_import_discovery").resolve()))
 from classify_mm9_maps import collect_metrics
 
 metrics = collect_metrics(Path(sys.argv[1]), Path(sys.argv[2]))
-print("odm" if metrics.recommendation == "outdoor_like" else "blv")
+print("exterior" if metrics.recommendation == "outdoor_like" else "enclosed")
 PY
 }
 
 if [[ "${mode}" == "all_odm" || "${mode}" == "all_blv" || "${mode}" == "all_classified" ]]
 then
+    defer_shared_editor_copy=1
     while IFS= read -r -d '' dat_path
     do
         if [[ "${mode}" == "all_odm" ]]
         then
-            convert_odm "${dat_path}" || exit $?
+            location_type="$(classify_dat_location_type "${dat_path}")"
+            convert_odm "${dat_path}" "${location_type}" || exit $?
         elif [[ "${mode}" == "all_blv" ]]
         then
             convert_blv "${dat_path}" || exit $?
         else
-            export_kind="$(classify_dat_export_kind "${dat_path}")"
-            if [[ "${export_kind}" == "odm" ]]
-            then
-                convert_odm "${dat_path}" || exit $?
-            else
-                convert_blv_with_odm_fallback "${dat_path}" || exit $?
-            fi
+            location_type="$(classify_dat_location_type "${dat_path}")"
+            convert_odm "${dat_path}" "${location_type}" || exit $?
         fi
     done < <(find "${dat_root}" -maxdepth 1 -type f -iname '*.dat' -print0 | sort -z)
+    defer_shared_editor_copy=0
+    copy_texture_outputs_to_editor
+    copy_audio_outputs_to_editor
     exit 0
 fi
 
 for map_name in "${outdoor_maps[@]}"
 do
-    convert_odm "$(dat_path_for "${map_name}")" || exit $?
+    convert_odm "$(dat_path_for "${map_name}")" exterior || exit $?
 done
 
 for map_name in "${indoor_maps[@]}"
 do
-    convert_blv "$(dat_path_for "${map_name}")" || exit $?
+    convert_odm "$(dat_path_for "${map_name}")" enclosed || exit $?
 done

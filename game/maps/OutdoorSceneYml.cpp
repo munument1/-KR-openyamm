@@ -4,8 +4,10 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstring>
 #include <exception>
 #include <sstream>
@@ -27,6 +29,7 @@ constexpr uint32_t EnvironmentFlagAlwaysDark = 0x10;
 constexpr uint32_t EnvironmentFlagAlwaysLight = 0x20;
 constexpr uint32_t EnvironmentFlagAlwaysFoggy = 0x40;
 constexpr uint32_t EnvironmentFlagRedFog = 0x80;
+constexpr uint32_t SurfaceAnimationTicksPerSecond = 128;
 
 template <typename ValueType>
 bool readScalarNode(
@@ -85,6 +88,76 @@ bool parsePositionNode(
     return readScalarNode(node, "x", x, errorMessage)
         && readScalarNode(node, "y", y, errorMessage)
         && readScalarNode(node, "z", z, errorMessage);
+}
+
+bool parseOptionalSceneProfile(
+    const YAML::Node &parentNode,
+    OutdoorSceneProfile &profile,
+    std::string &errorMessage)
+{
+    if (!parentNode["scene_profile"])
+    {
+        return true;
+    }
+
+    std::string value;
+
+    if (!readScalarNode(parentNode, "scene_profile", value, errorMessage))
+    {
+        return false;
+    }
+
+    const std::string normalizedValue = toLowerCopy(value);
+
+    if (normalizedValue == "classic_odm")
+    {
+        profile = OutdoorSceneProfile::ClassicOdm;
+        return true;
+    }
+
+    if (normalizedValue == "bmodel_world")
+    {
+        profile = OutdoorSceneProfile::BModelWorld;
+        return true;
+    }
+
+    errorMessage = "scene_profile must be \"classic_odm\" or \"bmodel_world\"";
+    return false;
+}
+
+bool parseOptionalLocationType(
+    const YAML::Node &environmentNode,
+    OutdoorLocationType &locationType,
+    std::string &errorMessage)
+{
+    if (!environmentNode["location_type"])
+    {
+        return true;
+    }
+
+    std::string value;
+
+    if (!readScalarNode(environmentNode, "location_type", value, errorMessage))
+    {
+        return false;
+    }
+
+    const std::string normalizedValue = toLowerCopy(value);
+
+    if (normalizedValue == "exterior")
+    {
+        locationType = OutdoorLocationType::Exterior;
+        return true;
+    }
+
+    if (normalizedValue == "enclosed")
+    {
+        locationType = OutdoorLocationType::Enclosed;
+        return true;
+    }
+
+    errorMessage = "environment.location_type must be \"exterior\" or \"enclosed\"";
+    return false;
 }
 
 bool readOptionalBoolFlag(
@@ -381,6 +454,173 @@ bool parseOutdoorInteractiveFace(
         && readScalarNode(interactiveFaceNode, "cog_trigger", face.cogTrigger, errorMessage, false);
 }
 
+OutdoorBModelMechanismKind outdoorMechanismKindFromText(const std::string &kind)
+{
+    const std::string normalizedKind = toLowerCopy(kind);
+
+    if (normalizedKind == "linear_door" || normalizedKind == "linear_button")
+    {
+        return OutdoorBModelMechanismKind::LinearDoor;
+    }
+
+    if (normalizedKind == "weighted_lift")
+    {
+        return OutdoorBModelMechanismKind::WeightedLift;
+    }
+
+    if (normalizedKind == "rotating_door" || normalizedKind == "rotating_switch")
+    {
+        return OutdoorBModelMechanismKind::RotatingDoor;
+    }
+
+    if (normalizedKind == "rotating_brush")
+    {
+        return OutdoorBModelMechanismKind::RotatingBrush;
+    }
+
+    if (normalizedKind == "collision_volume")
+    {
+        return OutdoorBModelMechanismKind::CollisionVolume;
+    }
+
+    return OutdoorBModelMechanismKind::Unsupported;
+}
+
+bool parseOutdoorBModelMechanism(
+    const YAML::Node &mechanismNode,
+    OutdoorBModelMechanism &mechanism,
+    std::string &errorMessage)
+{
+    if (!mechanismNode.IsMap())
+    {
+        errorMessage = "mechanism entry must be a map";
+        return false;
+    }
+
+    if (!readScalarNode(mechanismNode, "mechanism_id", mechanism.mechanismId, errorMessage)
+        || !readScalarNode(mechanismNode, "event_id", mechanism.interactionEventId, errorMessage, false)
+        || !readScalarNode(mechanismNode, "source_object_index", mechanism.sourceObjectIndex, errorMessage)
+        || !readScalarNode(mechanismNode, "source_class", mechanism.sourceClass, errorMessage)
+        || !readScalarNode(mechanismNode, "source_name", mechanism.sourceName, errorMessage)
+        || !readScalarNode(mechanismNode, "kind", mechanism.sourceKind, errorMessage))
+    {
+        return false;
+    }
+
+    mechanism.kind = outdoorMechanismKindFromText(mechanism.sourceKind);
+    mechanism.moveParty = mechanism.kind == OutdoorBModelMechanismKind::WeightedLift;
+
+    const YAML::Node bindingNode = mechanismNode["binding"];
+
+    if (!bindingNode || !bindingNode.IsMap())
+    {
+        errorMessage = "mechanism.binding must be a map";
+        return false;
+    }
+
+    std::string targetKind;
+    if (!readScalarNode(bindingNode, "target_kind", targetKind, errorMessage)
+        || !readScalarNode(bindingNode, "confidence", mechanism.bindingConfidence, errorMessage, false))
+    {
+        return false;
+    }
+
+    targetKind = toLowerCopy(targetKind);
+
+    if (targetKind == "odm_bmodel")
+    {
+        mechanism.hasBModelBinding = true;
+
+        if (!readScalarNode(bindingNode, "bmodel_index", mechanism.bmodelIndex, errorMessage)
+            || !readScalarNode(bindingNode, "bmodel_name", mechanism.bmodelName, errorMessage))
+        {
+            return false;
+        }
+    }
+    else if (targetKind != "unresolved")
+    {
+        errorMessage = "mechanism.binding.target_kind must be odm_bmodel or unresolved";
+        return false;
+    }
+
+    const YAML::Node motionNode = mechanismNode["motion"];
+
+    if (!motionNode || !motionNode.IsMap()
+        || !readScalarNode(motionNode, "move_time_ms", mechanism.moveTimeMs, errorMessage))
+    {
+        errorMessage = errorMessage.empty() ? "mechanism.motion must be a map" : errorMessage;
+        return false;
+    }
+
+    const YAML::Node linearNode = motionNode["linear"];
+    const YAML::Node rotationNode = motionNode["rotation"];
+
+    if (linearNode && rotationNode)
+    {
+        errorMessage = "mechanism.motion cannot contain both linear and rotation motion";
+        return false;
+    }
+
+    if (linearNode)
+    {
+        if (!linearNode.IsMap()
+            || !parsePositionNode(
+                linearNode["delta_openyamm"],
+                mechanism.deltaX,
+                mechanism.deltaY,
+                mechanism.deltaZ,
+                errorMessage))
+        {
+            errorMessage = errorMessage.empty() ? "mechanism.motion.linear must be a map" : errorMessage;
+            return false;
+        }
+
+        mechanism.motionKind = OutdoorBModelMechanismMotionKind::Linear;
+    }
+    else if (rotationNode)
+    {
+        if (!rotationNode.IsMap()
+            || !parsePositionNode(
+                rotationNode["pivot_openyamm"],
+                mechanism.pivotX,
+                mechanism.pivotY,
+                mechanism.pivotZ,
+                errorMessage)
+            || !parsePositionNode(
+                rotationNode["rotation_angles_openyamm_deg"],
+                mechanism.rotationDegreesX,
+                mechanism.rotationDegreesY,
+                mechanism.rotationDegreesZ,
+                errorMessage))
+        {
+            errorMessage = errorMessage.empty() ? "mechanism.motion.rotation must be a map" : errorMessage;
+            return false;
+        }
+
+        mechanism.motionKind = OutdoorBModelMechanismMotionKind::Rotation;
+    }
+
+    const YAML::Node activationNode = mechanismNode["activation"];
+
+    if (activationNode && !activationNode.IsNull())
+    {
+        if (!activationNode.IsMap()
+            || !readScalarNode(activationNode, "start_open", mechanism.startOpen, errorMessage, false)
+            || !readScalarNode(activationNode, "start_on", mechanism.startOn, errorMessage, false)
+            || !readScalarNode(activationNode, "push_open", mechanism.pushOpen, errorMessage, false)
+            || !readScalarNode(activationNode, "touch_to_open", mechanism.touchToOpen, errorMessage, false)
+            || !readScalarNode(activationNode, "locked", mechanism.locked, errorMessage, false)
+            || !readScalarNode(activationNode, "open_away", mechanism.openAway, errorMessage, false)
+            || !readScalarNode(activationNode, "move_party", mechanism.moveParty, errorMessage, false))
+        {
+            errorMessage = errorMessage.empty() ? "mechanism.activation must be a map" : errorMessage;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void mergeOutdoorTerrainFootstepSoundOverride(
     OutdoorSceneData &sceneData,
     const OutdoorSceneTerrainFootstepSoundOverride &sourceOverride)
@@ -415,6 +655,115 @@ void mergeOutdoorInteractiveFace(OutdoorSceneData &sceneData, const OutdoorScene
     }
 
     *pTargetFace = sourceFace;
+}
+
+bool parseOutdoorSurfaceAnimation(
+    const YAML::Node &animationNode,
+    OutdoorSceneSurfaceAnimation &surfaceAnimation,
+    std::string &errorMessage)
+{
+    if (!animationNode.IsMap())
+    {
+        errorMessage = "surface animation entry must be a map";
+        return false;
+    }
+
+    uint32_t framesPerSecond = 0;
+
+    if (!readScalarNode(animationNode, "texture", surfaceAnimation.textureName, errorMessage)
+        || !readScalarNode(animationNode, "frames_per_second", framesPerSecond, errorMessage))
+    {
+        return false;
+    }
+
+    if (surfaceAnimation.textureName.empty())
+    {
+        errorMessage = "surface animation texture must not be empty";
+        return false;
+    }
+
+    surfaceAnimation.textureName = toLowerCopy(surfaceAnimation.textureName);
+
+    if (framesPerSecond == 0 || framesPerSecond > SurfaceAnimationTicksPerSecond)
+    {
+        errorMessage = "surface animation frames_per_second must be between 1 and 128";
+        return false;
+    }
+
+    const YAML::Node framesNode = animationNode["frames"];
+
+    if (!framesNode || !framesNode.IsSequence() || framesNode.size() < 2)
+    {
+        errorMessage = "surface animation frames must contain at least two entries";
+        return false;
+    }
+
+    surfaceAnimation.animation.frames.reserve(framesNode.size());
+
+    for (const YAML::Node &frameNode : framesNode)
+    {
+        if (!frameNode.IsScalar())
+        {
+            errorMessage = "surface animation frame must be a texture-name scalar";
+            return false;
+        }
+
+        SurfaceAnimationFrame frame = {};
+        frame.textureName = frameNode.as<std::string>();
+
+        if (frame.textureName.empty())
+        {
+            errorMessage = "surface animation frame texture must not be empty";
+            return false;
+        }
+
+        surfaceAnimation.animation.frames.push_back(std::move(frame));
+    }
+
+    const uint32_t frameCount = static_cast<uint32_t>(surfaceAnimation.animation.frames.size());
+    const double exactAnimationLength = static_cast<double>(frameCount)
+        * static_cast<double>(SurfaceAnimationTicksPerSecond)
+        / static_cast<double>(framesPerSecond);
+    const uint32_t animationLengthTicks =
+        std::max(frameCount, static_cast<uint32_t>(std::lround(exactAnimationLength)));
+    const uint32_t baseFrameLength = animationLengthTicks / frameCount;
+    uint32_t remainder = animationLengthTicks % frameCount;
+
+    surfaceAnimation.animation.animationLengthTicks = animationLengthTicks;
+
+    for (SurfaceAnimationFrame &frame : surfaceAnimation.animation.frames)
+    {
+        frame.frameLengthTicks = baseFrameLength + (remainder > 0 ? 1U : 0U);
+
+        if (remainder > 0)
+        {
+            --remainder;
+        }
+    }
+
+    return true;
+}
+
+void mergeOutdoorSurfaceAnimation(
+    OutdoorSceneData &sceneData,
+    const OutdoorSceneSurfaceAnimation &sourceAnimation)
+{
+    const std::string normalizedTextureName = toLowerCopy(sourceAnimation.textureName);
+    const auto animationIt = std::find_if(
+        sceneData.surfaceAnimations.begin(),
+        sceneData.surfaceAnimations.end(),
+        [&normalizedTextureName](const OutdoorSceneSurfaceAnimation &animation)
+        {
+            return animation.textureName == normalizedTextureName;
+        });
+
+    if (animationIt == sceneData.surfaceAnimations.end())
+    {
+        sceneData.surfaceAnimations.push_back(sourceAnimation);
+        return;
+    }
+
+    *animationIt = sourceAnimation;
 }
 
 void applyOutdoorInteractiveFaceValues(
@@ -671,6 +1020,247 @@ bool parseIntSequence(
     return true;
 }
 
+bool parseOutdoorSpawn(
+    const YAML::Node &spawnNode,
+    OutdoorSceneSpawn &spawn,
+    std::string &errorMessage)
+{
+    if (!spawnNode.IsMap())
+    {
+        errorMessage = "spawn entry must be a map";
+        return false;
+    }
+
+    return readScalarNode(spawnNode, "spawn_index", spawn.spawnIndex, errorMessage)
+        && readScalarNode(spawnNode, "radius", spawn.spawn.radius, errorMessage)
+        && readScalarNode(spawnNode, "type_id", spawn.spawn.typeId, errorMessage)
+        && readScalarNode(spawnNode, "index", spawn.spawn.index, errorMessage)
+        && readScalarNode(spawnNode, "attributes", spawn.spawn.attributes, errorMessage)
+        && readScalarNode(spawnNode, "group", spawn.spawn.group, errorMessage)
+        && parsePositionNode(spawnNode["position"], spawn.spawn.x, spawn.spawn.y, spawn.spawn.z, errorMessage);
+}
+
+bool parseOutdoorEntity(
+    const YAML::Node &entityNode,
+    OutdoorSceneEntity &entity,
+    std::string &errorMessage)
+{
+    if (!entityNode.IsMap())
+    {
+        errorMessage = "entity entry must be a map";
+        return false;
+    }
+
+    return readScalarNode(entityNode, "entity_index", entity.entityIndex, errorMessage)
+        && readScalarNode(entityNode, "name", entity.entity.name, errorMessage)
+        && readScalarNode(entityNode, "decoration_list_id", entity.entity.decorationListId, errorMessage)
+        && readScalarNode(entityNode, "ai_attributes", entity.entity.aiAttributes, errorMessage)
+        && readScalarNode(entityNode, "facing", entity.entity.facing, errorMessage)
+        && readScalarNode(entityNode, "event_id_primary", entity.entity.eventIdPrimary, errorMessage)
+        && readScalarNode(entityNode, "event_id_secondary", entity.entity.eventIdSecondary, errorMessage)
+        && readScalarNode(entityNode, "variable_primary", entity.entity.variablePrimary, errorMessage)
+        && readScalarNode(entityNode, "variable_secondary", entity.entity.variableSecondary, errorMessage)
+        && readScalarNode(entityNode, "special_trigger", entity.entity.specialTrigger, errorMessage)
+        && readScalarNode(entityNode, "initial_decoration_flag", entity.initialDecorationFlag, errorMessage)
+        && parsePositionNode(entityNode["position"], entity.entity.x, entity.entity.y, entity.entity.z, errorMessage);
+}
+
+bool parseOutdoorActor(
+    const YAML::Node &actorNode,
+    size_t actorIndex,
+    MapDeltaActor &actor,
+    std::string &errorMessage)
+{
+    if (!actorNode.IsMap())
+    {
+        errorMessage = "actor entry must be a map";
+        return false;
+    }
+
+    actor.diagnosticSourceActorIndex = actorIndex;
+
+    if (!readScalarNode(actorNode, "name", actor.name, errorMessage)
+        || !readScalarNode(actorNode, "npc_id", actor.npcId, errorMessage)
+        || !readScalarNode(actorNode, "attributes", actor.attributes, errorMessage)
+        || !readScalarNode(actorNode, "hp", actor.hp, errorMessage)
+        || !readScalarNode(actorNode, "hostility_type", actor.hostilityType, errorMessage)
+        || !readScalarNode(actorNode, "monster_info_id", actor.monsterInfoId, errorMessage)
+        || !readScalarNode(actorNode, "monster_id", actor.monsterId, errorMessage)
+        || !readScalarNode(actorNode, "radius", actor.radius, errorMessage)
+        || !readScalarNode(actorNode, "height", actor.height, errorMessage)
+        || !readScalarNode(actorNode, "move_speed", actor.moveSpeed, errorMessage)
+        || !readScalarNode(actorNode, "sector_id", actor.sectorId, errorMessage)
+        || !readScalarNode(actorNode, "current_action_animation", actor.currentActionAnimation, errorMessage)
+        || !readScalarNode(actorNode, "group", actor.group, errorMessage)
+        || !readScalarNode(actorNode, "ally", actor.ally, errorMessage)
+        || !readScalarNode(actorNode, "unique_name_index", actor.uniqueNameIndex, errorMessage)
+        || !parsePositionNode(actorNode["position"], actor.x, actor.y, actor.z, errorMessage))
+    {
+        return false;
+    }
+
+    if (!readScalarNode(actorNode, "carried_item_id", actor.carriedItemId, errorMessage, false))
+    {
+        actor.carriedItemId = 0;
+    }
+
+    const YAML::Node spriteIdsNode = actorNode["sprite_ids"];
+
+    if (!spriteIdsNode || !spriteIdsNode.IsSequence() || spriteIdsNode.size() != actor.spriteIds.size())
+    {
+        errorMessage = "actor.sprite_ids must have exactly 4 entries";
+        return false;
+    }
+
+    for (size_t spriteIndex = 0; spriteIndex < actor.spriteIds.size(); ++spriteIndex)
+    {
+        if (!spriteIdsNode[spriteIndex].IsScalar())
+        {
+            errorMessage = "actor sprite_ids entries must be scalar";
+            return false;
+        }
+
+        try
+        {
+            actor.spriteIds[spriteIndex] = spriteIdsNode[spriteIndex].as<uint16_t>();
+        }
+        catch (const std::exception &exception)
+        {
+            errorMessage = std::string("could not parse actor sprite id: ") + exception.what();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool parseOutdoorSpriteObject(
+    const YAML::Node &spriteObjectNode,
+    MapDeltaSpriteObject &spriteObject,
+    std::string &errorMessage)
+{
+    if (!spriteObjectNode.IsMap())
+    {
+        errorMessage = "sprite object entry must be a map";
+        return false;
+    }
+
+    std::string rawContainingItemHex;
+
+    if (!readScalarNode(spriteObjectNode, "sprite_id", spriteObject.spriteId, errorMessage)
+        || !readScalarNode(
+            spriteObjectNode,
+            "object_description_id",
+            spriteObject.objectDescriptionId,
+            errorMessage)
+        || !readScalarNode(spriteObjectNode, "yaw_angle", spriteObject.yawAngle, errorMessage)
+        || !readScalarNode(spriteObjectNode, "sound_id", spriteObject.soundId, errorMessage)
+        || !readScalarNode(spriteObjectNode, "attributes", spriteObject.attributes, errorMessage)
+        || !readScalarNode(spriteObjectNode, "sector_id", spriteObject.sectorId, errorMessage)
+        || !readScalarNode(spriteObjectNode, "time_since_created", spriteObject.timeSinceCreated, errorMessage)
+        || !readScalarNode(spriteObjectNode, "temporary_lifetime", spriteObject.temporaryLifetime, errorMessage)
+        || !readScalarNode(
+            spriteObjectNode,
+            "glow_radius_multiplier",
+            spriteObject.glowRadiusMultiplier,
+            errorMessage)
+        || !readScalarNode(spriteObjectNode, "spell_id", spriteObject.spellId, errorMessage)
+        || !readScalarNode(spriteObjectNode, "spell_level", spriteObject.spellLevel, errorMessage)
+        || !readScalarNode(spriteObjectNode, "spell_skill", spriteObject.spellSkill, errorMessage)
+        || !readScalarNode(spriteObjectNode, "field54", spriteObject.field54, errorMessage)
+        || !readScalarNode(spriteObjectNode, "spell_caster_pid", spriteObject.spellCasterPid, errorMessage)
+        || !readScalarNode(spriteObjectNode, "spell_target_pid", spriteObject.spellTargetPid, errorMessage)
+        || !readScalarNode(spriteObjectNode, "lod_distance", spriteObject.lodDistance, errorMessage)
+        || !readScalarNode(
+            spriteObjectNode,
+            "spell_caster_ability",
+            spriteObject.spellCasterAbility,
+            errorMessage)
+        || !readScalarNode(spriteObjectNode, "raw_containing_item_hex", rawContainingItemHex, errorMessage)
+        || !parsePositionNode(
+            spriteObjectNode["position"],
+            spriteObject.x,
+            spriteObject.y,
+            spriteObject.z,
+            errorMessage)
+        || !parsePositionNode(
+            spriteObjectNode["velocity"],
+            spriteObject.velocityX,
+            spriteObject.velocityY,
+            spriteObject.velocityZ,
+            errorMessage)
+        || !parsePositionNode(
+            spriteObjectNode["initial_position"],
+            spriteObject.initialX,
+            spriteObject.initialY,
+            spriteObject.initialZ,
+            errorMessage))
+    {
+        return false;
+    }
+
+    return parseHexBytes(
+        rawContainingItemHex,
+        SpriteObjectContainingItemSize,
+        spriteObject.rawContainingItem,
+        errorMessage);
+}
+
+bool parseOutdoorChest(
+    const YAML::Node &chestNode,
+    MapDeltaChest &chest,
+    std::string &errorMessage)
+{
+    if (!chestNode.IsMap())
+    {
+        errorMessage = "chest entry must be a map";
+        return false;
+    }
+
+    std::string rawItemsHex;
+    std::vector<uint8_t> rawItems;
+    std::vector<int> inventoryMatrixValues;
+
+    if (!readScalarNode(chestNode, "chest_type_id", chest.chestTypeId, errorMessage)
+        || !readScalarNode(chestNode, "flags", chest.flags, errorMessage)
+        || !readScalarNode(chestNode, "raw_items_hex", rawItemsHex, errorMessage, false))
+    {
+        return false;
+    }
+
+    const YAML::Node inventoryMatrixNode = chestNode["inventory_matrix"];
+    if (inventoryMatrixNode)
+    {
+        if (!parseIntSequence(inventoryMatrixNode, 140, inventoryMatrixValues, errorMessage))
+        {
+            return false;
+        }
+    }
+    else
+    {
+        inventoryMatrixValues.assign(140, 0);
+    }
+
+    if (rawItemsHex.empty())
+    {
+        rawItems.assign(ChestItemPayloadSize, 0);
+    }
+    else if (!parseHexBytes(rawItemsHex, ChestItemPayloadSize, rawItems, errorMessage))
+    {
+        return false;
+    }
+
+    chest.rawItems = std::move(rawItems);
+    chest.inventoryMatrix.reserve(inventoryMatrixValues.size());
+
+    for (int value : inventoryMatrixValues)
+    {
+        chest.inventoryMatrix.push_back(static_cast<int16_t>(value));
+    }
+
+    return true;
+}
+
 void encodeSceneMapExtra(uint32_t mapExtraBitsRaw, int32_t ceiling, std::array<uint8_t, 24> &reservedBytes)
 {
     reservedBytes.fill(0);
@@ -734,6 +1324,11 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
         return std::nullopt;
     }
 
+    if (!parseOptionalSceneProfile(rootNode, sceneData.sceneProfile, errorMessage))
+    {
+        return std::nullopt;
+    }
+
     const YAML::Node sourceNode = rootNode["source"];
 
     if (!sourceNode || !sourceNode.IsMap())
@@ -779,6 +1374,12 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
                 false)
             || !readScalarNode(
                 runtimeRestrictionsNode,
+                "allow_rest",
+                sceneData.runtimeRestrictions.allowRest,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
                 "arena",
                 sceneData.runtimeRestrictions.isArena,
                 errorMessage,
@@ -793,6 +1394,11 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
     if (!environmentNode || !environmentNode.IsMap())
     {
         errorMessage = "environment must be a map";
+        return std::nullopt;
+    }
+
+    if (!parseOptionalLocationType(environmentNode, sceneData.environment.locationType, errorMessage))
+    {
         return std::nullopt;
     }
 
@@ -945,6 +1551,46 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
         }
     }
 
+    const YAML::Node surfaceAnimationsNode = rootNode["surface_animations"];
+
+    if (surfaceAnimationsNode)
+    {
+        if (!surfaceAnimationsNode.IsSequence())
+        {
+            errorMessage = "surface_animations must be a sequence";
+            return std::nullopt;
+        }
+
+        sceneData.surfaceAnimations.reserve(surfaceAnimationsNode.size());
+
+        for (const YAML::Node &animationNode : surfaceAnimationsNode)
+        {
+            OutdoorSceneSurfaceAnimation surfaceAnimation = {};
+
+            if (!parseOutdoorSurfaceAnimation(animationNode, surfaceAnimation, errorMessage))
+            {
+                return std::nullopt;
+            }
+
+            const std::string &normalizedTextureName = surfaceAnimation.textureName;
+            const bool duplicate = std::any_of(
+                sceneData.surfaceAnimations.begin(),
+                sceneData.surfaceAnimations.end(),
+                [&normalizedTextureName](const OutdoorSceneSurfaceAnimation &animation)
+                {
+                    return animation.textureName == normalizedTextureName;
+                });
+
+            if (duplicate)
+            {
+                errorMessage = "surface animation texture must be unique";
+                return std::nullopt;
+            }
+
+            sceneData.surfaceAnimations.push_back(std::move(surfaceAnimation));
+        }
+    }
+
     const YAML::Node bmodelFacesNode = rootNode["bmodel_faces"];
     const YAML::Node interactiveFacesNode = bmodelFacesNode ? bmodelFacesNode["interactive_faces"] : YAML::Node();
 
@@ -968,6 +1614,45 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
         sceneData.interactiveFaces.push_back(face);
     }
 
+    const YAML::Node mechanismsNode = rootNode["mechanisms"];
+
+    if (mechanismsNode)
+    {
+        if (!mechanismsNode.IsSequence())
+        {
+            errorMessage = "mechanisms must be a sequence";
+            return std::nullopt;
+        }
+
+        sceneData.mechanisms.reserve(mechanismsNode.size());
+
+        for (const YAML::Node &mechanismNode : mechanismsNode)
+        {
+            OutdoorBModelMechanism mechanism = {};
+
+            if (!parseOutdoorBModelMechanism(mechanismNode, mechanism, errorMessage))
+            {
+                return std::nullopt;
+            }
+
+            const auto duplicate = std::find_if(
+                sceneData.mechanisms.begin(),
+                sceneData.mechanisms.end(),
+                [&mechanism](const OutdoorBModelMechanism &existing)
+                {
+                    return existing.mechanismId == mechanism.mechanismId;
+                });
+
+            if (duplicate != sceneData.mechanisms.end())
+            {
+                errorMessage = "mechanism_id must be unique";
+                return std::nullopt;
+            }
+
+            sceneData.mechanisms.push_back(std::move(mechanism));
+        }
+    }
+
     const YAML::Node entitiesNode = rootNode["entities"];
 
     if (!entitiesNode || !entitiesNode.IsSequence())
@@ -980,35 +1665,9 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
 
     for (const YAML::Node &entityNode : entitiesNode)
     {
-        if (!entityNode.IsMap())
-        {
-            errorMessage = "entity entry must be a map";
-            return std::nullopt;
-        }
-
         OutdoorSceneEntity entity = {};
 
-        if (!readScalarNode(entityNode, "entity_index", entity.entityIndex, errorMessage)
-            || !readScalarNode(entityNode, "name", entity.entity.name, errorMessage)
-            || !readScalarNode(entityNode, "decoration_list_id", entity.entity.decorationListId, errorMessage)
-            || !readScalarNode(entityNode, "ai_attributes", entity.entity.aiAttributes, errorMessage)
-            || !readScalarNode(entityNode, "facing", entity.entity.facing, errorMessage)
-            || !readScalarNode(entityNode, "event_id_primary", entity.entity.eventIdPrimary, errorMessage)
-            || !readScalarNode(entityNode, "event_id_secondary", entity.entity.eventIdSecondary, errorMessage)
-            || !readScalarNode(entityNode, "variable_primary", entity.entity.variablePrimary, errorMessage)
-            || !readScalarNode(entityNode, "variable_secondary", entity.entity.variableSecondary, errorMessage)
-            || !readScalarNode(entityNode, "special_trigger", entity.entity.specialTrigger, errorMessage)
-            || !readScalarNode(
-                entityNode,
-                "initial_decoration_flag",
-                entity.initialDecorationFlag,
-                errorMessage)
-            || !parsePositionNode(
-                entityNode["position"],
-                entity.entity.x,
-                entity.entity.y,
-                entity.entity.z,
-                errorMessage))
+        if (!parseOutdoorEntity(entityNode, entity, errorMessage))
         {
             return std::nullopt;
         }
@@ -1028,26 +1687,9 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
 
     for (const YAML::Node &spawnNode : spawnsNode)
     {
-        if (!spawnNode.IsMap())
-        {
-            errorMessage = "spawn entry must be a map";
-            return std::nullopt;
-        }
-
         OutdoorSceneSpawn spawn = {};
 
-        if (!readScalarNode(spawnNode, "spawn_index", spawn.spawnIndex, errorMessage)
-            || !readScalarNode(spawnNode, "radius", spawn.spawn.radius, errorMessage)
-            || !readScalarNode(spawnNode, "type_id", spawn.spawn.typeId, errorMessage)
-            || !readScalarNode(spawnNode, "index", spawn.spawn.index, errorMessage)
-            || !readScalarNode(spawnNode, "attributes", spawn.spawn.attributes, errorMessage)
-            || !readScalarNode(spawnNode, "group", spawn.spawn.group, errorMessage)
-            || !parsePositionNode(
-                spawnNode["position"],
-                spawn.spawn.x,
-                spawn.spawn.y,
-                spawn.spawn.z,
-                errorMessage))
+        if (!parseOutdoorSpawn(spawnNode, spawn, errorMessage))
         {
             return std::nullopt;
         }
@@ -1119,70 +1761,11 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
     for (size_t actorIndex = 0; actorIndex < actorsNode.size(); ++actorIndex)
     {
         const YAML::Node actorNode = actorsNode[actorIndex];
-
-        if (!actorNode.IsMap())
-        {
-            errorMessage = "actor entry must be a map";
-            return std::nullopt;
-        }
-
         MapDeltaActor actor = {};
-        actor.diagnosticSourceActorIndex = actorIndex;
 
-        if (!readScalarNode(actorNode, "name", actor.name, errorMessage)
-            || !readScalarNode(actorNode, "npc_id", actor.npcId, errorMessage)
-            || !readScalarNode(actorNode, "attributes", actor.attributes, errorMessage)
-            || !readScalarNode(actorNode, "hp", actor.hp, errorMessage)
-            || !readScalarNode(actorNode, "hostility_type", actor.hostilityType, errorMessage)
-            || !readScalarNode(actorNode, "monster_info_id", actor.monsterInfoId, errorMessage)
-            || !readScalarNode(actorNode, "monster_id", actor.monsterId, errorMessage)
-            || !readScalarNode(actorNode, "radius", actor.radius, errorMessage)
-            || !readScalarNode(actorNode, "height", actor.height, errorMessage)
-            || !readScalarNode(actorNode, "move_speed", actor.moveSpeed, errorMessage)
-            || !readScalarNode(actorNode, "sector_id", actor.sectorId, errorMessage)
-            || !readScalarNode(
-                actorNode,
-                "current_action_animation",
-                actor.currentActionAnimation,
-                errorMessage)
-            || !readScalarNode(actorNode, "group", actor.group, errorMessage)
-            || !readScalarNode(actorNode, "ally", actor.ally, errorMessage)
-            || !readScalarNode(actorNode, "unique_name_index", actor.uniqueNameIndex, errorMessage)
-            || !parsePositionNode(actorNode["position"], actor.x, actor.y, actor.z, errorMessage))
+        if (!parseOutdoorActor(actorNode, actorIndex, actor, errorMessage))
         {
             return std::nullopt;
-        }
-
-        if (!readScalarNode(actorNode, "carried_item_id", actor.carriedItemId, errorMessage, false))
-        {
-            actor.carriedItemId = 0;
-        }
-
-        const YAML::Node spriteIdsNode = actorNode["sprite_ids"];
-
-        if (!spriteIdsNode || !spriteIdsNode.IsSequence() || spriteIdsNode.size() != actor.spriteIds.size())
-        {
-            errorMessage = "actor.sprite_ids must have exactly 4 entries";
-            return std::nullopt;
-        }
-
-        for (size_t spriteIndex = 0; spriteIndex < actor.spriteIds.size(); ++spriteIndex)
-        {
-            if (!spriteIdsNode[spriteIndex].IsScalar())
-            {
-                errorMessage = "actor sprite_ids entries must be scalar";
-                return std::nullopt;
-            }
-
-            try
-            {
-                actor.spriteIds[spriteIndex] = spriteIdsNode[spriteIndex].as<uint16_t>();
-            }
-            catch (const std::exception &exception)
-            {
-                errorMessage = std::string("could not parse actor sprite id: ") + exception.what();
-                return std::nullopt;
-            }
         }
 
         sceneData.initialState.actors.push_back(std::move(actor));
@@ -1192,92 +1775,9 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
 
     for (const YAML::Node &spriteObjectNode : spriteObjectsNode)
     {
-        if (!spriteObjectNode.IsMap())
-        {
-            errorMessage = "sprite object entry must be a map";
-            return std::nullopt;
-        }
-
         MapDeltaSpriteObject spriteObject = {};
-        std::string rawContainingItemHex;
 
-        if (!readScalarNode(spriteObjectNode, "sprite_id", spriteObject.spriteId, errorMessage)
-            || !readScalarNode(
-                spriteObjectNode,
-                "object_description_id",
-                spriteObject.objectDescriptionId,
-                errorMessage)
-            || !readScalarNode(spriteObjectNode, "yaw_angle", spriteObject.yawAngle, errorMessage)
-            || !readScalarNode(spriteObjectNode, "sound_id", spriteObject.soundId, errorMessage)
-            || !readScalarNode(spriteObjectNode, "attributes", spriteObject.attributes, errorMessage)
-            || !readScalarNode(spriteObjectNode, "sector_id", spriteObject.sectorId, errorMessage)
-            || !readScalarNode(
-                spriteObjectNode,
-                "time_since_created",
-                spriteObject.timeSinceCreated,
-                errorMessage)
-            || !readScalarNode(
-                spriteObjectNode,
-                "temporary_lifetime",
-                spriteObject.temporaryLifetime,
-                errorMessage)
-            || !readScalarNode(
-                spriteObjectNode,
-                "glow_radius_multiplier",
-                spriteObject.glowRadiusMultiplier,
-                errorMessage)
-            || !readScalarNode(spriteObjectNode, "spell_id", spriteObject.spellId, errorMessage)
-            || !readScalarNode(spriteObjectNode, "spell_level", spriteObject.spellLevel, errorMessage)
-            || !readScalarNode(spriteObjectNode, "spell_skill", spriteObject.spellSkill, errorMessage)
-            || !readScalarNode(spriteObjectNode, "field54", spriteObject.field54, errorMessage)
-            || !readScalarNode(
-                spriteObjectNode,
-                "spell_caster_pid",
-                spriteObject.spellCasterPid,
-                errorMessage)
-            || !readScalarNode(
-                spriteObjectNode,
-                "spell_target_pid",
-                spriteObject.spellTargetPid,
-                errorMessage)
-            || !readScalarNode(spriteObjectNode, "lod_distance", spriteObject.lodDistance, errorMessage)
-            || !readScalarNode(
-                spriteObjectNode,
-                "spell_caster_ability",
-                spriteObject.spellCasterAbility,
-                errorMessage)
-            || !readScalarNode(
-                spriteObjectNode,
-                "raw_containing_item_hex",
-                rawContainingItemHex,
-                errorMessage)
-            || !parsePositionNode(
-                spriteObjectNode["position"],
-                spriteObject.x,
-                spriteObject.y,
-                spriteObject.z,
-                errorMessage)
-            || !parsePositionNode(
-                spriteObjectNode["velocity"],
-                spriteObject.velocityX,
-                spriteObject.velocityY,
-                spriteObject.velocityZ,
-                errorMessage)
-            || !parsePositionNode(
-                spriteObjectNode["initial_position"],
-                spriteObject.initialX,
-                spriteObject.initialY,
-                spriteObject.initialZ,
-                errorMessage))
-        {
-            return std::nullopt;
-        }
-
-        if (!parseHexBytes(
-                rawContainingItemHex,
-                SpriteObjectContainingItemSize,
-                spriteObject.rawContainingItem,
-                errorMessage))
+        if (!parseOutdoorSpriteObject(spriteObjectNode, spriteObject, errorMessage))
         {
             return std::nullopt;
         }
@@ -1289,40 +1789,11 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
 
     for (const YAML::Node &chestNode : chestsNode)
     {
-        if (!chestNode.IsMap())
-        {
-            errorMessage = "chest entry must be a map";
-            return std::nullopt;
-        }
-
         MapDeltaChest chest = {};
-        std::string rawItemsHex;
-        std::vector<uint8_t> rawItems;
-        std::vector<int> inventoryMatrixValues;
 
-        if (!readScalarNode(chestNode, "chest_type_id", chest.chestTypeId, errorMessage)
-            || !readScalarNode(chestNode, "flags", chest.flags, errorMessage)
-            || !readScalarNode(chestNode, "raw_items_hex", rawItemsHex, errorMessage)
-            || !parseIntSequence(
-                chestNode["inventory_matrix"],
-                140,
-                inventoryMatrixValues,
-                errorMessage))
+        if (!parseOutdoorChest(chestNode, chest, errorMessage))
         {
             return std::nullopt;
-        }
-
-        if (!parseHexBytes(rawItemsHex, ChestItemPayloadSize, rawItems, errorMessage))
-        {
-            return std::nullopt;
-        }
-
-        chest.rawItems = std::move(rawItems);
-        chest.inventoryMatrix.reserve(inventoryMatrixValues.size());
-
-        for (int value : inventoryMatrixValues)
-        {
-            chest.inventoryMatrix.push_back(static_cast<int16_t>(value));
         }
 
         sceneData.initialState.chests.push_back(std::move(chest));
@@ -1350,6 +1821,12 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
     {
         sceneData.initialState.eventVariables.decorVars[index] = static_cast<uint8_t>(decorVariableValues[index]);
     }
+
+    sceneData.baseContentCounts.entities = sceneData.entities.size();
+    sceneData.baseContentCounts.spawns = sceneData.spawns.size();
+    sceneData.baseContentCounts.actors = sceneData.initialState.actors.size();
+    sceneData.baseContentCounts.spriteObjects = sceneData.initialState.spriteObjects.size();
+    sceneData.baseContentCounts.chests = sceneData.initialState.chests.size();
 
     return sceneData;
 }
@@ -1398,6 +1875,11 @@ bool OutdoorSceneYmlLoader::applyOverlayFromText(
         return false;
     }
 
+    if (!parseOptionalSceneProfile(rootNode, sceneData.sceneProfile, errorMessage))
+    {
+        return false;
+    }
+
     const YAML::Node sourceNode = rootNode["source"];
 
     if (sourceNode)
@@ -1429,6 +1911,11 @@ bool OutdoorSceneYmlLoader::applyOverlayFromText(
         if (!environmentNode.IsMap())
         {
             errorMessage = "environment must be a map";
+            return false;
+        }
+
+        if (!parseOptionalLocationType(environmentNode, sceneData.environment.locationType, errorMessage))
+        {
             return false;
         }
 
@@ -1550,6 +2037,12 @@ bool OutdoorSceneYmlLoader::applyOverlayFromText(
                 false)
             || !readScalarNode(
                 runtimeRestrictionsNode,
+                "allow_rest",
+                sceneData.runtimeRestrictions.allowRest,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
                 "arena",
                 sceneData.runtimeRestrictions.isArena,
                 errorMessage,
@@ -1595,6 +2088,29 @@ bool OutdoorSceneYmlLoader::applyOverlayFromText(
 
     const YAML::Node bmodelFacesNode = rootNode["bmodel_faces"];
 
+    const YAML::Node surfaceAnimationsNode = rootNode["surface_animations"];
+
+    if (surfaceAnimationsNode)
+    {
+        if (!surfaceAnimationsNode.IsSequence())
+        {
+            errorMessage = "surface_animations must be a sequence";
+            return false;
+        }
+
+        for (const YAML::Node &animationNode : surfaceAnimationsNode)
+        {
+            OutdoorSceneSurfaceAnimation surfaceAnimation = {};
+
+            if (!parseOutdoorSurfaceAnimation(animationNode, surfaceAnimation, errorMessage))
+            {
+                return false;
+            }
+
+            mergeOutdoorSurfaceAnimation(sceneData, surfaceAnimation);
+        }
+    }
+
     if (bmodelFacesNode)
     {
         if (!bmodelFacesNode.IsMap())
@@ -1623,6 +2139,144 @@ bool OutdoorSceneYmlLoader::applyOverlayFromText(
                 }
 
                 mergeOutdoorInteractiveFace(sceneData, face);
+            }
+        }
+    }
+
+    const YAML::Node authoredContentNode = rootNode["authored_content"];
+
+    if (authoredContentNode)
+    {
+        if (!authoredContentNode.IsMap())
+        {
+            errorMessage = "authored_content must be a map";
+            return false;
+        }
+
+        const YAML::Node entitiesNode = authoredContentNode["entities"];
+
+        if (entitiesNode)
+        {
+            if (!entitiesNode.IsSequence())
+            {
+                errorMessage = "authored_content.entities must be a sequence";
+                return false;
+            }
+
+            sceneData.entities.reserve(sceneData.entities.size() + entitiesNode.size());
+
+            for (const YAML::Node &entityNode : entitiesNode)
+            {
+                OutdoorSceneEntity entity = {};
+
+                if (!parseOutdoorEntity(entityNode, entity, errorMessage))
+                {
+                    return false;
+                }
+
+                sceneData.entities.push_back(std::move(entity));
+            }
+        }
+
+        const YAML::Node spawnsNode = authoredContentNode["spawns"];
+
+        if (spawnsNode)
+        {
+            if (!spawnsNode.IsSequence())
+            {
+                errorMessage = "authored_content.spawns must be a sequence";
+                return false;
+            }
+
+            sceneData.spawns.reserve(sceneData.spawns.size() + spawnsNode.size());
+
+            for (const YAML::Node &spawnNode : spawnsNode)
+            {
+                OutdoorSceneSpawn spawn = {};
+
+                if (!parseOutdoorSpawn(spawnNode, spawn, errorMessage))
+                {
+                    return false;
+                }
+
+                sceneData.spawns.push_back(std::move(spawn));
+            }
+        }
+
+        const YAML::Node actorsNode = authoredContentNode["actors"];
+
+        if (actorsNode)
+        {
+            if (!actorsNode.IsSequence())
+            {
+                errorMessage = "authored_content.actors must be a sequence";
+                return false;
+            }
+
+            sceneData.initialState.actors.reserve(sceneData.initialState.actors.size() + actorsNode.size());
+
+            for (const YAML::Node &actorNode : actorsNode)
+            {
+                MapDeltaActor actor = {};
+                const size_t actorIndex = sceneData.initialState.actors.size();
+
+                if (!parseOutdoorActor(actorNode, actorIndex, actor, errorMessage))
+                {
+                    return false;
+                }
+
+                sceneData.initialState.actors.push_back(std::move(actor));
+            }
+        }
+
+        const YAML::Node spriteObjectsNode = authoredContentNode["sprite_objects"];
+
+        if (spriteObjectsNode)
+        {
+            if (!spriteObjectsNode.IsSequence())
+            {
+                errorMessage = "authored_content.sprite_objects must be a sequence";
+                return false;
+            }
+
+            sceneData.initialState.spriteObjects.reserve(
+                sceneData.initialState.spriteObjects.size() + spriteObjectsNode.size());
+
+            for (const YAML::Node &spriteObjectNode : spriteObjectsNode)
+            {
+                MapDeltaSpriteObject spriteObject = {};
+
+                if (!parseOutdoorSpriteObject(spriteObjectNode, spriteObject, errorMessage))
+                {
+                    return false;
+                }
+
+                sceneData.initialState.spriteObjects.push_back(std::move(spriteObject));
+            }
+        }
+
+        const YAML::Node chestsNode = authoredContentNode["chests"];
+
+        if (chestsNode)
+        {
+            if (!chestsNode.IsSequence())
+            {
+                errorMessage = "authored_content.chests must be a sequence";
+                return false;
+            }
+
+            sceneData.initialState.chests.reserve(sceneData.initialState.chests.size() + chestsNode.size());
+
+            for (const YAML::Node &chestNode : chestsNode)
+            {
+                MapDeltaChest chest = {};
+
+                if (!parseOutdoorChest(chestNode, chest, errorMessage))
+                {
+                    return false;
+                }
+
+                sceneData.initialState.chests.push_back(std::move(chest));
             }
         }
     }
@@ -1756,10 +2410,30 @@ bool buildOutdoorMapStateFromScene(
     MapDeltaData &mapDeltaData,
     std::string &errorMessage)
 {
+    outdoorMapData.sceneProfile = sceneData.sceneProfile;
+    outdoorMapData.locationType = sceneData.environment.locationType;
     outdoorMapData.skyTexture = sceneData.environment.skyTexture;
     outdoorMapData.groundTilesetName = sceneData.environment.groundTilesetName;
     outdoorMapData.masterTile = sceneData.environment.masterTile;
     outdoorMapData.tileSetLookupIndices = sceneData.environment.tileSetLookupIndices;
+    outdoorMapData.mechanisms.clear();
+
+    if (sceneData.sceneProfile == OutdoorSceneProfile::ClassicOdm && !sceneData.mechanisms.empty())
+    {
+        errorMessage = "outdoor mechanisms require scene_profile bmodel_world";
+        return false;
+    }
+
+    for (const OutdoorBModelMechanism &mechanism : sceneData.mechanisms)
+    {
+        if (mechanism.hasBModelBinding && mechanism.bmodelIndex >= outdoorMapData.bmodels.size())
+        {
+            errorMessage = "mechanism BModel binding is out of bounds";
+            return false;
+        }
+
+        outdoorMapData.mechanisms.push_back(mechanism);
+    }
     outdoorMapData.attributeMap.assign(
         OutdoorMapData::TerrainWidth * OutdoorMapData::TerrainHeight,
         0);

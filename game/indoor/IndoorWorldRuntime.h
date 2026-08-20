@@ -266,6 +266,7 @@ public:
     const MergedBolsterMonsterTable *mergedBolsterMonsterTable() const override;
     bool isIndoorMap() const override;
     bool allowsLloydsBeacon() const override;
+    bool allowsRest() const override;
     float currentGameMinutes() const override;
     const MapDeltaData *mapDeltaData() const override;
     MapDeltaData *mapDeltaData() override;

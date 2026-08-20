@@ -292,7 +292,11 @@ ActorPathResolveResult ActorPathRuntime::resolveWaypointInternal(
 
     result.reachedWaypointCount += advanceReachedWaypoints(pathMap, state, request);
     result.shortcutWaypointCount += advanceShortcutWaypoints(pathMap, state, request);
-    result.stalledWaypointCount += advanceStalledWaypoint(pathMap, state, request);
+
+    if (!result.planned)
+    {
+        result.stalledWaypointCount += advanceStalledWaypoint(pathMap, state, request);
+    }
 
     if (state.waypointIndex < state.waypoints.size())
     {
@@ -585,6 +589,7 @@ void ActorPathRuntime::resetWaypointProgress(
 {
     state.progressWaypointIndex = state.waypointIndex;
     state.lastWaypointProgressSeconds = request.nowSeconds;
+    state.waypointProgressObserved = false;
 
     if (state.waypointIndex < state.waypoints.size())
     {
@@ -707,11 +712,6 @@ size_t ActorPathRuntime::advanceStalledWaypoint(
         return 0;
     }
 
-    if (state.waypointIndex + 1 >= state.waypoints.size() && !state.recoveryBestWaypointActive)
-    {
-        return 0;
-    }
-
     const float waypointDistance = distance2d(request.source, state.waypoints[state.waypointIndex]);
 
     if (state.progressWaypointIndex != state.waypointIndex)
@@ -724,13 +724,21 @@ size_t ActorPathRuntime::advanceStalledWaypoint(
     {
         state.bestWaypointDistance = waypointDistance;
         state.lastWaypointProgressSeconds = request.nowSeconds;
+        state.waypointProgressObserved = true;
+        return 0;
+    }
+
+    if (!state.waypointProgressObserved)
+    {
+        state.lastWaypointProgressSeconds = request.nowSeconds;
+        state.waypointProgressObserved = true;
         return 0;
     }
 
     const bool nearWaypoint = waypointDistance <= relaxedWaypointReachDistance(request);
     const bool stalled = request.nowSeconds - state.lastWaypointProgressSeconds >= WaypointStallSeconds;
 
-    if (!nearWaypoint || !stalled)
+    if (!stalled)
     {
         return 0;
     }
@@ -741,10 +749,17 @@ size_t ActorPathRuntime::advanceStalledWaypoint(
             state.waypoints[state.waypointIndex + 1],
             request.object))
     {
-        return 0;
-    }
+        if (nearWaypoint)
+        {
+            return 0;
+        }
 
-    ++state.waypointIndex;
+        state.waypointIndex = state.waypoints.size();
+    }
+    else
+    {
+        ++state.waypointIndex;
+    }
 
     if (state.recoveryBestWaypointActive && state.waypointIndex >= state.waypoints.size())
     {

@@ -11,6 +11,7 @@ enum class TextureFilterProfile
 {
     Terrain,
     BModel,
+    Lightmap,
     Sky,
     Billboard,
     Ui,

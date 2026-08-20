@@ -266,7 +266,7 @@ int runApplication(int argc, char **argv)
         return OpenYAMM::Game::runScenarioHeadlessCommand(argv[0], config, arguments, false);
     }
 
-    if (arguments.size() == 3 && arguments[0] == "--headless-open-event")
+    if ((arguments.size() == 3 || arguments.size() == 4) && arguments[0] == "--headless-open-event")
     {
         const std::string mapFileName = arguments[1];
         const int parsedEventId = std::stoi(arguments[2]);
@@ -276,8 +276,24 @@ int runApplication(int argc, char **argv)
             return 2;
         }
 
+        float advanceSeconds = 0.0f;
+
+        if (arguments.size() == 4)
+        {
+            advanceSeconds = std::stof(arguments[3]);
+
+            if (advanceSeconds < 0.0f)
+            {
+                return 2;
+            }
+        }
+
         OpenYAMM::Game::HeadlessGameplayDiagnostics diagnostics(config);
-        return diagnostics.runOpenEvent(argv[0], mapFileName, static_cast<uint16_t>(parsedEventId));
+        return diagnostics.runOpenEvent(
+            argv[0],
+            mapFileName,
+            static_cast<uint16_t>(parsedEventId),
+            advanceSeconds);
     }
 
     if (arguments.size() == 3 && arguments[0] == "--headless-open-actor")
@@ -334,20 +350,65 @@ int runApplication(int argc, char **argv)
         return diagnostics.runProfileFullMapLoad(argv[0], arguments[1]);
     }
 
+    if (arguments.size() == 2 && arguments[0] == "--headless-dump-outdoor-navigation")
+    {
+        OpenYAMM::Game::HeadlessGameplayDiagnostics diagnostics(config);
+        return diagnostics.runDumpOutdoorNavigation(argv[0], arguments[1]);
+    }
+
+    if (arguments.size() == 4 && arguments[0] == "--headless-verify-outdoor-save-roundtrip")
+    {
+        const int parsedChestEventId = std::stoi(arguments[2]);
+        const int parsedMechanismEventId = std::stoi(arguments[3]);
+
+        if (parsedChestEventId < 0 || parsedChestEventId > 65535
+            || parsedMechanismEventId < 0 || parsedMechanismEventId > 65535)
+        {
+            return 2;
+        }
+
+        OpenYAMM::Game::HeadlessGameplayDiagnostics diagnostics(config);
+        return diagnostics.runVerifyOutdoorSaveRoundtrip(
+            argv[0],
+            arguments[1],
+            static_cast<uint16_t>(parsedChestEventId),
+            static_cast<uint16_t>(parsedMechanismEventId));
+    }
+
+    if (arguments.size() == 3 && arguments[0] == "--headless-verify-outdoor-mechanism-passage")
+    {
+        const unsigned long parsedMechanismId = std::stoul(arguments[2]);
+
+        if (parsedMechanismId == 0 || parsedMechanismId > UINT32_MAX)
+        {
+            return 2;
+        }
+
+        OpenYAMM::Game::HeadlessGameplayDiagnostics diagnostics(config);
+        return diagnostics.runVerifyOutdoorMechanismPassage(
+            argv[0],
+            arguments[1],
+            static_cast<uint32_t>(parsedMechanismId));
+    }
+
     if (arguments.size() == 2 && arguments[0] == "--headless-capture-projectile-fx")
     {
         OpenYAMM::Game::HeadlessGameplayDiagnostics diagnostics(config);
         return diagnostics.runCaptureProjectileFx(argv[0], arguments[1]);
     }
 
-    if (arguments.size() == 5 && arguments[0] == "--headless-simulate-actor")
+    if ((arguments.size() == 5 || arguments.size() == 6 || arguments.size() == 7)
+        && arguments[0] == "--headless-simulate-actor")
     {
         const std::string mapFileName = arguments[1];
         const int parsedActorIndex = std::stoi(arguments[2]);
         const int parsedStepCount = std::stoi(arguments[3]);
         const float deltaSeconds = std::stof(arguments[4]);
+        const float partyOffsetX = arguments.size() >= 6 ? std::stof(arguments[5]) : 6000.0f;
+        const int parsedPreEventId = arguments.size() == 7 ? std::stoi(arguments[6]) : 0;
 
-        if (parsedActorIndex < 0 || parsedStepCount <= 0 || deltaSeconds <= 0.0f)
+        if (parsedActorIndex < 0 || parsedStepCount <= 0 || deltaSeconds <= 0.0f
+            || parsedPreEventId < 0 || parsedPreEventId > 65535)
         {
             return 2;
         }
@@ -358,15 +419,19 @@ int runApplication(int argc, char **argv)
             mapFileName,
             static_cast<size_t>(parsedActorIndex),
             parsedStepCount,
-            deltaSeconds);
+            deltaSeconds,
+            partyOffsetX,
+            static_cast<uint16_t>(parsedPreEventId));
     }
 
-    if (arguments.size() == 5 && arguments[0] == "--headless-trace-actor-ai")
+    if ((arguments.size() == 5 || arguments.size() == 6)
+        && arguments[0] == "--headless-trace-actor-ai")
     {
         const std::string mapFileName = arguments[1];
         const int parsedActorIndex = std::stoi(arguments[2]);
         const int parsedStepCount = std::stoi(arguments[3]);
         const float deltaSeconds = std::stof(arguments[4]);
+        const float partyOffsetX = arguments.size() == 6 ? std::stof(arguments[5]) : 6000.0f;
 
         if (parsedActorIndex < 0 || parsedStepCount <= 0 || deltaSeconds <= 0.0f)
         {
@@ -379,7 +444,8 @@ int runApplication(int argc, char **argv)
             mapFileName,
             static_cast<size_t>(parsedActorIndex),
             parsedStepCount,
-            deltaSeconds);
+            deltaSeconds,
+            partyOffsetX);
     }
 
     if (arguments.size() == 3 && arguments[0] == "--headless-inspect-actor-preview")

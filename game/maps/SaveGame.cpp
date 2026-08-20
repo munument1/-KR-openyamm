@@ -15,7 +15,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 69;
+constexpr uint32_t SaveVersion = 70;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -66,6 +66,7 @@ constexpr uint32_t SaveVersionActorDiagnosticSource = 66;
 constexpr uint32_t SaveVersionLegacyEvtTimers = 67;
 constexpr uint32_t SaveVersionHiredNpcFollowerIdentity = 68;
 constexpr uint32_t SaveVersionOutdoorFaceAttributes = 69;
+constexpr uint32_t SaveVersionOutdoorMechanismRotationDirection = 70;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -1449,6 +1450,7 @@ void writeValue(BinaryWriter &writer, const RuntimeMechanismState &value)
     writeValue(writer, value.timeSinceTriggeredMs);
     writeValue(writer, value.currentDistance);
     writeValue(writer, value.isMoving);
+    writeValue(writer, value.rotationDirection);
 }
 
 bool readValue(BinaryReader &reader, RuntimeMechanismState &value)
@@ -1456,7 +1458,9 @@ bool readValue(BinaryReader &reader, RuntimeMechanismState &value)
     return readValue(reader, value.state)
         && readValue(reader, value.timeSinceTriggeredMs)
         && readValue(reader, value.currentDistance)
-        && readValue(reader, value.isMoving);
+        && readValue(reader, value.isMoving)
+        && (reader.version() < SaveVersionOutdoorMechanismRotationDirection
+            || readValue(reader, value.rotationDirection));
 }
 
 void writeValue(BinaryWriter &writer, const EventRuntimeState::OutdoorModelMechanismDefinition &value)

@@ -29,6 +29,7 @@ bool profileNeedsTransparentEdgeBleed(TextureFilterProfile profile)
 
         case TextureFilterProfile::Terrain:
         case TextureFilterProfile::BModel:
+        case TextureFilterProfile::Lightmap:
         case TextureFilterProfile::Sky:
         case TextureFilterProfile::Text:
             return false;
@@ -45,6 +46,9 @@ TextureFilterMode textureFilterModeForProfile(TextureFilterProfile profile)
             return g_textureFilteringConfig.terrain;
 
         case TextureFilterProfile::BModel:
+            return g_textureFilteringConfig.bmodel;
+
+        case TextureFilterProfile::Lightmap:
             return g_textureFilteringConfig.bmodel;
 
         case TextureFilterProfile::Sky:

@@ -34,6 +34,8 @@ struct OutdoorPathMapBuildResult
     size_t bModelPathFacetCount = 0;
     size_t skippedBModelFaceCount = 0;
     size_t pathFacetCount = 0;
+    size_t cookedNavigationFacetCount = 0;
+    size_t dynamicNavigationFacetCount = 0;
 };
 
 class OutdoorPathfindingBuilder
@@ -48,5 +50,6 @@ public:
     );
 
     static int32_t bModelSourceId(size_t bModelIndex, size_t faceIndex);
+    static uint64_t bModelSourceKey(size_t bModelIndex, size_t faceIndex);
 };
 }

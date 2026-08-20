@@ -11,6 +11,7 @@
 #include "game/gameplay/GameplayHeldItemController.h"
 #include "game/app/GameSession.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
+#include "game/outdoor/OutdoorMechanismRuntime.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/SpawnPreview.h"
 #include "game/outdoor/OutdoorWorldRuntime.h"
@@ -45,97 +46,6 @@ constexpr uint16_t MMergeCrystalSapphireEventId = 65313;
 constexpr uint16_t MMergeCrystalMoonstoneEventId = 65314;
 constexpr uint16_t MMergeCrystalPurpleTopazEventId = 65315;
 constexpr uint16_t MMergeCrystalEmeraldEventId = 65316;
-
-std::array<float, 3> outdoorBModelRuntimeOffset(
-    const EventRuntimeState *pEventRuntimeState,
-    size_t bModelIndex)
-{
-    if (pEventRuntimeState == nullptr)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    if (pEventRuntimeState->outdoorModelMechanisms.empty())
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
-        pEventRuntimeState->outdoorModelMechanisms)
-    {
-        const EventRuntimeState::OutdoorModelMechanismDefinition &definition = entry.second;
-
-        if (definition.bmodelIndex != bModelIndex)
-        {
-            continue;
-        }
-
-        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
-            pEventRuntimeState->mechanisms.find(entry.first);
-
-        if (mechanismIterator == pEventRuntimeState->mechanisms.end())
-        {
-            continue;
-        }
-
-        const RuntimeMechanismState &mechanism = mechanismIterator->second;
-        const float moveTimeMs = std::max(1.0f, static_cast<float>(definition.moveTimeMs));
-        float fraction = definition.closed ? 0.0f : 1.0f;
-
-        if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Open))
-        {
-            fraction = 1.0f;
-        }
-        else if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Closed))
-        {
-            fraction = 0.0f;
-        }
-        else if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Opening))
-        {
-            fraction = std::clamp(mechanism.timeSinceTriggeredMs / moveTimeMs, 0.0f, 1.0f);
-        }
-        else if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Closing))
-        {
-            fraction = 1.0f - std::clamp(mechanism.timeSinceTriggeredMs / moveTimeMs, 0.0f, 1.0f);
-        }
-
-        return {
-            static_cast<float>(definition.dx) * fraction,
-            static_cast<float>(definition.dy) * fraction,
-            static_cast<float>(definition.dz) * fraction
-        };
-    }
-
-    return {0.0f, 0.0f, 0.0f};
-}
-
-std::optional<uint16_t> outdoorBModelRuntimeCogTriggeredNumber(
-    const EventRuntimeState *pEventRuntimeState,
-    size_t bModelIndex)
-{
-    if (pEventRuntimeState == nullptr)
-    {
-        return std::nullopt;
-    }
-
-    if (pEventRuntimeState->outdoorModelMechanisms.empty())
-    {
-        return std::nullopt;
-    }
-
-    for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
-        pEventRuntimeState->outdoorModelMechanisms)
-    {
-        const EventRuntimeState::OutdoorModelMechanismDefinition &definition = entry.second;
-
-        if (definition.bmodelIndex == bModelIndex)
-        {
-            return static_cast<uint16_t>(std::min<uint32_t>(definition.mechanismId, UINT16_MAX));
-        }
-    }
-
-    return std::nullopt;
-}
 
 constexpr float OutdoorCameraNearClip = 4.0f;
 constexpr float CameraVerticalFovDegrees = 60.0f;
@@ -779,7 +689,7 @@ std::optional<float> intersectOutdoorFaceRay(
     const OutdoorBModelFace &face,
     const bx::Vec3 &rayOrigin,
     const bx::Vec3 &rayDirection,
-    const std::array<float, 3> &offset = {0.0f, 0.0f, 0.0f})
+    const std::optional<OutdoorBModelRuntimeTransformState> &runtimeTransform = std::nullopt)
 {
     std::optional<float> bestDistance;
 
@@ -803,10 +713,9 @@ std::optional<float> intersectOutdoorFaceRay(
                 break;
             }
 
-            triangleVertices[triangleVertexSlot] = outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]);
-            triangleVertices[triangleVertexSlot].x += offset[0];
-            triangleVertices[triangleVertexSlot].y += offset[1];
-            triangleVertices[triangleVertexSlot].z += offset[2];
+            triangleVertices[triangleVertexSlot] = applyOutdoorBModelRuntimeTransform(
+                runtimeTransform,
+                outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]));
         }
 
         if (!validTriangle)
@@ -3660,6 +3569,23 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
         view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->mapDeltaData() : nullptr;
     const EventRuntimeState *pEventRuntimeState =
         view.m_pOutdoorWorldRuntime != nullptr ? view.m_pOutdoorWorldRuntime->eventRuntimeState() : nullptr;
+    std::vector<uint16_t> runtimeInteractionEventIds;
+
+    if (facePickMode == FacePickMode::InteractionActivatable && pEventRuntimeState != nullptr)
+    {
+        runtimeInteractionEventIds.resize(outdoorMapData.bmodels.size(), 0);
+
+        for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
+            pEventRuntimeState->outdoorModelMechanisms)
+        {
+            const EventRuntimeState::OutdoorModelMechanismDefinition &definition = entry.second;
+
+            if (definition.bmodelIndex < runtimeInteractionEventIds.size())
+            {
+                runtimeInteractionEventIds[definition.bmodelIndex] = definition.interactionEventId;
+            }
+        }
+    }
 
     if (view.m_pOutdoorWorldRuntime != nullptr)
     {
@@ -3699,9 +3625,7 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
             }
 
             const OutdoorBModelFace &face = bModel.faces[pGeometry->faceIndex];
-            const std::optional<uint16_t> runtimeCogTriggeredNumber =
-                outdoorBModelRuntimeCogTriggeredNumber(pEventRuntimeState, pGeometry->bModelIndex);
-            const uint16_t cogTriggeredNumber = runtimeCogTriggeredNumber.value_or(face.cogTriggeredNumber);
+            uint16_t cogTriggeredNumber = face.cogTriggeredNumber;
             const uint32_t effectiveAttributes = pGeometry->attributes;
 
             if (outdoorFaceHasInvisibleAttribute(effectiveAttributes))
@@ -3709,10 +3633,17 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
                 continue;
             }
 
-            if (facePickMode == FacePickMode::InteractionActivatable
-                && !outdoorFaceIsInteractionActivatable(effectiveAttributes, cogTriggeredNumber))
+            if (facePickMode == FacePickMode::InteractionActivatable)
             {
-                continue;
+                const uint16_t runtimeEventId = pGeometry->bModelIndex < runtimeInteractionEventIds.size()
+                    ? runtimeInteractionEventIds[pGeometry->bModelIndex]
+                    : 0;
+                cogTriggeredNumber = runtimeEventId != 0 ? runtimeEventId : cogTriggeredNumber;
+
+                if (!outdoorFaceIsInteractionActivatable(effectiveAttributes, cogTriggeredNumber))
+                {
+                    continue;
+                }
             }
 
             for (size_t triangleIndex = 1; triangleIndex + 1 < pGeometry->vertices.size(); ++triangleIndex)
@@ -3737,6 +3668,13 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
 
                 if (!bestHit.hasHit || distance < bestHit.distance)
                 {
+                    if (facePickMode != FacePickMode::InteractionActivatable)
+                    {
+                        const std::optional<uint16_t> runtimeCogTriggeredNumber =
+                            outdoorBModelRuntimeInteractionEventId(pEventRuntimeState, pGeometry->bModelIndex);
+                        cogTriggeredNumber = runtimeCogTriggeredNumber.value_or(cogTriggeredNumber);
+                    }
+
                     bestHit.hasHit = true;
                     bestHit.kind = "face";
                     bestHit.bModelIndex = pGeometry->bModelIndex;
@@ -3762,14 +3700,16 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
         for (size_t bModelIndex = 0; bModelIndex < outdoorMapData.bmodels.size(); ++bModelIndex)
         {
             const OutdoorBModel &bModel = outdoorMapData.bmodels[bModelIndex];
-            const std::array<float, 3> bmodelOffset = outdoorBModelRuntimeOffset(pEventRuntimeState, bModelIndex);
-            const std::optional<uint16_t> runtimeCogTriggeredNumber =
-                outdoorBModelRuntimeCogTriggeredNumber(pEventRuntimeState, bModelIndex);
+            const std::optional<OutdoorBModelRuntimeTransformState> runtimeTransform =
+                outdoorBModelRuntimeTransform(pEventRuntimeState, bModelIndex);
+            const uint16_t runtimeInteractionEventId = bModelIndex < runtimeInteractionEventIds.size()
+                ? runtimeInteractionEventIds[bModelIndex]
+                : 0;
 
             for (size_t faceIndex = 0; faceIndex < bModel.faces.size(); ++faceIndex)
             {
                 const OutdoorBModelFace &face = bModel.faces[faceIndex];
-                const uint16_t cogTriggeredNumber = runtimeCogTriggeredNumber.value_or(face.cogTriggeredNumber);
+                uint16_t cogTriggeredNumber = face.cogTriggeredNumber;
                 const uint32_t effectiveAttributes =
                     pMapDeltaData != nullptr && flattenedFaceIndex < pMapDeltaData->faceAttributes.size()
                         ? pMapDeltaData->faceAttributes[flattenedFaceIndex]
@@ -3781,10 +3721,16 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
                     continue;
                 }
 
-                if (facePickMode == FacePickMode::InteractionActivatable
-                    && !outdoorFaceIsInteractionActivatable(effectiveAttributes, cogTriggeredNumber))
+                if (facePickMode == FacePickMode::InteractionActivatable)
                 {
-                    continue;
+                    cogTriggeredNumber = runtimeInteractionEventId != 0
+                        ? runtimeInteractionEventId
+                        : cogTriggeredNumber;
+
+                    if (!outdoorFaceIsInteractionActivatable(effectiveAttributes, cogTriggeredNumber))
+                    {
+                        continue;
+                    }
                 }
 
                 for (size_t triangleIndex = 1; triangleIndex + 1 < face.vertexIndices.size(); ++triangleIndex)
@@ -3807,11 +3753,9 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
                             break;
                         }
 
-                        triangleVertices[triangleVertexSlot] =
-                            outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]);
-                        triangleVertices[triangleVertexSlot].x += bmodelOffset[0];
-                        triangleVertices[triangleVertexSlot].y += bmodelOffset[1];
-                        triangleVertices[triangleVertexSlot].z += bmodelOffset[2];
+                        triangleVertices[triangleVertexSlot] = applyOutdoorBModelRuntimeTransform(
+                            runtimeTransform,
+                            outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]));
                     }
 
                     if (!isTriangleValid)
@@ -3839,6 +3783,13 @@ OutdoorGameView::InspectHit OutdoorInteractionController::inspectBModelFace(
 
                     if (!bestHit.hasHit || distance < bestHit.distance)
                     {
+                        if (facePickMode != FacePickMode::InteractionActivatable)
+                        {
+                            const std::optional<uint16_t> runtimeCogTriggeredNumber =
+                                outdoorBModelRuntimeInteractionEventId(pEventRuntimeState, bModelIndex);
+                            cogTriggeredNumber = runtimeCogTriggeredNumber.value_or(cogTriggeredNumber);
+                        }
+
                         bestHit.hasHit = true;
                         bestHit.kind = "face";
                         bestHit.bModelIndex = bModelIndex;
@@ -4726,145 +4677,176 @@ OutdoorGameView::InspectHit OutdoorInteractionController::pickKeyboardInteractio
     float viewProjectionMatrix[16] = {};
     bx::mtxMul(viewProjectionMatrix, pViewMatrix, pProjectionMatrix);
 
-    for (size_t bModelIndex = 0; bModelIndex < outdoorMapData.bmodels.size(); ++bModelIndex)
+    const uint64_t interactionCandidateRevision =
+        pEventRuntimeState != nullptr ? pEventRuntimeState->outdoorSurfaceRevision : 0;
+
+    if (view.m_keyboardInteractionFaceCandidateRevision != interactionCandidateRevision)
     {
-        const OutdoorBModel &bModel = outdoorMapData.bmodels[bModelIndex];
-        const std::array<float, 3> bmodelOffset = outdoorBModelRuntimeOffset(pEventRuntimeState, bModelIndex);
-        const std::optional<uint16_t> runtimeCogTriggeredNumber =
-            outdoorBModelRuntimeCogTriggeredNumber(pEventRuntimeState, bModelIndex);
+        view.m_keyboardInteractionFaceCandidates.clear();
+        std::vector<uint16_t> runtimeEventIds(outdoorMapData.bmodels.size(), 0);
 
-        for (size_t faceIndex = 0; faceIndex < bModel.faces.size(); ++faceIndex)
+        if (pEventRuntimeState != nullptr)
         {
-            const OutdoorBModelFace &face = bModel.faces[faceIndex];
-            const uint16_t cogTriggeredNumber = runtimeCogTriggeredNumber.value_or(face.cogTriggeredNumber);
-
-            if (!outdoorFaceIsInteractionActivatable(face.attributes, cogTriggeredNumber)
-                || face.vertexIndices.size() < 3)
+            for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
+                 pEventRuntimeState->outdoorModelMechanisms)
             {
-                continue;
-            }
+                const EventRuntimeState::OutdoorModelMechanismDefinition &definition = entry.second;
 
-            float minX = 0.0f;
-            float minY = 0.0f;
-            float maxX = 0.0f;
-            float maxY = 0.0f;
-            bool hasProjectedVertex = false;
-
-            for (uint16_t vertexIndex : face.vertexIndices)
-            {
-                if (vertexIndex >= bModel.vertices.size())
+                if (definition.bmodelIndex < runtimeEventIds.size() && definition.interactionEventId != 0)
                 {
-                    continue;
+                    runtimeEventIds[definition.bmodelIndex] = definition.interactionEventId;
                 }
-
-                ProjectedPoint projected = {};
-                bx::Vec3 vertex = outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]);
-                vertex.x += bmodelOffset[0];
-                vertex.y += bmodelOffset[1];
-                vertex.z += bmodelOffset[2];
-
-                if (!projectWorldPointToScreen(
-                        vertex,
-                        viewWidth,
-                        viewHeight,
-                        viewProjectionMatrix,
-                        projected))
-                {
-                    continue;
-                }
-
-                if (!hasProjectedVertex)
-                {
-                    minX = projected.x;
-                    maxX = projected.x;
-                    minY = projected.y;
-                    maxY = projected.y;
-                    hasProjectedVertex = true;
-                    continue;
-                }
-
-                minX = std::min(minX, projected.x);
-                maxX = std::max(maxX, projected.x);
-                minY = std::min(minY, projected.y);
-                maxY = std::max(maxY, projected.y);
             }
-
-            if (!hasProjectedVertex
-                || maxX < 0.0f
-                || maxY < 0.0f
-                || minX > static_cast<float>(viewWidth)
-                || minY > static_cast<float>(viewHeight))
-            {
-                continue;
-            }
-
-            const float screenX = std::clamp((minX + maxX) * 0.5f, 0.0f, static_cast<float>(viewWidth));
-            const float screenY = std::clamp((minY + maxY) * 0.5f, 0.0f, static_cast<float>(viewHeight));
-            bx::Vec3 rayOrigin = {0.0f, 0.0f, 0.0f};
-            bx::Vec3 rayDirection = {0.0f, 0.0f, 0.0f};
-
-            if (!OutdoorInteractionController::buildInspectRayForScreenPoint(
-                    screenX,
-                    screenY,
-                    viewWidth,
-                    viewHeight,
-                    pViewMatrix,
-                    pProjectionMatrix,
-                    rayOrigin,
-                    rayDirection))
-            {
-                continue;
-            }
-
-            const std::optional<float> faceDistance =
-                intersectOutdoorFaceRay(bModel, face, rayOrigin, rayDirection, bmodelOffset);
-
-            if (!faceDistance.has_value())
-            {
-                continue;
-            }
-
-            const float blockingDistance = nearestBModelGeometryDistance(rayOrigin, rayDirection, *faceDistance);
-
-            if (blockingDistance + 1.0f < *faceDistance)
-            {
-                continue;
-            }
-
-            OutdoorGameView::InspectHit hit = {};
-            hit.hasHit = true;
-            hit.kind = "face";
-            hit.bModelIndex = bModelIndex;
-            hit.faceIndex = faceIndex;
-            hit.textureName = face.textureName;
-            hit.distance = *faceDistance;
-            hit.attributes = face.attributes;
-            hit.bitmapIndex = face.bitmapIndex;
-            hit.cogNumber = face.cogNumber;
-            hit.cogTriggeredNumber = cogTriggeredNumber;
-            hit.cogTrigger = face.cogTrigger;
-            hit.polygonType = face.polygonType;
-            hit.shade = face.shade;
-            hit.visibility = face.visibility;
-            hit.hitX = rayOrigin.x + rayDirection.x * *faceDistance;
-            hit.hitY = rayOrigin.y + rayDirection.y * *faceDistance;
-            hit.hitZ = rayOrigin.z + rayDirection.z * *faceDistance;
-
-            if (!canActivateInteractionInspectEvent(view, hit, InteractionInputMethod::Keyboard))
-            {
-                continue;
-            }
-
-            tryUpdateBestHit(hit);
         }
+
+        for (size_t bModelIndex = 0; bModelIndex < outdoorMapData.bmodels.size(); ++bModelIndex)
+        {
+            const OutdoorBModel &bModel = outdoorMapData.bmodels[bModelIndex];
+
+            for (size_t faceIndex = 0; faceIndex < bModel.faces.size(); ++faceIndex)
+            {
+                const OutdoorBModelFace &face = bModel.faces[faceIndex];
+                const uint16_t eventId =
+                    runtimeEventIds[bModelIndex] != 0 ? runtimeEventIds[bModelIndex] : face.cogTriggeredNumber;
+
+                if (face.vertexIndices.size() >= 3 && outdoorFaceIsInteractionActivatable(face.attributes, eventId))
+                {
+                    view.m_keyboardInteractionFaceCandidates.push_back({bModelIndex, faceIndex, eventId});
+                }
+            }
+        }
+
+        view.m_keyboardInteractionFaceCandidateRevision = interactionCandidateRevision;
+    }
+
+    size_t runtimeTransformBModelIndex = static_cast<size_t>(-1);
+    std::optional<OutdoorBModelRuntimeTransformState> runtimeTransform;
+
+    for (const OutdoorGameView::KeyboardInteractionFaceCandidate &candidate : view.m_keyboardInteractionFaceCandidates)
+    {
+        if (candidate.bModelIndex >= outdoorMapData.bmodels.size())
+        {
+            continue;
+        }
+
+        const OutdoorBModel &bModel = outdoorMapData.bmodels[candidate.bModelIndex];
+
+        if (candidate.faceIndex >= bModel.faces.size())
+        {
+            continue;
+        }
+
+        if (runtimeTransformBModelIndex != candidate.bModelIndex)
+        {
+            runtimeTransformBModelIndex = candidate.bModelIndex;
+            runtimeTransform = outdoorBModelRuntimeTransform(pEventRuntimeState, candidate.bModelIndex);
+        }
+
+        const OutdoorBModelFace &face = bModel.faces[candidate.faceIndex];
+        const uint16_t cogTriggeredNumber = candidate.eventId;
+
+        float minX = 0.0f;
+        float minY = 0.0f;
+        float maxX = 0.0f;
+        float maxY = 0.0f;
+        bool hasProjectedVertex = false;
+
+        for (uint16_t vertexIndex : face.vertexIndices)
+        {
+            if (vertexIndex >= bModel.vertices.size())
+            {
+                continue;
+            }
+
+            ProjectedPoint projected = {};
+            const bx::Vec3 vertex = applyOutdoorBModelRuntimeTransform(
+                runtimeTransform, outdoorBModelVertexToWorld(bModel.vertices[vertexIndex]));
+
+            if (!projectWorldPointToScreen(vertex, viewWidth, viewHeight, viewProjectionMatrix, projected))
+            {
+                continue;
+            }
+
+            if (!hasProjectedVertex)
+            {
+                minX = projected.x;
+                maxX = projected.x;
+                minY = projected.y;
+                maxY = projected.y;
+                hasProjectedVertex = true;
+                continue;
+            }
+
+            minX = std::min(minX, projected.x);
+            maxX = std::max(maxX, projected.x);
+            minY = std::min(minY, projected.y);
+            maxY = std::max(maxY, projected.y);
+        }
+
+        if (!hasProjectedVertex || maxX < 0.0f || maxY < 0.0f || minX > static_cast<float>(viewWidth) ||
+            minY > static_cast<float>(viewHeight))
+        {
+            continue;
+        }
+
+        const float screenX = std::clamp((minX + maxX) * 0.5f, 0.0f, static_cast<float>(viewWidth));
+        const float screenY = std::clamp((minY + maxY) * 0.5f, 0.0f, static_cast<float>(viewHeight));
+        bx::Vec3 rayOrigin = {0.0f, 0.0f, 0.0f};
+        bx::Vec3 rayDirection = {0.0f, 0.0f, 0.0f};
+
+        if (!OutdoorInteractionController::buildInspectRayForScreenPoint(
+                screenX, screenY, viewWidth, viewHeight, pViewMatrix, pProjectionMatrix, rayOrigin, rayDirection))
+        {
+            continue;
+        }
+
+        const std::optional<float> faceDistance =
+            intersectOutdoorFaceRay(bModel, face, rayOrigin, rayDirection, runtimeTransform);
+
+        if (!faceDistance.has_value())
+        {
+            continue;
+        }
+
+        const float blockingDistance = nearestBModelGeometryDistance(rayOrigin, rayDirection, *faceDistance);
+
+        if (blockingDistance + 1.0f < *faceDistance)
+        {
+            continue;
+        }
+
+        OutdoorGameView::InspectHit hit = {};
+        hit.hasHit = true;
+        hit.kind = "face";
+        hit.bModelIndex = candidate.bModelIndex;
+        hit.faceIndex = candidate.faceIndex;
+        hit.textureName = face.textureName;
+        hit.distance = *faceDistance;
+        hit.attributes = face.attributes;
+        hit.bitmapIndex = face.bitmapIndex;
+        hit.cogNumber = face.cogNumber;
+        hit.cogTriggeredNumber = cogTriggeredNumber;
+        hit.cogTrigger = face.cogTrigger;
+        hit.polygonType = face.polygonType;
+        hit.shade = face.shade;
+        hit.visibility = face.visibility;
+        hit.hitX = rayOrigin.x + rayDirection.x * *faceDistance;
+        hit.hitY = rayOrigin.y + rayDirection.y * *faceDistance;
+        hit.hitZ = rayOrigin.z + rayDirection.z * *faceDistance;
+
+        if (!canActivateInteractionInspectEvent(view, hit, InteractionInputMethod::Keyboard))
+        {
+            continue;
+        }
+
+        tryUpdateBestHit(hit);
     }
 
     return bestHit;
 }
 
-bool OutdoorInteractionController::tryActivateActorInspectEvent(
-    OutdoorGameView &view,
-    const OutdoorGameView::InspectHit &inspectHit)
+bool OutdoorInteractionController::tryActivateActorInspectEvent(OutdoorGameView &view,
+                                                                const OutdoorGameView::InspectHit &inspectHit)
 {
     if (inspectHit.kind != "actor")
     {
@@ -4899,11 +4881,9 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
                     return true;
                 }
 
-                GameplayCorpseAutoLootResult lootResult = autoLootActiveCorpseView(
-                    *view.m_pOutdoorWorldRuntime,
-                    view.m_pOutdoorPartyRuntime->party(),
-                    &view.data().itemTable(),
-                    &view.heldInventoryItem());
+                GameplayCorpseAutoLootResult lootResult =
+                    autoLootActiveCorpseView(*view.m_pOutdoorWorldRuntime, view.m_pOutdoorPartyRuntime->party(),
+                                             &view.data().itemTable(), &view.heldInventoryItem());
 
                 if (!lootResult.statusText.empty())
                 {
@@ -4943,46 +4923,40 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
         }
     }
 
-    auto faceTalkingActor =
-        [&view, &inspectHit]()
+    auto faceTalkingActor = [&view, &inspectHit]() {
+        if (view.m_pOutdoorWorldRuntime == nullptr || view.m_pOutdoorPartyRuntime == nullptr)
         {
-            if (view.m_pOutdoorWorldRuntime == nullptr || view.m_pOutdoorPartyRuntime == nullptr)
-            {
-                return;
-            }
+            return;
+        }
 
-            const OutdoorMoveState &moveState = view.m_pOutdoorPartyRuntime->movementState();
+        const OutdoorMoveState &moveState = view.m_pOutdoorPartyRuntime->movementState();
 
-            if (inspectHit.kind != "actor")
-            {
-                return;
-            }
+        if (inspectHit.kind != "actor")
+        {
+            return;
+        }
 
-            const std::optional<size_t> runtimeActorIndex = resolveRuntimeActorIndexForInspectHit(view, inspectHit);
+        const std::optional<size_t> runtimeActorIndex = resolveRuntimeActorIndexForInspectHit(view, inspectHit);
 
-            if (runtimeActorIndex)
-            {
-                view.m_pOutdoorWorldRuntime->notifyPartyContactWithMapActor(
-                    *runtimeActorIndex,
-                    moveState.x,
-                    moveState.y,
-                    moveState.footZ);
-            }
-        };
+        if (runtimeActorIndex)
+        {
+            view.m_pOutdoorWorldRuntime->notifyPartyContactWithMapActor(*runtimeActorIndex, moveState.x, moveState.y,
+                                                                        moveState.footZ);
+        }
+    };
 
     const std::optional<size_t> resolvedRuntimeActorIndex =
         inspectHit.kind == "actor" ? resolveRuntimeActorIndexForInspectHit(view, inspectHit) : std::nullopt;
     const std::optional<uint32_t> resolvedRuntimeActorIndex32 =
-        resolvedRuntimeActorIndex
-            ? std::optional<uint32_t>(static_cast<uint32_t>(*resolvedRuntimeActorIndex))
-            : std::nullopt;
+        resolvedRuntimeActorIndex ? std::optional<uint32_t>(static_cast<uint32_t>(*resolvedRuntimeActorIndex))
+                                  : std::nullopt;
     const OutdoorWorldRuntime::MapActorState *pResolvedActorState =
         resolvedRuntimeActorIndex && view.m_pOutdoorWorldRuntime != nullptr
             ? view.m_pOutdoorWorldRuntime->mapActorState(*resolvedRuntimeActorIndex)
             : nullptr;
     const uint32_t resolvedMonsterId = pResolvedActorState != nullptr && pResolvedActorState->monsterId > 0
-        ? static_cast<uint32_t>(pResolvedActorState->monsterId)
-        : 0;
+                                           ? static_cast<uint32_t>(pResolvedActorState->monsterId)
+                                           : 0;
     const std::string resolvedActorName =
         pResolvedActorState != nullptr ? pResolvedActorState->displayName : inspectHit.name;
     const uint32_t resolvedActorGroup =
@@ -5007,20 +4981,14 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
         faceTalkingActor();
         GameplayDialogController::Context context =
             createGameplayDialogContext(view, *pEventRuntimeState, "activate_actor_npc_dialog");
-        const GameplayDialogController::Result result =
-            view.m_gameSession.gameplayDialogController().openNpcDialogue(
-                context,
-                static_cast<uint32_t>(inspectHit.npcId),
-                0,
-                resolvedRuntimeActorIndex32);
+        const GameplayDialogController::Result result = view.m_gameSession.gameplayDialogController().openNpcDialogue(
+            context, static_cast<uint32_t>(inspectHit.npcId), 0, resolvedRuntimeActorIndex32);
         pEventRuntimeState->lastActivationResult = "npc " + std::to_string(inspectHit.npcId) + " engaged";
 
         if (result.shouldOpenPendingEventDialog)
         {
-            OutdoorInteractionController::presentPendingEventDialog(
-                view,
-                result.previousMessageCount,
-                result.allowNpcFallbackContent);
+            OutdoorInteractionController::presentPendingEventDialog(view, result.previousMessageCount,
+                                                                    result.allowNpcFallbackContent);
         }
 
         return true;
@@ -5043,22 +5011,12 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
         }
 
         const std::optional<GenericActorDialogResolution> resolution = resolveGenericActorDialog(
-            view.m_map ? view.m_map->fileName : std::string(),
-            resolvedActorName,
-            resolvedActorGroup,
-            *pEventRuntimeState,
-            view.data().npcDialogTable(),
-            &view.data().mergedMonsterPortraitTable(),
-            view.m_map ? &*view.m_map : nullptr,
-            &view.data().mergedNewsAreaTopicTable(),
-            &view.data().mergedNewsContinentTopicTable(),
-            &view.data().mergedNpcNameTable(),
-            &view.data().mergedNpcProfessionTable(),
-            &view.data().mergedBolsterMapTable(),
-            &view.data().mergedBolsterMonsterTable(),
-            resolvedMonsterId,
-            resolvedRuntimeActorIndex
-        );
+            view.m_map ? view.m_map->fileName : std::string(), resolvedActorName, resolvedActorGroup,
+            *pEventRuntimeState, view.data().npcDialogTable(), &view.data().mergedMonsterPortraitTable(),
+            view.m_map ? &*view.m_map : nullptr, &view.data().mergedNewsAreaTopicTable(),
+            &view.data().mergedNewsContinentTopicTable(), &view.data().mergedNpcNameTable(),
+            &view.data().mergedNpcProfessionTable(), &view.data().mergedBolsterMapTable(),
+            &view.data().mergedBolsterMonsterTable(), resolvedMonsterId, resolvedRuntimeActorIndex);
 
         if (resolution)
         {
@@ -5070,20 +5028,15 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
             {
                 applyGenericActorDialogResolution(*pEventRuntimeState, *resolution);
                 const GameplayDialogController::Result result =
-                    view.m_gameSession.gameplayDialogController().openNpcDialogue(
-                        context,
-                        resolution->npcId,
-                        0,
-                        resolvedRuntimeActorIndex32);
+                    view.m_gameSession.gameplayDialogController().openNpcDialogue(context, resolution->npcId, 0,
+                                                                                  resolvedRuntimeActorIndex32);
                 pEventRuntimeState->lastActivationResult =
                     "generated npc " + std::to_string(resolution->npcId) + " engaged";
 
                 if (result.shouldOpenPendingEventDialog)
                 {
-                    OutdoorInteractionController::presentPendingEventDialog(
-                        view,
-                        result.previousMessageCount,
-                        result.allowNpcFallbackContent);
+                    OutdoorInteractionController::presentPendingEventDialog(view, result.previousMessageCount,
+                                                                            result.allowNpcFallbackContent);
                 }
 
                 return true;
@@ -5098,21 +5051,15 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(
             }
 
             const GameplayDialogController::Result result = view.m_gameSession.gameplayDialogController().openNpcNews(
-                context,
-                resolution->npcId,
-                resolution->newsId,
-                inspectHit.name,
-                *newsText,
+                context, resolution->npcId, resolution->newsId, inspectHit.name, *newsText,
                 resolution->portraitPictureId);
             pEventRuntimeState->lastActivationResult =
                 "npc news group " + std::to_string(inspectHit.actorGroup) + " engaged";
 
             if (result.shouldOpenPendingEventDialog)
             {
-                OutdoorInteractionController::presentPendingEventDialog(
-                    view,
-                    result.previousMessageCount,
-                    result.allowNpcFallbackContent);
+                OutdoorInteractionController::presentPendingEventDialog(view, result.previousMessageCount,
+                                                                        result.allowNpcFallbackContent);
             }
 
             return true;

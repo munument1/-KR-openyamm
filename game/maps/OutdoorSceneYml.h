@@ -2,8 +2,10 @@
 
 #include "game/maps/MapRuntimeRestrictions.h"
 #include "game/maps/MapDeltaData.h"
+#include "game/maps/OutdoorSceneProfile.h"
 #include "game/outdoor/OutdoorMapData.h"
 #include "game/outdoor/OutdoorWeatherProfile.h"
+#include "game/tables/SurfaceAnimation.h"
 
 #include <array>
 #include <cstddef>
@@ -44,6 +46,7 @@ struct OutdoorSceneEnvironment
     };
 
     std::string skyTexture;
+    OutdoorLocationType locationType = OutdoorLocationType::Exterior;
     std::string groundTilesetName;
     uint8_t masterTile = 0;
     std::array<uint16_t, 4> tileSetLookupIndices = {};
@@ -106,6 +109,12 @@ struct OutdoorSceneFaceAttributeOverride
     uint32_t legacyAttributes = 0;
 };
 
+struct OutdoorSceneSurfaceAnimation
+{
+    std::string textureName;
+    SurfaceAnimationSequence animation;
+};
+
 struct OutdoorSceneInitialState
 {
     MapDeltaLocationInfo locationInfo = {};
@@ -116,19 +125,32 @@ struct OutdoorSceneInitialState
     MapDeltaPersistentVariables eventVariables = {};
 };
 
+struct OutdoorSceneBaseContentCounts
+{
+    size_t entities = 0;
+    size_t spawns = 0;
+    size_t actors = 0;
+    size_t spriteObjects = 0;
+    size_t chests = 0;
+};
+
 struct OutdoorSceneData
 {
     int formatVersion = 0;
     std::string geometryFile;
     std::optional<std::string> legacyCompanionFile;
+    OutdoorSceneProfile sceneProfile = OutdoorSceneProfile::ClassicOdm;
     MapRuntimeRestrictions runtimeRestrictions = {};
     OutdoorSceneEnvironment environment = {};
     std::vector<OutdoorSceneTerrainAttributeOverride> terrainAttributeOverrides;
     std::vector<OutdoorSceneTerrainFootstepSoundOverride> terrainFootstepSoundOverrides;
+    std::vector<OutdoorSceneSurfaceAnimation> surfaceAnimations;
     std::vector<OutdoorSceneInteractiveFace> interactiveFaces;
+    std::vector<OutdoorBModelMechanism> mechanisms;
     std::vector<OutdoorSceneEntity> entities;
     std::vector<OutdoorSceneSpawn> spawns;
     OutdoorSceneInitialState initialState = {};
+    OutdoorSceneBaseContentCounts baseContentCounts = {};
 };
 
 class OutdoorSceneYmlLoader

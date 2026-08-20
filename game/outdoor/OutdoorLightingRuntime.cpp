@@ -436,6 +436,11 @@ std::vector<uint32_t> OutdoorLightingRuntime::lightCandidatesForBounds(
 {
     std::vector<uint32_t> candidates;
 
+    if (m_lights.empty())
+    {
+        return candidates;
+    }
+
     if (!bounds.valid)
     {
         candidates.reserve(m_lights.size());

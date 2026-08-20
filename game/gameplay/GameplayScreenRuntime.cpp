@@ -188,6 +188,11 @@ bool partyHasHostileActorInRestRange(const IGameplayWorldRuntime *pWorldRuntime)
 
 std::optional<std::string> restWorldRestrictionStatusText(const IGameplayWorldRuntime *pWorldRuntime)
 {
+    if (pWorldRuntime != nullptr && !pWorldRuntime->allowsRest())
+    {
+        return "You can't rest here!";
+    }
+
     if (pWorldRuntime != nullptr && pWorldRuntime->partyIsAirborneForRest())
     {
         return "You can't rest here!";

@@ -68,6 +68,13 @@ from transcode_mm9_dat_to_odm import (
     abc_static_model_half_dims_lt,
     abc_static_model_translation_lt,
     bake_abc_model_instance,
+    build_navigation_bytes,
+    build_navigation_records,
+    build_render_data_bytes,
+    build_sprite_animation_index,
+    build_surface_animation_lines,
+    build_texture_size_index,
+    build_mechanism_lines,
     build_outdoor_mechanism_interactive_face_lines,
     build_mm9_party_start_point_lines,
     build_classic_party_start_entities,
@@ -75,6 +82,7 @@ from transcode_mm9_dat_to_odm import (
     build_floor_support_triangles,
     classify_face_attributes,
     classify_face_role,
+    decode_mm9_v66_lightmap,
     export_mm9_lights,
     export_mm9_party_start_points,
     floor_y_near_position_lt,
@@ -85,12 +93,14 @@ from transcode_mm9_dat_to_odm import (
     is_skipped_world_model_name,
     should_skip_face_role,
     mechanism_event_id,
+    navigation_mechanisms_by_bmodel,
     move_position_to_floor_lt,
     parse_spr_frame_paths,
     read_world_objects,
     read_leaf,
     read_node,
     read_user_portal,
+    resolve_sprite_animation_frames,
     transform_model_vertex_to_odm,
     transcode_geometry,
     uv_float_to_i16,
@@ -170,6 +180,14 @@ def dummy_dat_world(objects: list[WorldObject]) -> DatWorld:
 
 
 class DatBspParserTests(unittest.TestCase):
+    def test_mm9_v66_lightmap_decoder_expands_rgb555_runs(self) -> None:
+        encoded = struct.pack("<HHB", 0x7C00, 0x83E0, 3)
+
+        self.assertEqual(
+            decode_mm9_v66_lightmap(encoded),
+            [0xFFFF0000, 0xFF00FF00, 0xFF00FF00, 0xFF00FF00],
+        )
+
     def test_bootcamp_classifies_as_outdoor_despite_portal_helpers(self) -> None:
         recommendation, confidence, reason = classify_metrics(MapMetrics(
             map_id="bootcamp",
@@ -235,9 +253,13 @@ class DatBspParserTests(unittest.TestCase):
         self.assertTrue(ai_attributes & FACE_ATTRIBUTE_UNTOUCHABLE)
         self.assertEqual(classify_face_role("VisBSP", "STONE", 0).collision_role, "visibility_helper")
 
-    def test_mm9_navigation_helpers_are_skipped_from_classic_export(self) -> None:
+    def test_mm9_navigation_helpers_keep_ai_barriers_for_cooked_navigation(self) -> None:
         self.assertTrue(is_skipped_world_model_name("AITrk47"))
-        self.assertTrue(is_skipped_world_model_name("AIBarrier3"))
+        self.assertFalse(is_skipped_world_model_name("AIBarrier3"))
+        barrier_role = classify_face_role("AIBarrier3", "STONE", 0)
+        self.assertEqual(barrier_role.collision_role, "ai_barrier")
+        self.assertTrue(barrier_role.attributes & FACE_ATTRIBUTE_INVISIBLE)
+        self.assertTrue(barrier_role.attributes & FACE_ATTRIBUTE_UNTOUCHABLE)
         self.assertTrue(is_rail_helper_texture("RAIL.dtx"))
         self.assertTrue(is_rail_helper_texture("TEXTURES\\LevelTextures\\Misc\\RAIL.dtx"))
 
@@ -538,11 +560,48 @@ class DatBspParserTests(unittest.TestCase):
         if not sprite_path.exists():
             self.skipTest("MM9 extracted water sprite is not available")
 
-        frame_ticks, frames = parse_spr_frame_paths(sprite_path)
+        frames_per_second, frames = parse_spr_frame_paths(sprite_path)
 
-        self.assertEqual(frame_ticks, 15)
+        self.assertEqual(frames_per_second, 15)
         self.assertGreaterEqual(len(frames), 10)
         self.assertTrue(frames[0].lower().endswith("ocean4_00013.dtx"))
+
+    def test_direct_mm9_water_frame_resolves_to_owning_sprite_animation(self) -> None:
+        extracted_root = Path("mm9/extracted")
+        sprite_path = extracted_root / "SPRITES/SPRITES/WATER/OCEAN4.spr"
+        if not sprite_path.exists():
+            self.skipTest("MM9 extracted water sprite is not available")
+
+        sprite_index = build_sprite_animation_index(extracted_root)
+        texture_sizes = build_texture_size_index(extracted_root)
+        frames = resolve_sprite_animation_frames(
+            sprite_index,
+            texture_sizes,
+            "SpriteTextures\\Water\\Ocean\\Ocean4_00013.dtx",
+        )
+
+        self.assertEqual(len(frames), 19)
+        self.assertEqual(frames[0]["frames_per_second"], 15)
+        self.assertTrue(str(frames[-1]["source_texture"]).lower().endswith("ocean4_00012.dtx"))
+
+    def test_surface_animation_yaml_uses_sprite_frames_per_second(self) -> None:
+        lines = build_surface_animation_lines({
+            "WATER00001": {
+                "animation_frames_per_second": 15,
+                "animation_frames": [
+                    {"alias": "WATER00002"},
+                    {"alias": "WATER00003"},
+                ],
+            },
+        })
+
+        self.assertEqual(lines, [
+            '  - texture: "WATER00001"',
+            "    frames_per_second: 15",
+            "    frames:",
+            '      - "WATER00002"',
+            '      - "WATER00003"',
+        ])
 
     def test_scale_abc_model_scales_only_world_distance_values(self) -> None:
         model = AbcModel(
@@ -1177,6 +1236,99 @@ class DatBspParserTests(unittest.TestCase):
         self.assertIn(f"    cog_number: {event_id}", lines)
         self.assertIn(f"    cog_triggered_number: {event_id}", lines)
 
+    def test_outdoor_buttons_and_switches_are_interactive_mechanisms(self) -> None:
+        button = WorldObject(
+            name="Button",
+            data_length=0,
+            properties=[
+                object_property("Name", "Button1"),
+                object_property("MoveDir", [0.0, 0.0, -1.0]),
+                object_property("MoveDist", 3.0),
+                object_property("Speed", 20.0),
+            ],
+        )
+        switch = WorldObject(
+            name="Switch",
+            data_length=0,
+            properties=[
+                object_property("Name", "SwitchLever0"),
+                object_property("RotationPoint", [1.0, 2.0, 3.0]),
+                object_property("RotationAngles", [0.0, 0.0, 35.0]),
+                object_property("Speed", 20.0),
+                object_property("OpenAway", True),
+            ],
+        )
+        button_model = OdmBModel(name="Button1", source_model_name="Button1")
+        switch_model = OdmBModel(name="SwitchLever0", source_model_name="SwitchLever0")
+        for model in (button_model, switch_model):
+            model.faces = [
+                OdmFace(
+                    vertex_indices=[0, 1, 2],
+                    texture_us=[0, 0, 0],
+                    texture_vs=[0, 0, 0],
+                    texture_alias="STONE",
+                    bitmap_index=0,
+                    polygon_type=0,
+                    attributes=0,
+                    plane_normal=(0, 0, 0),
+                    plane_distance=0,
+                )
+            ]
+
+        world = dummy_dat_world([button, switch])
+        mechanism_lines, mechanism_stats = build_mechanism_lines(world, [button_model, switch_model], 2.56)
+        face_lines, face_stats = build_outdoor_mechanism_interactive_face_lines(
+            world,
+            [button_model, switch_model],
+        )
+
+        self.assertEqual(mechanism_stats["mechanisms_linear"], 1)
+        self.assertEqual(mechanism_stats["mechanisms_rotating"], 1)
+        self.assertIn('    kind: "linear_button"', mechanism_lines)
+        self.assertIn('    kind: "rotating_switch"', mechanism_lines)
+        self.assertIn(f"    event_id: {mechanism_event_id(0)}", mechanism_lines)
+        self.assertIn(f"    event_id: {mechanism_event_id(1)}", mechanism_lines)
+        self.assertIn("      open_away: true", mechanism_lines)
+        self.assertEqual(face_stats["mechanism_event_face_mechanisms"], 2)
+        self.assertIn(f"    cog_number: {mechanism_event_id(0)}", face_lines)
+        self.assertIn(f"    cog_number: {mechanism_event_id(1)}", face_lines)
+
+    def test_outdoor_dynamic_geometry_excludes_audit_only_mechanisms(self) -> None:
+        door = WorldObject(
+            name="Door",
+            data_length=0,
+            properties=[
+                object_property("Name", "Door0"),
+                object_property("MoveDir", [1.0, 0.0, 0.0]),
+                object_property("MoveDist", 100.0),
+            ],
+        )
+        invisible_brush = WorldObject(
+            name="InvisibleBrush",
+            data_length=0,
+            properties=[object_property("Name", "Collision0")],
+        )
+        continuous_rotating_brush = WorldObject(
+            name="RotatingBrush",
+            data_length=0,
+            properties=[
+                object_property("Name", "Spinner0"),
+                object_property("ZAxisRevTime", 0.75),
+            ],
+        )
+        bmodels = [
+            OdmBModel(name="Door0", source_model_name="Door0"),
+            OdmBModel(name="Collision0", source_model_name="Collision0"),
+            OdmBModel(name="Spinner0", source_model_name="Spinner0"),
+        ]
+
+        mechanisms = navigation_mechanisms_by_bmodel(
+            dummy_dat_world([door, invisible_brush, continuous_rotating_brush]),
+            bmodels,
+        )
+
+        self.assertEqual(mechanisms, {0: 900000})
+
     def test_outdoor_scene_empty_interactive_faces_are_nested_yaml_list(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             scene_path = Path(temp_dir) / "empty.scene.yml"
@@ -1194,7 +1346,58 @@ class DatBspParserTests(unittest.TestCase):
 
             text = scene_path.read_text(encoding="utf-8")
 
+        self.assertIn('scene_profile: "bmodel_world"', text)
+        self.assertIn('  location_type: "exterior"', text)
         self.assertIn("bmodel_faces:\n  interactive_faces:\n    []", text)
+
+    def test_outdoor_scene_can_emit_enclosed_location_semantics(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            scene_path = Path(temp_dir) / "enclosed.scene.yml"
+            write_odm_scene_yml(
+                scene_path,
+                "enclosed.odm",
+                "enclosed.mm9.yml",
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                location_type="enclosed",
+            )
+
+            text = scene_path.read_text(encoding="utf-8")
+
+        self.assertIn('scene_profile: "bmodel_world"', text)
+        self.assertIn('  location_type: "enclosed"', text)
+
+    def test_outdoor_scene_regeneration_does_not_touch_authored_overlay(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            scene_path = Path(temp_dir) / "regenerated.scene.yml"
+            authored_path = Path(temp_dir) / "regenerated_authored.scene.yml"
+            authored_text = (
+                "format_version: 1\n"
+                "kind: outdoor_scene_overlay\n"
+                "authored_content:\n"
+                "  actors: []\n"
+            )
+            authored_path.write_text(authored_text, encoding="utf-8")
+
+            write_odm_scene_yml(
+                scene_path,
+                "regenerated.odm",
+                "regenerated.mm9.yml",
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+            )
+
+            regenerated_authored_text = authored_path.read_text(encoding="utf-8")
+
+        self.assertEqual(regenerated_authored_text, authored_text)
 
     def test_indoor_compiled_door_faces_get_matching_classic_event_cogs(self) -> None:
         door_lines = [
@@ -1273,6 +1476,7 @@ initial_state:
                         "event_id": mechanism_event_id(42),
                         "hint": "TempleDoor",
                     },
+                    "activation": {"double_door_name": "TempleDoorPartner"},
                     "sounds": [
                         {
                             "phase": "open_start",
@@ -1280,7 +1484,18 @@ initial_state:
                             "position": {"x": 10, "y": 20, "z": 30},
                         }
                     ],
-                }
+                },
+                {
+                    "source_object_index": 43,
+                    "source_class": "Door",
+                    "source_name": "TempleDoorPartner",
+                    "mechanism": {"kind": "linear_door"},
+                    "classic_runtime": {
+                        "target_kind": "indoor_door",
+                        "door_id": 900043,
+                    },
+                    "activation": {"double_door_name": "TempleDoor"},
+                },
             ]
         }
 
@@ -1288,11 +1503,14 @@ initial_state:
 
         self.assertIn("event_id = 30042", lua_text)
         self.assertIn("classic_door_id = 900042", lua_text)
+        self.assertIn('double_door_name = "TempleDoorPartner"', lua_text)
         self.assertIn("name = \"door/doormetal_open02.wav\"", lua_text)
         self.assertIn("evt.PlaySoundName(sound.name, sound.x or 0, sound.y or 0, sound.z or 0)", lua_text)
         self.assertIn("[30042] = { kind = \"open_door\", source = \"mm9_mechanism\", targetName = \"TempleDoor\" }", lua_text)
         self.assertIn("RegisterEvent(30042, \"TempleDoor\", function()", lua_text)
         self.assertIn("map.triggerMechanism(42, 2)", lua_text)
+        self.assertIn("local partner = map.resolveMechanism(mechanism.double_door_name)", lua_text)
+        self.assertIn("map.triggerResolvedMechanism(partner, resolved_action)", lua_text)
 
     def test_sound_lookup_falls_back_to_source_basename(self) -> None:
         source_path = Path("mm9/extracted/SOUNDS/SOUNDS/EVENTS/METALGEARWORKS.wav")
@@ -1320,6 +1538,152 @@ initial_state:
         self.assertTrue(wav_bytes.startswith(b"RIFF"))
         self.assertIn(b"WAVE", wav_bytes[:16])
         self.assertGreater(len(wav_bytes), 1000)
+
+    def test_ai_barrier_is_retained_as_hidden_navigation_geometry(self) -> None:
+        role = classify_face_role("AIBarrier17", "invisible.dtx", 0)
+
+        self.assertFalse(is_skipped_world_model_name("AIBarrier17"))
+        self.assertEqual(role.collision_role, "ai_barrier")
+        self.assertEqual(role.render_role, "hidden")
+        self.assertNotEqual(role.attributes & FACE_ATTRIBUTE_UNTOUCHABLE, 0)
+
+    def test_navigation_cooker_deduplicates_coincident_floor_faces(self) -> None:
+        bmodels: list[OdmBModel] = []
+        for name, role in (("Terrain0", "world_geometry"), ("PhysicsBSP", "physics_hull")):
+            bmodel = OdmBModel(name=name)
+            bmodel.vertices = [
+                OdmVertex(0, 0, 0),
+                OdmVertex(128, 0, 0),
+                OdmVertex(128, 128, 0),
+                OdmVertex(0, 128, 0),
+            ]
+            bmodel.faces = [OdmFace(
+                vertex_indices=[0, 1, 2, 3],
+                texture_us=[0, 0, 0, 0],
+                texture_vs=[0, 0, 0, 0],
+                texture_alias="floor",
+                bitmap_index=0,
+                polygon_type=3,
+                attributes=0,
+                plane_normal=(0, 0, 65536),
+                plane_distance=0,
+            )]
+            bmodel.source_collision_role_for_face = [role]
+            bmodels.append(bmodel)
+
+        records, stats = build_navigation_records(dummy_dat_world([]), bmodels)
+
+        self.assertEqual(len(records), 1)
+        self.assertEqual(stats["navigation_floor_facets"], 1)
+        self.assertEqual(stats["navigation_duplicate_facets_removed"], 1)
+        self.assertEqual(stats["navigation_floor_components"], 1)
+
+    def test_navigation_binary_is_compact_and_bound_to_odm_bytes(self) -> None:
+        bmodel = OdmBModel(name="Terrain0")
+        bmodel.vertices = [OdmVertex(0, 0, 0), OdmVertex(64, 0, 0), OdmVertex(0, 64, 0)]
+        bmodel.faces = [OdmFace(
+            vertex_indices=[0, 1, 2],
+            texture_us=[0, 0, 0],
+            texture_vs=[0, 0, 0],
+            texture_alias="floor",
+            bitmap_index=0,
+            polygon_type=3,
+            attributes=0,
+            plane_normal=(0, 0, 65536),
+            plane_distance=0,
+        )]
+        bmodel.source_collision_role_for_face = ["world_geometry"]
+
+        navigation_bytes, stats = build_navigation_bytes(b"synthetic odm", dummy_dat_world([]), [bmodel])
+
+        self.assertEqual(navigation_bytes[:8], b"OYMNAV1\0")
+        self.assertEqual(len(navigation_bytes), 48 + 24)
+        self.assertEqual(struct.unpack_from("<I", navigation_bytes, 40)[0], 1)
+        self.assertEqual(stats["navigation_cooked_facets"], 1)
+
+    def test_navigation_cooker_marks_safe_coplanar_triangle_pairs(self) -> None:
+        bmodel = OdmBModel(name="Terrain0")
+        bmodel.vertices = [
+            OdmVertex(0, 0, 0),
+            OdmVertex(128, 0, 0),
+            OdmVertex(128, 128, 0),
+            OdmVertex(0, 128, 0),
+        ]
+        bmodel.faces = [
+            OdmFace(
+                vertex_indices=indices,
+                texture_us=[0, 0, 0],
+                texture_vs=[0, 0, 0],
+                texture_alias="floor",
+                bitmap_index=0,
+                polygon_type=3,
+                attributes=0,
+                plane_normal=(0, 0, 65536),
+                plane_distance=0,
+            )
+            for indices in ([0, 1, 2], [0, 2, 3])
+        ]
+        bmodel.source_collision_role_for_face = ["world_geometry", "world_geometry"]
+
+        records, stats = build_navigation_records(dummy_dat_world([]), [bmodel])
+
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0][6], 0)
+        self.assertEqual(records[1][6], 1)
+        self.assertEqual(stats["navigation_coplanar_triangle_pairs_merged"], 1)
+
+    def test_render_cooker_assigns_static_cells_and_separates_mechanisms(self) -> None:
+        static_model = OdmBModel(name="Static")
+        static_model.vertices = [
+            OdmVertex(-5000, 0, 0),
+            OdmVertex(-4000, 0, 0),
+            OdmVertex(-4000, 1000, 0),
+        ]
+        static_model.faces = [OdmFace(
+            vertex_indices=[0, 1, 2],
+            texture_us=[0, 0, 0],
+            texture_vs=[0, 0, 0],
+            texture_alias="stone",
+            bitmap_index=0,
+            polygon_type=3,
+            attributes=0,
+            plane_normal=(0, 0, 65536),
+            plane_distance=0,
+        )]
+        static_model.source_surface_flags_for_face = [0x00000008]
+        mechanism = OdmBModel(name="Door")
+        mechanism.vertices = [
+            OdmVertex(0, 0, 0),
+            OdmVertex(100, 0, 0),
+            OdmVertex(100, 0, 200),
+        ]
+        mechanism.faces = [OdmFace(
+            vertex_indices=[0, 1, 2],
+            texture_us=[0, 0, 0],
+            texture_vs=[0, 0, 0],
+            texture_alias="door",
+            bitmap_index=0,
+            polygon_type=1,
+            attributes=0,
+            plane_normal=(0, 65536, 0),
+            plane_distance=0,
+        )]
+
+        render_bytes, stats = build_render_data_bytes(
+            b"synthetic odm",
+            [static_model, mechanism],
+            {1: 42},
+        )
+
+        self.assertEqual(render_bytes[:8], b"OYMREN1\0")
+        self.assertEqual(len(render_bytes), 48 + 2 * 24)
+        self.assertEqual(struct.unpack_from("<h", render_bytes, 64)[0], -2)
+        self.assertEqual(struct.unpack_from("<I", render_bytes, 48 + 20)[0], 2)
+        self.assertEqual(struct.unpack_from("<I", render_bytes, 48 + 24 + 20)[0], 1)
+        self.assertEqual(stats["render_static_faces"], 1)
+        self.assertEqual(stats["render_dynamic_faces"], 1)
+        self.assertEqual(stats["render_translucent_faces"], 1)
+        self.assertEqual(stats["render_static_cells"], 1)
 
 
 if __name__ == "__main__":

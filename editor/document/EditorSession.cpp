@@ -4095,6 +4095,12 @@ bool EditorSession::duplicateSelectedObject(std::string &errorMessage)
 
     constexpr int DuplicateOffset = 256;
 
+    if (m_selection.kind == EditorSelectionKind::BModel && isGeneratedOutdoorSelection(m_selection))
+    {
+        errorMessage = "generated BModel geometry cannot be duplicated; add authored gameplay content instead";
+        return false;
+    }
+
     captureUndoSnapshot();
     std::string duplicatedLabel;
 
@@ -4348,6 +4354,12 @@ bool EditorSession::deleteSelectedObject(std::string &errorMessage)
     if (!hasDocument())
     {
         errorMessage = "no document is loaded";
+        return false;
+    }
+
+    if (isGeneratedOutdoorSelection(m_selection))
+    {
+        errorMessage = "generated BModel-world content cannot be deleted; change the importer or source map instead";
         return false;
     }
 
@@ -4621,6 +4633,12 @@ bool EditorSession::replaceSelectedBModelFromModel(
         return false;
     }
 
+    if (isGeneratedOutdoorSelection(m_selection))
+    {
+        errorMessage = "generated BModel-world geometry cannot be replaced in the authored overlay";
+        return false;
+    }
+
     const std::string trimmedSourcePath = trimCopy(sourcePath);
 
     if (trimmedSourcePath.empty())
@@ -4736,6 +4754,12 @@ bool EditorSession::importNewBModelFromModel(
     if (!hasDocument() || m_document.kind() != EditorDocument::Kind::Outdoor)
     {
         errorMessage = "no outdoor document is loaded";
+        return false;
+    }
+
+    if (m_document.outdoorSceneData().sceneProfile == Game::OutdoorSceneProfile::BModelWorld)
+    {
+        errorMessage = "BModel-world geometry is generated; add models through the MM9 import pipeline";
         return false;
     }
 
@@ -5001,6 +5025,12 @@ bool EditorSession::captureSelectedBModelMaterialRemaps(std::string &errorMessag
         return false;
     }
 
+    if (isGeneratedOutdoorSelection(m_selection))
+    {
+        errorMessage = "generated BModel-world material mappings belong to the MM9 import pipeline";
+        return false;
+    }
+
     if (m_selection.index >= m_document.outdoorGeometry().bmodels.size())
     {
         errorMessage = "selected bmodel is out of range";
@@ -5113,6 +5143,53 @@ bool EditorSession::isInteractiveFaceSelected(size_t flatIndex) const
 {
     return std::find(m_selectedInteractiveFaceIndices.begin(), m_selectedInteractiveFaceIndices.end(), flatIndex)
         != m_selectedInteractiveFaceIndices.end();
+}
+
+bool EditorSession::isGeneratedOutdoorSelection(const EditorSelection &selection) const
+{
+    if (!hasDocument() || m_document.kind() != EditorDocument::Kind::Outdoor)
+    {
+        return false;
+    }
+
+    const Game::OutdoorSceneData &sceneData = m_document.outdoorSceneData();
+
+    if (sceneData.sceneProfile != Game::OutdoorSceneProfile::BModelWorld)
+    {
+        return false;
+    }
+
+    switch (selection.kind)
+    {
+    case EditorSelectionKind::Terrain:
+    case EditorSelectionKind::BModel:
+    case EditorSelectionKind::InteractiveFace:
+        return true;
+
+    case EditorSelectionKind::Entity:
+        return selection.index < sceneData.baseContentCounts.entities;
+
+    case EditorSelectionKind::Spawn:
+        return selection.index < sceneData.baseContentCounts.spawns;
+
+    case EditorSelectionKind::Actor:
+        return selection.index < sceneData.baseContentCounts.actors;
+
+    case EditorSelectionKind::SpriteObject:
+        return selection.index < sceneData.baseContentCounts.spriteObjects;
+
+    case EditorSelectionKind::Chest:
+        return selection.index < sceneData.baseContentCounts.chests;
+
+    case EditorSelectionKind::None:
+    case EditorSelectionKind::Summary:
+    case EditorSelectionKind::Environment:
+    case EditorSelectionKind::Light:
+    case EditorSelectionKind::Door:
+        return false;
+    }
+
+    return false;
 }
 
 const std::vector<size_t> &EditorSession::selectedInteractiveFaceIndices() const

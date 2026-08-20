@@ -60,10 +60,39 @@ struct OutdoorSupportFloorSample
     bool hasFloor = true;
 };
 
+struct OutdoorBModelTransform
+{
+    float translationX = 0.0f;
+    float translationY = 0.0f;
+    float translationZ = 0.0f;
+    float pivotX = 0.0f;
+    float pivotY = 0.0f;
+    float pivotZ = 0.0f;
+    float rotationDegreesX = 0.0f;
+    float rotationDegreesY = 0.0f;
+    float rotationDegreesZ = 0.0f;
+};
+
+bool outdoorFaceOccupiesSameGridCells(
+    const OutdoorFaceGeometryData &before,
+    const OutdoorFaceGeometryData &after,
+    float gridMinX,
+    float gridMinY,
+    size_t gridWidth,
+    size_t gridHeight,
+    float cellSize);
 bool isOutdoorWalkablePolygonType(uint8_t polygonType);
 bool outdoorMapUsesBModelGround(const OutdoorMapData &outdoorMapData);
 bx::Vec3 outdoorBModelPointToWorld(int x, int y, int z);
 bx::Vec3 outdoorBModelVertexToWorld(const OutdoorBModelVertex &vertex);
+bx::Vec3 transformOutdoorBModelPoint(
+    const bx::Vec3 &point,
+    const OutdoorBModelTransform &transform,
+    float fraction);
+OutdoorBModel transformOutdoorBModel(
+    const OutdoorBModel &bmodel,
+    const OutdoorBModelTransform &transform,
+    float fraction);
 float sampleOutdoorTerrainHeight(const OutdoorMapData &outdoorMapData, float x, float y);
 float sampleOutdoorRenderedTerrainHeight(const OutdoorMapData &outdoorMapData, float x, float y);
 bx::Vec3 sampleOutdoorRenderedTerrainNormal(const OutdoorMapData &outdoorMapData, float x, float y);

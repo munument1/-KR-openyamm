@@ -1244,6 +1244,8 @@ std::optional<Game::OutdoorMapData> buildOutdoorGeometryFromSourcePackage(
     outdoorGeometry.version = 8;
     outdoorGeometry.name = sceneData.geometryFile;
     outdoorGeometry.fileName = sceneData.geometryFile;
+    outdoorGeometry.sceneProfile = sceneData.sceneProfile;
+    outdoorGeometry.locationType = sceneData.environment.locationType;
     outdoorGeometry.skyTexture = sceneData.environment.skyTexture;
     outdoorGeometry.groundTilesetName = sceneData.environment.groundTilesetName;
     outdoorGeometry.masterTile = sceneData.environment.masterTile;
@@ -1484,6 +1486,15 @@ void emitPositionMap(YAML::Emitter &emitter, int x, int y, int z)
     emitter << YAML::EndMap;
 }
 
+void emitFloatPositionMap(YAML::Emitter &emitter, float x, float y, float z)
+{
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "x" << YAML::Value << x;
+    emitter << YAML::Key << "y" << YAML::Value << y;
+    emitter << YAML::Key << "z" << YAML::Value << z;
+    emitter << YAML::EndMap;
+}
+
 template <typename ValueType>
 void emitSequence(YAML::Emitter &emitter, const std::vector<ValueType> &values)
 {
@@ -1521,6 +1532,168 @@ void emitIntegerSequence(YAML::Emitter &emitter, const std::array<ValueType, Cou
     }
 
     emitter << YAML::EndSeq;
+}
+
+void emitOutdoorEntity(YAML::Emitter &emitter, const Game::OutdoorSceneEntity &entity)
+{
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "entity_index" << YAML::Value << entity.entityIndex;
+    emitter << YAML::Key << "name" << YAML::Value << entity.entity.name;
+    emitter << YAML::Key << "decoration_list_id" << YAML::Value << entity.entity.decorationListId;
+    emitter << YAML::Key << "ai_attributes" << YAML::Value << entity.entity.aiAttributes;
+    emitter << YAML::Key << "position" << YAML::Value;
+    emitPositionMap(emitter, entity.entity.x, entity.entity.y, entity.entity.z);
+    emitter << YAML::Key << "facing" << YAML::Value << entity.entity.facing;
+    emitter << YAML::Key << "event_id_primary" << YAML::Value << entity.entity.eventIdPrimary;
+    emitter << YAML::Key << "event_id_secondary" << YAML::Value << entity.entity.eventIdSecondary;
+    emitter << YAML::Key << "variable_primary" << YAML::Value << entity.entity.variablePrimary;
+    emitter << YAML::Key << "variable_secondary" << YAML::Value << entity.entity.variableSecondary;
+    emitter << YAML::Key << "special_trigger" << YAML::Value << entity.entity.specialTrigger;
+    emitter << YAML::Key << "initial_decoration_flag" << YAML::Value << entity.initialDecorationFlag;
+    emitter << YAML::EndMap;
+}
+
+void emitOutdoorSpawn(YAML::Emitter &emitter, const Game::OutdoorSceneSpawn &spawn)
+{
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "spawn_index" << YAML::Value << spawn.spawnIndex;
+    emitter << YAML::Key << "position" << YAML::Value;
+    emitPositionMap(emitter, spawn.spawn.x, spawn.spawn.y, spawn.spawn.z);
+    emitter << YAML::Key << "radius" << YAML::Value << spawn.spawn.radius;
+    emitter << YAML::Key << "type_id" << YAML::Value << spawn.spawn.typeId;
+    emitter << YAML::Key << "index" << YAML::Value << spawn.spawn.index;
+    emitter << YAML::Key << "attributes" << YAML::Value << spawn.spawn.attributes;
+    emitter << YAML::Key << "group" << YAML::Value << spawn.spawn.group;
+    emitter << YAML::EndMap;
+}
+
+void emitOutdoorMechanism(YAML::Emitter &emitter, const Game::OutdoorBModelMechanism &mechanism)
+{
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "mechanism_id" << YAML::Value << mechanism.mechanismId;
+    emitter << YAML::Key << "source_object_index" << YAML::Value << mechanism.sourceObjectIndex;
+    emitter << YAML::Key << "source_class" << YAML::Value << mechanism.sourceClass;
+    emitter << YAML::Key << "source_name" << YAML::Value << mechanism.sourceName;
+    emitter << YAML::Key << "kind" << YAML::Value << mechanism.sourceKind;
+    emitter << YAML::Key << "binding" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "target_kind" << YAML::Value
+            << (mechanism.hasBModelBinding ? "odm_bmodel" : "unresolved");
+
+    if (mechanism.hasBModelBinding)
+    {
+        emitter << YAML::Key << "bmodel_index" << YAML::Value << mechanism.bmodelIndex;
+        emitter << YAML::Key << "bmodel_name" << YAML::Value << mechanism.bmodelName;
+    }
+
+    emitter << YAML::Key << "confidence" << YAML::Value << mechanism.bindingConfidence;
+    emitter << YAML::EndMap;
+    emitter << YAML::Key << "motion" << YAML::Value << YAML::BeginMap;
+
+    if (mechanism.motionKind == Game::OutdoorBModelMechanismMotionKind::Linear)
+    {
+        emitter << YAML::Key << "linear" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "delta_openyamm" << YAML::Value;
+        emitPositionMap(emitter, mechanism.deltaX, mechanism.deltaY, mechanism.deltaZ);
+        emitter << YAML::EndMap;
+    }
+    else if (mechanism.motionKind == Game::OutdoorBModelMechanismMotionKind::Rotation)
+    {
+        emitter << YAML::Key << "rotation" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "pivot_openyamm" << YAML::Value;
+        emitPositionMap(emitter, mechanism.pivotX, mechanism.pivotY, mechanism.pivotZ);
+        emitter << YAML::Key << "rotation_angles_openyamm_deg" << YAML::Value;
+        emitFloatPositionMap(
+            emitter,
+            mechanism.rotationDegreesX,
+            mechanism.rotationDegreesY,
+            mechanism.rotationDegreesZ);
+        emitter << YAML::EndMap;
+    }
+    else
+    {
+        emitter << YAML::Key << "unsupported" << YAML::Value << true;
+    }
+
+    emitter << YAML::Key << "move_time_ms" << YAML::Value << mechanism.moveTimeMs;
+    emitter << YAML::EndMap;
+    emitter << YAML::Key << "activation" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "start_open" << YAML::Value << mechanism.startOpen;
+    emitter << YAML::Key << "start_on" << YAML::Value << mechanism.startOn;
+    emitter << YAML::Key << "push_open" << YAML::Value << mechanism.pushOpen;
+    emitter << YAML::Key << "touch_to_open" << YAML::Value << mechanism.touchToOpen;
+    emitter << YAML::Key << "locked" << YAML::Value << mechanism.locked;
+    emitter << YAML::Key << "move_party" << YAML::Value << mechanism.moveParty;
+    emitter << YAML::EndMap;
+    emitter << YAML::EndMap;
+}
+
+void emitOutdoorActor(YAML::Emitter &emitter, const Game::MapDeltaActor &actor)
+{
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "name" << YAML::Value << actor.name;
+    emitter << YAML::Key << "npc_id" << YAML::Value << actor.npcId;
+    emitter << YAML::Key << "attributes" << YAML::Value << actor.attributes;
+    emitter << YAML::Key << "hp" << YAML::Value << actor.hp;
+    emitter << YAML::Key << "hostility_type" << YAML::Value << static_cast<int>(actor.hostilityType);
+    emitter << YAML::Key << "monster_info_id" << YAML::Value << actor.monsterInfoId;
+    emitter << YAML::Key << "monster_id" << YAML::Value << actor.monsterId;
+    emitter << YAML::Key << "radius" << YAML::Value << actor.radius;
+    emitter << YAML::Key << "height" << YAML::Value << actor.height;
+    emitter << YAML::Key << "move_speed" << YAML::Value << actor.moveSpeed;
+    emitter << YAML::Key << "position" << YAML::Value;
+    emitPositionMap(emitter, actor.x, actor.y, actor.z);
+    emitter << YAML::Key << "sprite_ids" << YAML::Value;
+    emitSequence(emitter, actor.spriteIds);
+    emitter << YAML::Key << "sector_id" << YAML::Value << actor.sectorId;
+    emitter << YAML::Key << "current_action_animation" << YAML::Value << actor.currentActionAnimation;
+    emitter << YAML::Key << "carried_item_id" << YAML::Value << actor.carriedItemId;
+    emitter << YAML::Key << "group" << YAML::Value << actor.group;
+    emitter << YAML::Key << "ally" << YAML::Value << actor.ally;
+    emitter << YAML::Key << "unique_name_index" << YAML::Value << actor.uniqueNameIndex;
+    emitter << YAML::EndMap;
+}
+
+void emitOutdoorSpriteObject(YAML::Emitter &emitter, const Game::MapDeltaSpriteObject &spriteObject)
+{
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "sprite_id" << YAML::Value << spriteObject.spriteId;
+    emitter << YAML::Key << "object_description_id" << YAML::Value << spriteObject.objectDescriptionId;
+    emitter << YAML::Key << "position" << YAML::Value;
+    emitPositionMap(emitter, spriteObject.x, spriteObject.y, spriteObject.z);
+    emitter << YAML::Key << "velocity" << YAML::Value;
+    emitPositionMap(emitter, spriteObject.velocityX, spriteObject.velocityY, spriteObject.velocityZ);
+    emitter << YAML::Key << "yaw_angle" << YAML::Value << spriteObject.yawAngle;
+    emitter << YAML::Key << "sound_id" << YAML::Value << spriteObject.soundId;
+    emitter << YAML::Key << "attributes" << YAML::Value << spriteObject.attributes;
+    emitter << YAML::Key << "sector_id" << YAML::Value << spriteObject.sectorId;
+    emitter << YAML::Key << "time_since_created" << YAML::Value << spriteObject.timeSinceCreated;
+    emitter << YAML::Key << "temporary_lifetime" << YAML::Value << spriteObject.temporaryLifetime;
+    emitter << YAML::Key << "glow_radius_multiplier" << YAML::Value << spriteObject.glowRadiusMultiplier;
+    emitter << YAML::Key << "spell_id" << YAML::Value << spriteObject.spellId;
+    emitter << YAML::Key << "spell_level" << YAML::Value << spriteObject.spellLevel;
+    emitter << YAML::Key << "spell_skill" << YAML::Value << spriteObject.spellSkill;
+    emitter << YAML::Key << "field54" << YAML::Value << spriteObject.field54;
+    emitter << YAML::Key << "spell_caster_pid" << YAML::Value << spriteObject.spellCasterPid;
+    emitter << YAML::Key << "spell_target_pid" << YAML::Value << spriteObject.spellTargetPid;
+    emitter << YAML::Key << "lod_distance" << YAML::Value << static_cast<int>(spriteObject.lodDistance);
+    emitter << YAML::Key << "spell_caster_ability" << YAML::Value
+            << static_cast<int>(spriteObject.spellCasterAbility);
+    emitter << YAML::Key << "initial_position" << YAML::Value;
+    emitPositionMap(emitter, spriteObject.initialX, spriteObject.initialY, spriteObject.initialZ);
+    emitter << YAML::Key << "raw_containing_item_hex" << YAML::Value;
+    emitter << bytesToUpperHex(spriteObject.rawContainingItem);
+    emitter << YAML::EndMap;
+}
+
+void emitOutdoorChest(YAML::Emitter &emitter, const Game::MapDeltaChest &chest)
+{
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "chest_type_id" << YAML::Value << chest.chestTypeId;
+    emitter << YAML::Key << "flags" << YAML::Value << chest.flags;
+    emitter << YAML::Key << "raw_items_hex" << YAML::Value << bytesToUpperHex(chest.rawItems);
+    emitter << YAML::Key << "inventory_matrix" << YAML::Value;
+    emitSequence(emitter, chest.inventoryMatrix);
+    emitter << YAML::EndMap;
 }
 
 std::vector<std::string> splitTabSeparatedLine(const std::string &line)
@@ -2329,6 +2502,29 @@ bool EditorDocument::saveSourceAs(const std::filesystem::path &scenePhysicalPath
         return false;
     }
 
+    if (m_outdoorSceneData.sceneProfile == Game::OutdoorSceneProfile::BModelWorld
+        && scenePhysicalPath == m_scenePhysicalPath)
+    {
+        const std::string sceneFileName = scenePhysicalPath.filename().string();
+        const std::string baseName = sceneFileName.ends_with(".scene.yml")
+            ? sceneFileName.substr(0, sceneFileName.size() - std::strlen(".scene.yml"))
+            : scenePhysicalPath.stem().string();
+        const std::filesystem::path authoredOverlayPath =
+            scenePhysicalPath.parent_path() / (baseName + "_authored.scene.yml");
+
+        if (!writeTextFileAtomically(
+                authoredOverlayPath,
+                serializeOutdoorAuthoredOverlay(m_outdoorSceneData),
+                errorMessage))
+        {
+            return false;
+        }
+
+        m_isRuntimeBuildDirty = true;
+        m_isDirty = false;
+        return true;
+    }
+
     const std::string targetGeometryFileName = deriveGeometryFileNameForScenePath(
         scenePhysicalPath,
         m_outdoorSceneData.geometryFile);
@@ -2579,6 +2775,13 @@ bool EditorDocument::buildRuntimeAs(const std::filesystem::path &scenePhysicalPa
     {
         errorMessage = "document geometry save path is not initialized";
         return false;
+    }
+
+    if (m_outdoorSceneData.sceneProfile == Game::OutdoorSceneProfile::BModelWorld
+        && scenePhysicalPath == m_scenePhysicalPath)
+    {
+        m_isRuntimeBuildDirty = false;
+        return true;
     }
 
     const std::string targetGeometryFileName = deriveGeometryFileNameForScenePath(
@@ -4342,6 +4545,8 @@ std::string EditorDocument::serializeOutdoorScene(
     emitter << YAML::BeginMap;
     emitter << YAML::Key << "format_version" << YAML::Value << sceneData.formatVersion;
     emitter << YAML::Key << "kind" << YAML::Value << "outdoor_scene";
+    emitter << YAML::Key << "scene_profile" << YAML::Value
+            << Game::outdoorSceneProfileName(sceneData.sceneProfile);
 
     emitter << YAML::Key << "source" << YAML::Value << YAML::BeginMap;
     emitter << YAML::Key << "geometry_file" << YAML::Value
@@ -4357,10 +4562,13 @@ std::string EditorDocument::serializeOutdoorScene(
     emitter << YAML::Key << "allow_save_game" << YAML::Value << sceneData.runtimeRestrictions.allowSaveGame;
     emitter << YAML::Key << "allow_lloyds_beacon" << YAML::Value
             << sceneData.runtimeRestrictions.allowLloydsBeacon;
+    emitter << YAML::Key << "allow_rest" << YAML::Value << sceneData.runtimeRestrictions.allowRest;
     emitter << YAML::Key << "arena" << YAML::Value << sceneData.runtimeRestrictions.isArena;
     emitter << YAML::EndMap;
 
     emitter << YAML::Key << "environment" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "location_type" << YAML::Value
+            << Game::outdoorLocationTypeName(sceneData.environment.locationType);
     emitter << YAML::Key << "sky_texture" << YAML::Value << sceneData.environment.skyTexture;
     emitter << YAML::Key << "ground_tileset_name" << YAML::Value << sceneData.environment.groundTilesetName;
     emitter << YAML::Key << "master_tile" << YAML::Value << static_cast<int>(sceneData.environment.masterTile);
@@ -4479,25 +4687,20 @@ std::string EditorDocument::serializeOutdoorScene(
     emitter << YAML::EndSeq;
     emitter << YAML::EndMap;
 
+    emitter << YAML::Key << "mechanisms" << YAML::Value << YAML::BeginSeq;
+
+    for (const Game::OutdoorBModelMechanism &mechanism : sceneData.mechanisms)
+    {
+        emitOutdoorMechanism(emitter, mechanism);
+    }
+
+    emitter << YAML::EndSeq;
+
     emitter << YAML::Key << "entities" << YAML::Value << YAML::BeginSeq;
 
     for (const Game::OutdoorSceneEntity &entity : sceneData.entities)
     {
-        emitter << YAML::BeginMap;
-        emitter << YAML::Key << "entity_index" << YAML::Value << entity.entityIndex;
-        emitter << YAML::Key << "name" << YAML::Value << entity.entity.name;
-        emitter << YAML::Key << "decoration_list_id" << YAML::Value << entity.entity.decorationListId;
-        emitter << YAML::Key << "ai_attributes" << YAML::Value << entity.entity.aiAttributes;
-        emitter << YAML::Key << "position" << YAML::Value;
-        emitPositionMap(emitter, entity.entity.x, entity.entity.y, entity.entity.z);
-        emitter << YAML::Key << "facing" << YAML::Value << entity.entity.facing;
-        emitter << YAML::Key << "event_id_primary" << YAML::Value << entity.entity.eventIdPrimary;
-        emitter << YAML::Key << "event_id_secondary" << YAML::Value << entity.entity.eventIdSecondary;
-        emitter << YAML::Key << "variable_primary" << YAML::Value << entity.entity.variablePrimary;
-        emitter << YAML::Key << "variable_secondary" << YAML::Value << entity.entity.variableSecondary;
-        emitter << YAML::Key << "special_trigger" << YAML::Value << entity.entity.specialTrigger;
-        emitter << YAML::Key << "initial_decoration_flag" << YAML::Value << entity.initialDecorationFlag;
-        emitter << YAML::EndMap;
+        emitOutdoorEntity(emitter, entity);
     }
 
     emitter << YAML::EndSeq;
@@ -4506,16 +4709,7 @@ std::string EditorDocument::serializeOutdoorScene(
 
     for (const Game::OutdoorSceneSpawn &spawn : sceneData.spawns)
     {
-        emitter << YAML::BeginMap;
-        emitter << YAML::Key << "spawn_index" << YAML::Value << spawn.spawnIndex;
-        emitter << YAML::Key << "position" << YAML::Value;
-        emitPositionMap(emitter, spawn.spawn.x, spawn.spawn.y, spawn.spawn.z);
-        emitter << YAML::Key << "radius" << YAML::Value << spawn.spawn.radius;
-        emitter << YAML::Key << "type_id" << YAML::Value << spawn.spawn.typeId;
-        emitter << YAML::Key << "index" << YAML::Value << spawn.spawn.index;
-        emitter << YAML::Key << "attributes" << YAML::Value << spawn.spawn.attributes;
-        emitter << YAML::Key << "group" << YAML::Value << spawn.spawn.group;
-        emitter << YAML::EndMap;
+        emitOutdoorSpawn(emitter, spawn);
     }
 
     emitter << YAML::EndSeq;
@@ -4546,28 +4740,7 @@ std::string EditorDocument::serializeOutdoorScene(
 
     for (const Game::MapDeltaActor &actor : sceneData.initialState.actors)
     {
-        emitter << YAML::BeginMap;
-        emitter << YAML::Key << "name" << YAML::Value << actor.name;
-        emitter << YAML::Key << "npc_id" << YAML::Value << actor.npcId;
-        emitter << YAML::Key << "attributes" << YAML::Value << actor.attributes;
-        emitter << YAML::Key << "hp" << YAML::Value << actor.hp;
-        emitter << YAML::Key << "hostility_type" << YAML::Value << static_cast<int>(actor.hostilityType);
-        emitter << YAML::Key << "monster_info_id" << YAML::Value << actor.monsterInfoId;
-        emitter << YAML::Key << "monster_id" << YAML::Value << actor.monsterId;
-        emitter << YAML::Key << "radius" << YAML::Value << actor.radius;
-        emitter << YAML::Key << "height" << YAML::Value << actor.height;
-        emitter << YAML::Key << "move_speed" << YAML::Value << actor.moveSpeed;
-        emitter << YAML::Key << "position" << YAML::Value;
-        emitPositionMap(emitter, actor.x, actor.y, actor.z);
-        emitter << YAML::Key << "sprite_ids" << YAML::Value;
-        emitSequence(emitter, actor.spriteIds);
-        emitter << YAML::Key << "sector_id" << YAML::Value << actor.sectorId;
-        emitter << YAML::Key << "current_action_animation" << YAML::Value << actor.currentActionAnimation;
-        emitter << YAML::Key << "carried_item_id" << YAML::Value << actor.carriedItemId;
-        emitter << YAML::Key << "group" << YAML::Value << actor.group;
-        emitter << YAML::Key << "ally" << YAML::Value << actor.ally;
-        emitter << YAML::Key << "unique_name_index" << YAML::Value << actor.uniqueNameIndex;
-        emitter << YAML::EndMap;
+        emitOutdoorActor(emitter, actor);
     }
 
     emitter << YAML::EndSeq;
@@ -4576,34 +4749,7 @@ std::string EditorDocument::serializeOutdoorScene(
 
     for (const Game::MapDeltaSpriteObject &spriteObject : sceneData.initialState.spriteObjects)
     {
-        emitter << YAML::BeginMap;
-        emitter << YAML::Key << "sprite_id" << YAML::Value << spriteObject.spriteId;
-        emitter << YAML::Key << "object_description_id" << YAML::Value << spriteObject.objectDescriptionId;
-        emitter << YAML::Key << "position" << YAML::Value;
-        emitPositionMap(emitter, spriteObject.x, spriteObject.y, spriteObject.z);
-        emitter << YAML::Key << "velocity" << YAML::Value;
-        emitPositionMap(emitter, spriteObject.velocityX, spriteObject.velocityY, spriteObject.velocityZ);
-        emitter << YAML::Key << "yaw_angle" << YAML::Value << spriteObject.yawAngle;
-        emitter << YAML::Key << "sound_id" << YAML::Value << spriteObject.soundId;
-        emitter << YAML::Key << "attributes" << YAML::Value << spriteObject.attributes;
-        emitter << YAML::Key << "sector_id" << YAML::Value << spriteObject.sectorId;
-        emitter << YAML::Key << "time_since_created" << YAML::Value << spriteObject.timeSinceCreated;
-        emitter << YAML::Key << "temporary_lifetime" << YAML::Value << spriteObject.temporaryLifetime;
-        emitter << YAML::Key << "glow_radius_multiplier" << YAML::Value << spriteObject.glowRadiusMultiplier;
-        emitter << YAML::Key << "spell_id" << YAML::Value << spriteObject.spellId;
-        emitter << YAML::Key << "spell_level" << YAML::Value << spriteObject.spellLevel;
-        emitter << YAML::Key << "spell_skill" << YAML::Value << spriteObject.spellSkill;
-        emitter << YAML::Key << "field54" << YAML::Value << spriteObject.field54;
-        emitter << YAML::Key << "spell_caster_pid" << YAML::Value << spriteObject.spellCasterPid;
-        emitter << YAML::Key << "spell_target_pid" << YAML::Value << spriteObject.spellTargetPid;
-        emitter << YAML::Key << "lod_distance" << YAML::Value << static_cast<int>(spriteObject.lodDistance);
-        emitter << YAML::Key << "spell_caster_ability" << YAML::Value
-                << static_cast<int>(spriteObject.spellCasterAbility);
-        emitter << YAML::Key << "initial_position" << YAML::Value;
-        emitPositionMap(emitter, spriteObject.initialX, spriteObject.initialY, spriteObject.initialZ);
-        emitter << YAML::Key << "raw_containing_item_hex" << YAML::Value;
-        emitter << bytesToUpperHex(spriteObject.rawContainingItem);
-        emitter << YAML::EndMap;
+        emitOutdoorSpriteObject(emitter, spriteObject);
     }
 
     emitter << YAML::EndSeq;
@@ -4612,13 +4758,7 @@ std::string EditorDocument::serializeOutdoorScene(
 
     for (const Game::MapDeltaChest &chest : sceneData.initialState.chests)
     {
-        emitter << YAML::BeginMap;
-        emitter << YAML::Key << "chest_type_id" << YAML::Value << chest.chestTypeId;
-        emitter << YAML::Key << "flags" << YAML::Value << chest.flags;
-        emitter << YAML::Key << "raw_items_hex" << YAML::Value << bytesToUpperHex(chest.rawItems);
-        emitter << YAML::Key << "inventory_matrix" << YAML::Value;
-        emitSequence(emitter, chest.inventoryMatrix);
-        emitter << YAML::EndMap;
+        emitOutdoorChest(emitter, chest);
     }
 
     emitter << YAML::EndSeq;
@@ -4629,6 +4769,133 @@ std::string EditorDocument::serializeOutdoorScene(
     emitter << YAML::Key << "decor" << YAML::Value;
     emitIntegerSequence(emitter, sceneData.initialState.eventVariables.decorVars);
     emitter << YAML::EndMap;
+
+    emitter << YAML::EndMap;
+    emitter << YAML::EndMap;
+
+    std::string text = emitter.c_str();
+
+    if (!text.empty() && text.back() != '\n')
+    {
+        text.push_back('\n');
+    }
+
+    return text;
+}
+
+std::string EditorDocument::serializeOutdoorAuthoredOverlay(const Game::OutdoorSceneData &sceneData)
+{
+    YAML::Emitter emitter;
+    emitter.SetIndent(2);
+    emitter.SetSeqFormat(YAML::Block);
+    emitter.SetMapFormat(YAML::Block);
+
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "format_version" << YAML::Value << 1;
+    emitter << YAML::Key << "kind" << YAML::Value << "outdoor_scene_overlay";
+    emitter << YAML::Key << "source" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "geometry_file" << YAML::Value << sceneData.geometryFile;
+    emitter << YAML::EndMap;
+    emitter << YAML::Key << "runtime_restrictions" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "allow_save_game" << YAML::Value << sceneData.runtimeRestrictions.allowSaveGame;
+    emitter << YAML::Key << "allow_lloyds_beacon" << YAML::Value
+            << sceneData.runtimeRestrictions.allowLloydsBeacon;
+    emitter << YAML::Key << "allow_rest" << YAML::Value << sceneData.runtimeRestrictions.allowRest;
+    emitter << YAML::Key << "arena" << YAML::Value << sceneData.runtimeRestrictions.isArena;
+    emitter << YAML::EndMap;
+    emitter << YAML::Key << "environment" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "location_type" << YAML::Value
+            << Game::outdoorLocationTypeName(sceneData.environment.locationType);
+    emitter << YAML::Key << "sky_texture" << YAML::Value << sceneData.environment.skyTexture;
+    emitter << YAML::Key << "ground_tileset_name" << YAML::Value << sceneData.environment.groundTilesetName;
+    emitter << YAML::Key << "master_tile" << YAML::Value << static_cast<int>(sceneData.environment.masterTile);
+    emitter << YAML::Key << "tile_set_lookup_indices" << YAML::Value;
+    emitSequence(emitter, sceneData.environment.tileSetLookupIndices);
+    emitter << YAML::Key << "ceiling" << YAML::Value << sceneData.environment.ceiling;
+    emitter << YAML::Key << "flags" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "foggy" << YAML::Value << ((sceneData.environment.dayBitsRaw & 0x1) != 0);
+    emitter << YAML::Key << "raining" << YAML::Value
+            << ((sceneData.environment.mapExtraBitsRaw & EnvironmentFlagRain) != 0);
+    emitter << YAML::Key << "snowing" << YAML::Value
+            << ((sceneData.environment.mapExtraBitsRaw & EnvironmentFlagSnow) != 0);
+    emitter << YAML::Key << "underwater" << YAML::Value
+            << ((sceneData.environment.mapExtraBitsRaw & EnvironmentFlagUnderwater) != 0);
+    emitter << YAML::Key << "no_terrain" << YAML::Value
+            << ((sceneData.environment.mapExtraBitsRaw & EnvironmentFlagNoTerrain) != 0);
+    emitter << YAML::Key << "always_dark" << YAML::Value
+            << ((sceneData.environment.mapExtraBitsRaw & EnvironmentFlagAlwaysDark) != 0);
+    emitter << YAML::Key << "always_light" << YAML::Value
+            << ((sceneData.environment.mapExtraBitsRaw & EnvironmentFlagAlwaysLight) != 0);
+    emitter << YAML::Key << "always_foggy" << YAML::Value
+            << ((sceneData.environment.mapExtraBitsRaw & EnvironmentFlagAlwaysFoggy) != 0);
+    emitter << YAML::Key << "red_fog" << YAML::Value
+            << ((sceneData.environment.mapExtraBitsRaw & EnvironmentFlagRedFog) != 0);
+    emitter << YAML::EndMap;
+    emitter << YAML::Key << "fog" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "weak_distance" << YAML::Value << sceneData.environment.fogWeakDistance;
+    emitter << YAML::Key << "strong_distance" << YAML::Value << sceneData.environment.fogStrongDistance;
+    emitter << YAML::EndMap;
+    emitter << YAML::Key << "weather" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "fog_mode" << YAML::Value
+            << (sceneData.environment.weather.fogMode == Game::OutdoorFogMode::DailyRandom
+                ? "daily_random"
+                : "static");
+    emitter << YAML::Key << "precipitation" << YAML::Value
+            << (sceneData.environment.weather.precipitation == Game::OutdoorPrecipitationKind::Snow
+                ? "snow"
+                : sceneData.environment.weather.precipitation == Game::OutdoorPrecipitationKind::Rain
+                    ? "rain"
+                    : "none");
+    emitter << YAML::EndMap;
+    emitter << YAML::EndMap;
+    emitter << YAML::Key << "authored_content" << YAML::Value << YAML::BeginMap;
+
+    emitter << YAML::Key << "entities" << YAML::Value << YAML::BeginSeq;
+    for (size_t index = std::min(sceneData.baseContentCounts.entities, sceneData.entities.size());
+         index < sceneData.entities.size();
+         ++index)
+    {
+        emitOutdoorEntity(emitter, sceneData.entities[index]);
+    }
+    emitter << YAML::EndSeq;
+
+    emitter << YAML::Key << "spawns" << YAML::Value << YAML::BeginSeq;
+    for (size_t index = std::min(sceneData.baseContentCounts.spawns, sceneData.spawns.size());
+         index < sceneData.spawns.size();
+         ++index)
+    {
+        emitOutdoorSpawn(emitter, sceneData.spawns[index]);
+    }
+    emitter << YAML::EndSeq;
+
+    emitter << YAML::Key << "actors" << YAML::Value << YAML::BeginSeq;
+    for (size_t index = std::min(sceneData.baseContentCounts.actors, sceneData.initialState.actors.size());
+         index < sceneData.initialState.actors.size();
+         ++index)
+    {
+        emitOutdoorActor(emitter, sceneData.initialState.actors[index]);
+    }
+    emitter << YAML::EndSeq;
+
+    emitter << YAML::Key << "sprite_objects" << YAML::Value << YAML::BeginSeq;
+    for (size_t index = std::min(
+             sceneData.baseContentCounts.spriteObjects,
+             sceneData.initialState.spriteObjects.size());
+         index < sceneData.initialState.spriteObjects.size();
+         ++index)
+    {
+        emitOutdoorSpriteObject(emitter, sceneData.initialState.spriteObjects[index]);
+    }
+    emitter << YAML::EndSeq;
+
+    emitter << YAML::Key << "chests" << YAML::Value << YAML::BeginSeq;
+    for (size_t index = std::min(sceneData.baseContentCounts.chests, sceneData.initialState.chests.size());
+         index < sceneData.initialState.chests.size();
+         ++index)
+    {
+        emitOutdoorChest(emitter, sceneData.initialState.chests[index]);
+    }
+    emitter << YAML::EndSeq;
 
     emitter << YAML::EndMap;
     emitter << YAML::EndMap;
@@ -4670,6 +4937,7 @@ std::string EditorDocument::serializeIndoorScene(
     emitter << YAML::Key << "allow_save_game" << YAML::Value << sceneData.runtimeRestrictions.allowSaveGame;
     emitter << YAML::Key << "allow_lloyds_beacon" << YAML::Value
             << sceneData.runtimeRestrictions.allowLloydsBeacon;
+    emitter << YAML::Key << "allow_rest" << YAML::Value << sceneData.runtimeRestrictions.allowRest;
     emitter << YAML::Key << "arena" << YAML::Value << sceneData.runtimeRestrictions.isArena;
     emitter << YAML::EndMap;
 

@@ -7606,6 +7606,13 @@ bool EditorOutdoorViewport::trySelectTerrainCell(
         return false;
     }
 
+    if (session.isGeneratedOutdoorSelection({EditorSelectionKind::Terrain, 0}))
+    {
+        m_hoverTerrainValid = false;
+        finishTerrainStroke(session);
+        return false;
+    }
+
     const ImGuiIO &io = ImGui::GetIO();
     const bool leftMouseDown = io.MouseDown[0];
 
@@ -9226,6 +9233,11 @@ bool EditorOutdoorViewport::setSelectedWorldPosition(EditorSession &session, con
         return false;
     }
 
+    if (session.isGeneratedOutdoorSelection(session.selection()))
+    {
+        return false;
+    }
+
     EditorDocument &document = session.document();
     int targetX = static_cast<int>(std::lround(worldPosition.x));
     int targetY = static_cast<int>(std::lround(worldPosition.y));
@@ -9487,6 +9499,12 @@ bool EditorOutdoorViewport::tryBeginGizmoDrag(
     }
 
     const EditorSelection selection = session.selection();
+
+    if (session.isGeneratedOutdoorSelection(selection))
+    {
+        return false;
+    }
+
     const std::optional<bx::Vec3> selectedPosition = selectedWorldPosition(session.document(), selection);
 
     if (!selectedPosition)

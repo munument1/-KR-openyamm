@@ -165,6 +165,7 @@ private:
     static std::string serializeOutdoorScene(
         const Game::OutdoorSceneData &sceneData,
         const std::optional<std::string> &geometryFileOverride = std::nullopt);
+    static std::string serializeOutdoorAuthoredOverlay(const Game::OutdoorSceneData &sceneData);
     static std::string serializeIndoorScene(
         const Game::IndoorSceneData &sceneData,
         const std::optional<std::string> &geometryFileOverride = std::nullopt);

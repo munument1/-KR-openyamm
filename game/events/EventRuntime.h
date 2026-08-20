@@ -83,6 +83,7 @@ struct RuntimeMechanismState
     uint16_t state = 0;
     float timeSinceTriggeredMs = 0.0f;
     float currentDistance = 0.0f;
+    int8_t rotationDirection = 1;
     bool isMoving = false;
 };
 
@@ -91,13 +92,23 @@ struct EventRuntimeState
     struct OutdoorModelMechanismDefinition
     {
         uint32_t mechanismId = 0;
+        // Map interaction events and runtime mechanism ids use separate id spaces.
+        uint16_t interactionEventId = 0;
         std::string modelName;
         size_t bmodelIndex = static_cast<size_t>(-1);
         int32_t dx = 0;
         int32_t dy = 0;
         int32_t dz = 0;
+        // Interaction event, pivot, and rotation are map-derived and rebuilt from scene data after loading a save.
+        int32_t pivotX = 0;
+        int32_t pivotY = 0;
+        int32_t pivotZ = 0;
+        float rotationDegreesX = 0.0f;
+        float rotationDegreesY = 0.0f;
+        float rotationDegreesZ = 0.0f;
         uint32_t moveTimeMs = 0;
         bool closed = true;
+        bool openAway = false;
         bool moveParty = false;
     };
 

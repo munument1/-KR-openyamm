@@ -467,6 +467,10 @@ public:
     {
         return true;
     }
+    virtual bool allowsRest() const
+    {
+        return true;
+    }
     virtual float gameMinutes() const = 0;
     virtual int currentHour() const = 0;
     virtual const std::vector<uint8_t> *journalMapFullyRevealedCells() const = 0;

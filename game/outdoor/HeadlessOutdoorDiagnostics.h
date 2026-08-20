@@ -17,7 +17,8 @@ public:
     int runOpenEvent(
         const std::filesystem::path &basePath,
         const std::string &mapFileName,
-        uint16_t eventId
+        uint16_t eventId,
+        float advanceSeconds = 0.0f
     ) const;
     int runOpenActor(
         const std::filesystem::path &basePath,
@@ -38,19 +39,37 @@ public:
         const std::filesystem::path &basePath,
         const std::string &mapFileName
     ) const;
+    int runDumpOutdoorNavigation(
+        const std::filesystem::path &basePath,
+        const std::string &mapFileName
+    ) const;
+    int runVerifyOutdoorSaveRoundtrip(
+        const std::filesystem::path &basePath,
+        const std::string &mapFileName,
+        uint16_t chestEventId,
+        uint16_t mechanismEventId
+    ) const;
+    int runVerifyOutdoorMechanismPassage(
+        const std::filesystem::path &basePath,
+        const std::string &mapFileName,
+        uint32_t mechanismId
+    ) const;
     int runSimulateActor(
         const std::filesystem::path &basePath,
         const std::string &mapFileName,
         size_t actorIndex,
         int stepCount,
-        float deltaSeconds
+        float deltaSeconds,
+        float partyOffsetX,
+        uint16_t preEventId = 0
     ) const;
     int runTraceActorAi(
         const std::filesystem::path &basePath,
         const std::string &mapFileName,
         size_t actorIndex,
         int stepCount,
-        float deltaSeconds
+        float deltaSeconds,
+        float partyOffsetX
     ) const;
     int runInspectActorPreview(
         const std::filesystem::path &basePath,

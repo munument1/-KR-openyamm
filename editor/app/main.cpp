@@ -19,10 +19,25 @@ bool parseCommonArguments(
     std::vector<std::string> &arguments)
 {
     bool hasAssetScaleArgument = false;
+    bool hasWorldArgument = false;
 
     for (int argumentIndex = 1; argumentIndex < argc; ++argumentIndex)
     {
         const std::string argument = argv[argumentIndex];
+
+        if (argument == "--world")
+        {
+            if (hasWorldArgument || argumentIndex + 1 >= argc)
+            {
+                std::cerr << "Usage: --world <world-id>\n";
+                return false;
+            }
+
+            config.activeWorldId = argv[argumentIndex + 1];
+            hasWorldArgument = true;
+            ++argumentIndex;
+            continue;
+        }
 
         if (argument != "--asset-scale")
         {

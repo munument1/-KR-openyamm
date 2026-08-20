@@ -91,6 +91,11 @@ private:
         size_t faceIndex,
         int textureWidth,
         int textureHeight);
+    static std::vector<OutdoorGameView::LightmappedBModelVertex> buildLightmappedBModelFaceVertices(
+        const OutdoorMapData &mapData,
+        size_t bModelIndex,
+        size_t faceIndex,
+        const std::vector<OutdoorGameView::TexturedTerrainVertex> &vertices);
     static std::vector<OutdoorGameView::TerrainVertex> buildFilledTerrainVertices(
         const OutdoorMapData &mapData,
         const std::optional<std::vector<uint32_t>> &tileColors);
@@ -109,6 +114,12 @@ private:
     static void applyOutdoorFxLightUniforms(OutdoorGameView &view, const bx::Vec3 &cameraPosition);
     static void destroyResolvedBModelDrawGroups(OutdoorGameView &view);
     static void rebuildResolvedBModelDrawGroups(OutdoorGameView &view);
+    static void destroyBModelWorldRenderChunks(OutdoorGameView &view);
+    static bool buildBModelWorldRenderChunks(
+        OutdoorGameView &view,
+        const OutdoorMapData &outdoorMapData,
+        const OutdoorBModelTextureSet &outdoorBModelTextureSet);
+    static void refreshBModelWorldRenderChunks(OutdoorGameView &view);
     static bgfx::TextureHandle ensureBloodSplatTexture(OutdoorGameView &view);
     static void ensureBloodSplatVertexBuffer(OutdoorGameView &view);
     static void renderBloodSplats(

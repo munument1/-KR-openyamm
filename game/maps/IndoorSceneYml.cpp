@@ -702,6 +702,12 @@ std::optional<IndoorSceneData> IndoorSceneYmlLoader::loadFromText(
                 false)
             || !readScalarNode(
                 runtimeRestrictionsNode,
+                "allow_rest",
+                sceneData.runtimeRestrictions.allowRest,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
                 "arena",
                 sceneData.runtimeRestrictions.isArena,
                 errorMessage,
@@ -1355,6 +1361,12 @@ bool IndoorSceneYmlLoader::applyOverlayFromText(
                 runtimeRestrictionsNode,
                 "allow_lloyds_beacon",
                 sceneData.runtimeRestrictions.allowLloydsBeacon,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                runtimeRestrictionsNode,
+                "allow_rest",
+                sceneData.runtimeRestrictions.allowRest,
                 errorMessage,
                 false)
             || !readScalarNode(

@@ -103,6 +103,8 @@ private:
     static int itemOptionSearchScore(const ItemOption &item, const std::string &query);
     static int mapOptionSearchScore(const MapOption &map, const std::string &query);
 
+    std::string joinedMessageText() const;
+
     void renderConsoleWindow(int width, int height);
     void renderMobileConsoleWindow(int width, int height);
     void renderHelpPanelContents();

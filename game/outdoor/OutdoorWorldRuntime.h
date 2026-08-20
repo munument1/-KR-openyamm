@@ -24,6 +24,7 @@
 #include "game/party/Party.h"
 #include "game/tables/SpellTable.h"
 
+#include <array>
 #include <optional>
 #include <random>
 #include <memory>
@@ -572,6 +573,7 @@ public:
     bool isIndoorMap() const override;
     bool isUnderwaterMap() const override;
     bool allowsLloydsBeacon() const override;
+    bool allowsRest() const override;
     Snapshot snapshot() const;
     void restoreSnapshot(const Snapshot &snapshot);
     void stampLastVisitTime();
@@ -1127,8 +1129,10 @@ private:
     void rebuildOutdoorFaceGeometryCache();
     void syncOutdoorFaceGeometryAttributesFromMapDelta();
     void setOutdoorFaceGeometryAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes);
+    void initializeOutdoorModelMechanismsFromMapData();
+    void updateOutdoorMechanismOpenAwayDirections();
     void refreshOutdoorModelMechanismGeometry();
-    void setOutdoorFaceGeometry(const OutdoorFaceGeometryData &geometry);
+    bool setOutdoorFaceGeometry(const OutdoorFaceGeometryData &geometry);
     bool materializeTreasureSpawnFromSpawnPoint(size_t spawnPointIndex);
     bool resolveWorldItemVisual(
         uint32_t itemId,
@@ -1287,6 +1291,12 @@ private:
     const ObjectTable *m_pObjectTable = nullptr;
     OutdoorMapData *m_pOutdoorMapData = nullptr;
     MapDeltaData *m_pOutdoorMapDeltaData = nullptr;
+    bool m_enclosedMinimapLinesValid = false;
+    int32_t m_enclosedMinimapCellX = 0;
+    int32_t m_enclosedMinimapCellY = 0;
+    int32_t m_enclosedMinimapLevel = 0;
+    uint64_t m_enclosedMinimapMechanismSignature = 0;
+    std::vector<GameplayMinimapLineState> m_cachedEnclosedMinimapLines;
     const SpellTable *m_pSpellTable = nullptr;
     bool m_bolsterMonstersEnabled = false;
     GameplayActorService *m_pGameplayActorService = nullptr;
@@ -1321,6 +1331,8 @@ private:
     size_t m_actorPathPlansThisStep = 0;
     double m_nextActorPathPlanSeconds = 0.0;
     float m_outdoorMechanismGeometryRefreshAccumulatorSeconds = 0.0f;
+    std::unordered_map<uint32_t, std::array<int32_t, 3>> m_outdoorMechanismOffsets;
+    std::unordered_map<uint32_t, bool> m_outdoorNavigationMechanismMovingStates;
     std::unordered_map<int16_t, MonsterVisualState> m_monsterVisualsById;
     float m_actorUpdateAccumulatorSeconds = 0.0f;
     float m_actorAiTraceAccumulatorSeconds = 0.0f;

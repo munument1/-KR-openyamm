@@ -180,6 +180,27 @@ private:
         static bgfx::VertexLayout ms_layout;
     };
 
+    struct LightmappedBModelVertex
+    {
+        float x;
+        float y;
+        float z;
+        float u;
+        float v;
+        float secretPulse;
+        float flowUPerSecond;
+        float flowVPerSecond;
+        float lavaFlow;
+        float fluidFlow;
+        float lightmapU;
+        float lightmapV;
+        uint32_t staticColorAbgr;
+
+        static void init();
+
+        static bgfx::VertexLayout ms_layout;
+    };
+
     struct ForcePerspectiveVertex
     {
         float x;
@@ -200,6 +221,7 @@ private:
     struct TexturedBModelBatch
     {
         std::vector<TexturedTerrainVertex> vertices;
+        std::vector<LightmappedBModelVertex> lightmappedVertices;
         uint32_t faceId = 0;
         uint32_t cogNumber = 0;
         uint32_t baseAttributes = 0;
@@ -212,6 +234,8 @@ private:
         bx::Vec3 boundsMin = {0.0f, 0.0f, 0.0f};
         bx::Vec3 boundsMax = {0.0f, 0.0f, 0.0f};
         bool hasBounds = false;
+        bool translucent = false;
+        uint16_t lightmapPageIndex = 0xffff;
     };
 
     struct TexturedTerrainChunk
@@ -241,6 +265,46 @@ private:
         size_t animationIndex = static_cast<size_t>(-1);
         bx::Vec3 boundsMin = {0.0f, 0.0f, 0.0f};
         bx::Vec3 boundsMax = {0.0f, 0.0f, 0.0f};
+        bool hasBounds = false;
+    };
+
+    struct BModelWorldRenderFace
+    {
+        uint32_t faceId = 0;
+        uint32_t cogNumber = 0;
+        uint32_t baseAttributes = 0;
+        uint32_t bModelIndex = 0;
+        uint32_t faceIndex = 0;
+        int textureWidth = 0;
+        int textureHeight = 0;
+        size_t defaultAnimationIndex = static_cast<size_t>(-1);
+        uint64_t visualSignature = std::numeric_limits<uint64_t>::max();
+        bool translucent = false;
+        uint16_t lightmapPageIndex = 0xffff;
+        bool usesStaticLighting = false;
+    };
+
+    struct BModelWorldRenderGroup
+    {
+        bgfx::VertexBufferHandle vertexBufferHandle = BGFX_INVALID_HANDLE;
+        uint32_t vertexCount = 0;
+        size_t animationIndex = static_cast<size_t>(-1);
+        bx::Vec3 boundsMin = {0.0f, 0.0f, 0.0f};
+        bx::Vec3 boundsMax = {0.0f, 0.0f, 0.0f};
+        bool hasBounds = false;
+        bool translucent = false;
+        uint16_t lightmapPageIndex = 0xffff;
+        bool usesStaticLighting = false;
+    };
+
+    struct BModelWorldRenderChunk
+    {
+        std::vector<BModelWorldRenderFace> faces;
+        std::vector<BModelWorldRenderGroup> groups;
+        bx::Vec3 boundsMin = {0.0f, 0.0f, 0.0f};
+        bx::Vec3 boundsMax = {0.0f, 0.0f, 0.0f};
+        int32_t cellX = 0;
+        int32_t cellY = 0;
         bool hasBounds = false;
     };
 
@@ -362,8 +426,7 @@ public:
         float hitZ = 0.0f;
     };
 
-    struct KeyboardInteractionSamplePoint
-    {
+    struct KeyboardInteractionSamplePoint {
         float x = 0.0f;
         float y = 0.0f;
     };
@@ -376,6 +439,13 @@ public:
         size_t samplePointCount = 0;
     };
 
+    struct KeyboardInteractionFaceCandidate
+    {
+        size_t bModelIndex = static_cast<size_t>(-1);
+        size_t faceIndex = static_cast<size_t>(-1);
+        uint16_t eventId = 0;
+    };
+
     enum class DecorationPickMode
     {
         HoverInfo,
@@ -384,7 +454,7 @@ public:
 
     using SpellbookPointerTargetType = GameplaySpellbookPointerTargetType;
 
-private:
+  private:
     using ItemInspectSourceType = GameplayUiController::ItemInspectSourceType;
 
     using CharacterPointerTarget = GameplayCharacterPointerTarget;
@@ -592,6 +662,10 @@ private:
     OutdoorWorldRuntime *m_pOutdoorWorldRuntime;
     OutdoorSpatialFxRuntime m_outdoorSpatialFxRuntime;
     OutdoorLightingRuntime m_outdoorLightingRuntime;
+    OutdoorLightingRuntime m_outdoorBModelLightingRuntime;
+    std::vector<WorldFxLightEmitter> m_cachedOutdoorDynamicLightEmitters;
+    const OutdoorLightingData *m_pCachedOutdoorLightingData = nullptr;
+    bool m_outdoorLightingRuntimesInitialized = false;
     bgfx::VertexBufferHandle m_vertexBufferHandle;
     bgfx::IndexBufferHandle m_indexBufferHandle;
     bgfx::DynamicVertexBufferHandle m_skyVertexBufferHandle;
@@ -607,13 +681,17 @@ private:
     bgfx::ProgramHandle m_spellAreaPreviewProgramHandle;
     bgfx::ProgramHandle m_outdoorLitBillboardProgramHandle;
     bgfx::ProgramHandle m_outdoorTexturedFogProgramHandle;
+    bgfx::ProgramHandle m_outdoorBModelLightmapProgramHandle;
     bgfx::ProgramHandle m_outdoorForcePerspectiveProgramHandle;
     bgfx::TextureHandle m_terrainTextureAtlasHandle;
     int m_terrainTextureAtlasWidth = 0;
     int m_terrainTextureAtlasHeight = 0;
     bgfx::TextureHandle m_bloodSplatTextureHandle;
     bgfx::TextureHandle m_forcePerspectiveSolidTextureHandle;
+    std::vector<bgfx::TextureHandle> m_bmodelLightmapTextureHandles;
+    bgfx::TextureHandle m_bmodelWhiteLightmapTextureHandle;
     bgfx::UniformHandle m_terrainTextureSamplerHandle;
+    bgfx::UniformHandle m_bmodelLightmapSamplerHandle;
     bgfx::UniformHandle m_outdoorBillboardAmbientUniformHandle;
     bgfx::UniformHandle m_outdoorBillboardOverrideColorUniformHandle;
     bgfx::UniformHandle m_outdoorBillboardOutlineParamsUniformHandle;
@@ -643,6 +721,8 @@ private:
     std::vector<BModelTextureAnimationHandle> m_bmodelTextureAnimations;
     std::vector<ResolvedBModelDrawGroup> m_resolvedBModelDrawGroups;
     uint64_t m_resolvedBModelDrawGroupRevision = std::numeric_limits<uint64_t>::max();
+    std::vector<BModelWorldRenderChunk> m_bmodelWorldRenderChunks;
+    uint64_t m_bmodelWorldRenderRevision = std::numeric_limits<uint64_t>::max();
     uint64_t m_bloodSplatVertexBufferRevision = std::numeric_limits<uint64_t>::max();
     std::deque<BillboardTextureHandle> m_billboardTextureHandles;
     WorldFxRenderResources m_worldFxRenderResources;
@@ -716,6 +796,8 @@ private:
     std::vector<std::vector<size_t>> m_decorationBillboardGridCells;
     std::vector<InteractiveDecorationBinding> m_interactiveDecorationBindings;
     std::vector<KeyboardInteractionBillboardCandidate> m_keyboardInteractionBillboardCandidates;
+    std::vector<KeyboardInteractionFaceCandidate> m_keyboardInteractionFaceCandidates;
+    uint64_t m_keyboardInteractionFaceCandidateRevision = std::numeric_limits<uint64_t>::max();
     float m_decorationBillboardGridMinX = 0.0f;
     float m_decorationBillboardGridMinY = 0.0f;
     size_t m_decorationBillboardGridWidth = 0;

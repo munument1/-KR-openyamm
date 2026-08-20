@@ -2899,6 +2899,7 @@ std::vector<uint8_t> readBinaryFile(const std::filesystem::path &path)
 bgfx::VertexLayout OutdoorGameView::TerrainVertex::ms_layout;
 bgfx::VertexLayout OutdoorGameView::TexturedTerrainVertex::ms_layout;
 bgfx::VertexLayout OutdoorGameView::LitBillboardVertex::ms_layout;
+bgfx::VertexLayout OutdoorGameView::LightmappedBModelVertex::ms_layout;
 bgfx::VertexLayout OutdoorGameView::ForcePerspectiveVertex::ms_layout;
 
 OutdoorGameView::OutdoorGameView(GameSession &gameSession)
@@ -2920,11 +2921,14 @@ OutdoorGameView::OutdoorGameView(GameSession &gameSession)
     , m_spellAreaPreviewProgramHandle(BGFX_INVALID_HANDLE)
     , m_outdoorLitBillboardProgramHandle(BGFX_INVALID_HANDLE)
     , m_outdoorTexturedFogProgramHandle(BGFX_INVALID_HANDLE)
+    , m_outdoorBModelLightmapProgramHandle(BGFX_INVALID_HANDLE)
     , m_outdoorForcePerspectiveProgramHandle(BGFX_INVALID_HANDLE)
     , m_terrainTextureAtlasHandle(BGFX_INVALID_HANDLE)
     , m_bloodSplatTextureHandle(BGFX_INVALID_HANDLE)
     , m_forcePerspectiveSolidTextureHandle(BGFX_INVALID_HANDLE)
+    , m_bmodelWhiteLightmapTextureHandle(BGFX_INVALID_HANDLE)
     , m_terrainTextureSamplerHandle(BGFX_INVALID_HANDLE)
+    , m_bmodelLightmapSamplerHandle(BGFX_INVALID_HANDLE)
     , m_outdoorBillboardAmbientUniformHandle(BGFX_INVALID_HANDLE)
     , m_outdoorBillboardOverrideColorUniformHandle(BGFX_INVALID_HANDLE)
     , m_outdoorBillboardOutlineParamsUniformHandle(BGFX_INVALID_HANDLE)
@@ -3183,6 +3187,12 @@ bool OutdoorGameView::initialize(
     }
 
     m_terrainTextureSamplerHandle = bgfx::createUniform("s_texColor", bgfx::UniformType::Sampler);
+#if !defined(__ANDROID__)
+    if (m_pOutdoorMapData->lightingData)
+    {
+        m_bmodelLightmapSamplerHandle = bgfx::createUniform("s_texLightmap", bgfx::UniformType::Sampler);
+    }
+#endif
     m_outdoorBillboardAmbientUniformHandle = bgfx::createUniform("u_billboardAmbient", bgfx::UniformType::Vec4);
     m_outdoorBillboardOverrideColorUniformHandle =
         bgfx::createUniform("u_billboardOverrideColor", bgfx::UniformType::Vec4);
@@ -3210,6 +3220,7 @@ bool OutdoorGameView::initialize(
         || !bgfx::isValid(m_outdoorLitBillboardProgramHandle)
         || !m_worldFxRenderResources.isReady()
         || !bgfx::isValid(m_outdoorTexturedFogProgramHandle)
+        || (m_pOutdoorMapData->lightingData && !bgfx::isValid(m_outdoorBModelLightmapProgramHandle))
         || !bgfx::isValid(m_outdoorForcePerspectiveProgramHandle)
         || !bgfx::isValid(m_outdoorBillboardAmbientUniformHandle)
         || !bgfx::isValid(m_outdoorBillboardOverrideColorUniformHandle)
@@ -3221,7 +3232,8 @@ bool OutdoorGameView::initialize(
         || !bgfx::isValid(m_outdoorFogDensitiesUniformHandle)
         || !bgfx::isValid(m_outdoorFogDistancesUniformHandle)
         || !bgfx::isValid(m_outdoorCameraPositionUniformHandle)
-        || !bgfx::isValid(m_secretPulseParamsUniformHandle))
+        || !bgfx::isValid(m_secretPulseParamsUniformHandle)
+        || (m_pOutdoorMapData->lightingData && !bgfx::isValid(m_bmodelLightmapSamplerHandle)))
     {
         std::cerr << "OutdoorGameView failed to create bgfx resources.\n";
         shutdown();
@@ -3351,7 +3363,14 @@ void OutdoorGameView::render(int width, int height, const GameplayInputFrame &in
     const OutdoorWorldRuntime::AtmosphereState *pAtmosphereState =
         m_pOutdoorWorldRuntime != nullptr ? &m_pOutdoorWorldRuntime->atmosphereState() : nullptr;
     const uint32_t clearColorAbgr = pAtmosphereState != nullptr ? pAtmosphereState->clearColorAbgr : 0x000000ffu;
-    const float farClipDistance = m_viewDistanceCache.farClipDistance;
+    float farClipDistance = m_viewDistanceCache.farClipDistance;
+    if (m_pOutdoorMapData != nullptr
+        && m_pOutdoorMapData->locationType == OutdoorLocationType::Enclosed
+        && pAtmosphereState != nullptr
+        && pAtmosphereState->fogStrongDistance > 0)
+    {
+        farClipDistance = std::min(farClipDistance, static_cast<float>(pAtmosphereState->fogStrongDistance));
+    }
     const bool captureSavePreviewThisFrame =
         m_pendingSavePreviewCapture.active && !m_pendingSavePreviewCapture.screenshotRequested;
     const bool captureLloydsBeaconPreviewThisFrame =
@@ -3672,6 +3691,11 @@ void OutdoorGameView::shutdown()
     screenRuntime.clearUiControllerRuntimeState();
     screenRuntime.shutdownHouseVideoPlayer();
     m_outdoorSpatialFxRuntime.reset();
+    m_outdoorLightingRuntime.reset();
+    m_outdoorBModelLightingRuntime.reset();
+    m_cachedOutdoorDynamicLightEmitters.clear();
+    m_pCachedOutdoorLightingData = nullptr;
+    m_outdoorLightingRuntimesInitialized = false;
     m_worldFxSystem.reset();
 
     if (!Engine::BgfxContext::isBgfxInitialized())
@@ -3682,6 +3706,7 @@ void OutdoorGameView::shutdown()
         m_outdoorLitBillboardProgramHandle = BGFX_INVALID_HANDLE;
         m_worldFxRenderResources.reset();
         m_outdoorTexturedFogProgramHandle = BGFX_INVALID_HANDLE;
+        m_outdoorBModelLightmapProgramHandle = BGFX_INVALID_HANDLE;
         m_outdoorForcePerspectiveProgramHandle = BGFX_INVALID_HANDLE;
         m_bloodSplatVertexBufferHandle = BGFX_INVALID_HANDLE;
         m_terrainTextureAtlasHandle = BGFX_INVALID_HANDLE;
@@ -3689,7 +3714,10 @@ void OutdoorGameView::shutdown()
         m_terrainTextureAtlasHeight = 0;
         m_bloodSplatTextureHandle = BGFX_INVALID_HANDLE;
         m_forcePerspectiveSolidTextureHandle = BGFX_INVALID_HANDLE;
+        m_bmodelLightmapTextureHandles.clear();
+        m_bmodelWhiteLightmapTextureHandle = BGFX_INVALID_HANDLE;
         m_terrainTextureSamplerHandle = BGFX_INVALID_HANDLE;
+        m_bmodelLightmapSamplerHandle = BGFX_INVALID_HANDLE;
         m_outdoorBillboardAmbientUniformHandle = BGFX_INVALID_HANDLE;
         m_outdoorBillboardOverrideColorUniformHandle = BGFX_INVALID_HANDLE;
         m_outdoorBillboardOutlineParamsUniformHandle = BGFX_INVALID_HANDLE;
@@ -3721,6 +3749,8 @@ void OutdoorGameView::shutdown()
         m_bmodelTextureAnimations.clear();
         m_resolvedBModelDrawGroups.clear();
         m_resolvedBModelDrawGroupRevision = std::numeric_limits<uint64_t>::max();
+        m_bmodelWorldRenderChunks.clear();
+        m_bmodelWorldRenderRevision = std::numeric_limits<uint64_t>::max();
 
         m_texturedBModelBatches.clear();
         OutdoorBillboardRenderer::invalidateRenderAssets(*this);
@@ -3764,6 +3794,12 @@ void OutdoorGameView::shutdown()
         m_outdoorTexturedFogProgramHandle = BGFX_INVALID_HANDLE;
     }
 
+    if (bgfx::isValid(m_outdoorBModelLightmapProgramHandle))
+    {
+        bgfx::destroy(m_outdoorBModelLightmapProgramHandle);
+        m_outdoorBModelLightmapProgramHandle = BGFX_INVALID_HANDLE;
+    }
+
     if (bgfx::isValid(m_outdoorForcePerspectiveProgramHandle))
     {
         bgfx::destroy(m_outdoorForcePerspectiveProgramHandle);
@@ -3777,6 +3813,21 @@ void OutdoorGameView::shutdown()
     }
     m_terrainTextureAtlasWidth = 0;
     m_terrainTextureAtlasHeight = 0;
+
+    for (bgfx::TextureHandle textureHandle : m_bmodelLightmapTextureHandles)
+    {
+        if (bgfx::isValid(textureHandle))
+        {
+            bgfx::destroy(textureHandle);
+        }
+    }
+    m_bmodelLightmapTextureHandles.clear();
+
+    if (bgfx::isValid(m_bmodelWhiteLightmapTextureHandle))
+    {
+        bgfx::destroy(m_bmodelWhiteLightmapTextureHandle);
+        m_bmodelWhiteLightmapTextureHandle = BGFX_INVALID_HANDLE;
+    }
 
     if (bgfx::isValid(m_bloodSplatTextureHandle))
     {
@@ -3794,6 +3845,12 @@ void OutdoorGameView::shutdown()
     {
         bgfx::destroy(m_terrainTextureSamplerHandle);
         m_terrainTextureSamplerHandle = BGFX_INVALID_HANDLE;
+    }
+
+    if (bgfx::isValid(m_bmodelLightmapSamplerHandle))
+    {
+        bgfx::destroy(m_bmodelLightmapSamplerHandle);
+        m_bmodelLightmapSamplerHandle = BGFX_INVALID_HANDLE;
     }
 
     if (bgfx::isValid(m_outdoorBillboardAmbientUniformHandle))
@@ -3928,10 +3985,25 @@ void OutdoorGameView::shutdown()
     }
     m_resolvedBModelDrawGroups.clear();
     m_resolvedBModelDrawGroupRevision = std::numeric_limits<uint64_t>::max();
+    for (BModelWorldRenderChunk &chunk : m_bmodelWorldRenderChunks)
+    {
+        for (BModelWorldRenderGroup &group : chunk.groups)
+        {
+            if (bgfx::isValid(group.vertexBufferHandle))
+            {
+                bgfx::destroy(group.vertexBufferHandle);
+                group.vertexBufferHandle = BGFX_INVALID_HANDLE;
+            }
+        }
+    }
+    m_bmodelWorldRenderChunks.clear();
+    m_bmodelWorldRenderRevision = std::numeric_limits<uint64_t>::max();
     OutdoorBillboardRenderer::destroyRenderAssets(*this);
     OutdoorRenderer::destroySkyResources(*this);
 
     m_interactiveDecorationBindings.clear();
+    m_keyboardInteractionFaceCandidates.clear();
+    m_keyboardInteractionFaceCandidateRevision = std::numeric_limits<uint64_t>::max();
 
     if (bgfx::isValid(m_skyVertexBufferHandle))
     {
@@ -5292,6 +5364,18 @@ void OutdoorGameView::LitBillboardVertex::init()
     ms_layout.begin()
         .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
         .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+        .end();
+}
+
+void OutdoorGameView::LightmappedBModelVertex::init()
+{
+    ms_layout.begin()
+        .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::TexCoord1, 1, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::TexCoord4, 2, bgfx::AttribType::Float)
         .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
         .end();
 }

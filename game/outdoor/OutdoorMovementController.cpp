@@ -3181,20 +3181,31 @@ OutdoorMoveState OutdoorMovementController::resolveOutdoorActorMove(
 
         if (pGeometry->polygonType == PolygonFloor)
         {
-            if (actorVelocity.z < 0.0f)
+            const float floorRise = hit.floorHeight - actorPosition.z;
+
+            if (!pGeometry->notAStep && floorRise > 0.0f && floorRise < BModelStepHeight)
             {
+                actorPosition.z = hit.floorHeight;
                 actorVelocity.z = 0.0f;
+                actorGrounded = true;
             }
-
-            if (actorPosition.z - GroundSnapHeight + CollisionEpsilon >= hit.floorHeight)
+            else
             {
-                actorPosition.z = std::max(actorPosition.z, hit.floorHeight + GroundSnapHeight);
-            }
+                if (actorVelocity.z < 0.0f)
+                {
+                    actorVelocity.z = 0.0f;
+                }
 
-            if (vecDot(actorVelocity, actorVelocity) < 400.0f)
-            {
-                actorVelocity.x = 0.0f;
-                actorVelocity.y = 0.0f;
+                if (actorPosition.z - GroundSnapHeight + CollisionEpsilon >= hit.floorHeight)
+                {
+                    actorPosition.z = std::max(actorPosition.z, hit.floorHeight + GroundSnapHeight);
+                }
+
+                if (vecDot(actorVelocity, actorVelocity) < 400.0f)
+                {
+                    actorVelocity.x = 0.0f;
+                    actorVelocity.y = 0.0f;
+                }
             }
         }
         else
@@ -3511,6 +3522,7 @@ void OutdoorMovementController::setFaceAttributes(size_t bModelIndex, size_t fac
 void OutdoorMovementController::updateFaceGeometries(const std::vector<OutdoorFaceGeometryData> &geometries)
 {
     bool changedAny = false;
+    bool spatialIndexNeedsRebuild = false;
 
     for (const OutdoorFaceGeometryData &geometry : geometries)
     {
@@ -3523,11 +3535,20 @@ void OutdoorMovementController::updateFaceGeometries(const std::vector<OutdoorFa
             continue;
         }
 
+        spatialIndexNeedsRebuild = spatialIndexNeedsRebuild
+            || !outdoorFaceOccupiesSameGridCells(
+                m_faces[iterator->second],
+                geometry,
+                m_faceGridMinX,
+                m_faceGridMinY,
+                m_faceGridWidth,
+                m_faceGridHeight,
+                FaceGridCellSize);
         m_faces[iterator->second] = geometry;
         changedAny = true;
     }
 
-    if (changedAny)
+    if (changedAny && spatialIndexNeedsRebuild)
     {
         buildFaceSpatialIndex();
     }

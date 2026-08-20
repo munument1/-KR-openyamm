@@ -34,7 +34,10 @@ add_executable(openyamm_unit_tests
     MobileJoystickDirectionTests.cpp
     MergedBaseTablesTests.cpp
     OutdoorLightingRuntimeTests.cpp
+    OutdoorLightingDataTests.cpp
     OutdoorPathfindingBuilderTests.cpp
+    OutdoorNavigationDataTests.cpp
+    OutdoorRenderDataTests.cpp
     PartyRegressionTests.cpp
     PathMapTests.cpp
     PathPlannerTests.cpp
@@ -169,7 +172,11 @@ add_executable(openyamm_unit_tests
     ../game/ui/UiLayoutManager.cpp
     ../game/outdoor/OutdoorGeometryUtils.cpp
     ../game/outdoor/OutdoorLightingRuntime.cpp
+    ../game/outdoor/OutdoorLightingData.cpp
     ../game/outdoor/OutdoorMapData.cpp
+    ../game/outdoor/OutdoorNavigationData.cpp
+    ../game/outdoor/OutdoorRenderData.cpp
+    ../game/outdoor/OutdoorMechanismRuntime.cpp
     ../game/outdoor/OutdoorMovementController.cpp
     ../game/outdoor/OutdoorMovementDriver.cpp
     ../game/outdoor/OutdoorPathfindingBuilder.cpp

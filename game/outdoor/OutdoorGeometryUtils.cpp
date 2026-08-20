@@ -77,6 +77,42 @@ bx::Vec3 authoredPlaneNormal(const OutdoorBModelFace &face)
 }
 }
 
+bool outdoorFaceOccupiesSameGridCells(
+    const OutdoorFaceGeometryData &before,
+    const OutdoorFaceGeometryData &after,
+    float gridMinX,
+    float gridMinY,
+    size_t gridWidth,
+    size_t gridHeight,
+    float cellSize)
+{
+    if (gridWidth == 0 || gridHeight == 0 || cellSize <= 0.0f)
+    {
+        return false;
+    }
+
+    const float gridMaxX = gridMinX + static_cast<float>(gridWidth) * cellSize;
+    const float gridMaxY = gridMinY + static_cast<float>(gridHeight) * cellSize;
+
+    if (after.minX < gridMinX || after.maxX > gridMaxX || after.minY < gridMinY || after.maxY > gridMaxY)
+    {
+        return false;
+    }
+
+    const auto cellIndex =
+        [cellSize](float value, float gridMinimum, size_t cellCount)
+        {
+            return std::min(
+                cellCount - 1,
+                static_cast<size_t>(std::floor((value - gridMinimum) / cellSize)));
+        };
+
+    return cellIndex(before.minX, gridMinX, gridWidth) == cellIndex(after.minX, gridMinX, gridWidth)
+        && cellIndex(before.maxX, gridMinX, gridWidth) == cellIndex(after.maxX, gridMinX, gridWidth)
+        && cellIndex(before.minY, gridMinY, gridHeight) == cellIndex(after.minY, gridMinY, gridHeight)
+        && cellIndex(before.maxY, gridMinY, gridHeight) == cellIndex(after.maxY, gridMinY, gridHeight);
+}
+
 bool isOutdoorWalkablePolygonType(uint8_t polygonType)
 {
     return polygonType == OutdoorPolygonFloor || polygonType == OutdoorPolygonInBetweenFloorAndWall;
@@ -114,6 +150,116 @@ bx::Vec3 outdoorBModelPointToWorld(int x, int y, int z)
 bx::Vec3 outdoorBModelVertexToWorld(const OutdoorBModelVertex &vertex)
 {
     return outdoorBModelPointToWorld(vertex.x, vertex.y, vertex.z);
+}
+
+bx::Vec3 transformOutdoorBModelPoint(
+    const bx::Vec3 &point,
+    const OutdoorBModelTransform &transform,
+    float fraction)
+{
+    const float clampedFraction = std::clamp(fraction, 0.0f, 1.0f);
+    const float radiansX = bx::toRad(transform.rotationDegreesX * clampedFraction);
+    const float radiansY = bx::toRad(transform.rotationDegreesY * clampedFraction);
+    const float radiansZ = bx::toRad(transform.rotationDegreesZ * clampedFraction);
+    bx::Vec3 result = {
+        point.x - transform.pivotX,
+        point.y - transform.pivotY,
+        point.z - transform.pivotZ
+    };
+
+    if (std::fabs(radiansX) > GeometryEpsilon)
+    {
+        const float cosine = std::cos(radiansX);
+        const float sine = std::sin(radiansX);
+        result = {result.x, result.y * cosine - result.z * sine, result.y * sine + result.z * cosine};
+    }
+
+    if (std::fabs(radiansY) > GeometryEpsilon)
+    {
+        const float cosine = std::cos(radiansY);
+        const float sine = std::sin(radiansY);
+        result = {result.x * cosine + result.z * sine, result.y, -result.x * sine + result.z * cosine};
+    }
+
+    if (std::fabs(radiansZ) > GeometryEpsilon)
+    {
+        const float cosine = std::cos(radiansZ);
+        const float sine = std::sin(radiansZ);
+        result = {result.x * cosine - result.y * sine, result.x * sine + result.y * cosine, result.z};
+    }
+
+    result.x += transform.pivotX + transform.translationX * clampedFraction;
+    result.y += transform.pivotY + transform.translationY * clampedFraction;
+    result.z += transform.pivotZ + transform.translationZ * clampedFraction;
+    return result;
+}
+
+OutdoorBModel transformOutdoorBModel(
+    const OutdoorBModel &bmodel,
+    const OutdoorBModelTransform &transform,
+    float fraction)
+{
+    OutdoorBModel transformed = bmodel;
+
+    for (OutdoorBModelVertex &vertex : transformed.vertices)
+    {
+        const bx::Vec3 transformedPoint = transformOutdoorBModelPoint(
+            {static_cast<float>(vertex.x), static_cast<float>(vertex.y), static_cast<float>(vertex.z)},
+            transform,
+            fraction);
+        vertex.x = static_cast<int>(std::lround(transformedPoint.x));
+        vertex.y = static_cast<int>(std::lround(transformedPoint.y));
+        vertex.z = static_cast<int>(std::lround(transformedPoint.z));
+    }
+
+    if (!transformed.vertices.empty())
+    {
+        transformed.minX = transformed.maxX = transformed.vertices.front().x;
+        transformed.minY = transformed.maxY = transformed.vertices.front().y;
+        transformed.minZ = transformed.maxZ = transformed.vertices.front().z;
+
+        for (const OutdoorBModelVertex &vertex : transformed.vertices)
+        {
+            transformed.minX = std::min(transformed.minX, vertex.x);
+            transformed.maxX = std::max(transformed.maxX, vertex.x);
+            transformed.minY = std::min(transformed.minY, vertex.y);
+            transformed.maxY = std::max(transformed.maxY, vertex.y);
+            transformed.minZ = std::min(transformed.minZ, vertex.z);
+            transformed.maxZ = std::max(transformed.maxZ, vertex.z);
+        }
+
+        transformed.boundingCenterX = (transformed.minX + transformed.maxX) / 2;
+        transformed.boundingCenterY = (transformed.minY + transformed.maxY) / 2;
+        transformed.boundingCenterZ = (transformed.minZ + transformed.maxZ) / 2;
+        transformed.positionX = transformed.boundingCenterX;
+        transformed.positionY = transformed.boundingCenterY;
+        transformed.positionZ = transformed.boundingCenterZ;
+    }
+
+    OutdoorBModelTransform normalTransform = transform;
+    normalTransform.translationX = 0.0f;
+    normalTransform.translationY = 0.0f;
+    normalTransform.translationZ = 0.0f;
+    normalTransform.pivotX = 0.0f;
+    normalTransform.pivotY = 0.0f;
+    normalTransform.pivotZ = 0.0f;
+
+    for (OutdoorBModelFace &face : transformed.faces)
+    {
+        const bx::Vec3 transformedNormal = transformOutdoorBModelPoint(
+            {
+                static_cast<float>(face.planeNormalX) / 65536.0f,
+                static_cast<float>(face.planeNormalY) / 65536.0f,
+                static_cast<float>(face.planeNormalZ) / 65536.0f
+            },
+            normalTransform,
+            fraction);
+        face.planeNormalX = static_cast<int32_t>(std::lround(transformedNormal.x * 65536.0f));
+        face.planeNormalY = static_cast<int32_t>(std::lround(transformedNormal.y * 65536.0f));
+        face.planeNormalZ = static_cast<int32_t>(std::lround(transformedNormal.z * 65536.0f));
+    }
+
+    return transformed;
 }
 
 float sampleOutdoorTerrainHeight(const OutdoorMapData &outdoorMapData, float x, float y)
@@ -479,6 +625,16 @@ bool intersectOutdoorSegmentWithFace(
 )
 {
     if (!geometry.hasPlane || geometry.vertices.size() < 3)
+    {
+        return false;
+    }
+
+    if (std::max(segmentStart.x, segmentEnd.x) < geometry.minX
+        || std::min(segmentStart.x, segmentEnd.x) > geometry.maxX
+        || std::max(segmentStart.y, segmentEnd.y) < geometry.minY
+        || std::min(segmentStart.y, segmentEnd.y) > geometry.maxY
+        || std::max(segmentStart.z, segmentEnd.z) < geometry.minZ
+        || std::min(segmentStart.z, segmentEnd.z) > geometry.maxZ)
     {
         return false;
     }

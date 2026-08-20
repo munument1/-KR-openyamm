@@ -104,6 +104,15 @@ void OutdoorPartyRuntime::updateFaceGeometries(const std::vector<OutdoorFaceGeom
     m_movementDriver.updateFaceGeometries(geometries);
 }
 
+bool OutdoorPartyRuntime::translateWithSupportedBModel(
+    size_t bModelIndex,
+    float deltaX,
+    float deltaY,
+    float deltaZ)
+{
+    return m_movementDriver.translateWithSupportedBModel(bModelIndex, deltaX, deltaY, deltaZ);
+}
+
 void OutdoorPartyRuntime::applyEventRuntimeState(const EventRuntimeState &runtimeState, bool grantItemsToInventory)
 {
     m_party.applyEventRuntimeState(runtimeState, grantItemsToInventory);

@@ -780,7 +780,16 @@ std::optional<OutdoorGameView::InspectHit> OutdoorBillboardRenderer::resolveHove
 
 void OutdoorBillboardRenderer::applyBillboardAmbientUniform(OutdoorGameView &view)
 {
-    const float ambient[4] = {BillboardAmbientLight, BillboardAmbientLight, BillboardAmbientLight, 0.0f};
+    const uint32_t mapAmbientColor =
+        view.m_pOutdoorMapData != nullptr && view.m_pOutdoorMapData->lightingData
+            ? view.m_pOutdoorMapData->lightingData->ambientColorAbgr
+            : 0;
+    const float ambient[4] = {
+        mapAmbientColor != 0 ? redChannel(mapAmbientColor) : BillboardAmbientLight,
+        mapAmbientColor != 0 ? greenChannel(mapAmbientColor) : BillboardAmbientLight,
+        mapAmbientColor != 0 ? blueChannel(mapAmbientColor) : BillboardAmbientLight,
+        0.0f,
+    };
     bgfx::setUniform(view.m_outdoorBillboardAmbientUniformHandle, ambient);
 }
 

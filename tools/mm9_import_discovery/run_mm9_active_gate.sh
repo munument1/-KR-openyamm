@@ -78,7 +78,7 @@ echo "MM9 active gate: event idempotency for assets_dev"
 echo "MM9 active gate: event idempotency for assets_editor_dev"
 "${python_bin}" tools/mm9_import_discovery/generate_mm9_events.py \
     --maps-root assets_editor_dev/worlds/mm9/maps \
-    --events-root assets_editor_dev/worlds/mm9/events \
+    --events-root assets_editor_dev/worlds/mm9/events/maps \
     --only-map thjorgard \
     --only-map thjorgardcity \
     --check-idempotent
@@ -135,3 +135,6 @@ done
 
 echo "MM9 active gate: active summary counter check"
 "${python_bin}" tools/mm9_import_discovery/check_mm9_active_gate.py
+
+echo "MM9 active gate: ODM BModel-world package consistency"
+"${python_bin}" tools/mm9_import_discovery/check_mm9_bmodel_world_package.py

@@ -28,6 +28,7 @@
 #include "game/outdoor/OutdoorMapData.h"
 #include "game/maps/TerrainTileData.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
+#include "game/outdoor/OutdoorMechanismRuntime.h"
 #include "game/outdoor/OutdoorMovementController.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/party/Party.h"
@@ -734,6 +735,128 @@ TEST_CASE("modern outdoor flying keeps camera pitch for forward movement")
     CHECK_GT(movementDriver.state().footZ, startFootZ);
 }
 
+TEST_CASE("outdoor moving BModel carries grounded supported party state")
+{
+    const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
+    OpenYAMM::Game::OutdoorMovementDriver movementDriver(
+        boundary.mapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    OpenYAMM::Game::OutdoorMoveState state = {};
+    state.x = 100.0f;
+    state.y = 200.0f;
+    state.footZ = 300.0f;
+    state.fallStartZ = 300.0f;
+    state.supportKind = OpenYAMM::Game::OutdoorSupportKind::BModelFace;
+    state.supportBModelIndex = 7;
+    state.supportFaceIndex = 2;
+    movementDriver.restoreState(state, {});
+
+    CHECK(movementDriver.translateWithSupportedBModel(7, 16.0f, -8.0f, 32.0f));
+    CHECK_EQ(movementDriver.state().x, doctest::Approx(116.0f));
+    CHECK_EQ(movementDriver.state().y, doctest::Approx(192.0f));
+    CHECK_EQ(movementDriver.state().footZ, doctest::Approx(332.0f));
+    CHECK_EQ(movementDriver.state().fallStartZ, doctest::Approx(332.0f));
+    CHECK_FALSE(movementDriver.translateWithSupportedBModel(8, 1.0f, 1.0f, 1.0f));
+
+    state = movementDriver.state();
+    state.airborne = true;
+    movementDriver.restoreState(state, {});
+    CHECK_FALSE(movementDriver.translateWithSupportedBModel(7, 1.0f, 1.0f, 1.0f));
+}
+
+TEST_CASE("outdoor mechanism pivot transform is shared by runtime points and BModel geometry")
+{
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::EventRuntimeState::OutdoorModelMechanismDefinition definition = {};
+    definition.mechanismId = 900007;
+    definition.interactionEventId = 30565;
+    definition.bmodelIndex = 3;
+    definition.pivotX = 100;
+    definition.pivotY = 200;
+    definition.rotationDegreesZ = 90.0f;
+    definition.moveTimeMs = 1000;
+    definition.closed = true;
+    runtimeState.outdoorModelMechanisms[definition.mechanismId] = definition;
+    OpenYAMM::Game::RuntimeMechanismState mechanismState = {};
+    mechanismState.state = static_cast<uint16_t>(OpenYAMM::Game::EvtMechanismState::Open);
+    runtimeState.mechanisms[definition.mechanismId] = mechanismState;
+
+    const std::optional<uint16_t> interactionEventId =
+        OpenYAMM::Game::outdoorBModelRuntimeInteractionEventId(&runtimeState, 3);
+    REQUIRE(interactionEventId.has_value());
+    CHECK_EQ(*interactionEventId, 30565u);
+    CHECK_FALSE(OpenYAMM::Game::outdoorBModelRuntimeInteractionEventId(&runtimeState, 4).has_value());
+
+    const int8_t rightLeafDirection = OpenYAMM::Game::outdoorMechanismOpenAwayRotationDirection(
+        definition,
+        {110.0f, 200.0f, 50.0f},
+        {80.0f, 210.0f, 50.0f});
+    const int8_t leftLeafDirection = OpenYAMM::Game::outdoorMechanismOpenAwayRotationDirection(
+        definition,
+        {90.0f, 200.0f, 50.0f},
+        {80.0f, 210.0f, 50.0f});
+    CHECK_EQ(rightLeafDirection, -1);
+    CHECK_EQ(leftLeafDirection, 1);
+    CHECK_EQ(
+        OpenYAMM::Game::outdoorMechanismOpenAwayRotationDirection(
+            definition,
+            {110.0f, 200.0f, 50.0f},
+            {80.0f, 190.0f, 50.0f}),
+        1);
+    CHECK_EQ(
+        OpenYAMM::Game::outdoorMechanismOpenAwayRotationDirection(
+            definition,
+            {90.0f, 200.0f, 50.0f},
+            {80.0f, 190.0f, 50.0f}),
+        -1);
+
+    const std::optional<OpenYAMM::Game::OutdoorBModelRuntimeTransformState> runtimeTransform =
+        OpenYAMM::Game::outdoorBModelRuntimeTransform(&runtimeState, 3);
+    REQUIRE(runtimeTransform.has_value());
+    const bx::Vec3 transformedPoint = OpenYAMM::Game::applyOutdoorBModelRuntimeTransform(
+        runtimeTransform,
+        {110.0f, 200.0f, 50.0f});
+    CHECK_EQ(transformedPoint.x, doctest::Approx(100.0f).epsilon(0.0001f));
+    CHECK_EQ(transformedPoint.y, doctest::Approx(210.0f).epsilon(0.0001f));
+    CHECK_EQ(transformedPoint.z, doctest::Approx(50.0f).epsilon(0.0001f));
+
+    OpenYAMM::Game::OutdoorBModel bmodel = {};
+    bmodel.vertices = {{110, 200, 50}, {110, 210, 50}, {110, 200, 60}};
+    OpenYAMM::Game::OutdoorBModelFace face = {};
+    face.vertexIndices = {0, 1, 2};
+    face.polygonType = 5;
+    bmodel.faces.push_back(face);
+    const OpenYAMM::Game::OutdoorBModel transformedBModel =
+        OpenYAMM::Game::transformOutdoorBModelForRuntime(bmodel, &runtimeState, 3);
+    REQUIRE_EQ(transformedBModel.vertices.size(), 3u);
+    CHECK_EQ(transformedBModel.vertices.front().x, 100);
+    CHECK_EQ(transformedBModel.vertices.front().y, 210);
+    CHECK_EQ(transformedBModel.vertices.front().z, 50);
+
+    OpenYAMM::Game::OutdoorFaceGeometryData collisionGeometry = {};
+    REQUIRE(OpenYAMM::Game::buildOutdoorFaceGeometry(
+        transformedBModel,
+        3,
+        transformedBModel.faces.front(),
+        0,
+        collisionGeometry,
+        true));
+    REQUIRE_EQ(collisionGeometry.vertices.size(), 3u);
+
+    for (size_t vertexIndex = 0; vertexIndex < bmodel.vertices.size(); ++vertexIndex)
+    {
+        const bx::Vec3 renderedPoint = OpenYAMM::Game::applyOutdoorBModelRuntimeTransform(
+            runtimeTransform,
+            OpenYAMM::Game::outdoorBModelVertexToWorld(bmodel.vertices[vertexIndex]));
+        CHECK_EQ(collisionGeometry.vertices[vertexIndex].x, doctest::Approx(renderedPoint.x).epsilon(0.001f));
+        CHECK_EQ(collisionGeometry.vertices[vertexIndex].y, doctest::Approx(renderedPoint.y).epsilon(0.001f));
+        CHECK_EQ(collisionGeometry.vertices[vertexIndex].z, doctest::Approx(renderedPoint.z).epsilon(0.001f));
+    }
+}
+
 TEST_CASE("outdoor fly command is refused above maximum flight height")
 {
     const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
@@ -1018,6 +1141,265 @@ TEST_CASE("outdoor scene overlays apply partial environment flags")
     CHECK_EQ(mergedScene.environment.mapExtraBitsRaw, 0xc4u);
     CHECK_EQ(mergedScene.environment.fogWeakDistance, 128);
     CHECK_EQ(mergedScene.environment.fogStrongDistance, 2048);
+}
+
+TEST_CASE("outdoor scene profiles default to classic and require explicit BModel world opt in")
+{
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> scene = sceneLoader.loadFromText(
+        loadSourceFileText("assets_dev/worlds/mm8/maps/out01.scene.yml"),
+        sceneError);
+    REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+    CHECK(scene->sceneProfile == OpenYAMM::Game::OutdoorSceneProfile::ClassicOdm);
+    CHECK(scene->environment.locationType == OpenYAMM::Game::OutdoorLocationType::Exterior);
+    CHECK(scene->runtimeRestrictions.allowRest);
+    CHECK_FALSE(OpenYAMM::Game::outdoorLocationUsesIndoorGameplay(scene->environment.locationType));
+
+    OpenYAMM::Game::OutdoorSceneData mergedScene = *scene;
+    const std::string overlayText =
+        "format_version: 1\n"
+        "kind: outdoor_scene_overlay\n"
+        "scene_profile: bmodel_world\n"
+        "runtime_restrictions:\n"
+        "  allow_rest: false\n"
+        "environment:\n"
+        "  location_type: enclosed\n";
+    REQUIRE_MESSAGE(sceneLoader.applyOverlayFromText(mergedScene, overlayText, sceneError), sceneError.c_str());
+    CHECK(mergedScene.sceneProfile == OpenYAMM::Game::OutdoorSceneProfile::BModelWorld);
+    CHECK(mergedScene.environment.locationType == OpenYAMM::Game::OutdoorLocationType::Enclosed);
+    CHECK_FALSE(mergedScene.runtimeRestrictions.allowRest);
+    CHECK(OpenYAMM::Game::outdoorLocationUsesIndoorGameplay(mergedScene.environment.locationType));
+
+    OpenYAMM::Game::OutdoorSceneData propagationScene = {};
+    propagationScene.sceneProfile = OpenYAMM::Game::OutdoorSceneProfile::BModelWorld;
+    propagationScene.environment.locationType = OpenYAMM::Game::OutdoorLocationType::Enclosed;
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    OpenYAMM::Game::MapDeltaData mapDeltaData = {};
+    REQUIRE_MESSAGE(
+        OpenYAMM::Game::buildOutdoorMapStateFromScene(propagationScene, mapData, mapDeltaData, sceneError),
+        sceneError.c_str());
+    CHECK(mapData.sceneProfile == OpenYAMM::Game::OutdoorSceneProfile::BModelWorld);
+    CHECK(mapData.locationType == OpenYAMM::Game::OutdoorLocationType::Enclosed);
+}
+
+TEST_CASE("outdoor scene profiles reject unknown values")
+{
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> scene = sceneLoader.loadFromText(
+        loadSourceFileText("assets_dev/worlds/mm8/maps/out01.scene.yml"),
+        sceneError);
+    REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+
+    OpenYAMM::Game::OutdoorSceneData mergedScene = *scene;
+    CHECK_FALSE(sceneLoader.applyOverlayFromText(
+        mergedScene,
+        "format_version: 1\nkind: outdoor_scene_overlay\nscene_profile: inferred_mm9\n",
+        sceneError));
+    CHECK(sceneError.find("scene_profile") != std::string::npos);
+
+    sceneError.clear();
+    CHECK_FALSE(sceneLoader.applyOverlayFromText(
+        mergedScene,
+        "format_version: 1\nkind: outdoor_scene_overlay\nenvironment:\n  location_type: cavernish\n",
+        sceneError));
+    CHECK(sceneError.find("location_type") != std::string::npos);
+}
+
+TEST_CASE("outdoor scene surface animations preserve MM9 sprite frame rate")
+{
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> scene = sceneLoader.loadFromText(
+        loadSourceFileText("assets_dev/worlds/mm8/maps/out01.scene.yml"),
+        sceneError);
+    REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+
+    std::ostringstream overlayText;
+    overlayText <<
+        "format_version: 1\n"
+        "kind: outdoor_scene_overlay\n"
+        "surface_animations:\n"
+        "  - texture: Ocean4\n"
+        "    frames_per_second: 15\n"
+        "    frames:\n";
+
+    for (int frameIndex = 0; frameIndex < 19; ++frameIndex)
+    {
+        overlayText << "      - OCEAN" << frameIndex << '\n';
+    }
+
+    OpenYAMM::Game::OutdoorSceneData mergedScene = *scene;
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(mergedScene, overlayText.str(), sceneError),
+        sceneError.c_str());
+    REQUIRE_EQ(mergedScene.surfaceAnimations.size(), 1);
+
+    const OpenYAMM::Game::OutdoorSceneSurfaceAnimation &surfaceAnimation =
+        mergedScene.surfaceAnimations.front();
+    CHECK_EQ(surfaceAnimation.textureName, "ocean4");
+    REQUIRE_EQ(surfaceAnimation.animation.frames.size(), 19);
+    CHECK_EQ(surfaceAnimation.animation.animationLengthTicks, 162);
+    CHECK_EQ(surfaceAnimation.animation.frames.front().frameLengthTicks, 9);
+    CHECK_EQ(surfaceAnimation.animation.frames[9].frameLengthTicks, 9);
+    CHECK_EQ(surfaceAnimation.animation.frames[10].frameLengthTicks, 8);
+    CHECK_EQ(surfaceAnimation.animation.frameIndexAtTicks(8), 0);
+    CHECK_EQ(surfaceAnimation.animation.frameIndexAtTicks(9), 1);
+    CHECK_EQ(surfaceAnimation.animation.frameIndexAtTicks(161), 18);
+    CHECK_EQ(surfaceAnimation.animation.frameIndexAtTicks(162), 0);
+}
+
+TEST_CASE("BModel-world scenes load typed linear mechanisms into outdoor map state")
+{
+    std::string sceneText = loadSourceFileText("assets_dev/worlds/mm8/maps/out01.scene.yml");
+    const size_t kindEnd = sceneText.find('\n', sceneText.find("kind:"));
+    REQUIRE(kindEnd != std::string::npos);
+    sceneText.insert(kindEnd + 1, "scene_profile: bmodel_world\n");
+
+    const size_t entitiesOffset = sceneText.find("entities:\n");
+    REQUIRE(entitiesOffset != std::string::npos);
+    sceneText.insert(
+        entitiesOffset,
+        "mechanisms:\n"
+        "  - mechanism_id: 900123\n"
+        "    event_id: 30123\n"
+        "    source_object_index: 123\n"
+        "    source_class: Door\n"
+        "    source_name: TestDoor\n"
+        "    kind: linear_door\n"
+        "    binding:\n"
+        "      target_kind: odm_bmodel\n"
+        "      bmodel_index: 0\n"
+        "      bmodel_name: TestDoor\n"
+        "      confidence: exact_source_model_name\n"
+        "    motion:\n"
+        "      linear:\n"
+        "        delta_openyamm: {x: 64, y: -32, z: 128}\n"
+        "      move_time_ms: 750\n"
+        "    activation:\n"
+        "      start_open: true\n"
+        "      push_open: true\n"
+        "      touch_to_open: false\n"
+        "      locked: false\n"
+        "      open_away: true\n");
+
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> scene =
+        sceneLoader.loadFromText(sceneText, sceneError);
+    REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+    REQUIRE_EQ(scene->mechanisms.size(), 1u);
+    const OpenYAMM::Game::OutdoorBModelMechanism &mechanism = scene->mechanisms.front();
+    CHECK(mechanism.kind == OpenYAMM::Game::OutdoorBModelMechanismKind::LinearDoor);
+    CHECK(mechanism.motionKind == OpenYAMM::Game::OutdoorBModelMechanismMotionKind::Linear);
+    CHECK_EQ(mechanism.mechanismId, 900123u);
+    CHECK_EQ(mechanism.interactionEventId, 30123u);
+    CHECK_EQ(mechanism.bmodelIndex, 0u);
+    CHECK_EQ(mechanism.deltaX, 64);
+    CHECK_EQ(mechanism.deltaY, -32);
+    CHECK_EQ(mechanism.deltaZ, 128);
+    CHECK_EQ(mechanism.moveTimeMs, 750u);
+    CHECK(mechanism.startOpen);
+    CHECK(mechanism.pushOpen);
+    CHECK(mechanism.openAway);
+
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    size_t requiredBModelCount = 1;
+
+    for (const OpenYAMM::Game::OutdoorSceneInteractiveFace &face : scene->interactiveFaces)
+    {
+        requiredBModelCount = std::max(requiredBModelCount, face.bmodelIndex + 1);
+    }
+
+    for (const OpenYAMM::Game::OutdoorSceneFaceAttributeOverride &face :
+         scene->initialState.faceAttributeOverrides)
+    {
+        requiredBModelCount = std::max(requiredBModelCount, face.bmodelIndex + 1);
+    }
+
+    mapData.bmodels.resize(requiredBModelCount);
+
+    for (const OpenYAMM::Game::OutdoorSceneInteractiveFace &face : scene->interactiveFaces)
+    {
+        mapData.bmodels[face.bmodelIndex].faces.resize(
+            std::max(mapData.bmodels[face.bmodelIndex].faces.size(), face.faceIndex + 1));
+    }
+
+    for (const OpenYAMM::Game::OutdoorSceneFaceAttributeOverride &face :
+         scene->initialState.faceAttributeOverrides)
+    {
+        mapData.bmodels[face.bmodelIndex].faces.resize(
+            std::max(mapData.bmodels[face.bmodelIndex].faces.size(), face.faceIndex + 1));
+    }
+    OpenYAMM::Game::MapDeltaData mapDeltaData = {};
+    REQUIRE_MESSAGE(
+        OpenYAMM::Game::buildOutdoorMapStateFromScene(*scene, mapData, mapDeltaData, sceneError),
+        sceneError.c_str());
+    REQUIRE_EQ(mapData.mechanisms.size(), 1u);
+    CHECK_EQ(mapData.mechanisms.front().mechanismId, 900123u);
+    CHECK_EQ(mapData.mechanisms.front().interactionEventId, 30123u);
+}
+
+TEST_CASE("outdoor authored overlays append actors and encounter spawns without changing base ownership")
+{
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> scene = sceneLoader.loadFromText(
+        loadSourceFileText("assets_dev/worlds/mm8/maps/out01.scene.yml"),
+        sceneError);
+    REQUIRE_MESSAGE(scene.has_value(), sceneError.c_str());
+
+    OpenYAMM::Game::OutdoorSceneData mergedScene = *scene;
+    const size_t baseSpawnCount = mergedScene.spawns.size();
+    const size_t baseActorCount = mergedScene.initialState.actors.size();
+    const size_t baseChestCount = mergedScene.initialState.chests.size();
+    const std::string overlayText =
+        "format_version: 1\n"
+        "kind: outdoor_scene_overlay\n"
+        "authored_content:\n"
+        "  spawns:\n"
+        "    - spawn_index: 9000\n"
+        "      position: {x: 100, y: 200, z: 300}\n"
+        "      radius: 64\n"
+        "      type_id: 3\n"
+        "      index: 1\n"
+        "      attributes: 0\n"
+        "      group: 77\n"
+        "  actors:\n"
+        "    - name: Authored Test Actor\n"
+        "      npc_id: 0\n"
+        "      attributes: 0\n"
+        "      hp: 42\n"
+        "      hostility_type: 0\n"
+        "      monster_info_id: 1\n"
+        "      monster_id: 5\n"
+        "      radius: 60\n"
+        "      height: 160\n"
+        "      move_speed: 200\n"
+        "      position: {x: 400, y: 500, z: 600}\n"
+        "      sprite_ids: [1000, 1001, 1002, 1003]\n"
+        "      sector_id: 0\n"
+        "      current_action_animation: 0\n"
+        "      carried_item_id: 0\n"
+        "      group: 77\n"
+        "      ally: 0\n"
+        "      unique_name_index: 0\n"
+        "  chests:\n"
+        "    - chest_type_id: 0\n"
+        "      flags: 0\n";
+
+    REQUIRE_MESSAGE(sceneLoader.applyOverlayFromText(mergedScene, overlayText, sceneError), sceneError.c_str());
+    CHECK_EQ(mergedScene.baseContentCounts.spawns, baseSpawnCount);
+    CHECK_EQ(mergedScene.baseContentCounts.actors, baseActorCount);
+    REQUIRE_EQ(mergedScene.spawns.size(), baseSpawnCount + 1);
+    REQUIRE_EQ(mergedScene.initialState.actors.size(), baseActorCount + 1);
+    REQUIRE_EQ(mergedScene.initialState.chests.size(), baseChestCount + 1);
+    CHECK_EQ(mergedScene.spawns.back().spawn.group, 77);
+    CHECK_EQ(mergedScene.initialState.actors.back().name, "Authored Test Actor");
+    CHECK_EQ(mergedScene.initialState.actors.back().diagnosticSourceActorIndex, baseActorCount);
+    CHECK_EQ(mergedScene.initialState.chests.back().rawItems.size(), 140u * 36u);
+    CHECK_EQ(mergedScene.initialState.chests.back().inventoryMatrix.size(), 140u);
 }
 
 TEST_CASE("outdoor scene overlays can override actor NPC ids")
@@ -6932,6 +7314,33 @@ TEST_CASE("outdoor bmodel collision geometry keeps invisible faces and uses auth
     face.attributes = OpenYAMM::Game::faceAttributeBit(OpenYAMM::Game::FaceAttribute::Untouchable);
     CHECK_FALSE(OpenYAMM::Game::buildOutdoorFaceGeometry(bmodel, 0, face, 0, geometry));
     CHECK(OpenYAMM::Game::buildOutdoorFaceGeometry(bmodel, 0, face, 0, geometry, true));
+}
+
+TEST_CASE("moving outdoor faces preserve spatial grids until they cross a cell boundary")
+{
+    OpenYAMM::Game::OutdoorFaceGeometryData before = {};
+    before.minX = 10.0f;
+    before.maxX = 50.0f;
+    before.minY = 20.0f;
+    before.maxY = 60.0f;
+
+    OpenYAMM::Game::OutdoorFaceGeometryData withinCell = before;
+    withinCell.minX += 20.0f;
+    withinCell.maxX += 20.0f;
+    CHECK(OpenYAMM::Game::outdoorFaceOccupiesSameGridCells(
+        before, withinCell, 0.0f, 0.0f, 2, 2, 100.0f));
+
+    OpenYAMM::Game::OutdoorFaceGeometryData acrossBoundary = before;
+    acrossBoundary.minX += 60.0f;
+    acrossBoundary.maxX += 60.0f;
+    CHECK_FALSE(OpenYAMM::Game::outdoorFaceOccupiesSameGridCells(
+        before, acrossBoundary, 0.0f, 0.0f, 2, 2, 100.0f));
+
+    OpenYAMM::Game::OutdoorFaceGeometryData outsideGrid = before;
+    outsideGrid.minY = 210.0f;
+    outsideGrid.maxY = 250.0f;
+    CHECK_FALSE(OpenYAMM::Game::outdoorFaceOccupiesSameGridCells(
+        before, outsideGrid, 0.0f, 0.0f, 2, 2, 100.0f));
 }
 
 TEST_CASE("indoor support sampling includes mechanism floor faces omitted from sector floor lists")

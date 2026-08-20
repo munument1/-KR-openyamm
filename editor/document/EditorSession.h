@@ -225,6 +225,7 @@ public:
     void toggleInteractiveFaceSelection(size_t flatIndex);
     void clearInteractiveFaceSelection();
     bool isInteractiveFaceSelected(size_t flatIndex) const;
+    bool isGeneratedOutdoorSelection(const EditorSelection &selection) const;
     const std::vector<size_t> &selectedInteractiveFaceIndices() const;
     const EditorSelection &selection() const;
     const Engine::AssetFileSystem *assetFileSystem() const;

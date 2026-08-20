@@ -111,6 +111,79 @@ ImVec4 messageColor(DebugConsole::MessageKind kind)
     return ImVec4(0.88f, 0.89f, 0.90f, 1.0f);
 }
 
+std::string wrapSelectableConsoleText(const std::string &text, float maxWidth)
+{
+    if (text.empty() || maxWidth <= 0.0f)
+    {
+        return text;
+    }
+
+    std::string result;
+    result.reserve(text.size() + text.size() / 16);
+    size_t lineStart = 0;
+
+    while (lineStart <= text.size())
+    {
+        const size_t newlinePosition = text.find('\n', lineStart);
+        const size_t lineEnd = newlinePosition != std::string::npos ? newlinePosition : text.size();
+        size_t segmentStart = lineStart;
+
+        while (segmentStart < lineEnd)
+        {
+            if (ImGui::CalcTextSize(text.data() + segmentStart, text.data() + lineEnd).x <= maxWidth)
+            {
+                result.append(text, segmentStart, lineEnd - segmentStart);
+                segmentStart = lineEnd;
+                break;
+            }
+
+            size_t low = segmentStart + 1;
+            size_t high = lineEnd;
+
+            while (low < high)
+            {
+                const size_t middle = low + (high - low + 1) / 2;
+
+                if (ImGui::CalcTextSize(text.data() + segmentStart, text.data() + middle).x <= maxWidth)
+                {
+                    low = middle;
+                }
+                else
+                {
+                    high = middle - 1;
+                }
+            }
+
+            size_t breakPosition = low;
+            const size_t spacePosition = text.rfind(' ', breakPosition - 1);
+
+            if (spacePosition != std::string::npos && spacePosition > segmentStart)
+            {
+                breakPosition = spacePosition;
+            }
+
+            result.append(text, segmentStart, breakPosition - segmentStart);
+            result.push_back('\n');
+            segmentStart = breakPosition;
+
+            while (segmentStart < lineEnd && text[segmentStart] == ' ')
+            {
+                ++segmentStart;
+            }
+        }
+
+        if (newlinePosition == std::string::npos)
+        {
+            break;
+        }
+
+        result.push_back('\n');
+        lineStart = newlinePosition + 1;
+    }
+
+    return result;
+}
+
 int consoleInputTextCallback(ImGuiInputTextCallbackData *pData)
 {
     DebugConsole *pConsole = static_cast<DebugConsole *>(pData->UserData);
@@ -489,6 +562,23 @@ std::vector<std::string> DebugConsole::tokenize(std::string_view line)
     return tokens;
 }
 
+std::string DebugConsole::joinedMessageText() const
+{
+    std::ostringstream stream;
+
+    for (size_t messageIndex = 0; messageIndex < m_messages.size(); ++messageIndex)
+    {
+        if (messageIndex > 0)
+        {
+            stream << '\n';
+        }
+
+        stream << m_messages[messageIndex].text;
+    }
+
+    return stream.str();
+}
+
 int DebugConsole::itemOptionSearchScore(const ItemOption &item, const std::string &query)
 {
     const std::string normalizedQuery = lowerSearchText(query);
@@ -686,6 +776,13 @@ void DebugConsole::renderConsoleWindow(int width, int height)
         clearMessages();
     }
 
+    ImGui::SameLine();
+
+    if (ImGui::Button("Copy All"))
+    {
+        ImGui::SetClipboardText(joinedMessageText().c_str());
+    }
+
     ImGui::Separator();
     const float inputHeight = ImGui::GetFrameHeightWithSpacing();
     const float resizeHandleHeight = 8.0f;
@@ -696,12 +793,37 @@ void DebugConsole::renderConsoleWindow(int width, int height)
 
     if (ImGui::BeginChild("Messages", ImVec2(consoleWidth, contentHeight), true))
     {
-        for (const Message &message : m_messages)
+        const float textWidth = std::max(1.0f, ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ImGui::GetStyle().ItemSpacing.x, 0.0f));
+
+        for (size_t messageIndex = 0; messageIndex < m_messages.size(); ++messageIndex)
         {
+            const Message &message = m_messages[messageIndex];
+            std::string messageText = wrapSelectableConsoleText(message.text, textWidth);
+            const size_t lineCount = messageText.empty()
+                ? 1
+                : static_cast<size_t>(std::count(messageText.begin(), messageText.end(), '\n')) + 1;
+            const float textHeight = static_cast<float>(lineCount) * ImGui::GetTextLineHeight();
+
+            ImGui::PushID(static_cast<int>(messageIndex));
             ImGui::PushStyleColor(ImGuiCol_Text, messageColor(message.kind));
-            ImGui::TextWrapped("%s", message.text.c_str());
+            ImGui::InputTextMultiline(
+                "##ConsoleMessageText",
+                messageText.data(),
+                messageText.size() + 1,
+                ImVec2(-1.0f, textHeight),
+                ImGuiInputTextFlags_ReadOnly);
             ImGui::PopStyleColor();
+            ImGui::PopID();
         }
+
+        ImGui::PopStyleVar(3);
+        ImGui::PopStyleColor(3);
 
         if (m_scrollToBottom)
         {

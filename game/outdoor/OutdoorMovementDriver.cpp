@@ -862,6 +862,27 @@ void OutdoorMovementDriver::updateFaceGeometries(const std::vector<OutdoorFaceGe
     m_movementController.updateFaceGeometries(geometries);
 }
 
+bool OutdoorMovementDriver::translateWithSupportedBModel(
+    size_t bModelIndex,
+    float deltaX,
+    float deltaY,
+    float deltaZ)
+{
+    if (m_partyMovementState.flying
+        || m_state.airborne
+        || m_state.supportKind != OutdoorSupportKind::BModelFace
+        || m_state.supportBModelIndex != bModelIndex)
+    {
+        return false;
+    }
+
+    m_state.x += deltaX;
+    m_state.y += deltaY;
+    m_state.footZ += deltaZ;
+    m_state.fallStartZ += deltaZ;
+    return true;
+}
+
 bool OutdoorMovementDriver::canActivateFlying() const
 {
     return m_flyingAvailable && m_state.footZ <= m_tuning.maxFlightHeight;

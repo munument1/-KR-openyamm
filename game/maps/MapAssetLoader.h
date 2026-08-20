@@ -220,6 +220,12 @@ struct MapAssetInfo
     std::optional<size_t> companionSize;
     std::optional<std::string> scenePath;
     std::optional<size_t> sceneSize;
+    std::optional<std::string> navigationPath;
+    std::optional<size_t> navigationSize;
+    std::optional<std::string> renderDataPath;
+    std::optional<size_t> renderDataSize;
+    std::optional<std::string> lightingDataPath;
+    std::optional<size_t> lightingDataSize;
     AuthoredCompanionSource authoredCompanionSource = AuthoredCompanionSource::None;
     std::optional<OutdoorMapData> outdoorMapData;
     std::optional<IndoorMapData> indoorMapData;
@@ -314,5 +320,8 @@ private:
     );
     static std::optional<std::string> buildCompanionFileName(const std::string &fileName);
     static std::optional<std::string> buildSceneFileName(const std::string &fileName);
+    static std::optional<std::string> buildNavigationFileName(const std::string &fileName);
+    static std::optional<std::string> buildRenderDataFileName(const std::string &fileName);
+    static std::optional<std::string> buildLightingDataFileName(const std::string &fileName);
 };
 }

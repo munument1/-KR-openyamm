@@ -26,6 +26,7 @@ namespace
 constexpr float NearHoverStatusDistance = 1024.0f;
 constexpr float ActorHoverStatusDistance = 8192.0f;
 constexpr uint64_t HoverInspectRefreshNanoseconds = 33 * 1000 * 1000;
+constexpr uint64_t ContextActionDirectionRefreshNanoseconds = 33 * 1000 * 1000;
 constexpr uint64_t ContextActionRefreshNanoseconds = 250 * 1000 * 1000;
 constexpr uint64_t ContextActionIdleRetryNanoseconds = 1000 * 1000 * 1000;
 constexpr uint64_t KeyboardInteractionFirstRepeatNanoseconds = 500 * 1000 * 1000;
@@ -85,7 +86,7 @@ float vecDeltaSquared(const bx::Vec3 &left, const bx::Vec3 &right)
     return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
 }
 
-bool contextActionPickRayChanged(
+bool contextActionPickRayOriginChanged(
     const GameplayContextActionState &state,
     const GameplayWorldPickRequest &request)
 {
@@ -95,9 +96,20 @@ bool contextActionPickRayChanged(
     }
 
     return vecDeltaSquared(request.rayOrigin, state.lastUpdateRayOrigin)
-            >= ContextActionRayOriginChangeThresholdSquared
-        || vecDeltaSquared(request.rayDirection, state.lastUpdateRayDirection)
-            >= ContextActionRayDirectionChangeThresholdSquared;
+        >= ContextActionRayOriginChangeThresholdSquared;
+}
+
+bool contextActionPickRayDirectionChanged(
+    const GameplayContextActionState &state,
+    const GameplayWorldPickRequest &request)
+{
+    if (!request.hasRay || !state.hasLastUpdateRay)
+    {
+        return request.hasRay != state.hasLastUpdateRay;
+    }
+
+    return vecDeltaSquared(request.rayDirection, state.lastUpdateRayDirection)
+        >= ContextActionRayDirectionChangeThresholdSquared;
 }
 
 const char *contextActionIconId(GameplayContextActionKind kind)
@@ -1711,14 +1723,20 @@ GameplayInteractionController::updateWorldInteractionFrame(
         GameplayContextActionState &contextActionState = runtime.contextActionState();
         const uint64_t contextActionRefreshIntervalNanoseconds =
             contextActionState.visible ? ContextActionRefreshNanoseconds : ContextActionIdleRetryNanoseconds;
-        const bool contextActionRayChanged =
-            contextActionPickRayChanged(contextActionState, currentInteractionPickRequest);
+        const bool contextActionRayOriginChanged =
+            contextActionPickRayOriginChanged(contextActionState, currentInteractionPickRequest);
+        const bool contextActionRayDirectionChanged =
+            contextActionPickRayDirectionChanged(contextActionState, currentInteractionPickRequest);
+        const uint64_t effectiveRefreshIntervalNanoseconds = contextActionRayDirectionChanged
+            ? ContextActionDirectionRefreshNanoseconds
+            : (contextActionRayOriginChanged
+                ? ContextActionRefreshNanoseconds
+                : contextActionRefreshIntervalNanoseconds);
         const bool contextActionRefreshDue =
             contextActionState.lastUpdateNanoseconds == 0
             || currentTickNanoseconds < contextActionState.lastUpdateNanoseconds
-            || contextActionRayChanged
             || currentTickNanoseconds - contextActionState.lastUpdateNanoseconds
-                >= contextActionRefreshIntervalNanoseconds;
+                >= effectiveRefreshIntervalNanoseconds;
 
         if (contextActionRefreshDue)
         {
@@ -1834,8 +1852,10 @@ GameplayInteractionController::updateWorldInteractionFrame(
         const GameplayContextActionState &contextActionState = runtime.contextActionStateReadOnly();
         const bool hasPrimaryContextAction =
             contextActionState.visible && contextActionState.primaryIndex < contextActionState.actions.size();
+        const bool contextActionRefreshedThisFrame =
+            contextActionState.lastUpdateNanoseconds == currentTickNanoseconds;
 
-        if (hasPrimaryContextAction)
+        if (hasPrimaryContextAction && contextActionRefreshedThisFrame)
         {
             keyboardActivationHit = contextActionState.actions[contextActionState.primaryIndex].worldHit;
         }

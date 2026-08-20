@@ -18,11 +18,15 @@ using OpenYAMM::Game::OutdoorBModel;
 using OpenYAMM::Game::OutdoorBModelFace;
 using OpenYAMM::Game::OutdoorMapData;
 using OpenYAMM::Game::OutdoorMovementController;
+using OpenYAMM::Game::OutdoorNavigationData;
+using OpenYAMM::Game::OutdoorNavigationFacetKind;
+using OpenYAMM::Game::OutdoorNavigationFacetReference;
 using OpenYAMM::Game::OutdoorPathMapBuildOptions;
 using OpenYAMM::Game::OutdoorPathMapBuildResult;
 using OpenYAMM::Game::OutdoorPathTerrainMode;
 using OpenYAMM::Game::OutdoorPathfindingBuilder;
 using OpenYAMM::Game::OutdoorSupportKind;
+using OpenYAMM::Game::OutdoorSceneProfile;
 using OpenYAMM::Game::PathFacetKind;
 using OpenYAMM::Game::PathFloorSample;
 using OpenYAMM::Game::PathObject;
@@ -710,4 +714,200 @@ TEST_CASE("ravenshore house stairs move party onto bmodel support")
         << " face=" << state.supportFaceIndex);
     CHECK_EQ(state.supportKind, OutdoorSupportKind::BModelFace);
     CHECK(state.footZ > 1.0f);
+}
+
+TEST_CASE("BModel-world cooked navigation uses 64-bit face identity beyond the classic stride")
+{
+    constexpr size_t FaceIndex = 5000;
+    OutdoorMapData mapData = {};
+    mapData.sceneProfile = OutdoorSceneProfile::BModelWorld;
+    mapData.noTerrain = true;
+    mapData.bmodels.resize(1);
+    mapData.bmodels[0].faces.resize(FaceIndex + 1);
+
+    OutdoorNavigationData navigation = {};
+    navigation.formatVersion = 1;
+    OutdoorNavigationFacetReference reference = {};
+    reference.sourceKey = OutdoorPathfindingBuilder::bModelSourceKey(0, FaceIndex);
+    reference.bModelIndex = 0;
+    reference.faceIndex = FaceIndex;
+    reference.kind = OutdoorNavigationFacetKind::Floor;
+    reference.walkable = true;
+    navigation.facets.push_back(reference);
+    mapData.navigationData = navigation;
+
+    OpenYAMM::Game::OutdoorFaceGeometryData geometry = {};
+    geometry.bModelIndex = 0;
+    geometry.faceIndex = FaceIndex;
+    geometry.polygonType = OutdoorPolygonFloor;
+    geometry.isWalkable = true;
+    geometry.hasPlane = true;
+    geometry.normal = {0.0f, 0.0f, 1.0f};
+    geometry.vertices = {
+        {-64.0f, -64.0f, 0.0f},
+        {64.0f, -64.0f, 0.0f},
+        {64.0f, 64.0f, 0.0f},
+        {-64.0f, 64.0f, 0.0f}
+    };
+    const std::vector<OpenYAMM::Game::OutdoorFaceGeometryData> geometries = {geometry};
+
+    const OutdoorPathMapBuildResult result =
+        OutdoorPathfindingBuilder::buildPathMap(mapData, nullptr, &geometries);
+
+    REQUIRE_EQ(result.pathMap.facets().size(), 1);
+    CHECK_EQ(OutdoorPathfindingBuilder::bModelSourceId(0, FaceIndex), -1);
+    CHECK_EQ(result.pathMap.facets()[0].sourceId, 0);
+    CHECK(result.pathMap.facets()[0].walkableFloor);
+
+    bool snapValid = false;
+    const PathPoint snapped = result.pathMap.snapToWalkableSourceFacet(
+        result.pathMap.facets()[0].sourceId,
+        {0.0f, 0.0f, 20.0f},
+        64.0f,
+        snapValid);
+    CHECK(snapValid);
+    CHECK_EQ(snapped.z, doctest::Approx(0.0f));
+}
+
+TEST_CASE("BModel-world cooked navigation preserves stacked walkable floors")
+{
+    OutdoorMapData mapData = {};
+    mapData.sceneProfile = OutdoorSceneProfile::BModelWorld;
+    mapData.noTerrain = true;
+    mapData.bmodels.resize(1);
+    mapData.bmodels[0].faces.resize(2);
+
+    OutdoorNavigationData navigation = {};
+    navigation.formatVersion = 1;
+
+    for (uint32_t faceIndex = 0; faceIndex < 2; ++faceIndex)
+    {
+        OutdoorNavigationFacetReference reference = {};
+        reference.sourceKey = OutdoorPathfindingBuilder::bModelSourceKey(0, faceIndex);
+        reference.faceIndex = faceIndex;
+        reference.kind = OutdoorNavigationFacetKind::Floor;
+        reference.walkable = true;
+        navigation.facets.push_back(reference);
+    }
+
+    mapData.navigationData = navigation;
+    std::vector<OpenYAMM::Game::OutdoorFaceGeometryData> geometries;
+
+    for (size_t faceIndex = 0; faceIndex < 2; ++faceIndex)
+    {
+        const float z = static_cast<float>(faceIndex) * 256.0f;
+        OpenYAMM::Game::OutdoorFaceGeometryData geometry = {};
+        geometry.faceIndex = faceIndex;
+        geometry.isWalkable = true;
+        geometry.hasPlane = true;
+        geometry.normal = {0.0f, 0.0f, 1.0f};
+        geometry.vertices = {
+            {-64.0f, -64.0f, z},
+            {64.0f, -64.0f, z},
+            {64.0f, 64.0f, z},
+            {-64.0f, 64.0f, z}
+        };
+        geometries.push_back(geometry);
+    }
+
+    const OutdoorPathMapBuildResult result =
+        OutdoorPathfindingBuilder::buildPathMap(mapData, nullptr, &geometries);
+
+    REQUIRE_EQ(result.pathMap.facets().size(), 2);
+    const PathFloorSample lowerFloor = result.pathMap.floorAt({0.0f, 0.0f, 100.0f});
+    const PathFloorSample upperFloor = result.pathMap.floorAt({0.0f, 0.0f, 300.0f});
+    REQUIRE(lowerFloor.hasFloor);
+    REQUIRE(upperFloor.hasFloor);
+    CHECK_EQ(lowerFloor.z, doctest::Approx(0.0f));
+    CHECK_EQ(upperFloor.z, doctest::Approx(256.0f));
+}
+
+TEST_CASE("BModel-world cooked dynamic barriers follow mechanism geometry")
+{
+    OutdoorMapData mapData = {};
+    mapData.sceneProfile = OutdoorSceneProfile::BModelWorld;
+    mapData.bmodels.resize(1);
+    mapData.bmodels[0].faces.resize(1);
+    OutdoorNavigationData navigation = {};
+    OutdoorNavigationFacetReference reference = {};
+    reference.sourceKey = OutdoorPathfindingBuilder::bModelSourceKey(0, 0);
+    reference.kind = OutdoorNavigationFacetKind::Barrier;
+    reference.blocking = true;
+    reference.dynamic = true;
+    reference.mechanismId = 900001;
+    navigation.facets.push_back(reference);
+    mapData.navigationData = navigation;
+
+    OpenYAMM::Game::OutdoorFaceGeometryData geometry = {};
+    geometry.hasPlane = true;
+    geometry.normal = {1.0f, 0.0f, 0.0f};
+    geometry.vertices = {
+        {0.0f, -100.0f, 0.0f},
+        {0.0f, 100.0f, 0.0f},
+        {0.0f, 100.0f, 160.0f},
+        {0.0f, -100.0f, 160.0f}
+    };
+    std::vector<OpenYAMM::Game::OutdoorFaceGeometryData> geometries = {geometry};
+    const PathObject object = {true, 20.0f, 24.0f, 40.0f};
+
+    const OutdoorPathMapBuildResult closedResult =
+        OutdoorPathfindingBuilder::buildPathMap(mapData, nullptr, &geometries);
+    REQUIRE_EQ(closedResult.dynamicNavigationFacetCount, 1);
+    CHECK_FALSE(closedResult.pathMap.canReachDirectly(
+        {-80.0f, 0.0f, 40.0f},
+        {80.0f, 0.0f, 40.0f},
+        object));
+
+    for (bx::Vec3 &vertex : geometries[0].vertices)
+    {
+        vertex.x += 300.0f;
+    }
+
+    const OutdoorPathMapBuildResult openResult =
+        OutdoorPathfindingBuilder::buildPathMap(mapData, nullptr, &geometries);
+    CHECK(openResult.pathMap.canReachDirectly(
+        {-80.0f, 0.0f, 40.0f},
+        {80.0f, 0.0f, 40.0f},
+        object));
+}
+
+TEST_CASE("BModel-world cooked navigation merges marked coplanar triangle pairs")
+{
+    OutdoorMapData mapData = {};
+    mapData.sceneProfile = OutdoorSceneProfile::BModelWorld;
+    mapData.bmodels.resize(1);
+    mapData.bmodels[0].faces.resize(2);
+    OutdoorNavigationData navigation = {};
+
+    for (uint32_t faceIndex = 0; faceIndex < 2; ++faceIndex)
+    {
+        OutdoorNavigationFacetReference reference = {};
+        reference.sourceKey = OutdoorPathfindingBuilder::bModelSourceKey(0, faceIndex);
+        reference.faceIndex = faceIndex;
+        reference.kind = OutdoorNavigationFacetKind::Floor;
+        reference.walkable = true;
+        reference.pathSourceId = 0;
+        reference.mergeLeaderOffset = faceIndex;
+        navigation.facets.push_back(reference);
+    }
+
+    mapData.navigationData = navigation;
+    OpenYAMM::Game::OutdoorFaceGeometryData first = {};
+    first.hasPlane = true;
+    first.isWalkable = true;
+    first.normal = {0.0f, 0.0f, 1.0f};
+    first.vertices = {{0.0f, 0.0f, 0.0f}, {100.0f, 0.0f, 0.0f}, {100.0f, 100.0f, 0.0f}};
+    OpenYAMM::Game::OutdoorFaceGeometryData second = first;
+    second.faceIndex = 1;
+    second.vertices = {{0.0f, 0.0f, 0.0f}, {100.0f, 100.0f, 0.0f}, {0.0f, 100.0f, 0.0f}};
+    const std::vector<OpenYAMM::Game::OutdoorFaceGeometryData> geometries = {first, second};
+
+    const OutdoorPathMapBuildResult result =
+        OutdoorPathfindingBuilder::buildPathMap(mapData, nullptr, &geometries);
+
+    CHECK_EQ(result.cookedNavigationFacetCount, 2);
+    CHECK_EQ(result.pathFacetCount, 1);
+    REQUIRE_EQ(result.pathMap.facets().size(), 1);
+    CHECK_EQ(result.pathMap.facets()[0].vertices.size(), 4);
+    CHECK(result.pathMap.floorAt({50.0f, 50.0f, 32.0f}).hasFloor);
 }

@@ -1,5 +1,10 @@
 #pragma once
 
+#include "game/maps/OutdoorSceneProfile.h"
+#include "game/outdoor/OutdoorNavigationData.h"
+#include "game/outdoor/OutdoorRenderData.h"
+#include "game/outdoor/OutdoorLightingData.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -114,6 +119,62 @@ struct OutdoorTerrainFootstepSoundOverride
     uint32_t runSoundId = 0;
 };
 
+enum class OutdoorBModelMechanismKind
+{
+    LinearDoor,
+    WeightedLift,
+    RotatingDoor,
+    RotatingBrush,
+    CollisionVolume,
+    Unsupported
+};
+
+enum class OutdoorBModelMechanismMotionKind
+{
+    None,
+    Linear,
+    Rotation
+};
+
+struct OutdoorBModelMechanism
+{
+    bool hasRuntimeEndpointMotion() const
+    {
+        return motionKind == OutdoorBModelMechanismMotionKind::Linear
+            || motionKind == OutdoorBModelMechanismMotionKind::Rotation;
+    }
+
+    uint32_t mechanismId = 0;
+    uint16_t interactionEventId = 0;
+    uint32_t sourceObjectIndex = 0;
+    std::string sourceClass;
+    std::string sourceName;
+    std::string sourceKind;
+    OutdoorBModelMechanismKind kind = OutdoorBModelMechanismKind::Unsupported;
+    OutdoorBModelMechanismMotionKind motionKind = OutdoorBModelMechanismMotionKind::None;
+    bool hasBModelBinding = false;
+    size_t bmodelIndex = static_cast<size_t>(-1);
+    std::string bmodelName;
+    std::string bindingConfidence;
+    int32_t deltaX = 0;
+    int32_t deltaY = 0;
+    int32_t deltaZ = 0;
+    int32_t pivotX = 0;
+    int32_t pivotY = 0;
+    int32_t pivotZ = 0;
+    float rotationDegreesX = 0.0f;
+    float rotationDegreesY = 0.0f;
+    float rotationDegreesZ = 0.0f;
+    uint32_t moveTimeMs = 0;
+    bool startOpen = false;
+    bool startOn = false;
+    bool pushOpen = false;
+    bool touchToOpen = false;
+    bool locked = false;
+    bool openAway = false;
+    bool moveParty = false;
+};
+
 struct OutdoorMapData
 {
     static constexpr int TerrainWidth = 128;
@@ -126,6 +187,8 @@ struct OutdoorMapData
     std::string name;
     std::string fileName;
     std::string description;
+    OutdoorSceneProfile sceneProfile = OutdoorSceneProfile::ClassicOdm;
+    OutdoorLocationType locationType = OutdoorLocationType::Exterior;
     bool noTerrain = false;
     std::string skyTexture;
     std::string groundTilesetName;
@@ -143,6 +206,10 @@ struct OutdoorMapData
     std::vector<uint32_t> decorationMap;
     std::vector<OutdoorSpawn> spawns;
     std::vector<OutdoorTerrainFootstepSoundOverride> terrainFootstepSoundOverrides;
+    std::vector<OutdoorBModelMechanism> mechanisms;
+    std::optional<OutdoorNavigationData> navigationData;
+    std::optional<OutdoorRenderData> renderData;
+    std::optional<OutdoorLightingData> lightingData;
     size_t terrainNormalCount = 0;
     size_t bmodelCount = 0;
     size_t entityCount = 0;

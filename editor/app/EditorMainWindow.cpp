@@ -6040,6 +6040,8 @@ void EditorMainWindow::renderToolModeButtons(EditorSession &session)
 {
     const bool indoorDocument =
         session.hasDocument() && session.document().kind() == EditorDocument::Kind::Indoor;
+    const bool generatedBModelWorld =
+        session.isGeneratedOutdoorSelection({EditorSelectionKind::Terrain, 0});
     const auto renderModeButton = [this](const char *pLabel, EditorSelectionKind kind)
     {
         const bool selected = m_viewport.placementKind() == kind;
@@ -6056,12 +6058,21 @@ void EditorMainWindow::renderToolModeButtons(EditorSession &session)
     }
 
     ImGui::SameLine();
+    ImGui::BeginDisabled(generatedBModelWorld);
     renderModeButton("Face", EditorSelectionKind::InteractiveFace);
 
     if (!indoorDocument)
     {
         ImGui::SameLine();
         renderModeButton("Terrain", EditorSelectionKind::Terrain);
+    }
+    ImGui::EndDisabled();
+
+    if (generatedBModelWorld
+        && (m_viewport.placementKind() == EditorSelectionKind::InteractiveFace
+            || m_viewport.placementKind() == EditorSelectionKind::Terrain))
+    {
+        m_viewport.setPlacementKind(EditorSelectionKind::None);
     }
 }
 
@@ -9711,6 +9722,19 @@ void EditorMainWindow::renderInspector(EditorSession &session)
         return;
     }
 
+    if (session.isGeneratedOutdoorSelection(session.selection()))
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, colorFromRgb(0xE9BA72));
+        ImGui::TextWrapped("Generated BModel-world content is read-only.");
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+        ImGui::TextWrapped(
+            "Change the MM9 source/import pipeline to alter imported geometry or base content. "
+            "New actors, spawns, decorations, items, and chests are saved in the authored overlay.");
+        ImGui::End();
+        return;
+    }
+
     switch (session.selection().kind)
     {
     case EditorSelectionKind::None:
@@ -10694,6 +10718,36 @@ void EditorMainWindow::renderEnvironmentInspector(EditorSession &session) const
 
     if (beginInspectorPropertyTable("EnvironmentFields"))
     {
+        static constexpr const char *SceneProfileLabels[] = {"Classic ODM", "BModel World"};
+        int sceneProfile = static_cast<int>(sceneData.sceneProfile);
+        beginInspectorFieldRow("Scene Profile");
+
+        if (ImGui::Combo(
+                inspectorFieldId("Scene Profile").c_str(),
+                &sceneProfile,
+                SceneProfileLabels,
+                IM_ARRAYSIZE(SceneProfileLabels)))
+        {
+            session.captureUndoSnapshot();
+            sceneData.sceneProfile = static_cast<Game::OutdoorSceneProfile>(sceneProfile);
+            changed = true;
+        }
+
+        static constexpr const char *LocationTypeLabels[] = {"Exterior", "Enclosed"};
+        int locationType = static_cast<int>(environment.locationType);
+        beginInspectorFieldRow("Location Type");
+
+        if (ImGui::Combo(
+                inspectorFieldId("Location Type").c_str(),
+                &locationType,
+                LocationTypeLabels,
+                IM_ARRAYSIZE(LocationTypeLabels)))
+        {
+            session.captureUndoSnapshot();
+            environment.locationType = static_cast<Game::OutdoorLocationType>(locationType);
+            changed = true;
+        }
+
         changed = editStringField(session, "Sky Texture", environment.skyTexture, 128) || changed;
         changed = editStringField(session, "Ground Tileset", environment.groundTilesetName, 128) || changed;
         changed = editUInt8Field(session, "Master Tile", environment.masterTile) || changed;

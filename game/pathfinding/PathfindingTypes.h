@@ -194,6 +194,7 @@ struct ActorPathState
     double nextShortcutCheckSeconds = 0.0;
     double lastWaypointProgressSeconds = 0.0;
     float bestWaypointDistance = 0.0f;
+    bool waypointProgressObserved = false;
     float targetMovedThreshold = 1024.0f;
     size_t progressWaypointIndex = 0;
     PathPoint lastSourcePosition;

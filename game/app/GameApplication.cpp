@@ -46,6 +46,7 @@
 #include <ctime>
 #include <filesystem>
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <iterator>
 #include <limits>
@@ -2921,7 +2922,7 @@ void GameApplication::registerDebugConsoleCommands()
         .callback = [this, commandResult](const DebugConsole::CommandContext &)
         {
             std::ostringstream out;
-            out << "Commands: help, cls, map, setup breach, event <id>, "
+            out << "Commands: help, cls, map, loc, setup breach, event <id>, "
                 << "actor count <monster-id> [monster-id...], "
                 << "time [advance [days]], "
                 << "qbit get|set|clear <id> [id...], qbit dump [active|all|filter], "
@@ -3152,6 +3153,49 @@ void GameApplication::registerDebugConsoleCommands()
                         ? selectedMap->globalEventProgram->eventIds().size() : 0);
             }
 
+            return commandResult(true, out.str());
+        }});
+
+    m_debugConsole.registerCommand({
+        .name = "loc",
+        .description = "Show current party position and heading.",
+        .usage = "loc",
+        .callback = [activeGameplayWorld, commandResult](const DebugConsole::CommandContext &context)
+        {
+            if (!context.args.empty())
+            {
+                return commandResult(false, "Usage: loc");
+            }
+
+            IGameplayWorldRuntime *pWorldRuntime = activeGameplayWorld();
+
+            if (pWorldRuntime == nullptr)
+            {
+                return commandResult(false, "No active map runtime.");
+            }
+
+            constexpr float FullCircleRadians = Pi * 2.0f;
+            float normalizedYawRadians = std::fmod(pWorldRuntime->gameplayCameraYawRadians(), FullCircleRadians);
+
+            if (normalizedYawRadians < 0.0f)
+            {
+                normalizedYawRadians += FullCircleRadians;
+            }
+
+            const float headingDegrees = normalizedYawRadians * 180.0f / Pi;
+            const int headingYawUnits = static_cast<int>(
+                std::lround(normalizedYawRadians * 2048.0f / FullCircleRadians)) % 2048;
+            const float pitchDegrees = pWorldRuntime->gameplayCameraPitchRadians() * 180.0f / Pi;
+            std::ostringstream out;
+            out << std::fixed << std::setprecision(3)
+                << "map=\"" << pWorldRuntime->mapName() << '"'
+                << " position=(" << pWorldRuntime->partyX()
+                << ", " << pWorldRuntime->partyY()
+                << ", " << pWorldRuntime->partyFootZ() << ')'
+                << " heading_yaw_units=" << headingYawUnits
+                << " heading_degrees=" << headingDegrees
+                << " yaw_radians=" << normalizedYawRadians
+                << " pitch_degrees=" << pitchDegrees;
             return commandResult(true, out.str());
         }});
 

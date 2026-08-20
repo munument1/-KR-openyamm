@@ -57,19 +57,55 @@ FACE_ATTRIBUTE_UNTOUCHABLE = 0x20000000
 ODM_FACE_RESERVED_NOT_A_STEP = 0x0001
 MM9_MECHANISM_EVENT_ID_BASE = 30000
 MM9_SPR_HEADER_SIZE = 20
+OUTDOOR_NAVIGATION_MAGIC = b"OYMNAV1\0"
+OUTDOOR_NAVIGATION_VERSION = 1
+OUTDOOR_NAVIGATION_HEADER_SIZE = 48
+OUTDOOR_NAVIGATION_RECORD_SIZE = 24
+OUTDOOR_NAVIGATION_KIND_FLOOR = 1
+OUTDOOR_NAVIGATION_KIND_BARRIER = 2
+OUTDOOR_NAVIGATION_FLAG_WALKABLE = 0x01
+OUTDOOR_NAVIGATION_FLAG_BLOCKING = 0x02
+OUTDOOR_NAVIGATION_FLAG_DYNAMIC = 0x04
+OUTDOOR_NAVIGATION_MIN_WALKABLE_NORMAL_Z = 0.65
+OUTDOOR_RENDER_MAGIC = b"OYMREN1\0"
+OUTDOOR_RENDER_VERSION = 1
+OUTDOOR_RENDER_HEADER_SIZE = 48
+OUTDOOR_RENDER_RECORD_SIZE = 24
+OUTDOOR_RENDER_CELL_SIZE = 4096
+OUTDOOR_RENDER_FLAG_DYNAMIC = 0x01
+OUTDOOR_RENDER_FLAG_TRANSLUCENT = 0x02
+OUTDOOR_LIGHTING_MAGIC = b"OYMLIT1\0"
+OUTDOOR_LIGHTING_VERSION = 1
+OUTDOOR_LIGHTING_HEADER_SIZE = 96
+OUTDOOR_LIGHTING_PAGE_RECORD_SIZE = 16
+OUTDOOR_LIGHTING_FACE_RECORD_SIZE = 24
+OUTDOOR_LIGHTING_VERTEX_RECORD_SIZE = 12
+OUTDOOR_LIGHTING_LIGHT_RECORD_SIZE = 80
+OUTDOOR_LIGHTING_ATLAS_MAX_WIDTH = 1024
+OUTDOOR_LIGHTING_FACE_HAS_LIGHTMAP = 0x01
+OUTDOOR_LIGHTING_LIGHT_POINT = 0
+OUTDOOR_LIGHTING_LIGHT_DIRECTIONAL = 1
+OUTDOOR_LIGHTING_LIGHT_OBJECTS = 0x01
+OUTDOOR_LIGHTING_LIGHT_FAST_OBJECTS = 0x02
+OUTDOOR_LIGHTING_LIGHT_STATIC_OBJECT_ELIGIBLE = 0x04
 LT_SURFACE_FLAG_INVISIBLE = 0x00000004
+LT_SURFACE_FLAG_TRANSPARENT = 0x00000008
 LT_SURFACE_FLAG_NOT_A_STEP = 0x00400000
 MM9_MECHANISM_CLASS_KINDS = {
     "Door": "linear_door",
     "RotatingDoor": "rotating_door",
     "WeightedLift": "weighted_lift",
+    "Button": "linear_button",
+    "Switch": "rotating_switch",
     "RotatingBrush": "rotating_brush",
     "InvisibleBrush": "collision_volume",
 }
 MM9_INTERACTIVE_MECHANISM_KINDS = {
     "linear_door",
+    "linear_button",
     "weighted_lift",
     "rotating_door",
+    "rotating_switch",
     "rotating_brush",
 }
 
@@ -185,6 +221,7 @@ class Poly:
     surface_index: int
     plane_index: int
     disk_verts: list[DiskVert]
+    lightmap_pixels_bgra: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -301,6 +338,13 @@ class DatWorld:
     world_info: WorldInfo
     world_models: list[WorldBsp]
     objects: list[WorldObject]
+    lightmap_stats: dict[str, int] = field(default_factory=dict)
+
+    @property
+    def light_animation_data_pos(self) -> int:
+        # The second v66 header offset was historically called render_data_pos in this importer. Local MM9 DATs
+        # identify it as the legacy LightAnim_BASE payload instead of the later LithTech render-world stream.
+        return self.render_data_pos
 
 
 @dataclass
@@ -334,6 +378,38 @@ class ExportedLight:
     fast_light_objects: bool
     static_object_light_eligible: bool
     light_group: str
+    source_rotation_lt: tuple[float, float, float, float]
+    fov_degrees: float
+    brightness_scale: float
+    object_brightness_scale: float
+    cast_shadows: bool
+    clip_light: bool
+
+
+@dataclass
+class LightmapAtlasRect:
+    page_index: int
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+@dataclass
+class LightmapAtlasPage:
+    width: int
+    height: int
+    pixels_bgra: list[int]
+
+
+@dataclass
+class OutdoorLightingFace:
+    bmodel_index: int
+    face_index: int
+    page_index: int
+    has_lightmap: bool
+    vertex_uvs: list[tuple[float, float]]
+    vertex_colors_abgr: list[int]
 
 
 @dataclass
@@ -694,6 +770,107 @@ def read_world_bsp(reader: BinaryReader) -> WorldBsp:
     )
 
 
+def rgb555_to_bgra(color: int) -> int:
+    value = color & 0x7FFF
+    red5 = (value >> 10) & 0x1F
+    green5 = (value >> 5) & 0x1F
+    blue5 = value & 0x1F
+    red = (red5 << 3) | (red5 >> 2)
+    green = (green5 << 3) | (green5 >> 2)
+    blue = (blue5 << 3) | (blue5 >> 2)
+    return 0xFF000000 | (red << 16) | (green << 8) | blue
+
+
+def decode_mm9_v66_lightmap(data: bytes) -> list[int]:
+    pixels: list[int] = []
+    offset = 0
+
+    while offset < len(data):
+        if offset + 2 > len(data):
+            raise DatParseError("MM9 v66 lightmap ends inside an RGB555 word")
+        color = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+        repeat_count = 1
+        if color & 0x8000:
+            if offset >= len(data):
+                raise DatParseError("MM9 v66 lightmap run is missing its repeat count")
+            repeat_count = data[offset]
+            offset += 1
+        pixels.extend([rgb555_to_bgra(color)] * repeat_count)
+
+    return pixels
+
+
+def read_mm9_v66_base_lightmaps(
+    reader: BinaryReader,
+    offset: int,
+    world_models: list[WorldBsp],
+) -> dict[str, int]:
+    stats = {
+        "lightmap_affected_polies": 0,
+        "lightmap_frames": 0,
+        "lightmap_compressed_bytes": 0,
+        "lightmap_decoded_texels": 0,
+        "lightmap_base_polies": 0,
+    }
+    if offset == 0:
+        return stats
+
+    reader.seek(offset)
+    affected_poly_count = reader.u32()
+    frame_count = reader.u32()
+    frame_data_bytes = reader.u32()
+    first_animation_poly_count = reader.u32()
+    animation_count = reader.u32()
+    if animation_count != 1:
+        raise DatParseError(f"expected one MM9 v66 light animation, got {animation_count}")
+
+    animation_name = reader.string()
+    if animation_name != "LightAnim_BASE":
+        raise DatParseError(f"expected LightAnim_BASE, got {animation_name!r}")
+    reader.u32()
+    animation_frame_count = reader.u32()
+    poly_ref_count = reader.u32()
+    if poly_ref_count != first_animation_poly_count or animation_frame_count != frame_count:
+        raise DatParseError("MM9 v66 light animation header counts disagree")
+
+    poly_refs = [(reader.u16(), reader.u16()) for _ in range(poly_ref_count)]
+    compressed_bytes = 0
+    decoded_texels = 0
+    for lightmap_index in range(animation_frame_count * poly_ref_count):
+        compressed_size = reader.u32()
+        compressed_data = reader.read(compressed_size)
+        pixels = decode_mm9_v66_lightmap(compressed_data)
+        compressed_bytes += compressed_size
+        decoded_texels += len(pixels)
+        world_model_index, poly_index = poly_refs[lightmap_index % poly_ref_count]
+        if world_model_index >= len(world_models) or poly_index >= len(world_models[world_model_index].polies):
+            raise DatParseError("MM9 v66 lightmap polygon reference is out of range")
+        poly = world_models[world_model_index].polies[poly_index]
+        expected_texels = poly.lightmap_width * poly.lightmap_height
+        if len(pixels) != expected_texels:
+            raise DatParseError(
+                f"MM9 v66 lightmap size mismatch for model {world_model_index} poly {poly_index}: "
+                f"decoded {len(pixels)}, expected {expected_texels}"
+            )
+        if lightmap_index < poly_ref_count:
+            poly.lightmap_pixels_bgra = pixels
+
+    if affected_poly_count != poly_ref_count or compressed_bytes != frame_data_bytes:
+        raise DatParseError("MM9 v66 light animation payload counts disagree")
+    if reader.tell() != len(reader.data):
+        raise DatParseError("unparsed data follows the MM9 v66 light animation payload")
+
+    stats.update({
+        "lightmap_affected_polies": affected_poly_count,
+        "lightmap_frames": frame_count,
+        "lightmap_compressed_bytes": compressed_bytes,
+        "lightmap_decoded_texels": decoded_texels,
+        "lightmap_base_polies": poly_ref_count,
+    })
+    return stats
+
+
 def read_property_value(reader: BinaryReader, code: int) -> Any:
     if code == 0:
         return reader.string()
@@ -806,6 +983,8 @@ def read_dat_world(path: Path) -> DatWorld:
         if model.section_count > 0:
             reader.seek(next_world_model_pos)
 
+    lightmap_stats = read_mm9_v66_base_lightmaps(reader, render_data_pos, world_models)
+
     return DatWorld(
         path=path,
         version=version,
@@ -815,6 +994,7 @@ def read_dat_world(path: Path) -> DatWorld:
         world_info=world_info,
         world_models=world_models,
         objects=objects,
+        lightmap_stats=lightmap_stats,
     )
 
 
@@ -1077,7 +1257,7 @@ def parse_spr_frame_paths(path: Path) -> tuple[int, list[str]]:
     if len(data) < MM9_SPR_HEADER_SIZE:
         return 0, []
 
-    frame_count, frame_ticks = struct.unpack_from("<II", data, 0)
+    frame_count, frames_per_second = struct.unpack_from("<II", data, 0)
     offset = MM9_SPR_HEADER_SIZE
     frames: list[str] = []
     for _ in range(frame_count):
@@ -1091,7 +1271,7 @@ def parse_spr_frame_paths(path: Path) -> tuple[int, list[str]]:
         offset += frame_length
         if frame_path:
             frames.append(frame_path)
-    return frame_ticks, frames
+    return frames_per_second, frames
 
 
 def build_sprite_animation_index(extracted_root: Path | None) -> dict[str, dict[str, Any]]:
@@ -1102,16 +1282,17 @@ def build_sprite_animation_index(extracted_root: Path | None) -> dict[str, dict[
         return {}
 
     result: dict[str, dict[str, Any]] = {}
+    frame_owners: dict[str, dict[str, Any] | None] = {}
     for path in sorted(sprite_root.rglob("*.spr")):
         if not path.is_file():
             continue
-        frame_ticks, frames = parse_spr_frame_paths(path)
+        frames_per_second, frames = parse_spr_frame_paths(path)
         if not frames:
             continue
         rel = path.relative_to(sprite_root).as_posix()
         rel_no_ext = str(Path(rel).with_suffix("")).replace("\\", "/")
         entry = {
-            "frame_ticks": frame_ticks,
+            "frames_per_second": frames_per_second,
             "frames": frames,
             "physical_path": str(path),
         }
@@ -1123,6 +1304,17 @@ def build_sprite_animation_index(extracted_root: Path | None) -> dict[str, dict[
             f"basename/{Path(rel).stem}",
         ]:
             result[texture_key(key)] = entry
+
+        for frame_source in frames:
+            frame_key = texture_key(frame_source)
+            if frame_key not in frame_owners:
+                frame_owners[frame_key] = entry
+            elif frame_owners[frame_key] != entry:
+                frame_owners[frame_key] = None
+
+    for frame_key, entry in frame_owners.items():
+        if entry is not None:
+            result[f"frame/{frame_key}"] = entry
     return result
 
 
@@ -1508,7 +1700,6 @@ def is_skipped_world_model_name(model_name: str) -> bool:
     compact_model = normalize_model_role_name(model_name)
     return (
         compact_model.startswith("aitrk")
-        or compact_model.startswith("aibarrier")
         or compact_model.startswith("rail")
         or compact_model.startswith("todsky")
         or compact_model.startswith("skybox")
@@ -1584,6 +1775,7 @@ def resolve_sprite_animation_frames(
         normalized,
         str(Path(normalized).with_suffix("")).replace("\\", "/"),
         f"basename/{Path(normalized).stem}",
+        f"frame/{normalized}",
     ]
     entry: dict[str, Any] | None = None
     for candidate in candidates:
@@ -1595,7 +1787,7 @@ def resolve_sprite_animation_frames(
         return []
 
     frames: list[dict[str, Any]] = []
-    frame_ticks = int(entry.get("frame_ticks", 0) or 0)
+    frames_per_second = int(entry.get("frames_per_second", 0) or 0)
     for frame_source in entry.get("frames", []):
         width, height, physical_path = find_texture_size(texture_sizes, str(frame_source))
         frames.append({
@@ -1603,7 +1795,7 @@ def resolve_sprite_animation_frames(
             "width": width,
             "height": height,
             "physical_path": physical_path,
-            "frame_ticks": frame_ticks,
+            "frames_per_second": frames_per_second,
         })
     return frames
 
@@ -1623,17 +1815,17 @@ def classify_face_role(model_name: str, texture_name: str, surface_flags: int) -
             "hidden",
         )
 
+    if compact_model.startswith("aibarrier"):
+        return FaceRole(
+            FACE_ATTRIBUTE_INVISIBLE | FACE_ATTRIBUTE_UNTOUCHABLE,
+            "ai_barrier",
+            "hidden",
+        )
+
     if compact_model.startswith("perceptionbrush"):
         return FaceRole(
             FACE_ATTRIBUTE_SECRET | FACE_ATTRIBUTE_INVISIBLE,
             "secret_perception",
-            "hidden",
-        )
-
-    if compact_model == "visbsp":
-        return FaceRole(
-            FACE_ATTRIBUTE_INVISIBLE | FACE_ATTRIBUTE_UNTOUCHABLE,
-            "visibility_helper",
             "hidden",
         )
 
@@ -1670,6 +1862,13 @@ def classify_face_role(model_name: str, texture_name: str, surface_flags: int) -
             FACE_ATTRIBUTE_UNTOUCHABLE,
             "visual_non_collision",
             "visible",
+        )
+
+    if compact_model == "visbsp":
+        return FaceRole(
+            FACE_ATTRIBUTE_INVISIBLE | FACE_ATTRIBUTE_UNTOUCHABLE,
+            "visibility_helper",
+            "hidden",
         )
 
     if compact_model == "physicsbsp":
@@ -2474,6 +2673,8 @@ def append_source_face(
         stats["faces_water_surface"] += 1
     elif face_role.collision_role == "visual_non_collision":
         stats["faces_visual_non_collision"] += 1
+    elif face_role.collision_role == "ai_barrier":
+        stats["faces_ai_barrier"] += 1
     else:
         stats["faces_non_collision_helper"] += 1
     return True
@@ -2627,11 +2828,13 @@ def transcode_geometry(
                     "physical_path": frame.get("physical_path", ""),
                     "width": frame.get("width", 0),
                     "height": frame.get("height", 0),
-                    "frame_ticks": frame.get("frame_ticks", 0),
+                    "frames_per_second": frame.get("frames_per_second", 0),
                 })
             metadata["animation_frames"] = animation_frames
             metadata["animation_frame_count"] = len(animation_frames)
-            metadata["animation_frame_ticks"] = int(sprite_frames[0].get("frame_ticks", 0) or 0)
+            metadata["animation_frames_per_second"] = int(
+                sprite_frames[0].get("frames_per_second", 0) or 0
+            )
         alias_metadata[aliases[texture_name]] = metadata
 
     bmodels: list[OdmBModel] = []
@@ -2653,6 +2856,7 @@ def transcode_geometry(
         "faces_secret_perception": 0,
         "faces_water_surface": 0,
         "faces_visual_non_collision": 0,
+        "faces_ai_barrier": 0,
         "faces_non_collision_helper": 0,
         "sprite_animation_sources": sprite_animation_sources,
         "sprite_animation_frames": sprite_animation_frames,
@@ -3439,6 +3643,9 @@ def export_mm9_lights(dat_world: DatWorld, scale: float) -> tuple[list[ExportedL
         light_group = properties.get("lightgroup", "")
         if not isinstance(light_group, str):
             light_group = ""
+        rotation = properties.get("rotation")
+        if not isinstance(rotation, list) or len(rotation) < 4:
+            rotation = [0.0, 0.0, 0.0, 0.0]
 
         lights.append(ExportedLight(
             source_object_index=object_index,
@@ -3455,6 +3662,12 @@ def export_mm9_lights(dat_world: DatWorld, scale: float) -> tuple[list[ExportedL
             fast_light_objects=fast_light_objects,
             static_object_light_eligible=static_object_light_eligible,
             light_group=light_group,
+            source_rotation_lt=tuple(float(value) for value in rotation[:4]),
+            fov_degrees=float_property(properties.get("fov"), 90.0),
+            brightness_scale=brightness_scale,
+            object_brightness_scale=object_brightness_scale,
+            cast_shadows=truthy_property(properties.get("castshadows"), True),
+            clip_light=truthy_property(properties.get("cliplight"), source_class_lower in {"light", "dirlight"}),
         ))
     return lights, stats
 
@@ -3476,6 +3689,14 @@ def build_mm9_light_lines(lights: list[ExportedLight]) -> list[str]:
             "    effective_color: ["
             f"{light.effective_color[0]}, {light.effective_color[1]}, {light.effective_color[2]}]",
             f"    type: {yaml_scalar(light.light_type)}",
+            "    source_rotation_lt: ["
+            f"{light.source_rotation_lt[0]:.8g}, {light.source_rotation_lt[1]:.8g}, "
+            f"{light.source_rotation_lt[2]:.8g}, {light.source_rotation_lt[3]:.8g}]",
+            f"    fov_degrees: {light.fov_degrees:.8g}",
+            f"    brightness_scale: {light.brightness_scale:.8g}",
+            f"    object_brightness_scale: {light.object_brightness_scale:.8g}",
+            f"    cast_shadows: {yaml_scalar(light.cast_shadows)}",
+            f"    clip_light: {yaml_scalar(light.clip_light)}",
             f"    light_objects: {yaml_scalar(light.light_objects)}",
             f"    fast_light_objects: {yaml_scalar(light.fast_light_objects)}",
             f"    static_object_light_eligible: {yaml_scalar(light.static_object_light_eligible)}",
@@ -3483,6 +3704,248 @@ def build_mm9_light_lines(lights: list[ExportedLight]) -> list[str]:
         if light.light_group:
             lines.append(f"    light_group: {yaml_scalar(light.light_group)}")
     return lines
+
+
+def parse_world_ambient_color(world_info: WorldInfo) -> tuple[int, int, int]:
+    match = re.search(
+        r"(?:^|[;\s])AmbientLight\s+([-+0-9.]+)\s+([-+0-9.]+)\s+([-+0-9.]+)",
+        world_info.properties,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return (255, 255, 255)
+    return tuple(max(0, min(255, int(round(float(value))))) for value in match.groups())
+
+
+def normalized_tuple(value: tuple[float, float, float]) -> tuple[float, float, float] | None:
+    length = math.sqrt(vec_dot(value, value))
+    if length <= 0.0001:
+        return None
+    return (value[0] / length, value[1] / length, value[2] / length)
+
+
+def lightmap_basis(normal: tuple[float, float, float]) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    principal_normals = (
+        (0.0, 1.0, 0.0),
+        (0.0, -1.0, 0.0),
+        (0.0, 0.0, 1.0),
+        (0.0, 0.0, -1.0),
+        (1.0, 0.0, 0.0),
+        (-1.0, 0.0, 0.0),
+    )
+    principal_v = (
+        (0.0, 0.0, -1.0),
+        (0.0, 0.0, 1.0),
+        (0.0, 1.0, 0.0),
+        (0.0, -1.0, 0.0),
+        (0.0, -1.0, 0.0),
+        (0.0, -1.0, 0.0),
+    )
+    plane_index = max(range(len(principal_normals)), key=lambda index: vec_dot(principal_normals[index], normal))
+    axis_u = vec_cross(normal, principal_v[plane_index])
+    axis_v = vec_cross(axis_u, normal)
+    return axis_u, axis_v
+
+
+def add_scaled_tuple(
+    value: tuple[float, float, float],
+    axis: tuple[float, float, float],
+    scale: float,
+) -> tuple[float, float, float]:
+    return (
+        value[0] + axis[0] * scale,
+        value[1] + axis[1] * scale,
+        value[2] + axis[2] * scale,
+    )
+
+
+def adjusted_lightmap_origin(
+    origin: tuple[float, float, float],
+    axis: tuple[float, float, float],
+    grid_size: float,
+) -> tuple[float, float, float]:
+    unit_axis = normalized_tuple(axis)
+    if unit_axis is None:
+        return origin
+    offset = math.fmod(vec_dot(unit_axis, origin), grid_size)
+    snap_distance = offset if offset >= 0.0 else grid_size + offset
+    return add_scaled_tuple(origin, unit_axis, -snap_distance)
+
+
+def lightmap_uvs_for_poly(
+    model: WorldBsp,
+    poly: Poly,
+    point_indices: list[int],
+    grid_size: float,
+) -> list[tuple[float, float]]:
+    if (
+        poly.lightmap_width <= 0
+        or poly.lightmap_height <= 0
+        or grid_size <= 0.0001
+        or len(poly.disk_verts) < 3
+    ):
+        return [(0.5, 0.5)] * len(point_indices)
+
+    source_points = [model.points[vertex.vertex_index] for vertex in poly.disk_verts]
+    edge_a = vec_sub_lt(source_points[1], source_points[0])
+    normal: tuple[float, float, float] | None = None
+    for point in source_points[2:]:
+        edge_b = vec_sub_lt(point, source_points[0])
+        normal = normalized_tuple(vec_cross(edge_a, edge_b))
+        if normal is not None:
+            break
+    if normal is None:
+        return [(0.5, 0.5)] * len(point_indices)
+
+    axis_u, axis_v = lightmap_basis(normal)
+    unit_u = normalized_tuple(axis_u)
+    unit_v = normalized_tuple(axis_v)
+    if unit_u is None or unit_v is None:
+        return [(0.5, 0.5)] * len(point_indices)
+
+    origin = source_points[0]
+    for point in source_points:
+        offset_u = vec_dot(unit_u, vec_sub_lt(point, origin))
+        if offset_u < 0.0:
+            origin = add_scaled_tuple(origin, unit_u, offset_u)
+        offset_v = vec_dot(unit_v, vec_sub_lt(point, origin))
+        if offset_v < 0.0:
+            origin = add_scaled_tuple(origin, unit_v, offset_v)
+    origin = adjusted_lightmap_origin(origin, axis_u, grid_size)
+    origin = adjusted_lightmap_origin(origin, axis_v, grid_size)
+
+    result: list[tuple[float, float]] = []
+    for point_index in point_indices:
+        offset = vec_sub_lt(model.points[point_index], origin)
+        pixel_u = vec_dot(offset, axis_u) / grid_size + 0.5
+        pixel_v = vec_dot(offset, axis_v) / grid_size + 0.5
+        result.append((1.0 - pixel_u / poly.lightmap_width, pixel_v / poly.lightmap_height))
+    return result
+
+
+def pack_lightmap_atlases(
+    lightmaps: dict[tuple[int, int], Poly],
+) -> tuple[list[LightmapAtlasPage], dict[tuple[int, int], LightmapAtlasRect]]:
+    page_layouts: list[dict[str, Any]] = []
+    rects: dict[tuple[int, int], LightmapAtlasRect] = {}
+    ordered_lightmaps = sorted(
+        lightmaps.items(),
+        key=lambda entry: (-(entry[1].lightmap_height + 2), -(entry[1].lightmap_width + 2), entry[0]),
+    )
+
+    for key, poly in ordered_lightmaps:
+        outer_width = poly.lightmap_width + 2
+        outer_height = poly.lightmap_height + 2
+        if outer_width > OUTDOOR_LIGHTING_ATLAS_MAX_WIDTH or outer_height > OUTDOOR_LIGHTING_ATLAS_MAX_WIDTH:
+            raise DatParseError(f"MM9 lightmap {key} does not fit an atlas page")
+
+        placement: tuple[int, int, int] | None = None
+        for page_index, page in enumerate(page_layouts):
+            for shelf in page["shelves"]:
+                if outer_height <= shelf["height"] and shelf["x"] + outer_width <= OUTDOOR_LIGHTING_ATLAS_MAX_WIDTH:
+                    placement = (page_index, shelf["x"], shelf["y"])
+                    shelf["x"] += outer_width
+                    break
+            if placement is not None:
+                break
+            next_y = page["height"]
+            if next_y + outer_height <= OUTDOOR_LIGHTING_ATLAS_MAX_WIDTH:
+                page["shelves"].append({"x": outer_width, "y": next_y, "height": outer_height})
+                page["height"] += outer_height
+                placement = (page_index, 0, next_y)
+                break
+
+        if placement is None:
+            page_layouts.append({
+                "shelves": [{"x": outer_width, "y": 4, "height": outer_height}],
+                "height": outer_height + 4,
+            })
+            placement = (len(page_layouts) - 1, 0, 4)
+
+        page_index, outer_x, outer_y = placement
+        rects[key] = LightmapAtlasRect(
+            page_index=page_index,
+            x=outer_x + 1,
+            y=outer_y + 1,
+            width=poly.lightmap_width,
+            height=poly.lightmap_height,
+        )
+
+    pages: list[LightmapAtlasPage] = []
+    for page_index, layout in enumerate(page_layouts):
+        used_width = 1
+        for rect in rects.values():
+            if rect.page_index == page_index:
+                used_width = max(used_width, rect.x + rect.width + 1)
+        width = used_width
+        height = max(1, layout["height"])
+        pages.append(LightmapAtlasPage(width, height, [0xFFFFFFFF] * (width * height)))
+
+    for key, poly in lightmaps.items():
+        rect = rects[key]
+        page = pages[rect.page_index]
+        for y in range(rect.height):
+            source_offset = y * rect.width
+            target_offset = (rect.y + y) * page.width + rect.x
+            page.pixels_bgra[target_offset:target_offset + rect.width] = (
+                poly.lightmap_pixels_bgra[source_offset:source_offset + rect.width]
+            )
+        for x in range(rect.width):
+            page.pixels_bgra[(rect.y - 1) * page.width + rect.x + x] = (
+                page.pixels_bgra[rect.y * page.width + rect.x + x]
+            )
+            page.pixels_bgra[(rect.y + rect.height) * page.width + rect.x + x] = (
+                page.pixels_bgra[(rect.y + rect.height - 1) * page.width + rect.x + x]
+            )
+        for y in range(rect.height):
+            page.pixels_bgra[(rect.y + y) * page.width + rect.x - 1] = (
+                page.pixels_bgra[(rect.y + y) * page.width + rect.x]
+            )
+            page.pixels_bgra[(rect.y + y) * page.width + rect.x + rect.width] = (
+                page.pixels_bgra[(rect.y + y) * page.width + rect.x + rect.width - 1]
+            )
+        page.pixels_bgra[(rect.y - 1) * page.width + rect.x - 1] = page.pixels_bgra[rect.y * page.width + rect.x]
+        page.pixels_bgra[(rect.y - 1) * page.width + rect.x + rect.width] = (
+            page.pixels_bgra[rect.y * page.width + rect.x + rect.width - 1]
+        )
+        page.pixels_bgra[(rect.y + rect.height) * page.width + rect.x - 1] = (
+            page.pixels_bgra[(rect.y + rect.height - 1) * page.width + rect.x]
+        )
+        page.pixels_bgra[(rect.y + rect.height) * page.width + rect.x + rect.width] = (
+            page.pixels_bgra[(rect.y + rect.height - 1) * page.width + rect.x + rect.width - 1]
+        )
+
+    return pages, rects
+
+
+def abgr_color(red: float, green: float, blue: float) -> int:
+    red_byte = max(0, min(255, int(round(red * 255.0))))
+    green_byte = max(0, min(255, int(round(green * 255.0))))
+    blue_byte = max(0, min(255, int(round(blue * 255.0))))
+    return 0xFF000000 | (blue_byte << 16) | (green_byte << 8) | red_byte
+
+
+def static_object_light_color(
+    vertex: OdmVertex,
+    ambient: tuple[int, int, int],
+    lights: list[ExportedLight],
+) -> int:
+    color = [channel / 255.0 for channel in ambient]
+    for light in lights:
+        if not light.static_object_light_eligible or light.radius <= 0:
+            continue
+        dx = float(vertex.x - light.position[0])
+        dy = float(vertex.y - light.position[1])
+        dz = float(vertex.z - light.position[2])
+        distance_squared = dx * dx + dy * dy + dz * dz
+        radius_squared = float(light.radius * light.radius)
+        if distance_squared >= radius_squared:
+            continue
+        attenuation = 1.0 - distance_squared / radius_squared
+        attenuation *= attenuation
+        for channel in range(3):
+            color[channel] += light.effective_color[channel] / 255.0 * attenuation
+    return abgr_color(min(color[0], 1.0), min(color[1], 1.0), min(color[2], 1.0))
 
 
 def normalize_lithtech_virtual_path(value: str, lowercase: bool = False) -> str:
@@ -3686,6 +4149,21 @@ def mechanism_move_time_ms(values: dict[str, Any]) -> int:
     return max(1, int(round(distance / speed * 1000.0)))
 
 
+def mechanism_motion_support(mechanism_kind: str, values: dict[str, Any]) -> tuple[bool, bool]:
+    has_linear = (
+        mechanism_kind in {"linear_door", "linear_button", "weighted_lift"}
+        and isinstance(values.get("MoveDir"), list)
+        and len(values.get("MoveDir")) >= 3
+        and "MoveDist" in values
+    )
+    has_rotation = (
+        mechanism_kind in {"rotating_door", "rotating_switch", "rotating_brush"}
+        and isinstance(values.get("RotationPoint"), list)
+        and isinstance(values.get("RotationAngles"), list)
+    )
+    return has_linear, has_rotation
+
+
 def append_optional_bool_line(lines: list[str], key: str, value: Any) -> None:
     if isinstance(value, bool):
         lines.append(f"      {key}: {yaml_scalar(value)}")
@@ -3716,17 +4194,7 @@ def build_mechanism_lines(dat_world: DatWorld, bmodels: list[OdmBModel], scale: 
 
         binding = find_bmodel_binding_for_mechanism(values, bmodels)
         runtime_id = mechanism_runtime_id(object_index)
-        has_linear = (
-            mechanism_kind in {"linear_door", "weighted_lift"}
-            and isinstance(values.get("MoveDir"), list)
-            and len(values.get("MoveDir")) >= 3
-            and "MoveDist" in values
-        )
-        has_rotation = (
-            mechanism_kind in {"rotating_door", "rotating_brush"}
-            and isinstance(values.get("RotationPoint"), list)
-            and isinstance(values.get("RotationAngles"), list)
-        )
+        has_linear, has_rotation = mechanism_motion_support(mechanism_kind, values)
 
         stats["mechanisms"] += 1
         if has_linear:
@@ -3742,6 +4210,7 @@ def build_mechanism_lines(dat_world: DatWorld, bmodels: list[OdmBModel], scale: 
 
         lines.extend([
             f"  - mechanism_id: {runtime_id}",
+            f"    event_id: {mechanism_event_id(object_index)}",
             f"    source_object_index: {object_index}",
             f"    source_class: {yaml_scalar(world_object.name)}",
             f"    source_name: {yaml_scalar(source_name)}",
@@ -3809,6 +4278,7 @@ def build_mechanism_lines(dat_world: DatWorld, bmodels: list[OdmBModel], scale: 
         append_optional_bool_line(lines, "push_open", values.get("PushOpen"))
         append_optional_bool_line(lines, "touch_to_open", values.get("TouchToOpen"))
         append_optional_bool_line(lines, "locked", values.get("Locked"))
+        append_optional_bool_line(lines, "open_away", values.get("OpenAway"))
 
     return lines, stats
 
@@ -3878,7 +4348,9 @@ def write_scene_yml(
     light_lines: list[str],
     party_start_point_lines: list[str],
     entity_lines: list[str],
+    surface_animation_lines: list[str] | None = None,
     baked_model_instance_lines: list[str] | None = None,
+    location_type: str = "exterior",
 ) -> None:
     zeros_map = ", ".join(["0"] * 75)
     zeros_decor = ", ".join(["0"] * 125)
@@ -3888,6 +4360,7 @@ def write_scene_yml(
     lights = "\n".join(light_lines) if light_lines else "  []"
     party_start_points = "\n".join(party_start_point_lines) if party_start_point_lines else "  []"
     entities = "\n".join(entity_lines) if entity_lines else "  []"
+    surface_animations = "\n".join(surface_animation_lines) if surface_animation_lines else "  []"
     baked_model_instances = (
         "\n".join(baked_model_instance_lines)
         if baked_model_instance_lines
@@ -3896,14 +4369,17 @@ def write_scene_yml(
     path.write_text(
         f"""format_version: 1
 kind: "outdoor_scene"
+scene_profile: "bmodel_world"
 source:
   geometry_file: "{odm_name}"
   source_metadata_file: "{source_metadata_name}"
 runtime_restrictions:
   allow_save_game: false
   allow_lloyds_beacon: false
+  allow_rest: true
   arena: false
 environment:
+  location_type: "{location_type}"
   sky_texture: ""
   ground_tileset_name: "planset"
   master_tile: 0
@@ -3943,6 +4419,8 @@ environment:
 terrain:
   attribute_overrides: []
   footstep_sound_overrides: []
+surface_animations:
+{surface_animations}
 bmodel_faces:
   interactive_faces:
 {interactive_faces}
@@ -3977,6 +4455,26 @@ initial_state:
     )
 
 
+def build_surface_animation_lines(alias_metadata: dict[str, dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+
+    for alias, metadata in sorted(alias_metadata.items()):
+        animation_frames = metadata.get("animation_frames", [])
+        frames_per_second = int(metadata.get("animation_frames_per_second", 0) or 0)
+        if len(animation_frames) < 2 or frames_per_second <= 0:
+            continue
+
+        lines.extend([
+            f"  - texture: {yaml_scalar(alias)}",
+            f"    frames_per_second: {frames_per_second}",
+            "    frames:",
+        ])
+        for frame in animation_frames:
+            lines.append(f"      - {yaml_scalar(str(frame.get('alias', '')))}")
+
+    return lines
+
+
 def write_material_aliases(
     path: Path,
     source_dat: Path,
@@ -4008,7 +4506,10 @@ def write_material_aliases(
         animation_frames = metadata.get("animation_frames", [])
         if animation_frames:
             lines.append(f"    animation_frame_count: {len(animation_frames)}")
-            lines.append(f"    animation_frame_ticks: {int(metadata.get('animation_frame_ticks', 0) or 0)}")
+            lines.append(
+                "    animation_frames_per_second: "
+                f"{int(metadata.get('animation_frames_per_second', 0) or 0)}"
+            )
             lines.append("    animation_frames:")
             for frame in animation_frames:
                 frame_alias = str(frame.get("alias", ""))
@@ -4021,7 +4522,9 @@ def write_material_aliases(
                 lines.append(f"        source_texture: {yaml_scalar(frame.get('source_texture', ''))}")
                 lines.append(f"        physical_path: {yaml_scalar(frame.get('physical_path', ''))}")
                 lines.append(f"        emitted_bitmap: {yaml_scalar(frame_bitmap)}")
-                lines.append(f"        frame_ticks: {int(frame.get('frame_ticks', 0) or 0)}")
+                lines.append(
+                    f"        frames_per_second: {int(frame.get('frames_per_second', 0) or 0)}"
+                )
         for key in [
             "dtx_surface_flag",
             "dtx_texture_group",
@@ -4035,6 +4538,624 @@ def write_material_aliases(
         ]:
             if key in metadata:
                 lines.append(f"    {key}: {yaml_scalar(metadata[key])}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def fnv1a64(data: bytes) -> int:
+    value = 14695981039346656037
+    for byte in data:
+        value ^= byte
+        value = (value * 1099511628211) & 0xffffffffffffffff
+    return value
+
+
+def navigation_mechanisms_by_bmodel(dat_world: DatWorld, bmodels: list[OdmBModel]) -> dict[int, int]:
+    result: dict[int, int] = {}
+    for object_index, world_object in enumerate(dat_world.objects):
+        mechanism_kind = MM9_MECHANISM_CLASS_KINDS.get(world_object.name)
+        if mechanism_kind is None:
+            continue
+        values = property_map_cased(world_object)
+        if not any(mechanism_motion_support(mechanism_kind, values)):
+            continue
+        binding = find_bmodel_binding_for_mechanism(values, bmodels)
+        if binding is None:
+            continue
+        bmodel_index, _, _ = binding
+        result.setdefault(bmodel_index, mechanism_runtime_id(object_index))
+    return result
+
+
+def navigation_face_geometry_key(
+    bmodel: OdmBModel,
+    face: OdmFace,
+    kind: int,
+    mechanism_id: int,
+) -> tuple[Any, ...]:
+    vertices = sorted(
+        (bmodel.vertices[index].x, bmodel.vertices[index].y, bmodel.vertices[index].z)
+        for index in face.vertex_indices
+    )
+    return (kind, mechanism_id, tuple(vertices))
+
+
+def navigation_floor_component_counts(
+    records: list[tuple[int, int, int, int, int, int, int]],
+    bmodels: list[OdmBModel],
+) -> tuple[int, int]:
+    floor_records = [record for record in records if record[4] == OUTDOOR_NAVIGATION_KIND_FLOOR]
+    if not floor_records:
+        return 0, 0
+
+    parents = list(range(len(floor_records)))
+
+    def find(index: int) -> int:
+        while parents[index] != index:
+            parents[index] = parents[parents[index]]
+            index = parents[index]
+        return index
+
+    def union(left: int, right: int) -> None:
+        left_root = find(left)
+        right_root = find(right)
+        if left_root != right_root:
+            parents[right_root] = left_root
+
+    edge_owners: dict[tuple[tuple[int, int, int], tuple[int, int, int]], int] = {}
+    for record_index, record in enumerate(floor_records):
+        _, bmodel_index, face_index, _, _, _, _ = record
+        bmodel = bmodels[bmodel_index]
+        face = bmodel.faces[face_index]
+        vertices = [
+            (bmodel.vertices[index].x, bmodel.vertices[index].y, bmodel.vertices[index].z)
+            for index in face.vertex_indices
+        ]
+        for vertex_index, vertex in enumerate(vertices):
+            next_vertex = vertices[(vertex_index + 1) % len(vertices)]
+            edge = tuple(sorted((vertex, next_vertex)))
+            owner = edge_owners.get(edge)
+            if owner is None:
+                edge_owners[edge] = record_index
+            else:
+                union(record_index, owner)
+
+    component_sizes: dict[int, int] = {}
+    for index in range(len(floor_records)):
+        root = find(index)
+        component_sizes[root] = component_sizes.get(root, 0) + 1
+    return len(component_sizes), sum(1 for size in component_sizes.values() if size == 1)
+
+
+def mark_navigation_coplanar_triangle_pairs(
+    records: list[tuple[int, int, int, int, int, int]],
+    bmodels: list[OdmBModel],
+) -> tuple[list[tuple[int, int, int, int, int, int, int]], int]:
+    edge_owners: dict[tuple[Any, ...], int] = {}
+    paired_records: set[int] = set()
+    merge_offsets = [0] * len(records)
+    merge_count = 0
+
+    for record_index, record in enumerate(records):
+        _, bmodel_index, face_index, mechanism_id, kind, _ = record
+        face = bmodels[bmodel_index].faces[face_index]
+        if mechanism_id != 0 or kind != OUTDOOR_NAVIGATION_KIND_FLOOR or len(face.vertex_indices) != 3:
+            continue
+
+        vertices = [
+            (
+                bmodels[bmodel_index].vertices[index].x,
+                bmodels[bmodel_index].vertices[index].y,
+                bmodels[bmodel_index].vertices[index].z,
+            )
+            for index in face.vertex_indices
+        ]
+        plane = (*face.plane_normal, face.plane_distance)
+        for vertex_index, vertex in enumerate(vertices):
+            next_vertex = vertices[(vertex_index + 1) % len(vertices)]
+            edge_key = (plane, *sorted((vertex, next_vertex)))
+            owner_index = edge_owners.get(edge_key)
+            if owner_index is None:
+                edge_owners[edge_key] = record_index
+                continue
+            if owner_index in paired_records or record_index in paired_records:
+                continue
+            owner = records[owner_index]
+            owner_face = bmodels[owner[1]].faces[owner[2]]
+            owner_vertices = {
+                (
+                    bmodels[owner[1]].vertices[index].x,
+                    bmodels[owner[1]].vertices[index].y,
+                    bmodels[owner[1]].vertices[index].z,
+                )
+                for index in owner_face.vertex_indices
+            }
+            current_vertices = set(vertices)
+            shared_vertices = owner_vertices & current_vertices
+            owner_only = owner_vertices - shared_vertices
+            current_only = current_vertices - shared_vertices
+            if (
+                len(owner_vertices | current_vertices) != 4
+                or len(shared_vertices) != 2
+                or len(owner_only) != 1
+                or len(current_only) != 1
+                or record_index - owner_index > 0xffff
+            ):
+                continue
+            edge_start, edge_end = tuple(shared_vertices)
+            owner_point = next(iter(owner_only))
+            current_point = next(iter(current_only))
+            edge_x = edge_end[0] - edge_start[0]
+            edge_y = edge_end[1] - edge_start[1]
+            owner_side = edge_x * (owner_point[1] - edge_start[1]) - edge_y * (owner_point[0] - edge_start[0])
+            current_side = (
+                edge_x * (current_point[1] - edge_start[1])
+                - edge_y * (current_point[0] - edge_start[0])
+            )
+            if owner_side == 0 or current_side == 0 or owner_side * current_side >= 0:
+                continue
+            merge_offsets[record_index] = record_index - owner_index
+            paired_records.add(owner_index)
+            paired_records.add(record_index)
+            merge_count += 1
+            break
+
+    return [record + (merge_offsets[index],) for index, record in enumerate(records)], merge_count
+
+
+def build_navigation_records(
+    dat_world: DatWorld,
+    bmodels: list[OdmBModel],
+    mechanisms_by_bmodel: dict[int, int] | None = None,
+) -> tuple[list[tuple[int, int, int, int, int, int, int]], dict[str, Any]]:
+    if mechanisms_by_bmodel is None:
+        mechanisms_by_bmodel = navigation_mechanisms_by_bmodel(dat_world, bmodels)
+    records: list[tuple[int, int, int, int, int, int]] = []
+    geometry_keys: set[tuple[Any, ...]] = set()
+    stats: dict[str, Any] = {
+        "navigation_source_faces": sum(len(bmodel.faces) for bmodel in bmodels),
+        "navigation_floor_facets": 0,
+        "navigation_barrier_facets": 0,
+        "navigation_dynamic_facets": 0,
+        "navigation_duplicate_facets_removed": 0,
+        "navigation_decorative_faces_excluded": 0,
+        "navigation_ceiling_faces_excluded": 0,
+        "navigation_steep_faces_excluded": 0,
+        "navigation_other_faces_excluded": 0,
+        "navigation_max_slope_degrees": 0.0,
+    }
+    collision_roles = {"world_geometry", "physics_hull", "invisible_collision"}
+
+    for bmodel_index, bmodel in enumerate(bmodels):
+        decorative = bmodel.name.lower().startswith(
+            ("mm9_static_prop_", "mm9_destructible_prop_", "mm9_chest_", "mm9_pickup_")
+        )
+        mechanism_id = mechanisms_by_bmodel.get(bmodel_index, 0)
+
+        for face_index, face in enumerate(bmodel.faces):
+            role = bmodel.source_collision_role_for_face[face_index]
+            if decorative:
+                stats["navigation_decorative_faces_excluded"] += 1
+                continue
+
+            kind = 0
+            flags = 0
+            normal_z = face.plane_normal[2] / OUTDOOR_FACE_PLANE_SCALE
+            if role == "ai_barrier":
+                kind = OUTDOOR_NAVIGATION_KIND_BARRIER
+                flags = OUTDOOR_NAVIGATION_FLAG_BLOCKING
+            elif (
+                role in collision_roles
+                and face.reserved & ODM_FACE_RESERVED_NOT_A_STEP == 0
+                and face.polygon_type
+                in {OUTDOOR_POLYGON_FLOOR, OUTDOOR_POLYGON_IN_BETWEEN_FLOOR_AND_WALL}
+                and normal_z >= OUTDOOR_NAVIGATION_MIN_WALKABLE_NORMAL_Z
+            ):
+                kind = OUTDOOR_NAVIGATION_KIND_FLOOR
+                flags = OUTDOOR_NAVIGATION_FLAG_WALKABLE
+                slope_degrees = math.degrees(math.acos(min(1.0, normal_z)))
+                stats["navigation_max_slope_degrees"] = max(
+                    stats["navigation_max_slope_degrees"], slope_degrees
+                )
+            elif role in collision_roles and face.polygon_type in {
+                OUTDOOR_POLYGON_VERTICAL_WALL,
+                OUTDOOR_POLYGON_IN_BETWEEN_FLOOR_AND_WALL,
+            }:
+                kind = OUTDOOR_NAVIGATION_KIND_BARRIER
+                flags = OUTDOOR_NAVIGATION_FLAG_BLOCKING
+                if face.polygon_type == OUTDOOR_POLYGON_IN_BETWEEN_FLOOR_AND_WALL:
+                    stats["navigation_steep_faces_excluded"] += 1
+            elif face.polygon_type in {
+                OUTDOOR_POLYGON_CEILING,
+                OUTDOOR_POLYGON_IN_BETWEEN_CEILING_AND_WALL,
+            }:
+                stats["navigation_ceiling_faces_excluded"] += 1
+                continue
+            else:
+                stats["navigation_other_faces_excluded"] += 1
+                continue
+
+            geometry_key = navigation_face_geometry_key(bmodel, face, kind, mechanism_id)
+            if geometry_key in geometry_keys:
+                stats["navigation_duplicate_facets_removed"] += 1
+                continue
+            geometry_keys.add(geometry_key)
+
+            if mechanism_id != 0:
+                flags |= OUTDOOR_NAVIGATION_FLAG_DYNAMIC
+                stats["navigation_dynamic_facets"] += 1
+            if kind == OUTDOOR_NAVIGATION_KIND_FLOOR:
+                stats["navigation_floor_facets"] += 1
+            else:
+                stats["navigation_barrier_facets"] += 1
+
+            source_key = (bmodel_index << 32) | face_index
+            records.append((source_key, bmodel_index, face_index, mechanism_id, kind, flags))
+
+    merged_records, merged_pair_count = mark_navigation_coplanar_triangle_pairs(records, bmodels)
+    component_count, isolated_component_count = navigation_floor_component_counts(merged_records, bmodels)
+    stats["navigation_floor_components"] = component_count
+    stats["navigation_isolated_floor_components"] = isolated_component_count
+    stats["navigation_cooked_facets"] = len(records)
+    stats["navigation_coplanar_triangle_pairs_merged"] = merged_pair_count
+    stats["navigation_max_slope_degrees"] = round(stats["navigation_max_slope_degrees"], 4)
+    return merged_records, stats
+
+
+def build_navigation_bytes(
+    odm_bytes: bytes,
+    dat_world: DatWorld,
+    bmodels: list[OdmBModel],
+    mechanisms_by_bmodel: dict[int, int] | None = None,
+) -> tuple[bytes, dict[str, Any]]:
+    records, stats = build_navigation_records(dat_world, bmodels, mechanisms_by_bmodel)
+    source_face_count = sum(len(bmodel.faces) for bmodel in bmodels)
+    geometry_hash = fnv1a64(odm_bytes)
+    stats["navigation_geometry_fnv1a64"] = geometry_hash
+    data = bytearray(struct.pack(
+        "<8sIIIIQIIII",
+        OUTDOOR_NAVIGATION_MAGIC,
+        OUTDOOR_NAVIGATION_VERSION,
+        OUTDOOR_NAVIGATION_HEADER_SIZE,
+        OUTDOOR_NAVIGATION_RECORD_SIZE,
+        0,
+        geometry_hash,
+        len(bmodels),
+        source_face_count,
+        len(records),
+        0,
+    ))
+    for source_key, bmodel_index, face_index, mechanism_id, kind, flags, merge_leader_offset in records:
+        data.extend(struct.pack(
+            "<QIIIBBH",
+            source_key,
+            bmodel_index,
+            face_index,
+            mechanism_id,
+            kind,
+            flags,
+            merge_leader_offset,
+        ))
+    return bytes(data), stats
+
+
+def write_navigation_metadata(
+    path: Path,
+    geometry_name: str,
+    navigation_name: str,
+    geometry_hash: int,
+    stats: dict[str, Any],
+) -> None:
+    lines = [
+        "format_version: 1",
+        'kind: "outdoor_navigation_metadata"',
+        "source:",
+        f"  geometry_file: {yaml_scalar(geometry_name)}",
+        f"  navigation_file: {yaml_scalar(navigation_name)}",
+        f"  geometry_fnv1a64: {geometry_hash}",
+        "settings:",
+        f"  minimum_walkable_normal_z: {OUTDOOR_NAVIGATION_MIN_WALKABLE_NORMAL_Z}",
+        "stats:",
+    ]
+    for key, value in stats.items():
+        lines.append(f"  {key}: {value}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def build_render_data_bytes(
+    odm_bytes: bytes,
+    bmodels: list[OdmBModel],
+    mechanisms_by_bmodel: dict[int, int] | None = None,
+) -> tuple[bytes, dict[str, Any]]:
+    mechanisms_by_bmodel = mechanisms_by_bmodel or {}
+    records: list[tuple[int, int, int, int, int, int]] = []
+    cells: set[tuple[int, int]] = set()
+    static_faces = 0
+    dynamic_faces = 0
+    translucent_faces = 0
+    invisible_faces = 0
+    untextured_faces = 0
+
+    for bmodel_index, bmodel in enumerate(bmodels):
+        dynamic = bmodel_index in mechanisms_by_bmodel
+        for face_index, face in enumerate(bmodel.faces):
+            if face.attributes & FACE_ATTRIBUTE_INVISIBLE:
+                invisible_faces += 1
+                continue
+            if len(face.vertex_indices) < 3 or not face.texture_alias:
+                untextured_faces += 1
+                continue
+
+            vertices = [bmodel.vertices[index] for index in face.vertex_indices]
+            centroid_x = sum(vertex.x for vertex in vertices) / len(vertices)
+            centroid_y = sum(vertex.y for vertex in vertices) / len(vertices)
+            cell_x = math.floor(centroid_x / OUTDOOR_RENDER_CELL_SIZE)
+            cell_y = math.floor(centroid_y / OUTDOOR_RENDER_CELL_SIZE)
+            if not -32768 <= cell_x <= 32767 or not -32768 <= cell_y <= 32767:
+                raise ValueError("render chunk cell coordinate does not fit the sidecar format")
+
+            flags = OUTDOOR_RENDER_FLAG_DYNAMIC if dynamic else 0
+            source_surface_flags = (
+                bmodel.source_surface_flags_for_face[face_index]
+                if face_index < len(bmodel.source_surface_flags_for_face)
+                else 0
+            )
+            if source_surface_flags & LT_SURFACE_FLAG_TRANSPARENT:
+                flags |= OUTDOOR_RENDER_FLAG_TRANSLUCENT
+                translucent_faces += 1
+            source_key = (bmodel_index << 32) | face_index
+            records.append((source_key, bmodel_index, face_index, cell_x, cell_y, flags))
+            if dynamic:
+                dynamic_faces += 1
+            else:
+                static_faces += 1
+                cells.add((cell_x, cell_y))
+
+    geometry_hash = fnv1a64(odm_bytes)
+    data = bytearray(struct.pack(
+        "<8sIIIIQIIII",
+        OUTDOOR_RENDER_MAGIC,
+        OUTDOOR_RENDER_VERSION,
+        OUTDOOR_RENDER_HEADER_SIZE,
+        OUTDOOR_RENDER_RECORD_SIZE,
+        OUTDOOR_RENDER_CELL_SIZE,
+        geometry_hash,
+        len(bmodels),
+        sum(len(bmodel.faces) for bmodel in bmodels),
+        len(records),
+        0,
+    ))
+    for record in records:
+        data.extend(struct.pack("<QIIhhI", *record))
+
+    return bytes(data), {
+        "render_geometry_fnv1a64": geometry_hash,
+        "render_cell_size": OUTDOOR_RENDER_CELL_SIZE,
+        "render_source_faces": sum(len(bmodel.faces) for bmodel in bmodels),
+        "render_cooked_faces": len(records),
+        "render_static_faces": static_faces,
+        "render_dynamic_faces": dynamic_faces,
+        "render_translucent_faces": translucent_faces,
+        "render_static_cells": len(cells),
+        "render_invisible_faces_excluded": invisible_faces,
+        "render_untextured_faces_excluded": untextured_faces,
+    }
+
+
+def build_outdoor_lighting_bytes(
+    odm_bytes: bytes,
+    dat_world: DatWorld,
+    bmodels: list[OdmBModel],
+    lights: list[ExportedLight],
+) -> tuple[bytes, dict[str, int]]:
+    emitted_lightmaps: dict[tuple[int, int], Poly] = {}
+    for bmodel in bmodels:
+        if bmodel.source_model_index >= len(dat_world.world_models):
+            continue
+        source_model = dat_world.world_models[bmodel.source_model_index]
+        for poly_index in bmodel.source_poly_for_face:
+            if poly_index < 0 or poly_index >= len(source_model.polies):
+                continue
+            poly = source_model.polies[poly_index]
+            if poly.lightmap_pixels_bgra:
+                emitted_lightmaps[(bmodel.source_model_index, poly_index)] = poly
+
+    pages, atlas_rects = pack_lightmap_atlases(emitted_lightmaps)
+    ambient = parse_world_ambient_color(dat_world.world_info)
+    lighting_faces: list[OutdoorLightingFace] = []
+    for bmodel_index, bmodel in enumerate(bmodels):
+        source_model = (
+            dat_world.world_models[bmodel.source_model_index]
+            if bmodel.source_model_index < len(dat_world.world_models)
+            else None
+        )
+        for face_index, face in enumerate(bmodel.faces):
+            source_poly_index = bmodel.source_poly_for_face[face_index]
+            key = (bmodel.source_model_index, source_poly_index)
+            rect = atlas_rects.get(key)
+            local_uvs: list[tuple[float, float]] = []
+            if rect is not None and source_model is not None:
+                source_poly = source_model.polies[source_poly_index]
+                local_uvs = lightmap_uvs_for_poly(
+                    source_model,
+                    source_poly,
+                    list(face.vertex_indices),
+                    dat_world.world_info.light_map_grid_size,
+                )
+                page = pages[rect.page_index]
+                vertex_uvs = [
+                    (
+                        (rect.x + uv[0] * rect.width) / page.width,
+                        (rect.y + uv[1] * rect.height) / page.height,
+                    )
+                    for uv in local_uvs
+                ]
+                vertex_colors = [0xFFFFFFFF] * len(face.vertex_indices)
+                page_index = rect.page_index
+            else:
+                vertex_uvs = (
+                    [(0.5 / pages[0].width, 0.5 / pages[0].height)] * len(face.vertex_indices)
+                    if pages
+                    else [(0.5, 0.5)] * len(face.vertex_indices)
+                )
+                vertex_colors = [
+                    static_object_light_color(bmodel.vertices[vertex_index], ambient, lights)
+                    for vertex_index in face.vertex_indices
+                ]
+                page_index = 0 if pages else 0xFFFF
+            lighting_faces.append(OutdoorLightingFace(
+                bmodel_index=bmodel_index,
+                face_index=face_index,
+                page_index=page_index,
+                has_lightmap=rect is not None,
+                vertex_uvs=vertex_uvs,
+                vertex_colors_abgr=vertex_colors,
+            ))
+
+    page_records_offset = OUTDOOR_LIGHTING_HEADER_SIZE
+    face_records_offset = page_records_offset + len(pages) * OUTDOOR_LIGHTING_PAGE_RECORD_SIZE
+    vertex_count = sum(len(face.vertex_uvs) for face in lighting_faces)
+    vertex_records_offset = face_records_offset + len(lighting_faces) * OUTDOOR_LIGHTING_FACE_RECORD_SIZE
+    light_records_offset = vertex_records_offset + vertex_count * OUTDOOR_LIGHTING_VERTEX_RECORD_SIZE
+    pixel_data_offset = light_records_offset + len(lights) * OUTDOOR_LIGHTING_LIGHT_RECORD_SIZE
+    pixel_bytes = sum(page.width * page.height * 4 for page in pages)
+    file_size = pixel_data_offset + pixel_bytes
+    data = bytearray(file_size)
+    ambient_abgr = abgr_color(ambient[0] / 255.0, ambient[1] / 255.0, ambient[2] / 255.0)
+    data[0:8] = OUTDOOR_LIGHTING_MAGIC
+    struct.pack_into("<IIQ", data, 8, OUTDOOR_LIGHTING_VERSION, OUTDOOR_LIGHTING_HEADER_SIZE, fnv1a64(odm_bytes))
+    struct.pack_into(
+        "<IIIIIIIIIIIII",
+        data,
+        24,
+        len(bmodels),
+        sum(len(bmodel.faces) for bmodel in bmodels),
+        len(pages),
+        len(lighting_faces),
+        vertex_count,
+        len(lights),
+        page_records_offset,
+        face_records_offset,
+        vertex_records_offset,
+        light_records_offset,
+        pixel_data_offset,
+        file_size,
+        ambient_abgr,
+    )
+
+    current_pixel_offset = pixel_data_offset
+    for page_index, page in enumerate(pages):
+        page_pixel_bytes = page.width * page.height * 4
+        struct.pack_into(
+            "<IIII",
+            data,
+            page_records_offset + page_index * OUTDOOR_LIGHTING_PAGE_RECORD_SIZE,
+            page.width,
+            page.height,
+            current_pixel_offset,
+            page_pixel_bytes,
+        )
+        struct.pack_into(f"<{len(page.pixels_bgra)}I", data, current_pixel_offset, *page.pixels_bgra)
+        current_pixel_offset += page_pixel_bytes
+
+    current_vertex_index = 0
+    for face_record_index, face in enumerate(lighting_faces):
+        flags = OUTDOOR_LIGHTING_FACE_HAS_LIGHTMAP if face.has_lightmap else 0
+        source_key = (face.bmodel_index << 32) | face.face_index
+        struct.pack_into(
+            "<QIIHHI",
+            data,
+            face_records_offset + face_record_index * OUTDOOR_LIGHTING_FACE_RECORD_SIZE,
+            source_key,
+            face.bmodel_index,
+            face.face_index,
+            face.page_index,
+            flags,
+            current_vertex_index,
+        )
+        for vertex_index, uv in enumerate(face.vertex_uvs):
+            struct.pack_into(
+                "<ffI",
+                data,
+                vertex_records_offset + current_vertex_index * OUTDOOR_LIGHTING_VERTEX_RECORD_SIZE,
+                uv[0],
+                uv[1],
+                face.vertex_colors_abgr[vertex_index],
+            )
+            current_vertex_index += 1
+
+    for light_index, light in enumerate(lights):
+        flags = 0
+        if light.light_objects:
+            flags |= OUTDOOR_LIGHTING_LIGHT_OBJECTS
+        if light.fast_light_objects:
+            flags |= OUTDOOR_LIGHTING_LIGHT_FAST_OBJECTS
+        if light.static_object_light_eligible:
+            flags |= OUTDOOR_LIGHTING_LIGHT_STATIC_OBJECT_ELIGIBLE
+        if light.cast_shadows:
+            flags |= 0x08
+        if light.clip_light:
+            flags |= 0x10
+        light_type = (
+            OUTDOOR_LIGHTING_LIGHT_DIRECTIONAL
+            if light.light_type == "directional"
+            else OUTDOOR_LIGHTING_LIGHT_POINT
+        )
+        record_offset = light_records_offset + light_index * OUTDOOR_LIGHTING_LIGHT_RECORD_SIZE
+        struct.pack_into(
+            "<II4fII4f3f5I",
+            data,
+            record_offset,
+            light.source_object_index,
+            light_type,
+            float(light.position[0]),
+            float(light.position[1]),
+            float(light.position[2]),
+            float(light.radius),
+            abgr_color(*(channel / 255.0 for channel in light.effective_color)),
+            flags,
+            *light.source_rotation_lt,
+            light.fov_degrees,
+            light.brightness_scale,
+            light.object_brightness_scale,
+            abgr_color(*(channel / 255.0 for channel in light.color)),
+            zlib.crc32(light.light_group.encode("utf-8")),
+            0,
+            0,
+            0,
+        )
+
+    return bytes(data), {
+        "lighting_geometry_fnv1a64": fnv1a64(odm_bytes),
+        "lighting_atlas_pages": len(pages),
+        "lighting_atlas_texels": sum(page.width * page.height for page in pages),
+        "lighting_lightmapped_source_polies": len(emitted_lightmaps),
+        "lighting_faces": len(lighting_faces),
+        "lighting_lightmapped_faces": sum(1 for face in lighting_faces if face.has_lightmap),
+        "lighting_vertex_records": vertex_count,
+        "lighting_authored_lights": len(lights),
+        **dat_world.lightmap_stats,
+    }
+
+
+def write_render_data_metadata(
+    path: Path,
+    geometry_name: str,
+    render_name: str,
+    stats: dict[str, Any],
+) -> None:
+    lines = [
+        "format_version: 1",
+        'kind: "outdoor_render_data_metadata"',
+        "source:",
+        f"  geometry_file: {yaml_scalar(geometry_name)}",
+        f"  render_file: {yaml_scalar(render_name)}",
+        f"  geometry_fnv1a64: {stats['render_geometry_fnv1a64']}",
+        "settings:",
+        f"  cell_size: {stats['render_cell_size']}",
+        "stats:",
+    ]
+    for key, value in stats.items():
+        lines.append(f"  {key}: {value}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -4058,6 +5179,9 @@ def write_source_metadata(
         f"  source_dat: {yaml_scalar(str(source_dat))}",
         f"  coordinate_scale: {coordinate_scale:.8g}",
         "related_files:",
+        f"  navigation: {yaml_scalar(str(Path(odm_name).with_suffix('.nav')))}",
+        f"  render_data: {yaml_scalar(str(Path(odm_name).with_suffix('.render')))}",
+        f"  lighting: {yaml_scalar(str(Path(odm_name).with_suffix('.lighting')))}",
         f"  material_aliases: {yaml_scalar(material_aliases_name)}",
         f"  model_assets: {yaml_scalar(model_assets_name)}",
         f"  raw_objects: {yaml_scalar(raw_objects_name)}",
@@ -4196,6 +5320,12 @@ def main() -> int:
         type=Path,
         help="Optional shared directory for emitted BMP aliases; defaults to a map-local .bitmaps directory",
     )
+    parser.add_argument(
+        "--location-type",
+        choices=("exterior", "enclosed"),
+        default="exterior",
+        help="Gameplay environment semantics for the generated BModel world",
+    )
     args = parser.parse_args()
 
     output_name = args.name or args.dat.stem.lower()
@@ -4229,6 +5359,11 @@ def main() -> int:
     stats.update(party_start_stats)
 
     odm_path = args.output_dir / f"{output_name}.odm"
+    navigation_path = args.output_dir / f"{output_name}.nav"
+    navigation_metadata_path = args.output_dir / f"{output_name}.nav.yml"
+    render_data_path = args.output_dir / f"{output_name}.render"
+    render_data_metadata_path = args.output_dir / f"{output_name}.render.yml"
+    lighting_path = args.output_dir / f"{output_name}.lighting"
     scene_path = args.output_dir / f"{output_name}.scene.yml"
     source_metadata_path = args.output_dir / f"{output_name}.mm9.yml"
     aliases_path = args.output_dir / f"{output_name}.material_aliases.yml"
@@ -4238,8 +5373,47 @@ def main() -> int:
     bitmap_dir = args.bitmap_dir or (args.output_dir / default_bitmap_directory_name)
     bitmap_directory_name = os.path.relpath(bitmap_dir, args.output_dir).replace("\\", "/")
 
-    odm_path.write_bytes(build_odm_bytes(output_name, bmodels, entities))
+    odm_bytes = build_odm_bytes(output_name, bmodels, entities)
+    mechanisms_by_bmodel = navigation_mechanisms_by_bmodel(dat_world, bmodels)
+    navigation_bytes, navigation_stats = build_navigation_bytes(
+        odm_bytes,
+        dat_world,
+        bmodels,
+        mechanisms_by_bmodel,
+    )
+    render_data_bytes, render_data_stats = build_render_data_bytes(
+        odm_bytes,
+        bmodels,
+        mechanisms_by_bmodel,
+    )
+    lighting_bytes, lighting_stats = build_outdoor_lighting_bytes(
+        odm_bytes,
+        dat_world,
+        bmodels,
+        lights,
+    )
+    stats.update(navigation_stats)
+    stats.update(render_data_stats)
+    stats.update(lighting_stats)
+    odm_path.write_bytes(odm_bytes)
+    navigation_path.write_bytes(navigation_bytes)
+    render_data_path.write_bytes(render_data_bytes)
+    lighting_path.write_bytes(lighting_bytes)
+    write_navigation_metadata(
+        navigation_metadata_path,
+        odm_path.name,
+        navigation_path.name,
+        navigation_stats["navigation_geometry_fnv1a64"],
+        navigation_stats,
+    )
+    write_render_data_metadata(
+        render_data_metadata_path,
+        odm_path.name,
+        render_data_path.name,
+        render_data_stats,
+    )
     bitmap_modes = write_alias_bitmaps(bitmap_dir, alias_metadata)
+    surface_animation_lines = build_surface_animation_lines(alias_metadata)
     write_scene_yml(
         scene_path,
         odm_path.name,
@@ -4250,7 +5424,9 @@ def main() -> int:
         light_lines,
         party_start_point_lines,
         entity_lines,
+        surface_animation_lines,
         baked_model_instance_lines,
+        args.location_type,
     )
     write_material_aliases(aliases_path, args.dat, alias_metadata, stats, bitmap_modes, bitmap_directory_name)
     write_source_metadata(
@@ -4267,6 +5443,11 @@ def main() -> int:
     write_raw_objects(raw_objects_path, dat_world)
 
     print(f"wrote {odm_path} ({odm_path.stat().st_size} bytes)")
+    print(f"wrote {navigation_path} ({navigation_path.stat().st_size} bytes)")
+    print(f"wrote {navigation_metadata_path}")
+    print(f"wrote {render_data_path} ({render_data_path.stat().st_size} bytes)")
+    print(f"wrote {render_data_metadata_path}")
+    print(f"wrote {lighting_path} ({lighting_path.stat().st_size} bytes)")
     print(f"wrote {scene_path}")
     print(f"wrote {source_metadata_path}")
     print(f"wrote {aliases_path}")

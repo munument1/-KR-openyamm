@@ -107,6 +107,8 @@ MECHANISM_CLASS_KINDS = {
     "Door": "linear_door",
     "RotatingDoor": "rotating_door",
     "WeightedLift": "weighted_lift",
+    "Button": "linear_button",
+    "Switch": "rotating_switch",
     "RotatingBrush": "rotating_brush",
     "BlueWater": "water_volume",
     "Ladder": "ladder_volume",
@@ -150,8 +152,10 @@ TRAVEL_TRIGGER_CLASSES = {
 MM9_MECHANISM_EVENT_ID_BASE = 30000
 MM9_INTERACTIVE_MECHANISM_KINDS = {
     "linear_door",
+    "linear_button",
     "weighted_lift",
     "rotating_door",
+    "rotating_switch",
     "rotating_brush",
 }
 
@@ -571,8 +575,14 @@ def map_lua_mechanism_entries(event_data: dict[str, Any]) -> list[dict[str, Any]
             "kind": mechanism_kind,
             "hint": str(mechanism.get("source_name", "")) or str(mechanism.get("source_class", "")),
             "classic_door_id": None,
+            "double_door_name": "",
             "sounds": [],
         }
+        activation_data = mechanism.get("activation", {})
+        if isinstance(activation_data, dict):
+            double_door_name = activation_data.get("double_door_name")
+            if isinstance(double_door_name, str):
+                entry["double_door_name"] = double_door_name
         sounds = mechanism.get("sounds", [])
         if isinstance(sounds, list):
             entry["sounds"] = [
@@ -612,6 +622,8 @@ def append_map_lua_mechanisms(lines: list[str], event_data: dict[str, Any]) -> N
         lines.append(f"        source_name = {lua_string(mechanism['source_name'])},")
         lines.append(f"        kind = {lua_string(mechanism['kind'])},")
         lines.append(f"        hint = {lua_string(mechanism['hint'])},")
+        if mechanism["double_door_name"]:
+            lines.append(f"        double_door_name = {lua_string(mechanism['double_door_name'])},")
         if mechanism["classic_door_id"] is not None:
             lines.append(f"        classic_door_id = {mechanism['classic_door_id']},")
         if mechanism["sounds"]:
@@ -673,12 +685,7 @@ def append_map_lua_mechanisms(lines: list[str], event_data: dict[str, Any]) -> N
     lines.append("    evt.PlaySoundName(sound.name, sound.x or 0, sound.y or 0, sound.z or 0)")
     lines.append("end")
     lines.append("")
-    lines.append("function map.triggerMechanism(nameOrId, action)")
-    lines.append("    local mechanism = map.resolveMechanism(nameOrId)")
-    lines.append("    if mechanism == nil then")
-    lines.append("        return false")
-    lines.append("    end")
-    lines.append("    local resolved_action = action or 2")
+    lines.append("function map.triggerResolvedMechanism(mechanism, resolved_action)")
     lines.append("    map.playMechanismSound(mechanism, resolved_action)")
     lines.append("    if mechanism.classic_door_id ~= nil and evt ~= nil and evt.SetDoorState ~= nil then")
     lines.append("        evt.SetDoorState(mechanism.classic_door_id, resolved_action)")
@@ -689,6 +696,22 @@ def append_map_lua_mechanisms(lines: list[str], event_data: dict[str, Any]) -> N
     lines.append("        return true")
     lines.append("    end")
     lines.append("    return false")
+    lines.append("end")
+    lines.append("")
+    lines.append("function map.triggerMechanism(nameOrId, action)")
+    lines.append("    local mechanism = map.resolveMechanism(nameOrId)")
+    lines.append("    if mechanism == nil then")
+    lines.append("        return false")
+    lines.append("    end")
+    lines.append("    local resolved_action = action or 2")
+    lines.append("    local triggered = map.triggerResolvedMechanism(mechanism, resolved_action)")
+    lines.append("    if mechanism.double_door_name ~= nil and mechanism.double_door_name ~= \"\" then")
+    lines.append("        local partner = map.resolveMechanism(mechanism.double_door_name)")
+    lines.append("        if partner ~= nil and partner.mechanism_id ~= mechanism.mechanism_id then")
+    lines.append("            triggered = map.triggerResolvedMechanism(partner, resolved_action) or triggered")
+    lines.append("        end")
+    lines.append("    end")
+    lines.append("    return triggered")
     lines.append("end")
     lines.append("")
 
@@ -777,8 +800,6 @@ def map_lua_text(map_id: str, script_irs: dict[str, ScriptIr], event_data: dict[
             "    end",
             "    ctx:registerMm9MapEvents(map)",
             "end",
-            "",
-            "return map",
             "",
         ]
     )
@@ -1915,7 +1936,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Generate lossless MM9 map event sidecars and generated Lua.")
     parser.add_argument("--maps-root", type=Path, default=Path("assets_dev/worlds/mm9/maps"))
     parser.add_argument("--scripts-root", type=Path, default=Path("mm9/extracted/SCRIPTS/SCRIPTS"))
-    parser.add_argument("--events-root", type=Path, default=Path("assets_dev/worlds/mm9/events"))
+    parser.add_argument("--events-root", type=Path, default=Path("assets_dev/worlds/mm9/events/maps"))
     parser.add_argument("--source-sounds-root", type=Path, default=Path("mm9/extracted/SOUNDS/SOUNDS"))
     parser.add_argument("--audio-root", type=Path)
     parser.add_argument("--only-map", action="append", default=[])

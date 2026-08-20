@@ -9643,6 +9643,11 @@ bool IndoorWorldRuntime::allowsLloydsBeacon() const
     return !m_map || m_map->runtimeRestrictions.allowLloydsBeacon;
 }
 
+bool IndoorWorldRuntime::allowsRest() const
+{
+    return !m_map || m_map->runtimeRestrictions.allowRest;
+}
+
 const std::vector<uint8_t> *IndoorWorldRuntime::journalMapFullyRevealedCells() const
 {
     return nullptr;

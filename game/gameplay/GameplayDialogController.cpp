@@ -362,12 +362,17 @@ int outdoorMapMoveTravelDays(
 
 bool isCurrentMapDungeon(const GameplayDialogController::Context &context)
 {
+    if (context.pWorldRuntime != nullptr && context.pWorldRuntime->isIndoorMap())
+    {
+        return true;
+    }
+
     if (context.pCurrentMap != nullptr)
     {
         return isDungeonMapFileName(context.pCurrentMap->fileName);
     }
 
-    return context.pWorldRuntime != nullptr && context.pWorldRuntime->isIndoorMap();
+    return false;
 }
 
 std::string pendingMapMoveTraceFields(const EventRuntimeState::PendingMapMove &move)

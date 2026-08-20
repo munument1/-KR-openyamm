@@ -1700,6 +1700,149 @@ bool verifyOutdoorLuaEventDiscovery(
     return true;
 }
 
+bool verifyMm9AuthoredOverlayRoundTrip(
+    const OpenYAMM::Engine::AssetFileSystem &assetFileSystem,
+    std::string &failure)
+{
+    const std::filesystem::path mapsPath = activeWorldEditorPath(assetFileSystem, "maps");
+    const std::filesystem::path sourceScenePath = mapsPath / "thjorgard.scene.yml";
+    const std::filesystem::path testScenePath = mapsPath / "__editor_headless_mm9_authored.scene.yml";
+    const std::filesystem::path overlayPath = mapsPath / "__editor_headless_mm9_authored_authored.scene.yml";
+    std::error_code copyError;
+    std::filesystem::copy_file(
+        sourceScenePath,
+        testScenePath,
+        std::filesystem::copy_options::overwrite_existing,
+        copyError);
+
+    if (copyError)
+    {
+        failure = "could not seed MM9 authored-overlay test scene: " + copyError.message();
+        return false;
+    }
+
+    std::string originalSceneText;
+    if (!readTextFileContents(testScenePath, originalSceneText))
+    {
+        failure = "could not read MM9 authored-overlay test scene";
+        return false;
+    }
+
+    OpenYAMM::Editor::EditorSession session;
+    session.initialize(assetFileSystem);
+    if (!session.openMapPhysicalPath(testScenePath, failure))
+    {
+        failure = "could not load MM9 authored-overlay test scene: " + failure;
+        return false;
+    }
+
+    OpenYAMM::Editor::EditorDocument &document = session.document();
+    OpenYAMM::Game::OutdoorSceneData &sceneData = document.mutableOutdoorSceneData();
+    const size_t baseActorCount = sceneData.initialState.actors.size();
+    const size_t baseSpawnCount = sceneData.spawns.size();
+
+    if (document.outdoorGeometry().bmodels.empty())
+    {
+        failure = "MM9 authored-overlay test map has no generated BModels";
+        return false;
+    }
+
+    session.select(OpenYAMM::Editor::EditorSelectionKind::BModel, 0);
+    std::string generatedMutationError;
+    if (!session.isGeneratedOutdoorSelection(session.selection())
+        || session.deleteSelectedObject(generatedMutationError)
+        || generatedMutationError.find("generated BModel-world content") == std::string::npos)
+    {
+        failure = "MM9 generated BModel did not remain read-only";
+        return false;
+    }
+
+    sceneData.runtimeRestrictions.allowSaveGame = true;
+    OpenYAMM::Game::MapDeltaActor actor = {};
+    actor.name = "Headless Authored Actor";
+    actor.hp = 42;
+    actor.monsterInfoId = 1;
+    actor.monsterId = 5;
+    actor.radius = 60;
+    actor.height = 160;
+    actor.moveSpeed = 200;
+    actor.x = 100;
+    actor.y = 200;
+    actor.z = 300;
+    actor.spriteIds = {1000, 1001, 1002, 1003};
+    sceneData.initialState.actors.push_back(actor);
+
+    session.select(OpenYAMM::Editor::EditorSelectionKind::Actor, baseActorCount);
+    if (session.isGeneratedOutdoorSelection(session.selection()))
+    {
+        failure = "MM9 appended actor was incorrectly classified as generated";
+        return false;
+    }
+
+    OpenYAMM::Game::OutdoorSceneSpawn spawn = {};
+    spawn.spawnIndex = 9000;
+    spawn.spawn.x = 400;
+    spawn.spawn.y = 500;
+    spawn.spawn.z = 600;
+    spawn.spawn.radius = 64;
+    spawn.spawn.typeId = 3;
+    spawn.spawn.index = 1;
+    spawn.spawn.group = 77;
+    sceneData.spawns.push_back(spawn);
+    document.setDirty(true);
+
+    if (!document.saveSource(failure))
+    {
+        failure = "could not save MM9 authored overlay: " + failure;
+        return false;
+    }
+
+    std::string savedBaseText;
+    std::string overlayText;
+    if (!readTextFileContents(testScenePath, savedBaseText)
+        || !readTextFileContents(overlayPath, overlayText))
+    {
+        failure = "MM9 authored save did not emit the expected overlay";
+        return false;
+    }
+
+    if (savedBaseText != originalSceneText)
+    {
+        failure = "MM9 authored save rewrote the generated base scene";
+        return false;
+    }
+
+    if (overlayText.find("kind: outdoor_scene_overlay") == std::string::npos
+        || overlayText.find("authored_content:") == std::string::npos
+        || overlayText.find("Headless Authored Actor") == std::string::npos)
+    {
+        failure = "MM9 authored overlay is missing its ownership markers or actor";
+        return false;
+    }
+
+    OpenYAMM::Editor::EditorDocument reloadedDocument;
+    if (!reloadedDocument.loadMapPhysicalPath(assetFileSystem, testScenePath, failure))
+    {
+        failure = "could not reload MM9 authored-overlay test scene: " + failure;
+        return false;
+    }
+
+    const OpenYAMM::Game::OutdoorSceneData &reloadedScene = reloadedDocument.outdoorSceneData();
+    if (reloadedScene.baseContentCounts.actors != baseActorCount
+        || reloadedScene.baseContentCounts.spawns != baseSpawnCount
+        || reloadedScene.initialState.actors.size() != baseActorCount + 1
+        || reloadedScene.spawns.size() != baseSpawnCount + 1
+        || !reloadedScene.runtimeRestrictions.allowSaveGame
+        || reloadedScene.initialState.actors.back().name != "Headless Authored Actor"
+        || reloadedScene.spawns.back().spawn.group != 77)
+    {
+        failure = "MM9 authored content did not survive overlay save/reload";
+        return false;
+    }
+
+    return true;
+}
+
 bool verifyNewOutdoorMapCreation(
     const OpenYAMM::Engine::AssetFileSystem &assetFileSystem,
     std::string &failure)
@@ -3478,6 +3621,7 @@ int EditorHeadlessDiagnostics::runRegressionSuite(
     const bool runSpriteObjectPlacementChecks = suiteName == "outdoor-sprite-object-placement";
     const bool runEditorWorldOutdoorTerrainChecks = suiteName == "editor-world-outdoor-terrain-load";
     const bool runEditorWorldMapScriptChecks = suiteName == "editor-world-map-script-load";
+    const bool runMm9AuthoredOverlayChecks = suiteName == "mm9-authored-overlay-roundtrip";
     const bool runRoundTripChecks =
         suiteName == "outdoor-scene-yml-parity"
         || suiteName == "outdoor-scene-yml-roundtrip"
@@ -3494,7 +3638,8 @@ int EditorHeadlessDiagnostics::runRegressionSuite(
         || runEntityPlacementChecks
         || runSpriteObjectPlacementChecks
         || runEditorWorldOutdoorTerrainChecks
-        || runEditorWorldMapScriptChecks;
+        || runEditorWorldMapScriptChecks
+        || runMm9AuthoredOverlayChecks;
 
     if (!runRoundTripChecks)
     {
@@ -3687,6 +3832,24 @@ int EditorHeadlessDiagnostics::runRegressionSuite(
         std::cout << "  pass mm8/out01.odm\n";
         std::cout << "Editor headless regression passed: suite=" << suiteName << '\n';
         removeTemporaryRoundTripScenes(activeWorldEditorPath(assetFileSystem, "maps"));
+        removeTemporaryRoundTripSupportFiles(assetFileSystem);
+        return 0;
+    }
+
+    if (runMm9AuthoredOverlayChecks)
+    {
+        std::string failure;
+
+        if (!verifyMm9AuthoredOverlayRoundTrip(assetFileSystem, failure))
+        {
+            std::cerr << "Editor headless regression failed: " << failure << '\n';
+            return 1;
+        }
+
+        std::cout << "Editor headless regression: suite=" << suiteName << " maps=1\n";
+        std::cout << "  pass thjorgard.odm\n";
+        std::cout << "Editor headless regression passed: suite=" << suiteName << '\n';
+        removeTemporaryRoundTripScenes(gamesPath);
         removeTemporaryRoundTripSupportFiles(assetFileSystem);
         return 0;
     }

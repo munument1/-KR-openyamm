@@ -24,6 +24,7 @@
 #include "game/outdoor/OutdoorGeometryUtils.h"
 #include "game/outdoor/OutdoorGameplayInputController.h"
 #include "game/outdoor/OutdoorInteractionController.h"
+#include "game/outdoor/OutdoorMechanismRuntime.h"
 #include "game/outdoor/OutdoorPathfindingBuilder.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/party/EventSpellBuffs.h"
@@ -49,6 +50,7 @@
 #include <limits>
 #include <numeric>
 #include <random>
+#include <set>
 #include <sstream>
 #include <utility>
 
@@ -99,99 +101,42 @@ std::string resolveSpawnedMapActorName(
     return stats.name;
 }
 
-float outdoorMechanismOpenFraction(
-    const RuntimeMechanismState &mechanism,
-    const EventRuntimeState::OutdoorModelMechanismDefinition &definition)
+int32_t cookedOutdoorNavigationSourceId(
+    const OutdoorMapData &outdoorMapData,
+    size_t bModelIndex,
+    size_t faceIndex)
 {
-    const float moveTimeMs = std::max(1.0f, static_cast<float>(definition.moveTimeMs));
-
-    if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Open))
+    if (!outdoorMapData.navigationData)
     {
-        return 1.0f;
+        return -1;
     }
 
-    if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Closed))
+    const uint64_t sourceKey = OutdoorPathfindingBuilder::bModelSourceKey(bModelIndex, faceIndex);
+
+    if (sourceKey == InvalidOutdoorNavigationSourceKey)
     {
-        return 0.0f;
+        return -1;
     }
 
-    if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Opening))
+    const std::vector<OutdoorNavigationFacetReference> &facets = outdoorMapData.navigationData->facets;
+    const std::vector<OutdoorNavigationFacetReference>::const_iterator facetIterator = std::lower_bound(
+        facets.begin(),
+        facets.end(),
+        sourceKey,
+        [](const OutdoorNavigationFacetReference &facet, uint64_t key)
+        {
+            return facet.sourceKey < key;
+        });
+
+    if (facetIterator == facets.end()
+        || facetIterator->sourceKey != sourceKey)
     {
-        return std::clamp(mechanism.timeSinceTriggeredMs / moveTimeMs, 0.0f, 1.0f);
+        return -1;
     }
 
-    if (mechanism.state == static_cast<uint16_t>(EvtMechanismState::Closing))
-    {
-        return 1.0f - std::clamp(mechanism.timeSinceTriggeredMs / moveTimeMs, 0.0f, 1.0f);
-    }
-
-    return definition.closed ? 0.0f : 1.0f;
+    return facetIterator->pathSourceId;
 }
 
-OutdoorBModel translatedOutdoorBModel(
-    const OutdoorBModel &bmodel,
-    const EventRuntimeState *pEventRuntimeState,
-    size_t bModelIndex)
-{
-    if (pEventRuntimeState == nullptr)
-    {
-        return bmodel;
-    }
-
-    for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
-        pEventRuntimeState->outdoorModelMechanisms)
-    {
-        const EventRuntimeState::OutdoorModelMechanismDefinition &definition = entry.second;
-
-        if (definition.bmodelIndex != bModelIndex)
-        {
-            continue;
-        }
-
-        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
-            pEventRuntimeState->mechanisms.find(entry.first);
-
-        if (mechanismIterator == pEventRuntimeState->mechanisms.end())
-        {
-            continue;
-        }
-
-        const float fraction = outdoorMechanismOpenFraction(mechanismIterator->second, definition);
-        const int32_t offsetX = static_cast<int32_t>(std::lround(static_cast<float>(definition.dx) * fraction));
-        const int32_t offsetY = static_cast<int32_t>(std::lround(static_cast<float>(definition.dy) * fraction));
-        const int32_t offsetZ = static_cast<int32_t>(std::lround(static_cast<float>(definition.dz) * fraction));
-
-        if (offsetX == 0 && offsetY == 0 && offsetZ == 0)
-        {
-            return bmodel;
-        }
-
-        OutdoorBModel translated = bmodel;
-        translated.positionX += offsetX;
-        translated.positionY += offsetY;
-        translated.positionZ += offsetZ;
-        translated.minX += offsetX;
-        translated.maxX += offsetX;
-        translated.minY += offsetY;
-        translated.maxY += offsetY;
-        translated.minZ += offsetZ;
-        translated.maxZ += offsetZ;
-        translated.boundingCenterX += offsetX;
-        translated.boundingCenterY += offsetY;
-        translated.boundingCenterZ += offsetZ;
-
-        for (OutdoorBModelVertex &vertex : translated.vertices)
-        {
-            vertex.x += offsetX;
-            vertex.y += offsetY;
-            vertex.z += offsetZ;
-        }
-
-        return translated;
-    }
-
-    return bmodel;
-}
 constexpr int MinutesPerDay = 24 * 60;
 constexpr int DaysPerMonth = 28;
 constexpr uint32_t ActorInvisibleBit = static_cast<uint32_t>(EvtActorAttribute::Invisible);
@@ -5143,6 +5088,9 @@ void OutdoorWorldRuntime::initialize(
     m_pObjectTable = &objectTable;
     m_pOutdoorMapData = outdoorMapData ? const_cast<OutdoorMapData *>(&*outdoorMapData) : nullptr;
     m_pOutdoorMapDeltaData = outdoorMapDeltaData ? const_cast<MapDeltaData *>(&*outdoorMapDeltaData) : nullptr;
+    m_enclosedMinimapLinesValid = false;
+    m_cachedEnclosedMinimapLines.clear();
+    initializeOutdoorModelMechanismsFromMapData();
     m_outdoorLandMask = outdoorLandMask;
     m_pSpellTable = &spellTable;
     m_pGameplayActorService = pGameplayActorService;
@@ -6598,6 +6546,7 @@ void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
 
         if (!mechanism.isMoving)
         {
+            mechanism.currentDistance = outdoorMechanismOpenFraction(mechanism, entry.second);
             continue;
         }
 
@@ -6632,6 +6581,7 @@ void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
         }
 
         movedAnyMechanism = true;
+        mechanism.currentDistance = outdoorMechanismOpenFraction(mechanism, entry.second);
         completedAnyMechanism = completedAnyMechanism || (wasMoving && !mechanism.isMoving);
     }
 
@@ -6850,7 +6800,8 @@ const MergedBolsterMonsterTable *OutdoorWorldRuntime::mergedBolsterMonsterTable(
 
 bool OutdoorWorldRuntime::isIndoorMap() const
 {
-    return false;
+    return m_pOutdoorMapData != nullptr
+        && outdoorLocationUsesIndoorGameplay(m_pOutdoorMapData->locationType);
 }
 
 bool OutdoorWorldRuntime::isUnderwaterMap() const
@@ -6861,6 +6812,11 @@ bool OutdoorWorldRuntime::isUnderwaterMap() const
 bool OutdoorWorldRuntime::allowsLloydsBeacon() const
 {
     return m_map.runtimeRestrictions.allowLloydsBeacon;
+}
+
+bool OutdoorWorldRuntime::allowsRest() const
+{
+    return m_map.runtimeRestrictions.allowRest;
 }
 
 const std::vector<uint8_t> *OutdoorWorldRuntime::journalMapFullyRevealedCells() const
@@ -6991,6 +6947,14 @@ OutdoorWorldRuntime::Snapshot OutdoorWorldRuntime::snapshot() const
 
 void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
 {
+    std::unordered_map<uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition>
+        mapDerivedOutdoorModelMechanisms;
+
+    if (m_eventRuntimeState)
+    {
+        mapDerivedOutdoorModelMechanisms = m_eventRuntimeState->outdoorModelMechanisms;
+    }
+
     GameplayProjectileService::Snapshot projectileSnapshot = {};
     projectileSnapshot.nextProjectileId = snapshot.nextProjectileId;
     projectileSnapshot.nextProjectileImpactId = snapshot.nextProjectileImpactId;
@@ -7018,6 +6982,7 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_eventRuntimeState = snapshot.eventRuntimeState;
     if (m_eventRuntimeState)
     {
+        m_eventRuntimeState->outdoorModelMechanisms = std::move(mapDerivedOutdoorModelMechanisms);
         m_eventRuntimeState->mapFileName = m_map.fileName;
         setActiveHistoryContinent(*m_eventRuntimeState, m_map.mergedContinentId);
         clearTransientEventRuntimeState(*m_eventRuntimeState);
@@ -7591,6 +7556,8 @@ void OutdoorWorldRuntime::resetDailySpellCounters()
 
 void OutdoorWorldRuntime::refreshAtmosphereState()
 {
+    const bool enclosedEnvironment = isIndoorMap();
+
     if (m_outdoorWeatherProfile.has_value())
     {
         m_atmosphereState.redFog = m_outdoorWeatherProfile->redFog;
@@ -7672,6 +7639,12 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         }
     }
 
+    if (enclosedEnvironment)
+    {
+        m_atmosphereState.weatherFlags &= ~(MapWeatherSnowing | MapWeatherRaining);
+        m_atmosphereState.rainIntensity = 0.0f;
+    }
+
     const float minutesOfDay = std::fmod(std::max(m_gameMinutes, 0.0f), 1440.0f);
 
     if (minutesOfDay < 300.0f || minutesOfDay >= 1260.0f)
@@ -7711,6 +7684,12 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         m_atmosphereState.fogDensity = 1.0f;
     }
 
+    if (enclosedEnvironment && !m_atmosphereState.alwaysLight)
+    {
+        m_atmosphereState.isNight = true;
+        m_atmosphereState.fogDensity = 1.0f;
+    }
+
     if (m_outdoorWeatherProfile.has_value()
         && m_outdoorWeatherProfile->mergedWeatherConfigured
         && m_outdoorWeatherProfile->mergedMapId == static_cast<uint32_t>(std::max(m_mapId, 0)))
@@ -7723,8 +7702,9 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
     }
     else
     {
-        m_atmosphereState.skyTextureName =
-            resolveRenderedSkyTextureName(m_atmosphereState.sourceSkyTextureName, minutesOfDay);
+        m_atmosphereState.skyTextureName = enclosedEnvironment
+            ? m_atmosphereState.sourceSkyTextureName
+            : resolveRenderedSkyTextureName(m_atmosphereState.sourceSkyTextureName, minutesOfDay);
     }
 
     if (m_mapId == DaggerWoundIslandMapId)
@@ -7738,7 +7718,9 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         m_atmosphereState.skyTextureName = *m_eventRuntimeState->outdoorSkyTextureOverride;
     }
 
-    m_atmosphereState.ambientBrightness = normalizedAmbientBrightness(minutesOfDay);
+    m_atmosphereState.ambientBrightness = enclosedEnvironment && !m_atmosphereState.alwaysLight
+        ? 0.25f
+        : normalizedAmbientBrightness(minutesOfDay);
     const float normalizedBrightness = std::clamp(
         (m_atmosphereState.ambientBrightness - 0.15f) / (0.69f - 0.15f),
         0.0f,
@@ -7761,7 +7743,13 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
     m_atmosphereState.gameplayOverlayAlpha = 0.0f;
     m_atmosphereState.gameplayOverlayColorAbgr = m_gameplayOverlayColorAbgr;
 
-    if (minutesOfDay >= 300.0f && minutesOfDay < 1260.0f)
+    if (enclosedEnvironment)
+    {
+        m_atmosphereState.sunDirectionX = 0.0f;
+        m_atmosphereState.sunDirectionY = 0.0f;
+        m_atmosphereState.sunDirectionZ = 1.0f;
+    }
+    else if (minutesOfDay >= 300.0f && minutesOfDay < 1260.0f)
     {
         const float daylightMinutes = minutesOfDay - 300.0f;
         const float sunlightRadians = (daylightMinutes * Pi) / 960.0f;
@@ -9408,9 +9396,14 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
             pathRequest.preferredSourceFacetSourceId =
                 !pStats->canFly
                     && actor.movementState.supportKind == OutdoorSupportKind::BModelFace
-                        ? OutdoorPathfindingBuilder::bModelSourceId(
-                            actor.movementState.supportBModelIndex,
-                            actor.movementState.supportFaceIndex)
+                        ? (m_pOutdoorMapData->sceneProfile == OutdoorSceneProfile::BModelWorld
+                            ? cookedOutdoorNavigationSourceId(
+                                *m_pOutdoorMapData,
+                                actor.movementState.supportBModelIndex,
+                                actor.movementState.supportFaceIndex)
+                            : OutdoorPathfindingBuilder::bModelSourceId(
+                                actor.movementState.supportBModelIndex,
+                                actor.movementState.supportFaceIndex))
                         : -1;
             pathRequest.nodeLimit = OutdoorActorPathNodeLimit;
             pathRequest.mapRevision = pathMap->revision();
@@ -11034,7 +11027,7 @@ void OutdoorWorldRuntime::rebuildOutdoorFaceGeometryCache()
 
         if (m_eventRuntimeState && !m_eventRuntimeState->outdoorModelMechanisms.empty())
         {
-            translatedBModel = translatedOutdoorBModel(*pBModel, &*m_eventRuntimeState, bModelIndex);
+            translatedBModel = transformOutdoorBModelForRuntime(*pBModel, &*m_eventRuntimeState, bModelIndex);
             pBModel = &translatedBModel;
         }
 
@@ -11198,6 +11191,8 @@ std::shared_ptr<const PathMap> OutdoorWorldRuntime::outdoorPathMap(bool landOnly
                 << " skipped_water_triangles=" << buildResult.skippedWaterTerrainTriangleCount
                 << " source_bmodel_faces=" << buildResult.sourceBModelFaceCount
                 << " bmodel_facets=" << buildResult.bModelPathFacetCount
+                << " cooked_facets=" << buildResult.cookedNavigationFacetCount
+                << " dynamic_facets=" << buildResult.dynamicNavigationFacetCount
                 << " skipped_bmodel_faces=" << buildResult.skippedBModelFaceCount
                 << " path_facets=" << buildResult.pathFacetCount
                 << " revision=" << pathMapSnapshot->revision()
@@ -11287,19 +11282,28 @@ void OutdoorWorldRuntime::syncOutdoorFaceGeometryAttributesFromMapDelta()
     invalidateOutdoorPathMaps(false);
 }
 
-void OutdoorWorldRuntime::setOutdoorFaceGeometry(const OutdoorFaceGeometryData &geometry)
+bool OutdoorWorldRuntime::setOutdoorFaceGeometry(const OutdoorFaceGeometryData &geometry)
 {
     for (OutdoorFaceGeometryData &existingGeometry : m_outdoorFaces)
     {
         if (existingGeometry.bModelIndex == geometry.bModelIndex
             && existingGeometry.faceIndex == geometry.faceIndex)
         {
+            const bool preservesSpatialCells = outdoorFaceOccupiesSameGridCells(
+                existingGeometry,
+                geometry,
+                m_outdoorFaceGridMinX,
+                m_outdoorFaceGridMinY,
+                m_outdoorFaceGridWidth,
+                m_outdoorFaceGridHeight,
+                OutdoorFaceSpatialCellSize);
             existingGeometry = geometry;
-            return;
+            return preservesSpatialCells;
         }
     }
 
     m_outdoorFaces.push_back(geometry);
+    return false;
 }
 
 void OutdoorWorldRuntime::refreshOutdoorModelMechanismGeometry()
@@ -11310,6 +11314,8 @@ void OutdoorWorldRuntime::refreshOutdoorModelMechanismGeometry()
     }
 
     std::vector<OutdoorFaceGeometryData> updatedGeometries;
+    bool navigationEndpointChanged = false;
+    bool spatialIndexNeedsRebuild = false;
 
     for (const std::pair<const uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition> &entry :
         m_eventRuntimeState->outdoorModelMechanisms)
@@ -11321,10 +11327,73 @@ void OutdoorWorldRuntime::refreshOutdoorModelMechanismGeometry()
             continue;
         }
 
-        const OutdoorBModel translatedBModel = translatedOutdoorBModel(
+        const OutdoorBModel translatedBModel = transformOutdoorBModelForRuntime(
             m_pOutdoorMapData->bmodels[definition.bmodelIndex],
             &*m_eventRuntimeState,
             definition.bmodelIndex);
+
+        const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismStateIterator =
+            m_eventRuntimeState->mechanisms.find(entry.first);
+        std::array<int32_t, 3> currentOffset = {0, 0, 0};
+
+        if (mechanismStateIterator != m_eventRuntimeState->mechanisms.end())
+        {
+            const bool isMoving = mechanismStateIterator->second.isMoving;
+            const std::unordered_map<uint32_t, bool>::const_iterator previousMovingState =
+                m_outdoorNavigationMechanismMovingStates.find(entry.first);
+
+            if (previousMovingState != m_outdoorNavigationMechanismMovingStates.end()
+                && previousMovingState->second
+                && !isMoving)
+            {
+                navigationEndpointChanged = true;
+            }
+
+            m_outdoorNavigationMechanismMovingStates[entry.first] = isMoving;
+            const float fraction = outdoorMechanismOpenFraction(mechanismStateIterator->second, definition);
+            currentOffset = {
+                static_cast<int32_t>(std::lround(static_cast<float>(definition.dx) * fraction)),
+                static_cast<int32_t>(std::lround(static_cast<float>(definition.dy) * fraction)),
+                static_cast<int32_t>(std::lround(static_cast<float>(definition.dz) * fraction))
+            };
+        }
+
+        const std::array<int32_t, 3> previousOffset = m_outdoorMechanismOffsets.contains(entry.first)
+            ? m_outdoorMechanismOffsets.at(entry.first)
+            : currentOffset;
+        m_outdoorMechanismOffsets[entry.first] = currentOffset;
+        const int32_t carryDeltaX = currentOffset[0] - previousOffset[0];
+        const int32_t carryDeltaY = currentOffset[1] - previousOffset[1];
+        const int32_t carryDeltaZ = currentOffset[2] - previousOffset[2];
+
+        if (definition.moveParty && (carryDeltaX != 0 || carryDeltaY != 0 || carryDeltaZ != 0))
+        {
+            if (m_pPartyRuntime != nullptr)
+            {
+                m_pPartyRuntime->translateWithSupportedBModel(
+                    definition.bmodelIndex,
+                    static_cast<float>(carryDeltaX),
+                    static_cast<float>(carryDeltaY),
+                    static_cast<float>(carryDeltaZ));
+            }
+
+            for (MapActorState &actor : m_mapActors)
+            {
+                if (!actor.movementStateInitialized
+                    || actor.movementState.airborne
+                    || actor.movementState.supportKind != OutdoorSupportKind::BModelFace
+                    || actor.movementState.supportBModelIndex != definition.bmodelIndex)
+                {
+                    continue;
+                }
+
+                actor.movementState.x += static_cast<float>(carryDeltaX);
+                actor.movementState.y += static_cast<float>(carryDeltaY);
+                actor.movementState.footZ += static_cast<float>(carryDeltaZ);
+                actor.movementState.fallStartZ += static_cast<float>(carryDeltaZ);
+                syncActorFromMovementState(actor);
+            }
+        }
 
         for (size_t faceIndex = 0; faceIndex < translatedBModel.faces.size(); ++faceIndex)
         {
@@ -11341,7 +11410,8 @@ void OutdoorWorldRuntime::refreshOutdoorModelMechanismGeometry()
                 continue;
             }
 
-            setOutdoorFaceGeometry(geometry);
+            const bool preservesSpatialCells = setOutdoorFaceGeometry(geometry);
+            spatialIndexNeedsRebuild = spatialIndexNeedsRebuild || !preservesSpatialCells;
             updatedGeometries.push_back(std::move(geometry));
         }
     }
@@ -11351,7 +11421,10 @@ void OutdoorWorldRuntime::refreshOutdoorModelMechanismGeometry()
         return;
     }
 
-    buildOutdoorFaceSpatialIndex();
+    if (spatialIndexNeedsRebuild)
+    {
+        buildOutdoorFaceSpatialIndex();
+    }
 
     if (m_outdoorMovementController)
     {
@@ -11363,7 +11436,165 @@ void OutdoorWorldRuntime::refreshOutdoorModelMechanismGeometry()
         m_pPartyRuntime->updateFaceGeometries(updatedGeometries);
     }
 
-    invalidateOutdoorPathMaps(false);
+    if (m_pOutdoorMapData->sceneProfile != OutdoorSceneProfile::BModelWorld || navigationEndpointChanged)
+    {
+        invalidateOutdoorPathMaps(false);
+    }
+}
+
+void OutdoorWorldRuntime::initializeOutdoorModelMechanismsFromMapData()
+{
+    m_outdoorMechanismOffsets.clear();
+    m_outdoorNavigationMechanismMovingStates.clear();
+
+    if (!m_eventRuntimeState)
+    {
+        return;
+    }
+
+    m_eventRuntimeState->outdoorModelMechanisms.clear();
+
+    if (m_pOutdoorMapData == nullptr
+        || m_pOutdoorMapData->sceneProfile != OutdoorSceneProfile::BModelWorld)
+    {
+        return;
+    }
+
+    for (const OutdoorBModelMechanism &mechanismDefinition : m_pOutdoorMapData->mechanisms)
+    {
+        if (!mechanismDefinition.hasRuntimeEndpointMotion()
+            || !mechanismDefinition.hasBModelBinding
+            || mechanismDefinition.mechanismId == 0
+            || mechanismDefinition.bmodelIndex >= m_pOutdoorMapData->bmodels.size())
+        {
+            continue;
+        }
+
+        EventRuntimeState::OutdoorModelMechanismDefinition runtimeDefinition = {};
+        runtimeDefinition.mechanismId = mechanismDefinition.mechanismId;
+        runtimeDefinition.interactionEventId = mechanismDefinition.interactionEventId;
+        runtimeDefinition.modelName = mechanismDefinition.sourceName;
+        runtimeDefinition.bmodelIndex = mechanismDefinition.bmodelIndex;
+
+        if (runtimeDefinition.interactionEventId == 0)
+        {
+            const OutdoorBModel &bmodel = m_pOutdoorMapData->bmodels[mechanismDefinition.bmodelIndex];
+
+            for (const OutdoorBModelFace &face : bmodel.faces)
+            {
+                if (face.cogTriggeredNumber != 0)
+                {
+                    runtimeDefinition.interactionEventId = face.cogTriggeredNumber;
+                    break;
+                }
+            }
+        }
+
+        runtimeDefinition.dx = mechanismDefinition.deltaX;
+        runtimeDefinition.dy = mechanismDefinition.deltaY;
+        runtimeDefinition.dz = mechanismDefinition.deltaZ;
+        runtimeDefinition.pivotX = mechanismDefinition.pivotX;
+        runtimeDefinition.pivotY = mechanismDefinition.pivotY;
+        runtimeDefinition.pivotZ = mechanismDefinition.pivotZ;
+        runtimeDefinition.rotationDegreesX = mechanismDefinition.rotationDegreesX;
+        runtimeDefinition.rotationDegreesY = mechanismDefinition.rotationDegreesY;
+        runtimeDefinition.rotationDegreesZ = mechanismDefinition.rotationDegreesZ;
+        runtimeDefinition.moveTimeMs = std::max<uint32_t>(1, mechanismDefinition.moveTimeMs);
+        runtimeDefinition.closed = !mechanismDefinition.startOpen;
+        runtimeDefinition.openAway = mechanismDefinition.openAway;
+        runtimeDefinition.moveParty = mechanismDefinition.moveParty;
+        m_eventRuntimeState->outdoorModelMechanisms[mechanismDefinition.mechanismId] = runtimeDefinition;
+
+        if (m_eventRuntimeState->mechanisms.find(mechanismDefinition.mechanismId)
+            == m_eventRuntimeState->mechanisms.end())
+        {
+            RuntimeMechanismState mechanismState = {};
+            mechanismState.state = mechanismDefinition.startOpen
+                ? static_cast<uint16_t>(EvtMechanismState::Open)
+                : static_cast<uint16_t>(EvtMechanismState::Closed);
+            mechanismState.currentDistance = mechanismDefinition.startOpen ? 1.0f : 0.0f;
+            m_eventRuntimeState->mechanisms[mechanismDefinition.mechanismId] = mechanismState;
+        }
+
+        const RuntimeMechanismState &mechanismState =
+            m_eventRuntimeState->mechanisms.at(mechanismDefinition.mechanismId);
+        m_outdoorNavigationMechanismMovingStates[mechanismDefinition.mechanismId] = mechanismState.isMoving;
+        const float fraction = outdoorMechanismOpenFraction(mechanismState, runtimeDefinition);
+        m_outdoorMechanismOffsets[mechanismDefinition.mechanismId] = {
+            static_cast<int32_t>(std::lround(static_cast<float>(runtimeDefinition.dx) * fraction)),
+            static_cast<int32_t>(std::lround(static_cast<float>(runtimeDefinition.dy) * fraction)),
+            static_cast<int32_t>(std::lround(static_cast<float>(runtimeDefinition.dz) * fraction))
+        };
+    }
+}
+
+void OutdoorWorldRuntime::updateOutdoorMechanismOpenAwayDirections()
+{
+    if (m_pOutdoorMapData == nullptr || !m_eventRuntimeState || m_eventRuntimeState->lastAffectedMechanismIds.empty())
+    {
+        return;
+    }
+
+    const bx::Vec3 partyPosition = {partyX(), partyY(), partyFootZ() + PartyTargetHeightOffset};
+
+    for (uint32_t mechanismId : m_eventRuntimeState->lastAffectedMechanismIds)
+    {
+        const std::unordered_map<uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition>::const_iterator
+            definitionIterator = m_eventRuntimeState->outdoorModelMechanisms.find(mechanismId);
+        std::unordered_map<uint32_t, RuntimeMechanismState>::iterator mechanismIterator =
+            m_eventRuntimeState->mechanisms.find(mechanismId);
+
+        if (definitionIterator == m_eventRuntimeState->outdoorModelMechanisms.end()
+            || mechanismIterator == m_eventRuntimeState->mechanisms.end())
+        {
+            continue;
+        }
+
+        const EventRuntimeState::OutdoorModelMechanismDefinition &definition = definitionIterator->second;
+        RuntimeMechanismState &mechanism = mechanismIterator->second;
+
+        if (!definition.openAway
+            || mechanism.state != static_cast<uint16_t>(EvtMechanismState::Opening)
+            || definition.bmodelIndex >= m_pOutdoorMapData->bmodels.size())
+        {
+            continue;
+        }
+
+        const OutdoorBModel &bmodel = m_pOutdoorMapData->bmodels[definition.bmodelIndex];
+
+        if (bmodel.vertices.empty())
+        {
+            continue;
+        }
+
+        bx::Vec3 minimum = outdoorBModelVertexToWorld(bmodel.vertices.front());
+        bx::Vec3 maximum = minimum;
+
+        for (const OutdoorBModelVertex &vertex : bmodel.vertices)
+        {
+            const bx::Vec3 point = outdoorBModelVertexToWorld(vertex);
+            minimum.x = std::min(minimum.x, point.x);
+            minimum.y = std::min(minimum.y, point.y);
+            minimum.z = std::min(minimum.z, point.z);
+            maximum.x = std::max(maximum.x, point.x);
+            maximum.y = std::max(maximum.y, point.y);
+            maximum.z = std::max(maximum.z, point.z);
+        }
+
+        const bx::Vec3 closedCenter = {
+            (minimum.x + maximum.x) * 0.5f,
+            (minimum.y + maximum.y) * 0.5f,
+            (minimum.z + maximum.z) * 0.5f,
+        };
+        mechanism.rotationDirection =
+            outdoorMechanismOpenAwayRotationDirection(definition, closedCenter, partyPosition);
+        GAMEPLAY_DEBUG_TRACE(
+            "mechanism_open_away id=" + std::to_string(mechanismId)
+            + " model=\"" + definition.modelName + "\""
+            + " direction=" + std::to_string(mechanism.rotationDirection)
+            + " party=(" + std::to_string(partyPosition.x) + "," + std::to_string(partyPosition.y) + ","
+            + std::to_string(partyPosition.z) + ")");
+    }
 }
 
 void OutdoorWorldRuntime::setOutdoorFaceGeometryAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes)
@@ -12627,6 +12858,7 @@ void OutdoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMas
         }
     }
 
+    updateOutdoorMechanismOpenAwayDirections();
     m_pendingEventSourcePoint.reset();
 }
 
@@ -16856,6 +17088,13 @@ bool OutdoorWorldRuntime::registerOutdoorModelMechanism(
 
     const std::string normalizedModelName = toLowerCopy(modelName);
     size_t matchedBModelIndex = static_cast<size_t>(-1);
+    uint16_t interactionEventId = 0;
+
+    if (mechanismId <= std::numeric_limits<uint16_t>::max())
+    {
+        interactionEventId = static_cast<uint16_t>(mechanismId);
+    }
+
     const uint32_t clickableBit = faceAttributeBit(FaceAttribute::Clickable);
     const uint32_t hintBit = faceAttributeBit(FaceAttribute::HasHint);
 
@@ -16870,11 +17109,26 @@ bool OutdoorWorldRuntime::registerOutdoorModelMechanism(
 
         matchedBModelIndex = bModelIndex;
 
-        for (OutdoorBModelFace &face : bmodel.faces)
+        if (interactionEventId == 0)
         {
-            face.cogTriggeredNumber = static_cast<uint16_t>(std::min<uint32_t>(mechanismId, UINT16_MAX));
-            face.attributes |= clickableBit;
-            face.attributes &= ~hintBit;
+            for (const OutdoorBModelFace &face : bmodel.faces)
+            {
+                if (face.cogTriggeredNumber != 0)
+                {
+                    interactionEventId = face.cogTriggeredNumber;
+                    break;
+                }
+            }
+        }
+
+        if (mechanismId <= std::numeric_limits<uint16_t>::max())
+        {
+            for (OutdoorBModelFace &face : bmodel.faces)
+            {
+                face.cogTriggeredNumber = interactionEventId;
+                face.attributes |= clickableBit;
+                face.attributes &= ~hintBit;
+            }
         }
 
         break;
@@ -16940,6 +17194,7 @@ bool OutdoorWorldRuntime::registerOutdoorModelMechanism(
 
     EventRuntimeState::OutdoorModelMechanismDefinition definition = {};
     definition.mechanismId = mechanismId;
+    definition.interactionEventId = interactionEventId;
     definition.modelName = modelName;
     definition.bmodelIndex = matchedBModelIndex;
     definition.dx = dx;
@@ -17471,8 +17726,18 @@ bool OutdoorWorldRuntime::tryGetGameplayMinimapState(GameplayMinimapState &state
         pWizardEyeBuff != nullptr ? pWizardEyeBuff->skillMastery : SkillMastery::None;
     const OutdoorMoveState &moveState = m_pPartyRuntime->movementState();
 
-    state.textureName = toLowerCopy(std::filesystem::path(m_map.fileName).stem().string());
-    state.zoom = 512.0f;
+    if (isIndoorMap())
+    {
+        state.textureName.clear();
+        state.vectorBackground = true;
+        state.backgroundColorAbgr = 0xff780000u;
+        state.zoom = 1024.0f;
+    }
+    else
+    {
+        state.textureName = toLowerCopy(std::filesystem::path(m_map.fileName).stem().string());
+        state.zoom = 512.0f;
+    }
     state.partyU = std::clamp((moveState.x + 32768.0f) / 65536.0f, 0.0f, 1.0f);
     state.partyV = std::clamp((32768.0f - moveState.y) / 65536.0f, 0.0f, 1.0f);
     state.wizardEyeActive = pWizardEyeBuff != nullptr;
@@ -17484,6 +17749,143 @@ bool OutdoorWorldRuntime::tryGetGameplayMinimapState(GameplayMinimapState &state
 void OutdoorWorldRuntime::collectGameplayMinimapLines(std::vector<GameplayMinimapLineState> &lines)
 {
     lines.clear();
+
+    if (!isIndoorMap()
+        || m_pOutdoorMapData == nullptr
+        || !m_pOutdoorMapData->navigationData
+        || m_pPartyRuntime == nullptr)
+    {
+        return;
+    }
+
+    constexpr float MinimapHalfRange = 6144.0f;
+    constexpr float MinimapLevelTolerance = 512.0f;
+    constexpr float MinimapCacheCellSize = 512.0f;
+    constexpr float MinimapCacheLevelSize = 256.0f;
+    const OutdoorMoveState &moveState = m_pPartyRuntime->movementState();
+    const int32_t cacheCellX = static_cast<int32_t>(std::floor(moveState.x / MinimapCacheCellSize));
+    const int32_t cacheCellY = static_cast<int32_t>(std::floor(moveState.y / MinimapCacheCellSize));
+    const int32_t cacheLevel = static_cast<int32_t>(std::floor(moveState.footZ / MinimapCacheLevelSize));
+    uint64_t mechanismSignature = m_eventRuntimeState ? m_eventRuntimeState->outdoorSurfaceRevision : 0;
+
+    if (m_eventRuntimeState)
+    {
+        for (const std::pair<const uint32_t, RuntimeMechanismState> &entry : m_eventRuntimeState->mechanisms)
+        {
+            const uint64_t quantizedDistance = static_cast<uint64_t>(std::lround(entry.second.currentDistance * 64.0f));
+            const uint64_t component = static_cast<uint64_t>(entry.first) * 0x9e3779b185ebca87ULL
+                ^ static_cast<uint64_t>(entry.second.state) * 0xc2b2ae3d27d4eb4fULL
+                ^ quantizedDistance * 0x165667b19e3779f9ULL;
+            mechanismSignature ^= component;
+        }
+    }
+
+    if (m_enclosedMinimapLinesValid
+        && m_enclosedMinimapCellX == cacheCellX
+        && m_enclosedMinimapCellY == cacheCellY
+        && m_enclosedMinimapLevel == cacheLevel
+        && m_enclosedMinimapMechanismSignature == mechanismSignature)
+    {
+        lines = m_cachedEnclosedMinimapLines;
+        return;
+    }
+
+    std::set<std::array<int32_t, 4>> emittedEdges;
+    std::vector<std::optional<OutdoorBModelRuntimeTransformState>> runtimeTransforms(
+        m_pOutdoorMapData->bmodels.size());
+    std::vector<bool> runtimeTransformResolved(m_pOutdoorMapData->bmodels.size(), false);
+
+    for (const OutdoorNavigationFacetReference &reference : m_pOutdoorMapData->navigationData->facets)
+    {
+        if (reference.kind != OutdoorNavigationFacetKind::Barrier
+            || reference.bModelIndex >= m_pOutdoorMapData->bmodels.size())
+        {
+            continue;
+        }
+
+        const OutdoorBModel &bModel = m_pOutdoorMapData->bmodels[reference.bModelIndex];
+        if (reference.faceIndex >= bModel.faces.size())
+        {
+            continue;
+        }
+
+        const OutdoorBModelFace &face = bModel.faces[reference.faceIndex];
+        for (size_t vertexIndex = 0; vertexIndex < face.vertexIndices.size(); ++vertexIndex)
+        {
+            const size_t nextVertexIndex = (vertexIndex + 1) % face.vertexIndices.size();
+            const uint16_t firstIndex = face.vertexIndices[vertexIndex];
+            const uint16_t secondIndex = face.vertexIndices[nextVertexIndex];
+            if (firstIndex >= bModel.vertices.size() || secondIndex >= bModel.vertices.size())
+            {
+                continue;
+            }
+
+            const OutdoorBModelVertex &sourceFirst = bModel.vertices[firstIndex];
+            const OutdoorBModelVertex &sourceSecond = bModel.vertices[secondIndex];
+            bx::Vec3 first = {
+                static_cast<float>(sourceFirst.x),
+                static_cast<float>(sourceFirst.y),
+                static_cast<float>(sourceFirst.z)};
+            bx::Vec3 second = {
+                static_cast<float>(sourceSecond.x),
+                static_cast<float>(sourceSecond.y),
+                static_cast<float>(sourceSecond.z)};
+
+            if (reference.dynamic)
+            {
+                if (!runtimeTransformResolved[reference.bModelIndex])
+                {
+                    runtimeTransforms[reference.bModelIndex] =
+                        outdoorBModelRuntimeTransform(m_eventRuntimeState ? &*m_eventRuntimeState : nullptr,
+                            reference.bModelIndex);
+                    runtimeTransformResolved[reference.bModelIndex] = true;
+                }
+
+                first = applyOutdoorBModelRuntimeTransform(runtimeTransforms[reference.bModelIndex], first);
+                second = applyOutdoorBModelRuntimeTransform(runtimeTransforms[reference.bModelIndex], second);
+            }
+
+            if ((first.x == second.x && first.y == second.y)
+                || std::max(first.z, second.z) < moveState.footZ - MinimapLevelTolerance
+                || std::min(first.z, second.z) > moveState.footZ + MinimapLevelTolerance
+                || (first.x < moveState.x - MinimapHalfRange && second.x < moveState.x - MinimapHalfRange)
+                || (first.x > moveState.x + MinimapHalfRange && second.x > moveState.x + MinimapHalfRange)
+                || (first.y < moveState.y - MinimapHalfRange && second.y < moveState.y - MinimapHalfRange)
+                || (first.y > moveState.y + MinimapHalfRange && second.y > moveState.y + MinimapHalfRange))
+            {
+                continue;
+            }
+
+            std::array<int32_t, 4> edge = {
+                static_cast<int32_t>(std::lround(first.x)),
+                static_cast<int32_t>(std::lround(first.y)),
+                static_cast<int32_t>(std::lround(second.x)),
+                static_cast<int32_t>(std::lround(second.y))};
+            if (std::pair(edge[2], edge[3]) < std::pair(edge[0], edge[1]))
+            {
+                edge = {edge[2], edge[3], edge[0], edge[1]};
+            }
+            if (!emittedEdges.insert(edge).second)
+            {
+                continue;
+            }
+
+            GameplayMinimapLineState line = {};
+            line.u0 = (static_cast<float>(edge[0]) + 32768.0f) / 65536.0f;
+            line.v0 = (32768.0f - static_cast<float>(edge[1])) / 65536.0f;
+            line.u1 = (static_cast<float>(edge[2]) + 32768.0f) / 65536.0f;
+            line.v1 = (32768.0f - static_cast<float>(edge[3])) / 65536.0f;
+            line.colorAbgr = 0xffa0a0a0u;
+            lines.push_back(line);
+        }
+    }
+
+    m_enclosedMinimapCellX = cacheCellX;
+    m_enclosedMinimapCellY = cacheCellY;
+    m_enclosedMinimapLevel = cacheLevel;
+    m_enclosedMinimapMechanismSignature = mechanismSignature;
+    m_cachedEnclosedMinimapLines = lines;
+    m_enclosedMinimapLinesValid = true;
 }
 
 void OutdoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinimapMarkerState> &markers) const

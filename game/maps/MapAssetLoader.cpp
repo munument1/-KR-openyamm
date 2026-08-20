@@ -7,6 +7,8 @@
 #include "game/maps/TerrainTileData.h"
 #include "game/indoor/IndoorGeometryUtils.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
+#include "game/outdoor/OutdoorNavigationData.h"
+#include "game/outdoor/OutdoorRenderData.h"
 #include "game/render/TextureFiltering.h"
 #include "game/SpriteObjectDefs.h"
 #include "game/StringUtils.h"
@@ -307,6 +309,18 @@ OutdoorWeatherProfile buildOutdoorWeatherProfile(
     if ((locationTime.weatherFlags & MapWeatherFoggy) != 0 && locationTime.fogStrongDistance > 0)
     {
         profile.defaultFog = {locationTime.fogWeakDistance, locationTime.fogStrongDistance};
+    }
+
+    if (environment.locationType == OutdoorLocationType::Enclosed)
+    {
+        profile.defaultPrecipitation = OutdoorPrecipitationKind::None;
+        profile.smallFogChance = 0;
+        profile.averageFogChance = 0;
+        profile.denseFogChance = 0;
+        profile.mergedWeatherConfigured = false;
+        profile.mergedWeatherEnabled = false;
+        profile.mergedRainEnabled = false;
+        profile.mergedSnowEnabled = false;
     }
 
     return profile;
@@ -3628,6 +3642,7 @@ std::optional<OutdoorBModelTextureSet> buildOutdoorBModelTextureSet(
     BitmapLoadCache &bitmapLoadCache,
     const TextureFrameTable *pTextureFrameTable,
     const SurfaceMaterialTable *pSurfaceMaterialTable,
+    const std::vector<OutdoorSceneSurfaceAnimation> *pSceneSurfaceAnimations,
     const MapLoadProgressPump &progressPump
 )
 {
@@ -3644,8 +3659,27 @@ std::optional<OutdoorBModelTextureSet> buildOutdoorBModelTextureSet(
             }
 
             const std::string normalizedName = toLowerCopy(face.textureName);
-            const SurfaceAnimationSequence animation =
-                resolveSurfaceAnimation(
+            const OutdoorSceneSurfaceAnimation *pSceneAnimation = nullptr;
+
+            if (pSceneSurfaceAnimations != nullptr)
+            {
+                const auto sceneAnimationIt = std::find_if(
+                    pSceneSurfaceAnimations->begin(),
+                    pSceneSurfaceAnimations->end(),
+                    [&normalizedName](const OutdoorSceneSurfaceAnimation &animation)
+                    {
+                        return animation.textureName == normalizedName;
+                    });
+
+                if (sceneAnimationIt != pSceneSurfaceAnimations->end())
+                {
+                    pSceneAnimation = &*sceneAnimationIt;
+                }
+            }
+
+            const SurfaceAnimationSequence animation = pSceneAnimation != nullptr
+                ? pSceneAnimation->animation
+                : resolveSurfaceAnimation(
                     face.textureName,
                     face.attributes,
                     false,
@@ -3930,6 +3964,14 @@ size_t mapRenderSourcePixelBytes(const MapAssetInfo &mapAssetInfo)
 {
     size_t byteCount = 0;
 
+    if (mapAssetInfo.outdoorMapData && mapAssetInfo.outdoorMapData->lightingData)
+    {
+        for (const OutdoorLightmapAtlasPage &page : mapAssetInfo.outdoorMapData->lightingData->atlasPages)
+        {
+            byteCount += page.pixelsBgra.size() * sizeof(uint32_t);
+        }
+    }
+
     if (mapAssetInfo.outdoorTerrainTextureAtlas)
     {
         byteCount += mapAssetInfo.outdoorTerrainTextureAtlas->pixels.size();
@@ -3965,6 +4007,14 @@ size_t mapRenderSourcePixelBytes(const MapAssetInfo &mapAssetInfo)
 
 void clearMapRenderSourcePixels(MapAssetInfo &mapAssetInfo)
 {
+    if (mapAssetInfo.outdoorMapData && mapAssetInfo.outdoorMapData->lightingData)
+    {
+        for (OutdoorLightmapAtlasPage &page : mapAssetInfo.outdoorMapData->lightingData->atlasPages)
+        {
+            std::vector<uint32_t>().swap(page.pixelsBgra);
+        }
+    }
+
     if (mapAssetInfo.outdoorTerrainTextureAtlas)
     {
         std::vector<uint8_t>().swap(mapAssetInfo.outdoorTerrainTextureAtlas->pixels);
@@ -4041,6 +4091,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
     std::optional<std::vector<uint8_t>> companionBytes;
     std::optional<std::string> sceneText;
     std::vector<std::pair<std::string, std::string>> sceneOverlays;
+    std::vector<OutdoorSceneSurfaceAnimation> outdoorSceneSurfaceAnimations;
 
     const std::optional<std::string> sceneFileName =
         companionLoadOptions.allowSceneYml ? buildSceneFileName(map.fileName) : std::nullopt;
@@ -4161,6 +4212,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                 }
 
                 assetInfo.map.runtimeRestrictions = sceneData->runtimeRestrictions;
+                outdoorSceneSurfaceAnimations = sceneData->surfaceAnimations;
                 MapDeltaData sceneMapDeltaData = {};
 
                 if (!buildOutdoorMapStateFromScene(
@@ -4179,6 +4231,113 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     buildOutdoorWeatherProfile(sceneData->environment, assetInfo.outdoorMapDeltaData->locationTime);
                 assetInfo.authoredCompanionSource = AuthoredCompanionSource::SceneYml;
                 logStageComplete("outdoor scene yml applied");
+
+                if (sceneData->sceneProfile == OutdoorSceneProfile::BModelWorld)
+                {
+                    const std::optional<std::string> navigationFileName = buildNavigationFileName(map.fileName);
+                    const std::optional<std::string> navigationPath = navigationFileName
+                        ? findAssetPath(assetFileSystem, map.worldId, *navigationFileName)
+                        : std::nullopt;
+                    const std::optional<std::vector<uint8_t>> navigationBytes = navigationPath
+                        ? assetFileSystem.readBinaryFile(*navigationPath)
+                        : std::nullopt;
+
+                    if (!navigationPath || !navigationBytes)
+                    {
+                        std::cerr << "Failed to load cooked outdoor navigation for " << map.fileName << '\n';
+                        return std::nullopt;
+                    }
+
+                    OutdoorNavigationDataLoader navigationLoader = {};
+                    std::optional<OutdoorNavigationData> navigationData = navigationLoader.loadFromBytes(
+                        *navigationBytes,
+                        *geometryBytes,
+                        *assetInfo.outdoorMapData,
+                        sceneError);
+
+                    if (!navigationData)
+                    {
+                        std::cerr << "Failed to parse cooked outdoor navigation for " << map.fileName
+                                  << ": " << sceneError << '\n';
+                        return std::nullopt;
+                    }
+
+                    assetInfo.navigationPath = *navigationPath;
+                    assetInfo.navigationSize = navigationBytes->size();
+                    assetInfo.outdoorMapData->navigationData = std::move(*navigationData);
+                    logStageComplete("cooked outdoor navigation loaded");
+
+                    const std::optional<std::string> renderDataFileName =
+                        buildRenderDataFileName(map.fileName);
+                    const std::optional<std::string> renderDataPath = renderDataFileName
+                        ? findAssetPath(assetFileSystem, map.worldId, *renderDataFileName)
+                        : std::nullopt;
+                    const std::optional<std::vector<uint8_t>> renderDataBytes = renderDataPath
+                        ? assetFileSystem.readBinaryFile(*renderDataPath)
+                        : std::nullopt;
+
+                    if (!renderDataPath || !renderDataBytes)
+                    {
+                        std::cerr << "Failed to load cooked outdoor render data for " << map.fileName << '\n';
+                        return std::nullopt;
+                    }
+
+                    OutdoorRenderDataLoader renderDataLoader = {};
+                    std::optional<OutdoorRenderData> renderData = renderDataLoader.loadFromBytes(
+                        *renderDataBytes,
+                        *geometryBytes,
+                        *assetInfo.outdoorMapData,
+                        sceneError);
+
+                    if (!renderData)
+                    {
+                        std::cerr << "Failed to parse cooked outdoor render data for " << map.fileName
+                                  << ": " << sceneError << '\n';
+                        return std::nullopt;
+                    }
+
+                    assetInfo.renderDataPath = *renderDataPath;
+                    assetInfo.renderDataSize = renderDataBytes->size();
+                    assetInfo.outdoorMapData->renderData = std::move(*renderData);
+                    logStageComplete("cooked outdoor render data loaded");
+
+                    const std::optional<std::string> lightingDataFileName =
+                        buildLightingDataFileName(map.fileName);
+                    const std::optional<std::string> lightingDataPath = lightingDataFileName
+                        ? findAssetPath(assetFileSystem, map.worldId, *lightingDataFileName)
+                        : std::nullopt;
+
+                    if (lightingDataPath)
+                    {
+                        const std::optional<std::vector<uint8_t>> lightingDataBytes =
+                            assetFileSystem.readBinaryFile(*lightingDataPath);
+
+                        if (!lightingDataBytes)
+                        {
+                            std::cerr << "Failed to load cooked outdoor lighting for " << map.fileName << '\n';
+                            return std::nullopt;
+                        }
+
+                        OutdoorLightingDataLoader lightingDataLoader = {};
+                        std::optional<OutdoorLightingData> lightingData = lightingDataLoader.loadFromBytes(
+                            *lightingDataBytes,
+                            *geometryBytes,
+                            *assetInfo.outdoorMapData,
+                            sceneError);
+
+                        if (!lightingData)
+                        {
+                            std::cerr << "Failed to parse cooked outdoor lighting for " << map.fileName
+                                      << ": " << sceneError << '\n';
+                            return std::nullopt;
+                        }
+
+                        assetInfo.lightingDataPath = *lightingDataPath;
+                        assetInfo.lightingDataSize = lightingDataBytes->size();
+                        assetInfo.outdoorMapData->lightingData = std::move(*lightingData);
+                        logStageComplete("cooked outdoor lighting loaded");
+                    }
+                }
             }
             else if (companionBytes)
             {
@@ -4248,6 +4407,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         bitmapLoadCache,
                         textureFrameTable ? &*textureFrameTable : nullptr,
                         surfaceMaterialTable ? &*surfaceMaterialTable : nullptr,
+                        outdoorSceneSurfaceAnimations.empty() ? nullptr : &outdoorSceneSurfaceAnimations,
                         progressPump);
                 logStageComplete("outdoor bmodel textures built");
             }
@@ -4653,5 +4813,41 @@ std::optional<std::string> MapAssetLoader::buildSceneFileName(const std::string 
     }
 
     return std::nullopt;
+}
+
+std::optional<std::string> MapAssetLoader::buildNavigationFileName(const std::string &fileName)
+{
+    const std::string normalized = toLower(fileName);
+
+    if (normalized.size() < 4 || !normalized.ends_with(".odm"))
+    {
+        return std::nullopt;
+    }
+
+    return normalized.substr(0, normalized.size() - 4) + ".nav";
+}
+
+std::optional<std::string> MapAssetLoader::buildRenderDataFileName(const std::string &fileName)
+{
+    const std::string normalized = toLower(fileName);
+
+    if (normalized.size() < 4 || !normalized.ends_with(".odm"))
+    {
+        return std::nullopt;
+    }
+
+    return normalized.substr(0, normalized.size() - 4) + ".render";
+}
+
+std::optional<std::string> MapAssetLoader::buildLightingDataFileName(const std::string &fileName)
+{
+    const std::string normalized = toLower(fileName);
+
+    if (normalized.size() < 4 || !normalized.ends_with(".odm"))
+    {
+        return std::nullopt;
+    }
+
+    return normalized.substr(0, normalized.size() - 4) + ".lighting";
 }
 }

@@ -438,6 +438,48 @@ TEST_CASE("actor path runtime skips a near waypoint after progress stalls")
     CHECK(skipped.waypointIndex == stalledIndex + 1);
 }
 
+TEST_CASE("actor path runtime skips a distant waypoint after progress stalls")
+{
+    PathMap map;
+    map.setFacets({
+        makeRuntimeFloor(-48.0f, 192.0f, -120.0f, 120.0f, 0.0f),
+        makeRuntimeWall(72.0f, -60.0f, 60.0f, 0.0f, 120.0f)
+    });
+
+    ActorPathResolveRequest request = makeRuntimeRequest();
+    request.source = {0.0f, 0.0f, 0.0f};
+    request.target = {144.0f, 0.0f, 0.0f};
+    request.mapRevision = map.revision();
+    request.nowSeconds = 10.0;
+    request.directCheckIntervalSeconds = 100.0;
+    request.shortcutCheckIntervalSeconds = 100.0;
+
+    ActorPathRuntime runtime;
+    const ActorPathResolveResult planned = runtime.resolveWaypoint(map, request);
+    REQUIRE(planned.planned);
+    REQUIRE(planned.pathActive);
+    REQUIRE(planned.waypointIndex + 1 < planned.waypointCount);
+
+    const PathPoint waypoint = planned.waypoint;
+    request.source = {
+        waypoint.x + request.waypointReachDistance + request.object.stepLength * 2.0f,
+        waypoint.y,
+        waypoint.z
+    };
+
+    request.nowSeconds = 10.10;
+    const ActorPathResolveResult active = runtime.resolveWaypoint(map, request);
+    REQUIRE(active.pathActive);
+    const size_t stalledIndex = active.waypointIndex;
+
+    request.nowSeconds = 10.60;
+    const ActorPathResolveResult skipped = runtime.resolveWaypoint(map, request);
+
+    CHECK(skipped.pathActive);
+    CHECK(skipped.stalledWaypointCount == 1);
+    CHECK(skipped.waypointIndex == stalledIndex + 1);
+}
+
 TEST_CASE("actor path runtime keeps a reached waypoint when the next waypoint would cut through void")
 {
     PathMap map;

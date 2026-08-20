@@ -11,6 +11,7 @@
 #include "game/events/EvtEnums.h"
 #include "game/events/EventRuntime.h"
 #include "game/data/GameDataLoader.h"
+#include "game/debug/GameplayDebugTrace.h"
 #include "game/fx/ParticleRecipes.h"
 #include "game/fx/ParticleSystem.h"
 #include "game/gameplay/GameMechanics.h"
@@ -22,6 +23,7 @@
 #include "game/app/GameApplication.h"
 #include "game/app/GprofControl.h"
 #include "game/outdoor/OutdoorInteractionController.h"
+#include "game/outdoor/OutdoorMechanismRuntime.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/HouseServiceRuntime.h"
 #include "game/indoor/IndoorGeometryUtils.h"
@@ -3902,10 +3904,728 @@ int HeadlessGameplayDiagnostics::runProfileFullMapLoad(
         return 1;
     }
 
+    if (selectedMap->outdoorBModelTextureSet)
+    {
+        for (const auto &[textureName, animation] : selectedMap->outdoorBModelTextureSet->animationBindings)
+        {
+            if (animation.frames.size() < 2)
+            {
+                continue;
+            }
+
+            const uint32_t firstTransitionTicks = animation.frames.front().frameLengthTicks;
+            const uint32_t frameBeforeTicks = firstTransitionTicks > 0 ? firstTransitionTicks - 1 : 0;
+            std::cout << "Headless surface animation: texture=\"" << textureName
+                      << "\" frames=" << animation.frames.size()
+                      << " length_ticks=" << animation.animationLengthTicks
+                      << " first_transition_ticks=" << firstTransitionTicks
+                      << " frame_before=" << animation.frameIndexAtTicks(frameBeforeTicks)
+                      << " frame_after=" << animation.frameIndexAtTicks(firstTransitionTicks)
+                      << '\n';
+        }
+    }
+
     std::cout << "Headless load profile complete: map=\"" << selectedMap->map.name
               << "\" file=" << selectedMap->map.fileName
               << '\n';
     return 0;
+}
+
+int HeadlessGameplayDiagnostics::runDumpOutdoorNavigation(
+    const std::filesystem::path &basePath,
+    const std::string &mapFileName
+) const
+{
+    Engine::AssetFileSystem assetFileSystem;
+
+    if (!assetFileSystem.initialize(
+            basePath,
+            m_config.assetRoot,
+            m_config.assetScaleTier,
+            m_config.assetScaleProfile,
+            m_config.activeWorldId))
+    {
+        std::cerr << "Headless diagnostic failed: could not initialize asset file system\n";
+        return 1;
+    }
+
+    GameDataLoader gameDataLoader;
+
+    if (!gameDataLoader.loadForHeadlessGameplay(assetFileSystem)
+        || !gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, mapFileName))
+    {
+        std::cerr << "Headless diagnostic failed: could not load map \"" << mapFileName << "\"\n";
+        return 1;
+    }
+
+    const std::optional<MapAssetInfo> &selectedMap = gameDataLoader.getSelectedMap();
+
+    if (!selectedMap || !selectedMap->outdoorMapData || !selectedMap->outdoorMapData->navigationData)
+    {
+        std::cerr << "Headless diagnostic failed: map has no cooked outdoor navigation\n";
+        return 1;
+    }
+
+    std::vector<OutdoorFaceGeometryData> faceGeometries;
+
+    for (size_t bModelIndex = 0; bModelIndex < selectedMap->outdoorMapData->bmodels.size(); ++bModelIndex)
+    {
+        const OutdoorBModel &bModel = selectedMap->outdoorMapData->bmodels[bModelIndex];
+
+        for (size_t faceIndex = 0; faceIndex < bModel.faces.size(); ++faceIndex)
+        {
+            OutdoorFaceGeometryData geometry = {};
+
+            if (buildOutdoorFaceGeometry(
+                    bModel,
+                    bModelIndex,
+                    bModel.faces[faceIndex],
+                    faceIndex,
+                    geometry,
+                    true))
+            {
+                faceGeometries.push_back(std::move(geometry));
+            }
+        }
+    }
+
+    OutdoorPathMapBuildOptions options = {};
+    options.includeTerrain = false;
+    const OutdoorPathMapBuildResult buildResult = OutdoorPathfindingBuilder::buildPathMap(
+        *selectedMap->outdoorMapData,
+        selectedMap->outdoorMapDeltaData ? &*selectedMap->outdoorMapDeltaData : nullptr,
+        &faceGeometries,
+        options);
+    size_t staticRenderFaceCount = 0;
+    size_t dynamicRenderFaceCount = 0;
+    size_t translucentRenderFaceCount = 0;
+    std::vector<std::pair<int32_t, int32_t>> renderCells;
+
+    if (selectedMap->outdoorMapData->renderData)
+    {
+        for (const OutdoorRenderFaceReference &face : selectedMap->outdoorMapData->renderData->faces)
+        {
+            if (face.dynamic)
+            {
+                ++dynamicRenderFaceCount;
+            }
+            else
+            {
+                ++staticRenderFaceCount;
+                renderCells.emplace_back(face.cellX, face.cellY);
+            }
+
+            if (face.translucent)
+            {
+                ++translucentRenderFaceCount;
+            }
+        }
+
+        std::sort(renderCells.begin(), renderCells.end());
+        renderCells.erase(std::unique(renderCells.begin(), renderCells.end()), renderCells.end());
+    }
+
+    std::cout << "Outdoor cooked navigation: map=\"" << selectedMap->map.fileName << '"'
+              << " sidecar_bytes=" << selectedMap->navigationSize.value_or(0)
+              << " source_faces=" << buildResult.sourceBModelFaceCount
+              << " cooked_facets=" << buildResult.cookedNavigationFacetCount
+              << " dynamic_facets=" << buildResult.dynamicNavigationFacetCount
+              << " skipped_faces=" << buildResult.skippedBModelFaceCount
+              << " path_facets=" << buildResult.pathFacetCount
+              << " revision=" << buildResult.pathMap.revision()
+              << " render_sidecar_bytes=" << selectedMap->renderDataSize.value_or(0)
+              << " render_static_faces=" << staticRenderFaceCount
+              << " render_dynamic_faces=" << dynamicRenderFaceCount
+              << " render_translucent_faces=" << translucentRenderFaceCount
+              << " render_cells=" << renderCells.size()
+              << " lighting_sidecar_bytes=" << selectedMap->lightingDataSize.value_or(0)
+              << " lightmap_pages=" << (selectedMap->outdoorMapData->lightingData
+                    ? selectedMap->outdoorMapData->lightingData->atlasPages.size() : 0)
+              << " authored_lights=" << (selectedMap->outdoorMapData->lightingData
+                    ? selectedMap->outdoorMapData->lightingData->authoredLights.size() : 0)
+              << '\n';
+    return buildResult.pathFacetCount > 0 ? 0 : 1;
+}
+
+int HeadlessGameplayDiagnostics::runVerifyOutdoorSaveRoundtrip(
+    const std::filesystem::path &basePath,
+    const std::string &mapFileName,
+    uint16_t chestEventId,
+    uint16_t mechanismEventId
+) const
+{
+    Engine::AssetFileSystem assetFileSystem;
+
+    if (!assetFileSystem.initialize(
+            basePath,
+            m_config.assetRoot,
+            m_config.assetScaleTier,
+            m_config.assetScaleProfile,
+            m_config.activeWorldId))
+    {
+        std::cerr << "Outdoor save roundtrip failed: could not initialize asset file system\n";
+        return 1;
+    }
+
+    GameDataLoader gameDataLoader;
+
+    if (!gameDataLoader.loadForHeadlessGameplay(assetFileSystem)
+        || !gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, mapFileName))
+    {
+        std::cerr << "Outdoor save roundtrip failed: could not load map \"" << mapFileName << "\"\n";
+        return 1;
+    }
+
+    const std::optional<MapAssetInfo> &selectedMap = gameDataLoader.getSelectedMap();
+
+    if (!selectedMap || !selectedMap->outdoorMapData || !selectedMap->outdoorMapDeltaData)
+    {
+        std::cerr << "Outdoor save roundtrip failed: selected map is not an outdoor gameplay map\n";
+        return 1;
+    }
+
+    Party party = {};
+    party.setItemTable(&gameDataLoader.getItemTable());
+    party.setJournalQuestTable(&gameDataLoader.getJournalQuestTable());
+    party.setCharacterDollTable(&gameDataLoader.getCharacterDollTable());
+    party.setItemEnchantTables(
+        &gameDataLoader.getStandardItemEnchantTable(),
+        &gameDataLoader.getSpecialItemEnchantTable());
+    party.setClassMultiplierTable(&gameDataLoader.getClassMultiplierTable());
+    party.setClassSkillTable(&gameDataLoader.getClassSkillTable());
+    party.seed(createRegressionPartySeed());
+
+    GameplayActorService actorService = buildBoundGameplayActorService(gameDataLoader);
+    GameplayProjectileService projectileService;
+    GameplayCombatController combatController;
+    OutdoorWorldRuntime outdoorWorldRuntime;
+    outdoorWorldRuntime.initialize(
+        selectedMap->map,
+        gameDataLoader.getMonsterTable(),
+        gameDataLoader.getMonsterProjectileTable(),
+        gameDataLoader.getObjectTable(),
+        gameDataLoader.getSpellTable(),
+        gameDataLoader.getItemTable(),
+        &party,
+        nullptr,
+        gameDataLoader.getStandardItemEnchantTable(),
+        gameDataLoader.getSpecialItemEnchantTable(),
+        &gameDataLoader.getChestTable(),
+        selectedMap->outdoorMapData,
+        selectedMap->outdoorMapDeltaData,
+        selectedMap->outdoorWeatherProfile,
+        selectedMap->eventRuntimeState,
+        selectedMap->outdoorActorPreviewBillboardSet,
+        selectedMap->outdoorLandMask,
+        selectedMap->outdoorDecorationCollisionSet,
+        selectedMap->outdoorActorCollisionSet,
+        selectedMap->outdoorSpriteObjectCollisionSet,
+        selectedMap->outdoorSpriteObjectBillboardSet,
+        &actorService,
+        &projectileService,
+        &combatController);
+
+    EventRuntimeState *pEventRuntimeState = outdoorWorldRuntime.eventRuntimeState();
+    EventRuntime eventRuntime(&gameDataLoader.getHouseTable(), &gameDataLoader.getNpcDialogTable());
+
+    if (pEventRuntimeState == nullptr
+        || !eventRuntime.executeOnLoadEvents(
+            selectedMap->localEventProgram,
+            selectedMap->globalEventProgram,
+            *pEventRuntimeState,
+            &party,
+            &outdoorWorldRuntime))
+    {
+        std::cerr << "Outdoor save roundtrip failed: could not initialize map events\n";
+        return 1;
+    }
+
+    outdoorWorldRuntime.applyEventRuntimeState();
+    party.applyEventRuntimeState(*pEventRuntimeState);
+
+    if (!eventRuntime.executeEventById(
+            selectedMap->localEventProgram,
+            selectedMap->globalEventProgram,
+            chestEventId,
+            *pEventRuntimeState,
+            &party,
+            &outdoorWorldRuntime))
+    {
+        std::cerr << "Outdoor save roundtrip failed: chest event " << chestEventId << " is unresolved\n";
+        return 1;
+    }
+
+    outdoorWorldRuntime.applyEventRuntimeState();
+    party.applyEventRuntimeState(*pEventRuntimeState);
+    const OutdoorWorldRuntime::ChestViewState *pChestView = outdoorWorldRuntime.activeChestView();
+
+    if (pChestView == nullptr || pChestView->items.empty())
+    {
+        std::cerr << "Outdoor save roundtrip failed: chest event did not open a populated chest\n";
+        return 1;
+    }
+
+    const uint32_t expectedChestId = pChestView->chestId;
+    const uint32_t expectedChestItemId = pChestView->items.front().itemId;
+
+    if (outdoorWorldRuntime.mapActorCount() == 0 || !outdoorWorldRuntime.setMapActorDead(0, true, false))
+    {
+        std::cerr << "Outdoor save roundtrip failed: map has no mutable authored actor\n";
+        return 1;
+    }
+
+    if (!eventRuntime.executeEventById(
+            selectedMap->localEventProgram,
+            selectedMap->globalEventProgram,
+            mechanismEventId,
+            *pEventRuntimeState,
+            &party,
+            &outdoorWorldRuntime)
+        || pEventRuntimeState->lastAffectedMechanismIds.size() != 1)
+    {
+        std::cerr << "Outdoor save roundtrip failed: mechanism event " << mechanismEventId
+                  << " did not affect exactly one mechanism\n";
+        return 1;
+    }
+
+    outdoorWorldRuntime.applyEventRuntimeState();
+    const uint32_t mechanismId = pEventRuntimeState->lastAffectedMechanismIds.front();
+    const std::unordered_map<uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition>::const_iterator
+        definitionIterator = pEventRuntimeState->outdoorModelMechanisms.find(mechanismId);
+
+    if (definitionIterator == pEventRuntimeState->outdoorModelMechanisms.end()
+        || definitionIterator->second.bmodelIndex >= selectedMap->outdoorMapData->bmodels.size())
+    {
+        std::cerr << "Outdoor save roundtrip failed: affected mechanism has no valid BModel binding\n";
+        return 1;
+    }
+
+    const EventRuntimeState::OutdoorModelMechanismDefinition &definition = definitionIterator->second;
+    outdoorWorldRuntime.updateWorld(static_cast<float>(definition.moveTimeMs) / 1000.0f + 0.1f);
+    const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+        pEventRuntimeState->mechanisms.find(mechanismId);
+
+    if (mechanismIterator == pEventRuntimeState->mechanisms.end()
+        || mechanismIterator->second.state != static_cast<uint16_t>(EvtMechanismState::Open)
+        || mechanismIterator->second.isMoving
+        || std::abs(mechanismIterator->second.currentDistance - 1.0f) > 0.001f)
+    {
+        std::cerr << "Outdoor save roundtrip failed: mechanism did not reach its open state\n";
+        return 1;
+    }
+
+    const OutdoorBModel &sourceBModel = selectedMap->outdoorMapData->bmodels[definition.bmodelIndex];
+    const OutdoorBModel openBModel = transformOutdoorBModelForRuntime(
+        sourceBModel,
+        pEventRuntimeState,
+        definition.bmodelIndex);
+    bool geometryMoved = false;
+
+    for (size_t vertexIndex = 0; vertexIndex < sourceBModel.vertices.size(); ++vertexIndex)
+    {
+        const OutdoorBModelVertex &sourceVertex = sourceBModel.vertices[vertexIndex];
+        const OutdoorBModelVertex &openVertex = openBModel.vertices[vertexIndex];
+
+        if (sourceVertex.x != openVertex.x || sourceVertex.y != openVertex.y || sourceVertex.z != openVertex.z)
+        {
+            geometryMoved = true;
+            break;
+        }
+    }
+
+    if (!geometryMoved)
+    {
+        std::cerr << "Outdoor save roundtrip failed: mechanism open transform did not move its BModel geometry\n";
+        return 1;
+    }
+
+    GameSaveData saveData = {};
+    saveData.currentSceneKind = SceneKind::Outdoor;
+    saveData.mapFileName = selectedMap->map.fileName;
+    saveData.party = party.snapshot();
+    saveData.hasOutdoorRuntimeState = true;
+    saveData.outdoorWorld = outdoorWorldRuntime.snapshot();
+    saveData.outdoorWorldStates[saveData.mapFileName] = saveData.outdoorWorld;
+    const std::filesystem::path savePath = std::filesystem::temp_directory_path()
+        / "openyamm_mm9_bmodel_world_roundtrip.oysav";
+    std::string error;
+
+    if (!saveGameDataToPath(savePath, saveData, error))
+    {
+        std::cerr << "Outdoor save roundtrip failed: " << error << '\n';
+        return 1;
+    }
+
+    const std::optional<GameSaveData> loadedSave = loadGameDataFromPath(savePath, error);
+    std::error_code removeError;
+    std::filesystem::remove(savePath, removeError);
+
+    if (!loadedSave || loadedSave->mapFileName != selectedMap->map.fileName
+        || !loadedSave->hasOutdoorRuntimeState)
+    {
+        std::cerr << "Outdoor save roundtrip failed: could not reload serialized map state: " << error << '\n';
+        return 1;
+    }
+
+    GameDataLoader restoredGameDataLoader;
+
+    if (!restoredGameDataLoader.loadForHeadlessGameplay(assetFileSystem)
+        || !restoredGameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, loadedSave->mapFileName))
+    {
+        std::cerr << "Outdoor save roundtrip failed: could not reload destination map assets\n";
+        return 1;
+    }
+
+    const std::optional<MapAssetInfo> &restoredMap = restoredGameDataLoader.getSelectedMap();
+
+    if (!restoredMap || !restoredMap->outdoorMapData || !restoredMap->outdoorMapDeltaData)
+    {
+        std::cerr << "Outdoor save roundtrip failed: restored map assets are incomplete\n";
+        return 1;
+    }
+
+    Party restoredParty = {};
+    restoredParty.setItemTable(&restoredGameDataLoader.getItemTable());
+    restoredParty.setJournalQuestTable(&restoredGameDataLoader.getJournalQuestTable());
+    restoredParty.setCharacterDollTable(&restoredGameDataLoader.getCharacterDollTable());
+    restoredParty.setItemEnchantTables(
+        &restoredGameDataLoader.getStandardItemEnchantTable(),
+        &restoredGameDataLoader.getSpecialItemEnchantTable());
+    restoredParty.setClassMultiplierTable(&restoredGameDataLoader.getClassMultiplierTable());
+    restoredParty.setClassSkillTable(&restoredGameDataLoader.getClassSkillTable());
+    restoredParty.restoreSnapshot(loadedSave->party);
+
+    GameplayActorService restoredActorService = buildBoundGameplayActorService(restoredGameDataLoader);
+    GameplayProjectileService restoredProjectileService;
+    GameplayCombatController restoredCombatController;
+    OutdoorWorldRuntime restoredWorld;
+    restoredWorld.initialize(
+        restoredMap->map,
+        restoredGameDataLoader.getMonsterTable(),
+        restoredGameDataLoader.getMonsterProjectileTable(),
+        restoredGameDataLoader.getObjectTable(),
+        restoredGameDataLoader.getSpellTable(),
+        restoredGameDataLoader.getItemTable(),
+        &restoredParty,
+        nullptr,
+        restoredGameDataLoader.getStandardItemEnchantTable(),
+        restoredGameDataLoader.getSpecialItemEnchantTable(),
+        &restoredGameDataLoader.getChestTable(),
+        restoredMap->outdoorMapData,
+        restoredMap->outdoorMapDeltaData,
+        restoredMap->outdoorWeatherProfile,
+        restoredMap->eventRuntimeState,
+        restoredMap->outdoorActorPreviewBillboardSet,
+        restoredMap->outdoorLandMask,
+        restoredMap->outdoorDecorationCollisionSet,
+        restoredMap->outdoorActorCollisionSet,
+        restoredMap->outdoorSpriteObjectCollisionSet,
+        restoredMap->outdoorSpriteObjectBillboardSet,
+        &restoredActorService,
+        &restoredProjectileService,
+        &restoredCombatController);
+    restoredWorld.restoreSnapshot(loadedSave->outdoorWorld);
+
+    const OutdoorWorldRuntime::MapActorState *pRestoredActor = restoredWorld.mapActorState(0);
+    const OutdoorWorldRuntime::ChestViewState *pRestoredChestView = restoredWorld.activeChestView();
+    EventRuntimeState *pRestoredEventRuntimeState = restoredWorld.eventRuntimeState();
+
+    if (pRestoredActor == nullptr || !pRestoredActor->isDead
+        || pRestoredChestView == nullptr || pRestoredChestView->chestId != expectedChestId
+        || pRestoredChestView->items.empty() || pRestoredChestView->items.front().itemId != expectedChestItemId
+        || pRestoredEventRuntimeState == nullptr)
+    {
+        std::cerr << "Outdoor save roundtrip failed: authored actor or chest state did not restore\n";
+        return 1;
+    }
+
+    const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator restoredMechanismIterator =
+        pRestoredEventRuntimeState->mechanisms.find(mechanismId);
+    const std::unordered_map<uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition>::const_iterator
+        restoredDefinitionIterator = pRestoredEventRuntimeState->outdoorModelMechanisms.find(mechanismId);
+
+    if (restoredMechanismIterator == pRestoredEventRuntimeState->mechanisms.end()
+        || restoredDefinitionIterator == pRestoredEventRuntimeState->outdoorModelMechanisms.end()
+        || restoredMechanismIterator->second.state != static_cast<uint16_t>(EvtMechanismState::Open)
+        || restoredMechanismIterator->second.isMoving
+        || std::abs(restoredMechanismIterator->second.currentDistance - 1.0f) > 0.001f)
+    {
+        std::cerr << "Outdoor save roundtrip failed: mechanism runtime state did not restore\n";
+        return 1;
+    }
+
+    const size_t restoredBModelIndex = restoredDefinitionIterator->second.bmodelIndex;
+
+    if (restoredBModelIndex >= restoredMap->outdoorMapData->bmodels.size())
+    {
+        std::cerr << "Outdoor save roundtrip failed: restored mechanism BModel binding is invalid\n";
+        return 1;
+    }
+
+    const OutdoorBModel restoredOpenBModel = transformOutdoorBModelForRuntime(
+        restoredMap->outdoorMapData->bmodels[restoredBModelIndex],
+        pRestoredEventRuntimeState,
+        restoredBModelIndex);
+
+    const bool geometryRestored = restoredOpenBModel.vertices.size() == openBModel.vertices.size()
+        && std::equal(
+            restoredOpenBModel.vertices.begin(),
+            restoredOpenBModel.vertices.end(),
+            openBModel.vertices.begin(),
+            [](const OutdoorBModelVertex &left, const OutdoorBModelVertex &right)
+            {
+                return left.x == right.x && left.y == right.y && left.z == right.z;
+            });
+
+    if (!geometryRestored)
+    {
+        std::cerr << "Outdoor save roundtrip failed: restored mechanism geometry differs from saved geometry\n";
+        return 1;
+    }
+
+    std::cout << "Outdoor save roundtrip valid: map=\"" << selectedMap->map.fileName
+              << "\" actor_dead=yes chest=" << expectedChestId
+              << " chest_item=" << expectedChestItemId
+              << " mechanism=" << mechanismId
+              << " mechanism_open=yes geometry_restored=yes\n";
+    return 0;
+}
+
+int HeadlessGameplayDiagnostics::runVerifyOutdoorMechanismPassage(
+    const std::filesystem::path &basePath,
+    const std::string &mapFileName,
+    uint32_t mechanismId
+) const
+{
+    Engine::AssetFileSystem assetFileSystem;
+
+    if (!assetFileSystem.initialize(
+            basePath,
+            m_config.assetRoot,
+            m_config.assetScaleTier,
+            m_config.assetScaleProfile,
+            m_config.activeWorldId))
+    {
+        std::cerr << "Outdoor mechanism passage failed: could not initialize asset file system\n";
+        return 1;
+    }
+
+    GameDataLoader gameDataLoader;
+
+    if (!gameDataLoader.loadForHeadlessGameplay(assetFileSystem)
+        || !gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, mapFileName))
+    {
+        std::cerr << "Outdoor mechanism passage failed: could not load map \"" << mapFileName << "\"\n";
+        return 1;
+    }
+
+    const std::optional<MapAssetInfo> &selectedMap = gameDataLoader.getSelectedMap();
+
+    if (!selectedMap || !selectedMap->outdoorMapData)
+    {
+        std::cerr << "Outdoor mechanism passage failed: selected map is not an outdoor map\n";
+        return 1;
+    }
+
+    const OutdoorMapData &sourceMapData = *selectedMap->outdoorMapData;
+    const OutdoorBModelMechanism *pMechanism = nullptr;
+
+    for (const OutdoorBModelMechanism &mechanism : sourceMapData.mechanisms)
+    {
+        if (mechanism.mechanismId == mechanismId)
+        {
+            pMechanism = &mechanism;
+            break;
+        }
+    }
+
+    if (pMechanism == nullptr || !pMechanism->hasRuntimeEndpointMotion()
+        || !pMechanism->hasBModelBinding || pMechanism->bmodelIndex >= sourceMapData.bmodels.size())
+    {
+        std::cerr << "Outdoor mechanism passage failed: mechanism " << mechanismId
+                  << " has no executable BModel binding\n";
+        return 1;
+    }
+
+    const OutdoorBModel &closedBModel = sourceMapData.bmodels[pMechanism->bmodelIndex];
+    bool hasMatchingInteractiveFace = false;
+
+    for (const OutdoorBModelFace &face : closedBModel.faces)
+    {
+        if (face.cogTriggeredNumber == pMechanism->interactionEventId
+            && hasFaceAttribute(face.attributes, FaceAttribute::Clickable))
+        {
+            hasMatchingInteractiveFace = true;
+            break;
+        }
+    }
+
+    if (pMechanism->interactionEventId == 0 || !hasMatchingInteractiveFace)
+    {
+        std::cerr << "Outdoor mechanism passage failed: mechanism " << mechanismId
+                  << " has no matching clickable interaction event\n";
+        return 1;
+    }
+
+    size_t passageFaceIndex = static_cast<size_t>(-1);
+    float passageFaceScore = 0.0f;
+    bx::Vec3 passageNormal = {0.0f, 0.0f, 0.0f};
+    bx::Vec3 passageCenter = {0.0f, 0.0f, 0.0f};
+    float passageMinZ = 0.0f;
+    float passageMaxZ = 0.0f;
+
+    for (size_t faceIndex = 0; faceIndex < closedBModel.faces.size(); ++faceIndex)
+    {
+        const OutdoorBModelFace &face = closedBModel.faces[faceIndex];
+
+        if (face.vertexIndices.size() < 3)
+        {
+            continue;
+        }
+
+        const bx::Vec3 normal = bx::normalize({
+            static_cast<float>(face.planeNormalX),
+            static_cast<float>(face.planeNormalY),
+            static_cast<float>(face.planeNormalZ)
+        });
+        const float horizontalNormalLength = std::sqrt(normal.x * normal.x + normal.y * normal.y);
+
+        if (horizontalNormalLength < 0.9f || std::fabs(normal.z) > 0.2f)
+        {
+            continue;
+        }
+
+        bx::Vec3 center = {0.0f, 0.0f, 0.0f};
+        float minZ = std::numeric_limits<float>::max();
+        float maxZ = std::numeric_limits<float>::lowest();
+        float minTangent = std::numeric_limits<float>::max();
+        float maxTangent = std::numeric_limits<float>::lowest();
+        const bx::Vec3 tangent = {-normal.y / horizontalNormalLength, normal.x / horizontalNormalLength, 0.0f};
+        bool valid = true;
+
+        for (uint16_t vertexIndex : face.vertexIndices)
+        {
+            if (vertexIndex >= closedBModel.vertices.size())
+            {
+                valid = false;
+                break;
+            }
+
+            const bx::Vec3 vertex = outdoorBModelVertexToWorld(closedBModel.vertices[vertexIndex]);
+            center = bx::add(center, vertex);
+            minZ = std::min(minZ, vertex.z);
+            maxZ = std::max(maxZ, vertex.z);
+            const float tangentPosition = bx::dot(vertex, tangent);
+            minTangent = std::min(minTangent, tangentPosition);
+            maxTangent = std::max(maxTangent, tangentPosition);
+        }
+
+        const float verticalSpan = maxZ - minZ;
+        const float tangentSpan = maxTangent - minTangent;
+        const float score = verticalSpan * tangentSpan;
+
+        if (!valid || verticalSpan < 224.0f || tangentSpan < 96.0f || score <= passageFaceScore)
+        {
+            continue;
+        }
+
+        passageFaceIndex = faceIndex;
+        passageFaceScore = score;
+        passageNormal = {normal.x / horizontalNormalLength, normal.y / horizontalNormalLength, 0.0f};
+        passageCenter = bx::mul(center, 1.0f / static_cast<float>(face.vertexIndices.size()));
+        passageMinZ = minZ;
+        passageMaxZ = maxZ;
+    }
+
+    if (passageFaceIndex == static_cast<size_t>(-1))
+    {
+        std::cerr << "Outdoor mechanism passage failed: no party-sized vertical face found\n";
+        return 1;
+    }
+
+    OutdoorBModelTransform openTransform = {};
+    openTransform.translationX = static_cast<float>(pMechanism->deltaX);
+    openTransform.translationY = static_cast<float>(pMechanism->deltaY);
+    openTransform.translationZ = static_cast<float>(pMechanism->deltaZ);
+    openTransform.pivotX = static_cast<float>(pMechanism->pivotX);
+    openTransform.pivotY = static_cast<float>(pMechanism->pivotY);
+    openTransform.pivotZ = static_cast<float>(pMechanism->pivotZ);
+    openTransform.rotationDegreesX = pMechanism->rotationDegreesX;
+    openTransform.rotationDegreesY = pMechanism->rotationDegreesY;
+    openTransform.rotationDegreesZ = pMechanism->rotationDegreesZ;
+
+    OutdoorMapData closedMapData = sourceMapData;
+    OutdoorMapData openMapData = sourceMapData;
+    openMapData.bmodels[pMechanism->bmodelIndex] = transformOutdoorBModel(closedBModel, openTransform, 1.0f);
+    OutdoorMovementController closedController(
+        closedMapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    OutdoorMovementController openController(
+        openMapData,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    const OutdoorBodyDimensions body = {37.0f, 192.0f};
+    const float footZ = std::clamp(
+        passageCenter.z - body.height * 0.5f,
+        passageMinZ + 8.0f,
+        passageMaxZ - body.height - 8.0f);
+    constexpr float StartClearance = 96.0f;
+    constexpr float RequestedDistance = 320.0f;
+    OutdoorMoveState start = {};
+    start.x = passageCenter.x + passageNormal.x * StartClearance;
+    start.y = passageCenter.y + passageNormal.y * StartClearance;
+    start.footZ = footZ;
+    start.airborne = true;
+    start.fallStartZ = footZ;
+    const float velocityX = -passageNormal.x * RequestedDistance;
+    const float velocityY = -passageNormal.y * RequestedDistance;
+
+    const auto resolvePassage = [&](OutdoorMovementController &controller)
+    {
+        return controller.resolveMoveForBody(
+            start,
+            body,
+            velocityX,
+            velocityY,
+            0.0f,
+            false,
+            false,
+            false,
+            true,
+            false,
+            0.0f,
+            0.0f,
+            4000.0f,
+            1.0f);
+    };
+    const OutdoorMoveState closedResult = resolvePassage(closedController);
+    const OutdoorMoveState openResult = resolvePassage(openController);
+    const auto progress = [&](const OutdoorMoveState &result)
+    {
+        return (result.x - start.x) * -passageNormal.x + (result.y - start.y) * -passageNormal.y;
+    };
+    const float closedProgress = progress(closedResult);
+    const float openProgress = progress(openResult);
+    const bool closedBlocked = closedProgress < RequestedDistance * 0.6f;
+    const bool openPassed = openProgress > RequestedDistance * 0.9f;
+
+    std::cout << "Outdoor mechanism passage: map=\"" << selectedMap->map.fileName
+              << "\" mechanism=" << mechanismId
+              << " event=" << pMechanism->interactionEventId
+              << " name=\"" << pMechanism->sourceName << "\""
+              << " bmodel=" << pMechanism->bmodelIndex
+              << " face=" << passageFaceIndex
+              << " closed_progress=" << closedProgress
+              << " open_progress=" << openProgress
+              << " closed_blocked=" << (closedBlocked ? "yes" : "no")
+              << " open_passed=" << (openPassed ? "yes" : "no")
+              << '\n';
+    return closedBlocked && openPassed ? 0 : 1;
 }
 
 int HeadlessGameplayDiagnostics::runSimulateActor(
@@ -3913,7 +4633,9 @@ int HeadlessGameplayDiagnostics::runSimulateActor(
     const std::string &mapFileName,
     size_t actorIndex,
     int stepCount,
-    float deltaSeconds
+    float deltaSeconds,
+    float partyOffsetX,
+    uint16_t preEventId
 ) const
 {
     Engine::AssetFileSystem assetFileSystem;
@@ -3951,6 +4673,10 @@ int HeadlessGameplayDiagnostics::runSimulateActor(
         return 1;
     }
 
+    GameplayActorService gameplayActorService = {};
+    gameplayActorService.bindTables(
+        &gameDataLoader.getMonsterTable(),
+        &gameDataLoader.getSpellTable());
     OutdoorWorldRuntime outdoorWorldRuntime;
     outdoorWorldRuntime.initialize(
         selectedMap->map,
@@ -3973,8 +4699,31 @@ int HeadlessGameplayDiagnostics::runSimulateActor(
         selectedMap->outdoorDecorationCollisionSet,
         selectedMap->outdoorActorCollisionSet,
         selectedMap->outdoorSpriteObjectCollisionSet,
-        selectedMap->outdoorSpriteObjectBillboardSet
+        selectedMap->outdoorSpriteObjectBillboardSet,
+        &gameplayActorService
     );
+    outdoorWorldRuntime.setOutdoorPathfindingSettings(true, false);
+
+    if (preEventId != 0)
+    {
+        EventRuntime eventRuntime;
+        EventRuntimeState *pEventRuntimeState = outdoorWorldRuntime.eventRuntimeState();
+
+        if (pEventRuntimeState == nullptr
+            || !eventRuntime.executeEventById(
+                selectedMap->localEventProgram,
+                selectedMap->globalEventProgram,
+                preEventId,
+                *pEventRuntimeState,
+                nullptr,
+                &outdoorWorldRuntime))
+        {
+            std::cerr << "Headless diagnostic failed: pre-event " << preEventId << " unresolved\n";
+            return 1;
+        }
+
+        outdoorWorldRuntime.applyEventRuntimeState();
+    }
 
     const OutdoorWorldRuntime::MapActorState *pStartActor = outdoorWorldRuntime.mapActorState(actorIndex);
 
@@ -3987,16 +4736,33 @@ int HeadlessGameplayDiagnostics::runSimulateActor(
     const int startX = pStartActor->x;
     const int startY = pStartActor->y;
     const int startZ = pStartActor->z;
-    const float partyX = static_cast<float>(startX + 6000);
+    const float partyX = static_cast<float>(startX) + partyOffsetX;
     const float partyY = static_cast<float>(startY);
     const float partyZ = static_cast<float>(startZ);
     bool sawStanding = pStartActor->aiState == OutdoorWorldRuntime::ActorAiState::Standing;
     bool sawWandering = pStartActor->aiState == OutdoorWorldRuntime::ActorAiState::Wandering;
     bool sawWalkingAnimation = pStartActor->animation == OutdoorWorldRuntime::ActorAnimation::Walking;
     bool sawMovement = false;
+    bool sawActorTarget = false;
+    size_t targetActorIndex = static_cast<size_t>(-1);
+    int16_t targetMonsterId = 0;
+    const auto noteActorTarget = [&](const std::optional<OutdoorWorldRuntime::ActorDecisionDebugInfo> &debugInfo)
+    {
+        if (!debugInfo || debugInfo->targetKind != OutdoorWorldRuntime::DebugTargetKind::Actor)
+        {
+            return;
+        }
+
+        sawActorTarget = true;
+        targetActorIndex = debugInfo->targetActorIndex;
+        targetMonsterId = debugInfo->targetMonsterId;
+    };
+    noteActorTarget(outdoorWorldRuntime.debugActorDecisionInfo(actorIndex, partyX, partyY, partyZ));
 
     std::cout << "Headless actor simulation: actor=" << actorIndex
               << " start_pos=(" << startX << "," << startY << "," << startZ << ")"
+              << " pre_event=" << preEventId
+              << " start_hostile=" << (pStartActor->hostileToParty ? "yes" : "no")
               << " start_ai=" << static_cast<int>(pStartActor->aiState)
               << " start_anim=" << static_cast<int>(pStartActor->animation)
               << '\n';
@@ -4016,6 +4782,7 @@ int HeadlessGameplayDiagnostics::runSimulateActor(
         sawWandering = sawWandering || pActor->aiState == OutdoorWorldRuntime::ActorAiState::Wandering;
         sawWalkingAnimation = sawWalkingAnimation || pActor->animation == OutdoorWorldRuntime::ActorAnimation::Walking;
         sawMovement = sawMovement || pActor->x != startX || pActor->y != startY;
+        noteActorTarget(outdoorWorldRuntime.debugActorDecisionInfo(actorIndex, partyX, partyY, partyZ));
     }
 
     const OutdoorWorldRuntime::MapActorState *pEndActor = outdoorWorldRuntime.mapActorState(actorIndex);
@@ -4027,6 +4794,9 @@ int HeadlessGameplayDiagnostics::runSimulateActor(
               << " saw_wandering=" << (sawWandering ? "yes" : "no")
               << " saw_walking_anim=" << (sawWalkingAnimation ? "yes" : "no")
               << " saw_movement=" << (sawMovement ? "yes" : "no")
+              << " saw_actor_target=" << (sawActorTarget ? "yes" : "no")
+              << " target_actor=" << targetActorIndex
+              << " target_monster=" << targetMonsterId
               << '\n';
     return 0;
 }
@@ -4036,7 +4806,8 @@ int HeadlessGameplayDiagnostics::runTraceActorAi(
     const std::string &mapFileName,
     size_t actorIndex,
     int stepCount,
-    float deltaSeconds
+    float deltaSeconds,
+    float partyOffsetX
 ) const
 {
     Engine::AssetFileSystem assetFileSystem;
@@ -4074,6 +4845,10 @@ int HeadlessGameplayDiagnostics::runTraceActorAi(
         return 1;
     }
 
+    GameplayActorService gameplayActorService = {};
+    gameplayActorService.bindTables(
+        &gameDataLoader.getMonsterTable(),
+        &gameDataLoader.getSpellTable());
     OutdoorWorldRuntime outdoorWorldRuntime;
     outdoorWorldRuntime.initialize(
         selectedMap->map,
@@ -4096,8 +4871,10 @@ int HeadlessGameplayDiagnostics::runTraceActorAi(
         selectedMap->outdoorDecorationCollisionSet,
         selectedMap->outdoorActorCollisionSet,
         selectedMap->outdoorSpriteObjectCollisionSet,
-        selectedMap->outdoorSpriteObjectBillboardSet
+        selectedMap->outdoorSpriteObjectBillboardSet,
+        &gameplayActorService
     );
+    outdoorWorldRuntime.setOutdoorPathfindingSettings(true, false);
 
     const OutdoorWorldRuntime::MapActorState *pStartActor = outdoorWorldRuntime.mapActorState(actorIndex);
 
@@ -4107,7 +4884,7 @@ int HeadlessGameplayDiagnostics::runTraceActorAi(
         return 1;
     }
 
-    const float partyX = static_cast<float>(pStartActor->x + 6000);
+    const float partyX = static_cast<float>(pStartActor->x) + partyOffsetX;
     const float partyY = static_cast<float>(pStartActor->y);
     const float partyZ = static_cast<float>(pStartActor->z);
 
@@ -4552,7 +5329,8 @@ int HeadlessGameplayDiagnostics::runDumpActorPreviewTexture(
 int HeadlessGameplayDiagnostics::runOpenEvent(
     const std::filesystem::path &basePath,
     const std::string &mapFileName,
-    uint16_t eventId
+    uint16_t eventId,
+    float advanceSeconds
 ) const
 {
     Engine::AssetFileSystem assetFileSystem;
@@ -4590,6 +5368,15 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
         return 1;
     }
 
+    Party party = {};
+    party.setItemTable(&gameDataLoader.getItemTable());
+    party.setItemEnchantTables(
+        &gameDataLoader.getStandardItemEnchantTable(),
+        &gameDataLoader.getSpecialItemEnchantTable());
+    party.setClassMultiplierTable(&gameDataLoader.getClassMultiplierTable());
+    party.setClassSkillTable(&gameDataLoader.getClassSkillTable());
+    party.reset();
+
     OutdoorWorldRuntime outdoorWorldRuntime;
     outdoorWorldRuntime.initialize(
         selectedMap->map,
@@ -4598,7 +5385,7 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
         gameDataLoader.getObjectTable(),
         gameDataLoader.getSpellTable(),
         gameDataLoader.getItemTable(),
-        nullptr,
+        &party,
         nullptr,
         gameDataLoader.getStandardItemEnchantTable(),
         gameDataLoader.getSpecialItemEnchantTable(),
@@ -4615,15 +5402,6 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
         selectedMap->outdoorSpriteObjectBillboardSet
     );
 
-    Party party = {};
-    party.setItemTable(&gameDataLoader.getItemTable());
-    party.setItemEnchantTables(
-        &gameDataLoader.getStandardItemEnchantTable(),
-        &gameDataLoader.getSpecialItemEnchantTable());
-    party.setClassMultiplierTable(&gameDataLoader.getClassMultiplierTable());
-    party.setClassSkillTable(&gameDataLoader.getClassSkillTable());
-    party.reset();
-
     EventRuntime eventRuntime;
     EventRuntimeState *pEventRuntimeState = outdoorWorldRuntime.eventRuntimeState();
 
@@ -4637,6 +5415,17 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
               << " id=" << selectedMap->map.id
               << " event=" << eventId
               << '\n';
+
+    std::vector<std::pair<bool, bool>> actorStatesBeforeEvent;
+    actorStatesBeforeEvent.reserve(outdoorWorldRuntime.mapActorCount());
+
+    for (size_t actorIndex = 0; actorIndex < outdoorWorldRuntime.mapActorCount(); ++actorIndex)
+    {
+        const OutdoorWorldRuntime::MapActorState *pActor = outdoorWorldRuntime.mapActorState(actorIndex);
+        actorStatesBeforeEvent.emplace_back(
+            pActor != nullptr && pActor->isInvisible,
+            pActor != nullptr && pActor->hostileToParty);
+    }
 
     const bool executed = eventRuntime.executeEventById(
         selectedMap->localEventProgram,
@@ -4655,6 +5444,93 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
 
     outdoorWorldRuntime.applyEventRuntimeState();
     party.applyEventRuntimeState(*pEventRuntimeState);
+
+    for (size_t actorIndex = 0; actorIndex < actorStatesBeforeEvent.size(); ++actorIndex)
+    {
+        const OutdoorWorldRuntime::MapActorState *pActor = outdoorWorldRuntime.mapActorState(actorIndex);
+
+        if (pActor == nullptr
+            || (pActor->isInvisible == actorStatesBeforeEvent[actorIndex].first
+                && pActor->hostileToParty == actorStatesBeforeEvent[actorIndex].second))
+        {
+            continue;
+        }
+
+        std::cout << "Headless diagnostic: actor " << actorIndex
+                  << " invisible=" << (pActor->isInvisible ? "yes" : "no")
+                  << " hostile=" << (pActor->hostileToParty ? "yes" : "no")
+                  << '\n';
+    }
+
+    if (advanceSeconds > 0.0f)
+    {
+        outdoorWorldRuntime.prepareTimers(selectedMap->localEventProgram, selectedMap->globalEventProgram);
+        outdoorWorldRuntime.updateWorld(advanceSeconds);
+        outdoorWorldRuntime.updateTimers(
+            advanceSeconds,
+            eventRuntime,
+            selectedMap->localEventProgram,
+            selectedMap->globalEventProgram);
+        outdoorWorldRuntime.updateWorld(advanceSeconds);
+
+        std::vector<uint32_t> mechanismIds = pEventRuntimeState->lastAffectedMechanismIds;
+        std::sort(mechanismIds.begin(), mechanismIds.end());
+        mechanismIds.erase(std::unique(mechanismIds.begin(), mechanismIds.end()), mechanismIds.end());
+
+        for (uint32_t mechanismId : mechanismIds)
+        {
+            const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+                pEventRuntimeState->mechanisms.find(mechanismId);
+
+            if (mechanismIterator == pEventRuntimeState->mechanisms.end())
+            {
+                continue;
+            }
+
+            const RuntimeMechanismState &mechanism = mechanismIterator->second;
+            std::cout << "Headless diagnostic: mechanism " << mechanismId
+                      << " state=" << gameplayDebugTraceMechanismStateName(mechanism.state)
+                      << " moving=" << (mechanism.isMoving ? "yes" : "no")
+                      << " distance=" << mechanism.currentDistance
+                      << '\n';
+        }
+    }
+
+    if (!pEventRuntimeState->lastAffectedMechanismIds.empty())
+    {
+        for (uint32_t mechanismId : pEventRuntimeState->lastAffectedMechanismIds)
+        {
+            const std::unordered_map<uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition>::const_iterator
+                definitionIterator = pEventRuntimeState->outdoorModelMechanisms.find(mechanismId);
+            const std::unordered_map<uint32_t, RuntimeMechanismState>::const_iterator mechanismIterator =
+                pEventRuntimeState->mechanisms.find(mechanismId);
+
+            if (definitionIterator != pEventRuntimeState->outdoorModelMechanisms.end()
+                && mechanismIterator != pEventRuntimeState->mechanisms.end()
+                && definitionIterator->second.openAway)
+            {
+                std::cout << "Headless diagnostic: open-away mechanism=" << mechanismId
+                          << " direction=" << static_cast<int>(mechanismIterator->second.rotationDirection)
+                          << '\n';
+            }
+        }
+
+        std::cout << "Headless diagnostic: affected mechanisms=";
+
+        for (size_t mechanismIndex = 0;
+            mechanismIndex < pEventRuntimeState->lastAffectedMechanismIds.size();
+            ++mechanismIndex)
+        {
+            if (mechanismIndex > 0)
+            {
+                std::cout << ',';
+            }
+
+            std::cout << pEventRuntimeState->lastAffectedMechanismIds[mechanismIndex];
+        }
+
+        std::cout << '\n';
+    }
 
     if (const EventRuntimeState::PendingMapMove *pPendingMapMove = outdoorWorldRuntime.pendingMapMove())
     {
@@ -4741,6 +5617,11 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
         std::cout << '\n';
     }
 
+    for (const std::string &statusMessage : pEventRuntimeState->statusMessages)
+    {
+        std::cout << "Headless diagnostic: status=\"" << statusMessage << "\"\n";
+    }
+
     if (const OutdoorWorldRuntime::ChestViewState *pActiveChestView = outdoorWorldRuntime.activeChestView())
     {
         printChestSummary(*pActiveChestView, gameDataLoader.getItemTable());
@@ -4822,6 +5703,15 @@ int HeadlessGameplayDiagnostics::runOpenActor(
         return 2;
     }
 
+    Party party = {};
+    party.setItemTable(&gameDataLoader.getItemTable());
+    party.setItemEnchantTables(
+        &gameDataLoader.getStandardItemEnchantTable(),
+        &gameDataLoader.getSpecialItemEnchantTable());
+    party.setClassMultiplierTable(&gameDataLoader.getClassMultiplierTable());
+    party.setClassSkillTable(&gameDataLoader.getClassSkillTable());
+    party.reset();
+
     OutdoorWorldRuntime outdoorWorldRuntime;
     outdoorWorldRuntime.initialize(
         selectedMap->map,
@@ -4830,7 +5720,7 @@ int HeadlessGameplayDiagnostics::runOpenActor(
         gameDataLoader.getObjectTable(),
         gameDataLoader.getSpellTable(),
         gameDataLoader.getItemTable(),
-        nullptr,
+        &party,
         nullptr,
         gameDataLoader.getStandardItemEnchantTable(),
         gameDataLoader.getSpecialItemEnchantTable(),
@@ -4847,15 +5737,6 @@ int HeadlessGameplayDiagnostics::runOpenActor(
         selectedMap->outdoorSpriteObjectBillboardSet
     );
 
-    Party party = {};
-    party.setItemTable(&gameDataLoader.getItemTable());
-    party.setItemEnchantTables(
-        &gameDataLoader.getStandardItemEnchantTable(),
-        &gameDataLoader.getSpecialItemEnchantTable());
-    party.setClassMultiplierTable(&gameDataLoader.getClassMultiplierTable());
-    party.setClassSkillTable(&gameDataLoader.getClassSkillTable());
-    party.reset();
-
     EventRuntimeState *pEventRuntimeState = outdoorWorldRuntime.eventRuntimeState();
 
     if (pEventRuntimeState == nullptr)
@@ -4863,6 +5744,22 @@ int HeadlessGameplayDiagnostics::runOpenActor(
         std::cerr << "Headless diagnostic failed: event runtime state is not available\n";
         return 1;
     }
+
+    EventRuntime eventRuntime(&gameDataLoader.getHouseTable(), &gameDataLoader.getNpcDialogTable());
+
+    if (!eventRuntime.executeOnLoadEvents(
+            selectedMap->localEventProgram,
+            selectedMap->globalEventProgram,
+            *pEventRuntimeState,
+            &party,
+            &outdoorWorldRuntime))
+    {
+        std::cerr << "Headless diagnostic failed: map on-load events failed\n";
+        return 1;
+    }
+
+    outdoorWorldRuntime.applyEventRuntimeState();
+    party.applyEventRuntimeState(*pEventRuntimeState);
 
     const MapDeltaActor &actor = selectedMap->outdoorMapDeltaData->actors[actorIndex];
     const std::string actorName = resolveMapDeltaActorName(gameDataLoader.getMonsterTable(), actor);
