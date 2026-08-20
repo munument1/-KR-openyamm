@@ -85,11 +85,11 @@ TEST_CASE("map navigation matches authoritative world map")
     static constexpr std::array<ExpectedMapTransitions, 9> ExpectedMaps = {{
         {"Out01.odm", nullptr, nullptr, nullptr, nullptr},
         {"Out02.odm", "Out03.odm", nullptr, "Out06.odm", "Out05.odm"},
-        {"Out03.odm", nullptr, "Out02.odm", "Out07.odm", "Out04.odm"},
-        {"Out04.odm", nullptr, "Out05.odm", "Out03.odm", nullptr},
+        {"Out03.odm", nullptr, "Out02.odm", "Out04.odm", "Out07.odm"},
+        {"Out04.odm", nullptr, "Out05.odm", nullptr, "Out03.odm"},
         {"Out05.odm", "Out04.odm", "Out08.odm", "Out02.odm", nullptr},
         {"Out06.odm", "Out07.odm", nullptr, nullptr, "Out02.odm"},
-        {"Out07.odm", nullptr, "Out06.odm", nullptr, "Out03.odm"},
+        {"Out07.odm", nullptr, "Out06.odm", "Out03.odm", nullptr},
         {"Out08.odm", "Out05.odm", nullptr, nullptr, nullptr},
         {"Out13.odm", nullptr, nullptr, nullptr, nullptr},
     }};
@@ -281,8 +281,11 @@ TEST_CASE("merged outdoor travels preserve original mm8 boundary transitions")
     CHECK_EQ(pRavenshore->westTransition->destinationMapFileName, "Out05.odm");
     CHECK_EQ(pRavenshore->westTransition->travelDays, 1);
 
+    REQUIRE(pAlvar->eastTransition.has_value());
+    CHECK_EQ(pAlvar->eastTransition->destinationMapFileName, "Out04.odm");
+    CHECK_EQ(pAlvar->eastTransition->travelDays, 1);
     REQUIRE(pAlvar->westTransition.has_value());
-    CHECK_EQ(pAlvar->westTransition->destinationMapFileName, "Out04.odm");
+    CHECK_EQ(pAlvar->westTransition->destinationMapFileName, "Out07.odm");
     CHECK_EQ(pAlvar->westTransition->travelDays, 1);
     REQUIRE(pShadowspire->westTransition.has_value());
     CHECK_EQ(pShadowspire->westTransition->destinationMapFileName, "Out02.odm");

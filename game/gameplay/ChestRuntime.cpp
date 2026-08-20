@@ -506,7 +506,9 @@ GameplayChestViewState buildMaterializedChestView(
             }
 
             std::mt19937 rng(makeChestSeed(sessionChestSeed, mapId, chestId, uint32_t(recordIndex)));
-            const int resolvedTreasureLevel = sampleRemappedTreasureLevel(-rawItemId, normalizedMapTreasureLevel, rng);
+            const int resolvedTreasureLevel = rawItemId == -RandomChestItemMaxLevel
+                ? RandomChestItemMaxLevel
+                : sampleRemappedTreasureLevel(-rawItemId, normalizedMapTreasureLevel, rng);
 
             if (resolvedTreasureLevel == RandomChestItemMaxLevel)
             {

@@ -154,6 +154,24 @@ bool chestViewContainsItemId(const OpenYAMM::Game::GameplayChestViewState &view,
         || std::any_of(view.hiddenItems.begin(), view.hiddenItems.end(), matchesItem);
 }
 
+bool chestViewContainsRareItem(
+    const OpenYAMM::Game::GameplayChestViewState &view,
+    const OpenYAMM::Game::ItemTable &itemTable)
+{
+    const auto isRareItem =
+        [&itemTable](const OpenYAMM::Game::GameplayChestItemState &item)
+        {
+            const uint32_t itemId = item.item.objectDescriptionId != 0
+                ? item.item.objectDescriptionId
+                : item.itemId;
+            const OpenYAMM::Game::ItemDefinition *pItemDefinition = itemTable.get(itemId);
+            return pItemDefinition != nullptr && OpenYAMM::Game::ItemRuntime::isRareItem(*pItemDefinition);
+        };
+
+    return std::any_of(view.items.begin(), view.items.end(), isRareItem)
+        || std::any_of(view.hiddenItems.begin(), view.hiddenItems.end(), isRareItem);
+}
+
 OpenYAMM::Game::Party makeChestTestParty(const OpenYAMM::Tests::RegressionGameData &gameData)
 {
     OpenYAMM::Game::Party party = {};
@@ -622,6 +640,36 @@ TEST_CASE("chest level seven random placeholder generates a guaranteed rare item
     const OpenYAMM::Game::ItemDefinition *pItemDefinition = gameData.itemTable.get(pGeneratedItem->itemId);
     REQUIRE(pItemDefinition != nullptr);
     CHECK(OpenYAMM::Game::ItemRuntime::isRareItem(*pItemDefinition));
+}
+
+TEST_CASE("Ravenshore hidden tree chest retains its guaranteed artifact")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    const OpenYAMM::Game::OutdoorSceneData sceneData =
+        loadOutdoorScene("assets_dev/worlds/mm8/maps/out02.scene.yml");
+    REQUIRE_GT(sceneData.initialState.chests.size(), 11u);
+
+    const OpenYAMM::Game::MapDeltaChest &treeChest = sceneData.initialState.chests[11];
+    REQUIRE_GE(treeChest.rawItems.size(), sizeof(int32_t));
+
+    int32_t firstRawItemId = 0;
+    std::memcpy(&firstRawItemId, treeChest.rawItems.data(), sizeof(firstRawItemId));
+    REQUIRE_EQ(firstRawItemId, -7);
+
+    OpenYAMM::Game::Party party = makeChestTestParty(gameData);
+    OpenYAMM::Game::ChestTable chestTable = makeChestTable(9, 9);
+    const OpenYAMM::Game::GameplayChestViewState view =
+        OpenYAMM::Game::buildMaterializedChestView(
+            11,
+            treeChest,
+            1,
+            2,
+            12345,
+            &chestTable,
+            &gameData.itemTable,
+            &party);
+
+    CHECK(chestViewContainsRareItem(view, gameData.itemTable));
 }
 
 TEST_CASE("trapped chest opens when active character disarms it")
