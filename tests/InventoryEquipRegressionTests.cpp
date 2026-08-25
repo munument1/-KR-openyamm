@@ -1,5 +1,7 @@
 #include "doctest/doctest.h"
 
+#include "engine/AssetFileSystem.h"
+#include "engine/AssetScaleTier.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/items/InventoryItemUseRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
@@ -8,6 +10,8 @@
 #include "game/party/SpellIds.h"
 
 #include "tests/RegressionGameData.h"
+
+#include <filesystem>
 
 namespace
 {
@@ -71,6 +75,31 @@ OpenYAMM::Game::Party makeRegressionParty(const OpenYAMM::Tests::RegressionGameD
     party.setClassSkillTable(&gameData.classSkillTable);
     party.seed(createRegressionPartySeed());
     return party;
+}
+
+OpenYAMM::Game::ItemTable makeSkillLearningItemTable(const std::string &targetSkills)
+{
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    REQUIRE(assetFileSystem.initialize(
+        sourceRoot,
+        sourceRoot / "assets_dev",
+        OpenYAMM::Engine::AssetScaleTier::X1));
+
+    std::vector<std::string> itemRow(26);
+    itemRow[0] = "10000";
+    itemRow[1] = "missing_test_icon";
+    itemRow[2] = "Skill Learning Scroll";
+    itemRow[4] = "LearnSkill";
+    itemRow[17] = "test";
+    itemRow[18] = "test:item/skill_learning_scroll";
+    itemRow[19] = "1";
+    itemRow[22] = "LearnSkill";
+    itemRow[23] = targetSkills;
+
+    OpenYAMM::Game::ItemTable itemTable;
+    REQUIRE(itemTable.load(assetFileSystem, {itemRow}, {}));
+    return itemTable;
 }
 
 std::optional<uint16_t> findSpecialEnchantId(
@@ -193,6 +222,101 @@ TEST_CASE("inventory item use spellbook consumes on success with matching school
     CHECK(result.consumed);
     CHECK(pMember->knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::FireBolt)));
     CHECK(result.speechId == OpenYAMM::Game::SpeechId::LearnSpell);
+}
+
+TEST_CASE("inventory item use skill scroll learns a core skill for the targeted member")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    CHECK(gameData.classSkillTable.getClassCap("Assassin", "Throwing")
+        == OpenYAMM::Game::SkillMastery::Grandmaster);
+    CHECK(gameData.classSkillTable.getClassCap("Champion", "Throwing")
+        == OpenYAMM::Game::SkillMastery::Master);
+    CHECK(gameData.classSkillTable.getClassCap("MinotaurLord", "Throwing")
+        == OpenYAMM::Game::SkillMastery::Grandmaster);
+    CHECK(gameData.classSkillTable.getClassCap("WarTroll", "Throwing")
+        == OpenYAMM::Game::SkillMastery::Master);
+    CHECK(gameData.classSkillTable.getClassCap("Cleric", "Throwing")
+        == OpenYAMM::Game::SkillMastery::None);
+    OpenYAMM::Game::Party party = makeRegressionParty(gameData);
+    OpenYAMM::Game::ItemTable itemTable = makeSkillLearningItemTable("Throwing");
+    party.setItemTable(&itemTable);
+
+    OpenYAMM::Game::Character *pTargetMember = party.member(0);
+    REQUIRE(pTargetMember != nullptr);
+    pTargetMember->skills.erase("Throwing");
+
+    OpenYAMM::Game::InventoryItem skillScroll = {};
+    skillScroll.objectDescriptionId = 10000;
+    const OpenYAMM::Game::InventoryItemUseResult learned =
+        OpenYAMM::Game::InventoryItemUseRuntime::useItemOnMember(
+            party,
+            0,
+            skillScroll,
+            itemTable,
+            nullptr);
+
+    REQUIRE(learned.handled);
+    CHECK(learned.action == OpenYAMM::Game::InventoryItemUseAction::LearnSkill);
+    CHECK(learned.consumed);
+    REQUIRE_EQ(learned.learnedSkills.size(), 1);
+    CHECK_EQ(learned.learnedSkills[0], "Throwing");
+    CHECK(pTargetMember->hasSkill("Throwing"));
+
+    const OpenYAMM::Game::InventoryItemUseResult repeated =
+        OpenYAMM::Game::InventoryItemUseRuntime::useItemOnMember(
+            party,
+            0,
+            skillScroll,
+            itemTable,
+            nullptr);
+    CHECK(repeated.handled);
+    CHECK_FALSE(repeated.consumed);
+    CHECK(repeated.alreadyKnown);
+}
+
+TEST_CASE("inventory item use learns composite skills atomically")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = makeRegressionParty(gameData);
+    OpenYAMM::Game::ItemTable itemTable = makeSkillLearningItemTable("Sword|Dagger");
+    party.setItemTable(&itemTable);
+    OpenYAMM::Game::Character *pTargetMember = party.member(0);
+    REQUIRE(pTargetMember != nullptr);
+    pTargetMember->skills.erase("Sword");
+    pTargetMember->skills.erase("Dagger");
+
+    OpenYAMM::Game::InventoryItem skillBook = {};
+    skillBook.objectDescriptionId = 10000;
+    const OpenYAMM::Game::InventoryItemUseResult result =
+        OpenYAMM::Game::InventoryItemUseRuntime::useItemOnMember(party, 0, skillBook, itemTable, nullptr);
+
+    REQUIRE(result.handled);
+    CHECK(result.consumed);
+    CHECK((result.learnedSkills == std::vector<std::string>{"Sword", "Dagger"}));
+    CHECK(pTargetMember->hasSkill("Sword"));
+    CHECK(pTargetMember->hasSkill("Dagger"));
+}
+
+TEST_CASE("inventory item use rejects an ineligible composite skill without partial mutation")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = makeRegressionParty(gameData);
+    OpenYAMM::Game::ItemTable itemTable = makeSkillLearningItemTable("Sword|DarkMagic");
+    party.setItemTable(&itemTable);
+    OpenYAMM::Game::Character *pTargetMember = party.member(0);
+    REQUIRE(pTargetMember != nullptr);
+    pTargetMember->skills.erase("Sword");
+    pTargetMember->skills.erase("DarkMagic");
+
+    OpenYAMM::Game::InventoryItem skillBook = {};
+    skillBook.objectDescriptionId = 10000;
+    const OpenYAMM::Game::InventoryItemUseResult result =
+        OpenYAMM::Game::InventoryItemUseRuntime::useItemOnMember(party, 0, skillBook, itemTable, nullptr);
+
+    REQUIRE(result.handled);
+    CHECK_FALSE(result.consumed);
+    CHECK_FALSE(pTargetMember->hasSkill("Sword"));
+    CHECK_FALSE(pTargetMember->hasSkill("DarkMagic"));
 }
 
 TEST_CASE("inventory item use spellbook fails when the spell is already known")

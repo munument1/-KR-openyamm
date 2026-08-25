@@ -9,3 +9,5 @@ Chest Data					UI Grid
 5	chest06	14	10	6	chest06	42	34	9	9
 6	chest07	14	10	7	chest07	18	30	9	9
 7	metal chest	14	10	8	chest08	42	34	9	9
+8	mm9_chest	14	10	1	mm9_chest	42	34	9	9
+9	mm9_treasure_bag	14	10	3	mm9_treasure_bag	18	30	9	9

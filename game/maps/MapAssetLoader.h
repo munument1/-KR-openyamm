@@ -4,6 +4,7 @@
 #include "game/events/ScriptedEventProgram.h"
 #include "game/events/EventRuntime.h"
 #include "game/maps/MapDeltaData.h"
+#include "game/maps/MapItemSourceData.h"
 #include "game/indoor/IndoorMapData.h"
 #include "game/tables/MapStats.h"
 #include "game/tables/MonsterTable.h"
@@ -231,6 +232,7 @@ struct MapAssetInfo
     std::optional<IndoorMapData> indoorMapData;
     std::optional<MapDeltaData> outdoorMapDeltaData;
     std::optional<MapDeltaData> indoorMapDeltaData;
+    std::optional<MapItemSourceData> itemSourceData;
     std::optional<OutdoorWeatherProfile> outdoorWeatherProfile;
     std::optional<ScriptedEventProgram> localEventProgram;
     std::optional<ScriptedEventProgram> globalEventProgram;

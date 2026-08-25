@@ -1,6 +1,7 @@
 #include "game/maps/IndoorSceneYml.h"
 
 #include "game/StringUtils.h"
+#include "game/maps/MapItemSourceYml.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -657,6 +658,11 @@ std::optional<IndoorSceneData> IndoorSceneYmlLoader::loadFromText(
         return std::nullopt;
     }
 
+    if (!parseMapItemSourceData(rootNode, sceneData.itemSources, errorMessage))
+    {
+        return std::nullopt;
+    }
+
     const YAML::Node sourceNode = rootNode["source"];
 
     if (!sourceNode || !sourceNode.IsMap())
@@ -996,6 +1002,23 @@ std::optional<IndoorSceneData> IndoorSceneYmlLoader::loadFromText(
 
         if (!readScalarNode(actorNode, "name", actor.name, errorMessage)
             || !readScalarNode(actorNode, "npc_id", actor.npcId, errorMessage)
+            || !readScalarNode(actorNode, "mm9_rude_id", actor.mm9RudeId, errorMessage, false)
+            || !readScalarNode(
+                actorNode,
+                "mm9_source_object_index",
+                actor.mm9SourceObjectIndex,
+                errorMessage,
+                false)
+            || !readScalarNode(
+                actorNode,
+                "mm9_can_receive_damage",
+                actor.mm9CanReceiveDamage,
+                errorMessage,
+                false)
+            || !readScalarNode(actorNode, "mm9_civilian", actor.mm9Civilian, errorMessage, false)
+            || !readScalarNode(actorNode, "mm9_guard", actor.mm9Guard, errorMessage, false)
+            || !readScalarNode(actorNode, "initial_yaw_units", actor.initialYawUnits, errorMessage, false)
+            || !readScalarNode(actorNode, "immobile", actor.immobile, errorMessage, false)
             || !readScalarNode(actorNode, "attributes", actor.attributes, errorMessage)
             || !readScalarNode(actorNode, "hp", actor.hp, errorMessage)
             || !readScalarNode(actorNode, "hostility_type", actor.hostilityType, errorMessage)

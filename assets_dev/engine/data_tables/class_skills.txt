@@ -5,6 +5,7 @@ Dagger	E	E	E	E	-	-	-	-	M	M	-	-	M	M	M	M	E	E	E	E	E	E	E	E	E	E	E	E	E	E	E	E	E	E	M	M	G
 Axe	E	E	E	E	-	-	-	-	-	-	-	-	-	-	-	-	E	E	M	M	E	M	-	-	-	-	E	E	E	E	M	M	G	G	-	-	-	-	M	M	E	E	-	-	-	-	-	-	-	-	-	-	-
 Spear	M	M	M	M	-	-	-	-	-	-	-	-	-	-	-	-	M	M	G	G	M	M	E	E	E	E	E	E	E	E	E	E	E	E	-	-	-	-	E	E	-	-	-	-	-	-	-	-	-	-	-	-	-
 Bow	M	M	G	G	B	B	B	B	M	G	-	-	B	B	B	B	E	E	E	E	E	E	B	B	B	B	E	E	E	E	M	M	M	M	E	E	E	E	B	B	B	B	B	B	B	B	B	B	B	B	B	B	B
+Throwing	B	E	M	M	-	-	-	-	E	M	-	-	-	-	-	-	B	E	M	M	E	G	B	E	M	G	B	E	M	M	B	E	M	M	B	E	G	M	E	M	-	-	-	-	-	-	-	-	-	-	-	-	-
 Mace	-	-	-	-	M	M	M	M	B	B	-	-	E	E	E	E	M	M	M	M	M	M	-	-	-	-	M	M	G	G	-	-	-	-	E	E	E	E	M	G	E	E	-	-	-	-	-	-	-	-	M	-	-
 Blaster	G	G	G	G	G	G	G	G	G	G	-	-	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	G	B	B	G	G	G
 Shield	-	-	-	-	M	M	M	M	E	E	-	-	E	E	E	E	M	M	G	G	-	-	-	-	-	-	M	M	G	G	E	E	E	E	B	B	B	B	-	-	M	M	-	-	-	-	-	-	-	-	M	-	-

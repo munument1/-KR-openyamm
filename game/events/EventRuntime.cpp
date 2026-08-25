@@ -10,6 +10,7 @@
 #include "game/items/ItemGenerator.h"
 #include "game/party/Party.h"
 #include "game/party/SkillData.h"
+#include "game/outdoor/OutdoorMechanismRuntime.h"
 #include "game/tables/ClassSkillTable.h"
 #include "game/tables/HouseTable.h"
 #include "game/tables/JournalQuestTable.h"
@@ -689,13 +690,14 @@ std::optional<SoundId> soundIdForPortraitFxEvent(PortraitFxEventKind kind)
 
 bool shouldQueueQuestBitFx(const Party *pParty, uint32_t qbitId, int32_t previousValue, int32_t newValue)
 {
-    if (pParty == nullptr || previousValue != 0 || newValue == 0)
+    if (pParty == nullptr || (previousValue != 0) == (newValue != 0))
     {
         return false;
     }
 
     const JournalQuestTable *pQuestTable = pParty->journalQuestTable();
-    return pQuestTable != nullptr && pQuestTable->hasQuestText(qbitId);
+    return pQuestTable != nullptr
+        && pQuestTable->qbitChangeRevealsQuest(qbitId, previousValue != 0, newValue != 0, *pParty);
 }
 
 std::optional<SpeechId> speechIdForLegacyFaceAnimationId(uint32_t faceAnimationId)
@@ -1335,6 +1337,36 @@ void queuePendingSound(
     request.y = y;
     request.positional = positional;
     runtimeState.pendingSounds.push_back(std::move(request));
+}
+
+void queuePendingSoundOnce(
+    EventRuntimeState &runtimeState,
+    uint32_t soundId,
+    int32_t x,
+    int32_t y,
+    bool positional)
+{
+    if (!positional)
+    {
+        const SoundScope soundScope = soundId >= 30000 ? SoundScope::World : SoundScope::Engine;
+        const bool alreadyQueued = std::any_of(
+            runtimeState.pendingSounds.begin(),
+            runtimeState.pendingSounds.end(),
+            [soundId, soundScope](const EventRuntimeState::PendingSound &sound)
+            {
+                return sound.kind == EventRuntimeState::PendingSound::Kind::PlayOneShot
+                    && !sound.positional
+                    && sound.soundScope == soundScope
+                    && sound.soundId == soundId;
+            });
+
+        if (alreadyQueued)
+        {
+            return;
+        }
+    }
+
+    queuePendingSound(runtimeState, soundId, x, y, positional);
 }
 
 void queuePendingSoundByName(
@@ -4438,6 +4470,26 @@ void EventRuntime::subtractVariableValue(
     runtimeState.variables[variable.rawId] = getVariableValue(runtimeState, variable, nullptr) - value;
 }
 
+void EventRuntime::setQuestBitValue(
+    EventRuntimeState &runtimeState,
+    Party &party,
+    uint32_t qbitId,
+    bool value,
+    const std::vector<size_t> &targetMemberIndices)
+{
+    const bool wasSet = party.hasQuestBit(qbitId);
+    party.setQuestBit(qbitId, value);
+
+    if (shouldQueueQuestBitFx(&party, qbitId, wasSet ? 1 : 0, value ? 1 : 0))
+    {
+        queuePortraitFxRequest(
+            runtimeState,
+            PortraitFxEventKind::QuestComplete,
+            &party,
+            targetMemberIndices);
+    }
+}
+
 namespace
 {
 constexpr char LuaScopeMap[] = "map";
@@ -4809,6 +4861,47 @@ int luaHasItemAnywhere(lua_State *pLuaState)
     return 1;
 }
 
+int luaHasQuestBit(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    const uint32_t qbitId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    lua_pushboolean(pLuaState, pParty != nullptr && pParty->hasQuestBit(qbitId));
+    return 1;
+}
+
+int luaSetQuestBit(lua_State *pLuaState)
+{
+    Party *pParty = writableParty(pLuaState);
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const uint32_t qbitId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+
+    if (pParty != nullptr && pRuntimeState != nullptr)
+    {
+        EventRuntime::setQuestBitValue(
+            *pRuntimeState,
+            *pParty,
+            qbitId,
+            true,
+            selectedTargetMemberIndices(pLuaState));
+    }
+
+    return 0;
+}
+
+int luaClearQuestBit(lua_State *pLuaState)
+{
+    Party *pParty = writableParty(pLuaState);
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const uint32_t qbitId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+
+    if (pParty != nullptr && pRuntimeState != nullptr)
+    {
+        EventRuntime::setQuestBitValue(*pRuntimeState, *pParty, qbitId, false);
+    }
+
+    return 0;
+}
+
 int luaGetPartyPosition(lua_State *pLuaState)
 {
     const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
@@ -4857,6 +4950,46 @@ int luaGetEnemyDetectorState(lua_State *pLuaState)
     lua_pushboolean(pLuaState, yellow);
     lua_pushboolean(pLuaState, red);
     return 2;
+}
+
+int luaSetMapActorPosition(lua_State *pLuaState)
+{
+    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    ISceneEventContext *pSceneEventContext = pExecutionContext != nullptr
+        ? pExecutionContext->pSceneEventContext
+        : nullptr;
+    const size_t actorIndex = static_cast<size_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+    const float x = static_cast<float>(luaL_checknumber(pLuaState, 2));
+    const float y = static_cast<float>(luaL_checknumber(pLuaState, 3));
+    const float z = static_cast<float>(luaL_checknumber(pLuaState, 4));
+    lua_pushboolean(
+        pLuaState,
+        pSceneEventContext != nullptr && pSceneEventContext->setMapActorPosition(actorIndex, x, y, z));
+    return 1;
+}
+
+int luaIsMapActorHostile(lua_State *pLuaState)
+{
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    const ISceneEventContext *pSceneEventContext = readonlySceneEventContext(pExecutionContext);
+    const size_t actorIndex = static_cast<size_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+    lua_pushboolean(
+        pLuaState,
+        pSceneEventContext != nullptr && pSceneEventContext->isMapActorHostile(actorIndex));
+    return 1;
+}
+
+int luaIsMapActorWithinPartyDistance(lua_State *pLuaState)
+{
+    const LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    const ISceneEventContext *pSceneEventContext = readonlySceneEventContext(pExecutionContext);
+    const size_t actorIndex = static_cast<size_t>(std::max<lua_Integer>(0, luaL_checkinteger(pLuaState, 1)));
+    const float distance = static_cast<float>(luaL_checknumber(pLuaState, 2));
+    lua_pushboolean(
+        pLuaState,
+        pSceneEventContext != nullptr
+            && pSceneEventContext->isMapActorWithinPartyDistance(actorIndex, distance));
+    return 1;
 }
 
 int luaGetCurrentScreen(lua_State *pLuaState)
@@ -5679,6 +5812,16 @@ int luaPlaySound(lua_State *pLuaState)
     return 0;
 }
 
+int luaPlaySoundOnce(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const uint32_t soundId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const int32_t x = static_cast<int32_t>(luaL_optinteger(pLuaState, 2, 0));
+    const int32_t y = static_cast<int32_t>(luaL_optinteger(pLuaState, 3, 0));
+    queuePendingSoundOnce(*pRuntimeState, soundId, x, y, x != 0 || y != 0);
+    return 0;
+}
+
 int luaPlaySoundName(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
@@ -5743,6 +5886,26 @@ int luaRandomJump(lua_State *pLuaState)
 
     const uint32_t randomValue = nextEventRandom(eventId, step, *pRuntimeState);
     lua_pushinteger(pLuaState, validTargets[randomValue % validTargets.size()]);
+    return 1;
+}
+
+int luaRandomBetween(lua_State *pLuaState)
+{
+    const int32_t minimum = static_cast<int32_t>(luaL_checkinteger(pLuaState, 1));
+    const int32_t maximum = static_cast<int32_t>(luaL_checkinteger(pLuaState, 2));
+    const uint8_t step = static_cast<uint8_t>(std::max<lua_Integer>(0, luaL_optinteger(pLuaState, 3, 0)));
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+
+    if (pRuntimeState == nullptr || pExecutionContext == nullptr || maximum < minimum)
+    {
+        lua_pushinteger(pLuaState, minimum);
+        return 1;
+    }
+
+    const uint32_t range = static_cast<uint32_t>(static_cast<int64_t>(maximum) - minimum + 1);
+    const uint32_t randomValue = nextEventRandom(pExecutionContext->currentEventId, step, *pRuntimeState);
+    lua_pushinteger(pLuaState, minimum + static_cast<int32_t>(randomValue % range));
     return 1;
 }
 
@@ -5955,6 +6118,31 @@ int luaSpeakNpc(lua_State *pLuaState)
     context.kind = DialogueContextKind::NpcTalk;
     context.sourceId = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
     context.hostHouseId = pRuntimeState->dialogueState.hostHouseId;
+    pRuntimeState->pendingDialogueContext = std::move(context);
+    return 0;
+}
+
+int luaOpenMm9Rude(lua_State *pLuaState)
+{
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+    const lua_Integer rawRudeId = luaL_checkinteger(pLuaState, 1);
+    if (rawRudeId <= 0 || rawRudeId > std::numeric_limits<uint32_t>::max())
+    {
+        return luaL_error(pLuaState, "MM9 RUDE id is out of range");
+    }
+    if (pRuntimeState == nullptr)
+    {
+        return 0;
+    }
+
+    pRuntimeState->messages.clear();
+    EventRuntimeState::PendingDialogueContext context = {};
+    context.kind = DialogueContextKind::Mm9Rude;
+    context.sourceId = static_cast<uint32_t>(rawRudeId);
+    if (pRuntimeState->activeHookContext.has_value())
+    {
+        context.sourceActorIndex = pRuntimeState->activeHookContext->actorIndex;
+    }
     pRuntimeState->pendingDialogueContext = std::move(context);
     return 0;
 }
@@ -6908,6 +7096,9 @@ void tracePendingInputPromptCreated(
             case DialogueContextKind::NpcNews:
                 pContextKind = "npc_news";
                 break;
+            case DialogueContextKind::Mm9Rude:
+                pContextKind = "mm9_rude";
+                break;
         }
     }
 
@@ -7324,6 +7515,82 @@ int luaOpenChest(lua_State *pLuaState)
     return 0;
 }
 
+int luaSearchLootProp(lua_State *pLuaState)
+{
+    const char *pSourceId = luaL_checkstring(pLuaState, 1);
+    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    const bool handled = pExecutionContext != nullptr
+        && pExecutionContext->pSceneEventContext != nullptr
+        && pExecutionContext->pSceneEventContext->searchLootProp(pSourceId != nullptr ? pSourceId : "");
+    lua_pushboolean(pLuaState, handled ? 1 : 0);
+    return 1;
+}
+
+int luaSpawnLootContainer(lua_State *pLuaState)
+{
+    const char *pSourceId = luaL_checkstring(pLuaState, 1);
+    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    const bool handled = pExecutionContext != nullptr
+        && pExecutionContext->pSceneEventContext != nullptr
+        && pExecutionContext->pSceneEventContext->spawnLootContainer(pSourceId != nullptr ? pSourceId : "");
+    lua_pushboolean(pLuaState, handled ? 1 : 0);
+    return 1;
+}
+
+int luaConsumeWorldItem(lua_State *pLuaState)
+{
+    const char *pSourceId = luaL_checkstring(pLuaState, 1);
+    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    const bool handled = pExecutionContext != nullptr
+        && pExecutionContext->pSceneEventContext != nullptr
+        && pExecutionContext->pSceneEventContext->consumeWorldItem(pSourceId != nullptr ? pSourceId : "");
+    lua_pushboolean(pLuaState, handled ? 1 : 0);
+    return 1;
+}
+
+int luaSetPersistentItemMechanismState(lua_State *pLuaState)
+{
+    const char *pSourceId = luaL_checkstring(pLuaState, 1);
+    const bool visible = luaEventBoolean(pLuaState, 2);
+    const bool solid = luaEventBoolean(pLuaState, 3);
+    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    const bool handled = pExecutionContext != nullptr
+        && pExecutionContext->pSceneEventContext != nullptr
+        && pExecutionContext->pSceneEventContext->setPersistentItemMechanismState(
+            pSourceId != nullptr ? pSourceId : "",
+            visible,
+            solid);
+    lua_pushboolean(pLuaState, handled ? 1 : 0);
+    return 1;
+}
+
+int luaSetPersistentItemMechanismVariant(lua_State *pLuaState)
+{
+    const char *pSourceId = luaL_checkstring(pLuaState, 1);
+    const uint32_t variantIndex = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 2));
+    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+    const bool handled = pExecutionContext != nullptr
+        && pExecutionContext->pSceneEventContext != nullptr
+        && pExecutionContext->pSceneEventContext->setPersistentItemMechanismVariant(
+            pSourceId != nullptr ? pSourceId : "",
+            variantIndex);
+    lua_pushboolean(pLuaState, handled ? 1 : 0);
+    return 1;
+}
+
+int luaApplyPartyPrimaryStatBuff(lua_State *pLuaState)
+{
+    Party *pParty = writableParty(pLuaState);
+    const uint32_t statIndex = static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1));
+    const int power = static_cast<int>(luaL_checkinteger(pLuaState, 2));
+    const float durationSeconds = static_cast<float>(luaL_checknumber(pLuaState, 3));
+    if (pParty != nullptr)
+    {
+        pParty->applyTemporaryPrimaryStatBonus(statIndex, power, durationSeconds);
+    }
+    return 0;
+}
+
 int luaGiveItem(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
@@ -7510,6 +7777,13 @@ int luaSetOutdoorModelMechanismState(lua_State *pLuaState)
     const uint16_t previousState = runtimeMechanism.state;
     const bool wasMoving = runtimeMechanism.isMoving;
     EventRuntime::applyMechanismAction(runtimeMechanism, nullptr, action);
+    queueOutdoorMechanismMovementAudio(
+        *pRuntimeState,
+        mechanismId,
+        definition,
+        previousState,
+        wasMoving,
+        runtimeMechanism);
     GAMEPLAY_DEBUG_TRACE(
         "mechanism_triggered kind=outdoor_model id=" + std::to_string(mechanismId)
         + " action=" + gameplayDebugTraceMechanismActionName(actionValue)
@@ -7536,6 +7810,12 @@ int luaStopDoor(lua_State *pLuaState)
     RuntimeMechanismState &runtimeMechanism = pRuntimeState->mechanisms[mechanismId];
     const bool wasMoving = runtimeMechanism.isMoving;
     runtimeMechanism.isMoving = false;
+
+    if (wasMoving && pRuntimeState->outdoorModelMechanisms.contains(mechanismId))
+    {
+        queueOutdoorMechanismAudioStop(*pRuntimeState, mechanismId);
+    }
+
     GAMEPLAY_DEBUG_TRACE(
         "mechanism_stopped id=" + std::to_string(mechanismId)
         + " state=" + gameplayDebugTraceMechanismStateName(runtimeMechanism.state)
@@ -7867,6 +8147,7 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "_BeginCanShowTopic", luaBeginCanShowTopic);
     registerLuaFunction(pLuaState, "Debug", luaDebugPrint);
     registerLuaFunction(pLuaState, "_RandomJump", luaRandomJump);
+    registerLuaFunction(pLuaState, "RandomBetween", luaRandomBetween);
     registerLuaFunction(pLuaState, "AskQuestion", luaAskQuestion);
     registerLuaFunction(pLuaState, "AskQuestionWithAnswerSteps", luaAskQuestionWithAnswerSteps);
     registerLuaFunction(pLuaState, "_PressAnyKey", luaPressAnyKey);
@@ -7877,8 +8158,14 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "Cmp", luaCompare);
     registerLuaFunction(pLuaState, "HasEverOwnedItem", luaHasEverOwnedItem);
     registerLuaFunction(pLuaState, "HasItemAnywhere", luaHasItemAnywhere);
+    registerLuaFunction(pLuaState, "HasQuestBit", luaHasQuestBit);
+    registerLuaFunction(pLuaState, "SetQuestBit", luaSetQuestBit);
+    registerLuaFunction(pLuaState, "ClearQuestBit", luaClearQuestBit);
     registerLuaFunction(pLuaState, "GetPartyPosition", luaGetPartyPosition);
     registerLuaFunction(pLuaState, "GetEnemyDetectorState", luaGetEnemyDetectorState);
+    registerLuaFunction(pLuaState, "SetMapActorPosition", luaSetMapActorPosition);
+    registerLuaFunction(pLuaState, "IsMapActorHostile", luaIsMapActorHostile);
+    registerLuaFunction(pLuaState, "IsMapActorWithinPartyDistance", luaIsMapActorWithinPartyDistance);
     registerLuaFunction(pLuaState, "GetCurrentScreen", luaGetCurrentScreen);
     registerLuaFunction(pLuaState, "GetCurrentMapName", luaGetCurrentMapName);
     registerLuaFunction(pLuaState, "GetCurrentContinent", luaGetCurrentContinent);
@@ -7914,9 +8201,22 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SetHookHouseTopics", luaSetHookHouseTopics);
     registerLuaFunction(pLuaState, "EnterHouse", luaEnterHouse);
     registerLuaFunction(pLuaState, "PlaySound", luaPlaySound);
+    registerLuaFunction(pLuaState, "PlaySoundOnce", luaPlaySoundOnce);
     registerLuaFunction(pLuaState, "PlaySoundName", luaPlaySoundName);
     registerLuaFunction(pLuaState, "MoveToMap", luaMoveToMap);
     registerLuaFunction(pLuaState, "OpenChest", luaOpenChest);
+    registerLuaFunction(pLuaState, "SearchLootProp", luaSearchLootProp);
+    registerLuaFunction(pLuaState, "SpawnLootContainer", luaSpawnLootContainer);
+    registerLuaFunction(pLuaState, "ConsumeWorldItem", luaConsumeWorldItem);
+    registerLuaFunction(
+        pLuaState,
+        "SetPersistentItemMechanismState",
+        luaSetPersistentItemMechanismState);
+    registerLuaFunction(
+        pLuaState,
+        "SetPersistentItemMechanismVariant",
+        luaSetPersistentItemMechanismVariant);
+    registerLuaFunction(pLuaState, "ApplyPartyPrimaryStatBuff", luaApplyPartyPrimaryStatBuff);
     registerLuaFunction(pLuaState, "FaceExpression", luaFaceExpression);
     registerLuaFunction(pLuaState, "DamagePlayer", luaDamagePlayer);
     registerLuaFunction(pLuaState, "SetSnow", luaSetSnow);
@@ -7940,6 +8240,7 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SummonMonsters", luaSummonMonsters);
     registerLuaFunction(pLuaState, "CastSpell", luaCastSpell);
     registerLuaFunction(pLuaState, "SpeakNPC", luaSpeakNpc);
+    registerLuaFunction(pLuaState, "OpenMm9Rude", luaOpenMm9Rude);
     registerLuaFunction(pLuaState, "SetFacetBit", luaSetFacetBit);
     registerLuaFunction(pLuaState, "SetFacetBitOutdoors", luaSetFacetBit);
     registerLuaFunction(pLuaState, "SetMonsterBit", luaSetMonsterBit);

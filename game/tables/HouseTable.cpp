@@ -2,6 +2,8 @@
 
 #include "game/tables/MapStats.h"
 #include "game/tables/MergedBaseTables.h"
+#include "game/tables/ItemTable.h"
+#include "game/items/ItemEnchantTables.h"
 
 #include <algorithm>
 #include <cctype>
@@ -10,6 +12,7 @@
 #include <optional>
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace OpenYAMM::Game
 {
@@ -84,6 +87,118 @@ int parseSigned(const std::string &value)
     }
 
     return std::atoi(value.c_str());
+}
+
+std::string vendorAliasKey(const std::string &packageId, uint32_t sourceVendorId)
+{
+    return packageId + ":" + std::to_string(sourceVendorId);
+}
+
+std::string serviceAliasKey(const std::string &packageId, uint32_t sourceServiceId)
+{
+    return packageId + ":" + std::to_string(sourceServiceId);
+}
+
+std::optional<size_t> standardEnchantSlotIndex(const std::string &equipStat)
+{
+    static const std::array<std::string, 9> EquipStats = {
+        "Armor", "Shield", "Helm", "Belt", "Cloak", "Gauntlets", "Boots", "Ring", "Amulet"};
+    const auto statIt = std::find(EquipStats.begin(), EquipStats.end(), equipStat);
+    if (statIt == EquipStats.end())
+    {
+        return std::nullopt;
+    }
+    return static_cast<size_t>(std::distance(EquipStats.begin(), statIt));
+}
+
+std::optional<size_t> specialEnchantSlotIndex(const std::string &equipStat)
+{
+    static const std::array<std::string, 12> EquipStats = {
+        "Weapon", "Weapon2", "Missile", "Armor", "Shield", "Helm",
+        "Belt", "Cloak", "Gauntlets", "Boots", "Ring", "Amulet"};
+    const std::string normalizedEquipStat = equipStat == "Weapon1or2" ? "Weapon" : equipStat;
+    const auto statIt = std::find(EquipStats.begin(), EquipStats.end(), normalizedEquipStat);
+    if (statIt == EquipStats.end())
+    {
+        return std::nullopt;
+    }
+    return static_cast<size_t>(std::distance(EquipStats.begin(), statIt));
+}
+
+size_t expectedVendorStockSlotCount(VendorStockProfile profile)
+{
+    switch (profile)
+    {
+        case VendorStockProfile::Weapon:
+            return 6;
+
+        case VendorStockProfile::Armor:
+        case VendorStockProfile::Mm9GeneralStore:
+            return 8;
+
+        case VendorStockProfile::Spellbook:
+        case VendorStockProfile::Mm9Apothecary:
+        case VendorStockProfile::Mm9Library:
+            return 12;
+
+        case VendorStockProfile::None:
+            return 0;
+    }
+    return 0;
+}
+
+VendorStockProfile parseVendorStockProfile(const std::string &value)
+{
+    if (value == "Weapon")
+    {
+        return VendorStockProfile::Weapon;
+    }
+    if (value == "Armor")
+    {
+        return VendorStockProfile::Armor;
+    }
+    if (value == "Spellbook")
+    {
+        return VendorStockProfile::Spellbook;
+    }
+    if (value == "Mm9Apothecary")
+    {
+        return VendorStockProfile::Mm9Apothecary;
+    }
+    if (value == "Mm9GeneralStore")
+    {
+        return VendorStockProfile::Mm9GeneralStore;
+    }
+    if (value == "Mm9Library")
+    {
+        return VendorStockProfile::Mm9Library;
+    }
+    return VendorStockProfile::None;
+}
+
+bool parseBool(const std::string &value)
+{
+    return value == "1" || value == "true" || value == "True";
+}
+
+HouseEntry::DeterministicStockPage *findOrAddStockPage(
+    std::vector<HouseEntry::DeterministicStockPage> &pages,
+    uint32_t pageIndex)
+{
+    const std::vector<HouseEntry::DeterministicStockPage>::iterator pageIt = std::find_if(
+        pages.begin(),
+        pages.end(),
+        [pageIndex](const HouseEntry::DeterministicStockPage &page)
+        {
+            return page.pageIndex == pageIndex;
+        });
+    if (pageIt != pages.end())
+    {
+        return &*pageIt;
+    }
+
+    pages.push_back({.pageIndex = pageIndex});
+    return &pages.back();
 }
 
 bool isTransportHouseTypeName(const std::string &houseType)
@@ -297,6 +412,48 @@ bool applyShopStockRules(HouseEntry &entry, const MergedHouseRuleTable &houseRul
     return true;
 }
 
+std::optional<std::string> skillForStockItemType(uint32_t itemType)
+{
+    switch (itemType)
+    {
+        case 23: return "Sword";
+        case 24: return "Dagger";
+        case 25: return "Axe";
+        case 26: return "Spear";
+        case 27: return "Bow";
+        case 28: return "Mace";
+        case 30: return "Staff";
+        case 31: return "LeatherArmor";
+        case 32: return "ChainArmor";
+        case 33: return "PlateArmor";
+        case 34: return "Shield";
+        default: return std::nullopt;
+    }
+}
+
+void appendStockSkills(const std::vector<uint32_t> &itemTypes, std::vector<std::string> &skills)
+{
+    for (uint32_t itemType : itemTypes)
+    {
+        const std::optional<std::string> skill = skillForStockItemType(itemType);
+
+        if (skill.has_value() && std::find(skills.begin(), skills.end(), *skill) == skills.end())
+        {
+            skills.push_back(*skill);
+        }
+    }
+}
+
+std::vector<std::string> deriveOfferedSkillsFromShopStock(const HouseEntry &entry)
+{
+    std::vector<std::string> skills;
+    appendStockSkills(entry.standardStockRule.itemTypes, skills);
+    appendStockSkills(entry.standardStockRule.secondaryItemTypes, skills);
+    appendStockSkills(entry.specialStockRule.itemTypes, skills);
+    appendStockSkills(entry.specialStockRule.secondaryItemTypes, skills);
+    return skills;
+}
+
 bool applySpellbookRule(HouseEntry &entry, const MergedHouseRuleTable &houseRules)
 {
     const MergedHouseRuleSection *pSection = findHouseRuleSection(houseRules, "Spellbook shops");
@@ -415,17 +572,17 @@ std::string destinationNameForTransportLocation(
 
 std::vector<std::string> deriveOfferedSkillsForHouseType(const std::string &houseType)
 {
-    if (houseType == "Weapon Shop")
+    if (houseType == "Magic Shop")
     {
-        return {"Sword", "Dagger", "Axe", "Spear", "Bow", "Mace"};
+        return {"IdentifyItem", "RepairItem"};
     }
 
-    if (houseType == "Armor Shop")
+    if (houseType == "Alchemist")
     {
-        return {"LeatherArmor", "ChainArmor", "PlateArmor", "Shield"};
+        return {"Alchemy", "IdentifyMonster"};
     }
 
-    if (houseType == "Elemental Guild")
+    if (houseType == "Elemental Guild" || houseType == "Spell Shop")
     {
         return {"FireMagic", "AirMagic", "WaterMagic", "EarthMagic", "Learning"};
     }
@@ -470,7 +627,7 @@ std::vector<std::string> deriveOfferedSkillsForHouseType(const std::string &hous
         return {"BodyMagic", "Meditation"};
     }
 
-    if (houseType == "Thieves guild")
+    if (houseType == "Thieves guild" || houseType == "Thieves Guild")
     {
         return {"Dagger", "Merchant", "IdentifyItem", "Perception", "DisarmTraps"};
     }
@@ -492,7 +649,17 @@ std::vector<std::string> deriveOfferedSkillsForHouseType(const std::string &hous
 
     if (houseType == "Temple")
     {
-        return {"Merchant"};
+        return {"Unarmed", "Dodging", "Regeneration", "Merchant"};
+    }
+
+    if (houseType == "Tavern")
+    {
+        return {"Stealing", "DisarmTraps", "Perception"};
+    }
+
+    if (houseType == "Training")
+    {
+        return {"Armsmaster", "Bodybuilding"};
     }
 
     return {};
@@ -502,6 +669,7 @@ std::vector<std::string> deriveOfferedSkillsForHouseType(const std::string &hous
 bool HouseTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
 {
     m_entries.clear();
+    m_vendorAliases.clear();
 
     for (const std::vector<std::string> &row : rows)
     {
@@ -588,6 +756,402 @@ bool HouseTable::loadFromRows(const std::vector<std::vector<std::string>> &rows)
     }
 
     return !m_entries.empty();
+}
+
+bool HouseTable::appendVendorRows(
+    const std::vector<std::vector<std::string>> &vendorRows,
+    const std::vector<std::vector<std::string>> &aliasRows,
+    const std::vector<std::vector<std::string>> &stockRows,
+    std::string &errorMessage)
+{
+    errorMessage.clear();
+    std::unordered_set<std::string> canonicalIds;
+    std::unordered_set<std::string> sourceKeys;
+
+    for (const std::vector<std::string> &row : vendorRows)
+    {
+        if (row.empty() || row[0].empty() || row[0] == "vendor_id")
+        {
+            continue;
+        }
+        if (row.size() < 25)
+        {
+            errorMessage = "malformed vendor row for id " + row[0];
+            return false;
+        }
+
+        const uint32_t vendorId = parseUnsigned(row[0]);
+        const VendorStockProfile profile = parseVendorStockProfile(row[8]);
+        const std::string sourceKey = vendorAliasKey(row[1], parseUnsigned(row[2]));
+        if (vendorId == 0
+            || profile == VendorStockProfile::None
+            || row[3].empty()
+            || m_entries.contains(vendorId)
+            || !canonicalIds.insert(row[3]).second
+            || !sourceKeys.insert(sourceKey).second)
+        {
+            errorMessage = "invalid or duplicate vendor row for id " + row[0];
+            return false;
+        }
+
+        HouseEntry entry = {};
+        entry.id = vendorId;
+        entry.packageId = row[1];
+        entry.sourceVendorId = parseUnsigned(row[2]);
+        entry.canonicalId = row[3];
+        entry.name = row[4];
+        entry.buildingName = row[5];
+        entry.type = row[6] + " Shop";
+        entry.proprietorName = entry.name;
+        entry.priceMultiplier = std::strtof(row[11].c_str(), nullptr);
+        entry.skillPriceMultiplier = entry.priceMultiplier;
+        entry.standardStockTier = parseSigned(row[13]);
+        entry.specialStockTier = parseSigned(row[16]);
+        entry.stockRefreshDays = parseSigned(row[18]);
+        entry.vendorCanSell = parseBool(row[19]);
+        entry.vendorCanIdentify = parseBool(row[20]);
+        entry.vendorCanRepair = parseBool(row[21]);
+        entry.dialogueScenePolicy = row[22] == "LiveGameplay"
+            ? DialogueScenePolicy::LiveGameplay
+            : DialogueScenePolicy::HouseVideo;
+        entry.vendorStockProfile = profile;
+        entry.openHour = 0;
+        entry.closeHour = 0;
+        m_entries.emplace(vendorId, std::move(entry));
+    }
+
+    for (const std::vector<std::string> &row : aliasRows)
+    {
+        if (row.empty() || row[0].empty() || row[0] == "vendor_id")
+        {
+            continue;
+        }
+        if (row.size() < 3)
+        {
+            errorMessage = "malformed vendor alias row for id " + row[0];
+            return false;
+        }
+
+        const uint32_t vendorId = parseUnsigned(row[0]);
+        const uint32_t sourceVendorId = parseUnsigned(row[2]);
+        const HouseEntry *pVendor = get(vendorId);
+        const std::string key = vendorAliasKey(row[1], sourceVendorId);
+        if (pVendor == nullptr
+            || sourceVendorId == 0
+            || pVendor->packageId != row[1]
+            || pVendor->sourceVendorId != sourceVendorId
+            || !m_vendorAliases.emplace(key, vendorId).second)
+        {
+            errorMessage = "invalid or duplicate vendor alias '" + key + "'";
+            return false;
+        }
+    }
+
+    for (const std::vector<std::string> &row : stockRows)
+    {
+        if (row.empty() || row[0].empty() || row[0] == "vendor_id")
+        {
+            continue;
+        }
+        if (row.size() < 11)
+        {
+            errorMessage = "malformed vendor stock row for id " + row[0];
+            return false;
+        }
+
+        const uint32_t vendorId = parseUnsigned(row[0]);
+        const uint32_t pageIndex = parseUnsigned(row[2]);
+        const uint32_t slotIndex = parseUnsigned(row[3]);
+        const uint32_t itemId = parseUnsigned(row[4]);
+        const uint32_t generationVersion = parseUnsigned(row[10]);
+        const std::unordered_map<uint32_t, HouseEntry>::iterator entryIt = m_entries.find(vendorId);
+        if (entryIt == m_entries.end()
+            || itemId == 0
+            || generationVersion == 0
+            || (row[1] != "standard" && row[1] != "special"))
+        {
+            errorMessage = "invalid vendor stock row for vendor " + row[0];
+            return false;
+        }
+        if (entryIt->second.deterministicStockGenerationVersion == 0)
+        {
+            entryIt->second.deterministicStockGenerationVersion = generationVersion;
+        }
+        else if (entryIt->second.deterministicStockGenerationVersion != generationVersion)
+        {
+            errorMessage = "mixed stock generation versions for vendor " + row[0];
+            return false;
+        }
+
+        std::vector<HouseEntry::DeterministicStockPage> &pages = row[1] == "standard"
+            ? entryIt->second.deterministicStandardStockPages
+            : entryIt->second.deterministicSpecialStockPages;
+        HouseEntry::DeterministicStockPage *pPage = findOrAddStockPage(pages, pageIndex);
+        if (pPage->items.size() <= slotIndex)
+        {
+            pPage->items.resize(static_cast<size_t>(slotIndex) + 1);
+        }
+        if (pPage->items[slotIndex].itemId != 0)
+        {
+            errorMessage = "duplicate vendor stock slot for vendor " + row[0];
+            return false;
+        }
+
+        pPage->items[slotIndex] = {
+            .itemId = itemId,
+            .quantity = std::max<uint32_t>(1, parseUnsigned(row[5])),
+            .identified = parseBool(row[6]),
+            .standardEnchantId = static_cast<uint16_t>(parseUnsigned(row[7])),
+            .standardEnchantPower = static_cast<uint16_t>(parseUnsigned(row[8])),
+            .specialEnchantId = static_cast<uint16_t>(parseUnsigned(row[9])),
+        };
+    }
+
+    for (auto &[vendorId, entry] : m_entries)
+    {
+        if (entry.vendorStockProfile == VendorStockProfile::None)
+        {
+            continue;
+        }
+        if (entry.deterministicStandardStockPages.empty() || entry.deterministicSpecialStockPages.empty())
+        {
+            errorMessage = "vendor " + std::to_string(vendorId) + " has incomplete deterministic stock";
+            return false;
+        }
+        if (!m_vendorAliases.contains(vendorAliasKey(entry.packageId, entry.sourceVendorId)))
+        {
+            errorMessage = "vendor " + std::to_string(vendorId) + " has no source alias";
+            return false;
+        }
+        const auto sortPages = [](std::vector<HouseEntry::DeterministicStockPage> &pages)
+        {
+            std::sort(
+                pages.begin(),
+                pages.end(),
+                [](const HouseEntry::DeterministicStockPage &left, const HouseEntry::DeterministicStockPage &right)
+                {
+                    return left.pageIndex < right.pageIndex;
+                });
+        };
+        sortPages(entry.deterministicStandardStockPages);
+        sortPages(entry.deterministicSpecialStockPages);
+        const auto validatePageLayout = [&](const std::vector<HouseEntry::DeterministicStockPage> &pages) -> bool
+        {
+            const size_t expectedSlotCount = expectedVendorStockSlotCount(entry.vendorStockProfile);
+            for (size_t pageOrdinal = 0; pageOrdinal < pages.size(); ++pageOrdinal)
+            {
+                if (pages[pageOrdinal].pageIndex != pageOrdinal
+                    || pages[pageOrdinal].items.size() != expectedSlotCount)
+                {
+                    errorMessage = "vendor " + std::to_string(vendorId)
+                        + " has a non-contiguous or incorrectly sized stock page";
+                    return false;
+                }
+            }
+            return true;
+        };
+        if (!validatePageLayout(entry.deterministicStandardStockPages)
+            || !validatePageLayout(entry.deterministicSpecialStockPages))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool HouseTable::appendServiceVenueRows(
+    const std::vector<std::vector<std::string>> &venueRows,
+    const std::vector<std::vector<std::string>> &aliasRows,
+    std::string &errorMessage)
+{
+    errorMessage.clear();
+    std::unordered_set<std::string> canonicalIds;
+    std::unordered_set<std::string> sourceKeys;
+
+    for (const std::vector<std::string> &row : venueRows)
+    {
+        if (row.empty() || row[0].empty() || row[0] == "service_id")
+        {
+            continue;
+        }
+        if (row.size() < 16)
+        {
+            errorMessage = "malformed service venue row for id " + row[0];
+            return false;
+        }
+
+        const uint32_t serviceId = parseUnsigned(row[0]);
+        const uint32_t sourceServiceId = parseUnsigned(row[2]);
+        const std::string sourceKey = serviceAliasKey(row[1], sourceServiceId);
+        const float priceMultiplier = std::strtof(row[7].c_str(), nullptr);
+        const float templeHealingTier = std::strtof(row[8].c_str(), nullptr);
+        const int trainingMaxLevel = parseSigned(row[9]);
+        const bool templeCanHeal = parseBool(row[10]);
+        const bool templeCanDonate = parseBool(row[11]);
+        if (serviceId == 0
+            || sourceServiceId == 0
+            || (row[6] != "Temple" && row[6] != "Training")
+            || priceMultiplier <= 0.0f
+            || templeHealingTier < 0.0f
+            || trainingMaxLevel < 0
+            || (row[6] == "Training" && (templeCanHeal || templeCanDonate))
+            || (row[6] == "Temple" && !templeCanHeal && !templeCanDonate)
+            || row[3].empty()
+            || m_entries.contains(serviceId)
+            || !canonicalIds.insert(row[3]).second
+            || !sourceKeys.insert(sourceKey).second)
+        {
+            errorMessage = "invalid or duplicate service venue row for id " + row[0];
+            return false;
+        }
+
+        HouseEntry entry = {};
+        entry.id = serviceId;
+        entry.packageId = row[1];
+        entry.sourceServiceId = sourceServiceId;
+        entry.canonicalId = row[3];
+        entry.name = row[4];
+        entry.buildingName = row[5];
+        entry.type = row[6];
+        entry.proprietorName = entry.name;
+        entry.priceMultiplier = priceMultiplier;
+        entry.skillPriceMultiplier = entry.priceMultiplier;
+        entry.templeHealingTier = templeHealingTier;
+        entry.trainingMaxLevel = trainingMaxLevel;
+        entry.templeCanHeal = templeCanHeal;
+        entry.templeCanDonate = templeCanDonate;
+        entry.serviceCanLearnSkills = parseBool(row[12]);
+        entry.dialogueScenePolicy = row[13] == "LiveGameplay"
+            ? DialogueScenePolicy::LiveGameplay
+            : DialogueScenePolicy::HouseVideo;
+        entry.openHour = 0;
+        entry.closeHour = 0;
+        m_entries.emplace(serviceId, std::move(entry));
+    }
+
+    for (const std::vector<std::string> &row : aliasRows)
+    {
+        if (row.empty() || row[0].empty() || row[0] == "service_id")
+        {
+            continue;
+        }
+        if (row.size() < 3)
+        {
+            errorMessage = "malformed service venue alias row for id " + row[0];
+            return false;
+        }
+
+        const uint32_t serviceId = parseUnsigned(row[0]);
+        const uint32_t sourceServiceId = parseUnsigned(row[2]);
+        const HouseEntry *pVenue = get(serviceId);
+        const std::string key = serviceAliasKey(row[1], sourceServiceId);
+        if (pVenue == nullptr
+            || sourceServiceId == 0
+            || pVenue->packageId != row[1]
+            || pVenue->sourceServiceId != sourceServiceId
+            || !m_serviceAliases.emplace(key, serviceId).second)
+        {
+            errorMessage = "invalid or duplicate service venue alias '" + key + "'";
+            return false;
+        }
+    }
+
+    for (const std::vector<std::string> &row : venueRows)
+    {
+        if (row.empty() || row[0].empty() || row[0] == "service_id")
+        {
+            continue;
+        }
+        const HouseEntry *pVenue = get(parseUnsigned(row[0]));
+        if (pVenue == nullptr
+            || !m_serviceAliases.contains(serviceAliasKey(pVenue->packageId, pVenue->sourceServiceId)))
+        {
+            errorMessage = "service venue " + row[0] + " has no source alias";
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool HouseTable::validateVendorStock(
+    const ItemTable &itemTable,
+    const StandardItemEnchantTable &standardItemEnchantTable,
+    const SpecialItemEnchantTable &specialItemEnchantTable,
+    std::string &errorMessage) const
+{
+    errorMessage.clear();
+    for (const auto &[vendorId, entry] : m_entries)
+    {
+        if (entry.vendorStockProfile == VendorStockProfile::None)
+        {
+            continue;
+        }
+
+        const auto validatePages = [&](const std::vector<HouseEntry::DeterministicStockPage> &pages) -> bool
+        {
+            for (const HouseEntry::DeterministicStockPage &page : pages)
+            {
+                for (const HouseEntry::DeterministicStockItem &stockItem : page.items)
+                {
+                    const ItemDefinition *pItem = itemTable.get(stockItem.itemId);
+                    if (pItem == nullptr
+                        || pItem->hasContentFlag("NoShop")
+                        || pItem->rarity != ItemRarity::Common
+                        || pItem->normalizedTier == 7
+                        || !pItem->setId.empty())
+                    {
+                        errorMessage = "vendor " + std::to_string(vendorId)
+                            + " references prohibited stock item " + std::to_string(stockItem.itemId);
+                        return false;
+                    }
+                    if ((stockItem.standardEnchantId != 0
+                            && standardItemEnchantTable.get(stockItem.standardEnchantId) == nullptr)
+                        || (stockItem.specialEnchantId != 0
+                            && specialItemEnchantTable.get(stockItem.specialEnchantId) == nullptr))
+                    {
+                        errorMessage = "vendor " + std::to_string(vendorId)
+                            + " references unknown enchant for stock item " + std::to_string(stockItem.itemId);
+                        return false;
+                    }
+                    if (stockItem.standardEnchantId != 0)
+                    {
+                        const std::optional<size_t> slotIndex = standardEnchantSlotIndex(pItem->equipStat);
+                        const StandardItemEnchantEntry *pEnchant =
+                            standardItemEnchantTable.get(stockItem.standardEnchantId);
+                        if (!slotIndex || pEnchant == nullptr || pEnchant->slotValues[*slotIndex] <= 0)
+                        {
+                            errorMessage = "vendor " + std::to_string(vendorId)
+                                + " uses an inapplicable standard enchant for stock item "
+                                + std::to_string(stockItem.itemId);
+                            return false;
+                        }
+                    }
+                    if (stockItem.specialEnchantId != 0)
+                    {
+                        const std::optional<size_t> slotIndex = specialEnchantSlotIndex(pItem->equipStat);
+                        const SpecialItemEnchantEntry *pEnchant =
+                            specialItemEnchantTable.get(stockItem.specialEnchantId);
+                        if (!slotIndex || pEnchant == nullptr || pEnchant->slotWeights[*slotIndex] <= 0)
+                        {
+                            errorMessage = "vendor " + std::to_string(vendorId)
+                                + " uses an inapplicable special enchant for stock item "
+                                + std::to_string(stockItem.itemId);
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        };
+        if (!validatePages(entry.deterministicStandardStockPages)
+            || !validatePages(entry.deterministicSpecialStockPages))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool HouseTable::loadAnimationRows(const std::vector<std::vector<std::string>> &rows)
@@ -713,6 +1277,11 @@ bool HouseTable::applyHouseRules(
         if (!applyShopStockRules(entry, houseRules))
         {
             return false;
+        }
+
+        if ((entry.type == "Weapon Shop" || entry.type == "Armor Shop") && entry.offeredSkills.empty())
+        {
+            entry.offeredSkills = deriveOfferedSkillsFromShopStock(entry);
         }
 
         if (entry.type == "Training" && !applyTrainingRule(entry, houseRules))
@@ -896,6 +1465,24 @@ const HouseEntry *HouseTable::get(uint32_t houseId) const
     }
 
     return &entryIt->second;
+}
+
+const HouseEntry *HouseTable::resolvePackageSourceVendorId(
+    const std::string &packageId,
+    uint32_t sourceVendorId) const
+{
+    const std::unordered_map<std::string, uint32_t>::const_iterator aliasIt =
+        m_vendorAliases.find(vendorAliasKey(packageId, sourceVendorId));
+    return aliasIt != m_vendorAliases.end() ? get(aliasIt->second) : nullptr;
+}
+
+const HouseEntry *HouseTable::resolvePackageSourceServiceId(
+    const std::string &packageId,
+    uint32_t sourceServiceId) const
+{
+    const std::unordered_map<std::string, uint32_t>::const_iterator aliasIt =
+        m_serviceAliases.find(serviceAliasKey(packageId, sourceServiceId));
+    return aliasIt != m_serviceAliases.end() ? get(aliasIt->second) : nullptr;
 }
 
 const std::unordered_map<uint32_t, HouseEntry> &HouseTable::entries() const

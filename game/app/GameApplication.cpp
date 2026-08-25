@@ -72,6 +72,10 @@ constexpr bool IncludeGodLichCharacterCreationCandidate = true;
 constexpr bool IncludeGodLichCharacterCreationCandidate = false;
 #endif
 
+constexpr float DefaultOutdoorPartyEyeHeight = 176.0f;
+constexpr float DefaultOutdoorPartyCollisionRadius = 37.0f;
+constexpr float DefaultOutdoorPartyCollisionHeight = 192.0f;
+
 struct PendingMapLeaveOutputs
 {
     std::optional<EventRuntimeState::PendingMovie> pendingMovie;
@@ -6054,11 +6058,28 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
     }
 
     MapLoadTimingLogger timingLogger(selectedMap->map.fileName, "selected_map_runtime");
+    const WorldActorAwarenessDefinition &actorAwareness = m_activeWorldManifest.actorAwareness;
+    m_gameSession.gameplayActorService().setPartyEngagementRange(
+        actorAwareness.declared
+            ? actorAwareness.partyEngagementRange
+            : GameplayActorService::MaximumPartyEngagementRange);
 
     if (selectedMap->outdoorMapData)
     {
+        const WorldPartyMovementDefinition &partyMovement = m_activeWorldManifest.partyMovement;
+        const float partyEyeHeight = partyMovement.declared
+            ? partyMovement.eyeHeight
+            : DefaultOutdoorPartyEyeHeight;
+        const float partyCollisionRadius = partyMovement.declared
+            ? partyMovement.collisionRadius
+            : DefaultOutdoorPartyCollisionRadius;
+        const float partyCollisionHeight = partyMovement.declared
+            ? partyMovement.collisionHeight
+            : DefaultOutdoorPartyCollisionHeight;
+
         m_gameSession.setCurrentSceneKind(SceneKind::Outdoor);
         m_gameSession.setCurrentMapFileName(selectedMap->map.fileName);
+        m_outdoorGameView.setCameraEyeHeight(partyEyeHeight);
         m_pOutdoorPartyRuntime = std::make_unique<OutdoorPartyRuntime>(
             OutdoorMovementDriver(
                 *selectedMap->outdoorMapData,
@@ -6072,6 +6093,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             ),
             m_gameDataLoader.getItemTable()
         );
+        m_pOutdoorPartyRuntime->setBodyDimensions(partyCollisionRadius, partyCollisionHeight);
         bindPartyDependencies(m_pOutdoorPartyRuntime->party());
 
         if (m_gameSession.partyState())
@@ -6116,6 +6138,7 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         }
 
         m_pOutdoorWorldRuntime = std::make_unique<OutdoorWorldRuntime>();
+        m_pOutdoorWorldRuntime->setPartyCollisionDimensions(partyCollisionRadius, partyCollisionHeight);
         m_pOutdoorWorldRuntime->setBolsterMonstersEnabled(m_settings.bolsterMonsters);
         m_pOutdoorWorldRuntime->initialize(
             selectedMap->map,
@@ -6144,7 +6167,8 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             &m_gameSession.gameplayCombatController(),
             &m_gameSession.gameplayFxService(),
             &m_gameDataLoader.getMergedBolsterMapTable(),
-            &m_gameDataLoader.getMergedBolsterMonsterTable()
+            &m_gameDataLoader.getMergedBolsterMonsterTable(),
+            selectedMap->itemSourceData ? &*selectedMap->itemSourceData : nullptr
         );
         timingLogger.stage("outdoor runtime initialized");
 
@@ -6232,7 +6256,9 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             selectedMap->localEventProgram,
             selectedMap->globalEventProgram,
             &m_gameDataLoader.getHouseTable(),
-            &m_gameDataLoader.getNpcDialogTable());
+            &m_gameDataLoader.getNpcDialogTable(),
+            &m_gameDataLoader.getMm9MapTransitionTable(),
+            &m_gameDataLoader.getMm9TeacherScheduleTable());
         timingLogger.stage("outdoor scene runtime created");
         m_gameplayController.bindRuntime(m_pMapSceneRuntime.get());
         timingLogger.stage("outdoor gameplay runtime bound");
@@ -6371,7 +6397,10 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             &m_gameDataLoader.getMergedBolsterMapTable(),
             &m_gameDataLoader.getMergedBolsterMonsterTable(),
             m_settings.bolsterMonsters,
-            &m_gameDataLoader.getNpcDialogTable()
+            &m_gameDataLoader.getNpcDialogTable(),
+            selectedMap->itemSourceData ? &*selectedMap->itemSourceData : nullptr,
+            &m_gameDataLoader.getMm9MapTransitionTable(),
+            &m_gameDataLoader.getMm9TeacherScheduleTable()
         );
         timingLogger.stage("indoor runtime initialized");
 
@@ -7771,6 +7800,11 @@ bool GameApplication::quickSaveToPath(
 
     saveData->saveName = saveName;
     saveData->previewBmp = previewBmp;
+    saveData->requiredContentPackages = collectRequiredContentPackages(
+        *saveData,
+        m_gameDataLoader.getItemTable(),
+        m_gameDataLoader.getHouseTable(),
+        m_gameDataLoader.getLoadedContentPackageSchemas());
 
     std::string error;
 
@@ -7828,6 +7862,21 @@ bool GameApplication::quickLoadFromPath(const std::filesystem::path &path, bool 
     const std::optional<GameSaveData> saveData = loadGameDataFromPath(path, error);
 
     if (!saveData)
+    {
+        cancelLoadingOverlay();
+        GAMEPLAY_DEBUG_TRACE(
+            "load_game_failed path=\"" + path.string() + "\""
+            + " reason=\"" + error + "\"");
+        reportQuickSaveStatus("Quick load failed: " + error);
+        return false;
+    }
+
+    if (!validateRequiredContentPackages(
+            *saveData,
+            m_gameDataLoader.getItemTable(),
+            m_gameDataLoader.getHouseTable(),
+            m_gameDataLoader.getLoadedContentPackageSchemas(),
+            error))
     {
         cancelLoadingOverlay();
         GAMEPLAY_DEBUG_TRACE(

@@ -181,6 +181,7 @@ struct ActorStatusFacts
     bool hasDetectedParty = false;
     bool defaultHostileToParty = false;
     bool suppressLowHealthFlee = false;
+    bool forceFleeFromParty = false;
 };
 
 struct ActorTargetCandidateFacts

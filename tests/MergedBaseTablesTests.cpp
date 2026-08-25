@@ -250,7 +250,7 @@ TEST_CASE("merged base engine tables load without changing active MM8 runtime ta
     REQUIRE_EQ(characterSelectionTable.continents().size(), 4u);
     CHECK_EQ(characterSelectionTable.continents()[0].name, "Jadam");
 
-    REQUIRE_EQ(raceSkillTable.overrideCount(), 18u);
+    REQUIRE_EQ(raceSkillTable.overrideCount(), 19u);
     CHECK_EQ(raceSkillTable.overrides()[0].race, "Human");
     CHECK_EQ(raceSkillTable.overrides()[0].skillName, "Learning");
     CHECK_EQ(raceSkillTable.overrides()[0].add, 1);

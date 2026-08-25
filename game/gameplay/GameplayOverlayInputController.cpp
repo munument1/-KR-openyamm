@@ -250,7 +250,8 @@ uint32_t findJournalMapNoteAtPointer(
     const GameplayUiController::JournalScreenState &journalScreen,
     const GameplayScreenRuntime::ResolvedHudLayoutElement &mapViewport,
     float pointerX,
-    float pointerY)
+    float pointerY,
+    const GameplayMinimapState *pMinimapState = nullptr)
 {
     if (pEventRuntimeState == nullptr)
     {
@@ -278,7 +279,8 @@ uint32_t findJournalMapNoteAtPointer(
             mapViewport.y,
             mapViewport.width,
             mapViewport.height,
-            journalScreen);
+            journalScreen,
+            pMinimapState);
         const float dx = pointerX - screenPoint.x;
         const float dy = pointerY - screenPoint.y;
         const float distanceSquared = dx * dx + dy * dy;
@@ -591,7 +593,7 @@ HouseShopVisualLayout buildHouseShopVisualLayout(const HouseEntry &houseEntry, b
 {
     HouseShopVisualLayout layout = {};
 
-    if (spellbookMode)
+    if (spellbookMode || houseEntry.vendorStockProfile == VendorStockProfile::Mm9Library)
     {
         layout.backgroundAsset = "MAGSHELF";
 
@@ -620,7 +622,8 @@ HouseShopVisualLayout buildHouseShopVisualLayout(const HouseEntry &houseEntry, b
         return layout;
     }
 
-    if (isHouseType(houseEntry, "Weapon Shop"))
+    if (houseEntry.vendorStockProfile == VendorStockProfile::Weapon
+        || isHouseType(houseEntry, "Weapon Shop"))
     {
         layout.backgroundAsset = "WEPNTABL";
         constexpr std::array<float, 6> weaponTopOffsets = {88.0f, 34.0f, 112.0f, 58.0f, 128.0f, 46.0f};
@@ -639,7 +642,8 @@ HouseShopVisualLayout buildHouseShopVisualLayout(const HouseEntry &houseEntry, b
         return layout;
     }
 
-    if (isHouseType(houseEntry, "Armor Shop"))
+    if (houseEntry.vendorStockProfile == VendorStockProfile::Armor
+        || isHouseType(houseEntry, "Armor Shop"))
     {
         layout.backgroundAsset = "ARMORY";
 
@@ -668,28 +672,33 @@ HouseShopVisualLayout buildHouseShopVisualLayout(const HouseEntry &houseEntry, b
         return layout;
     }
 
-    if (isHouseType(houseEntry, "Magic Shop") || isHouseType(houseEntry, "Alchemist"))
+    if (houseEntry.vendorStockProfile == VendorStockProfile::Mm9Apothecary
+        || houseEntry.vendorStockProfile == VendorStockProfile::Mm9GeneralStore
+        || isHouseType(houseEntry, "Magic Shop")
+        || isHouseType(houseEntry, "Alchemist"))
     {
         layout.backgroundAsset = "GENSHELF";
+        const size_t columnCount = houseEntry.vendorStockProfile == VendorStockProfile::Mm9GeneralStore ? 4 : 6;
+        const float columnWidth = 450.0f / static_cast<float>(columnCount);
 
-        for (size_t index = 0; index < 6; ++index)
+        for (size_t index = 0; index < columnCount; ++index)
         {
             HouseShopSlotLayout topRowSlot = {};
-            topRowSlot.x = 6.0f + static_cast<float>(index) * 75.0f;
+            topRowSlot.x = 6.0f + static_cast<float>(index) * columnWidth;
             topRowSlot.y = 63.0f;
-            topRowSlot.width = 74.0f;
+            topRowSlot.width = columnWidth - 1.0f;
             topRowSlot.height = 132.0f;
             topRowSlot.baselineY = 201.0f;
             topRowSlot.verticalAlign = HouseShopVerticalAlign::Baseline;
             layout.slots.push_back(topRowSlot);
         }
 
-        for (size_t index = 0; index < 6; ++index)
+        for (size_t index = 0; index < columnCount; ++index)
         {
             HouseShopSlotLayout bottomRowSlot = {};
-            bottomRowSlot.x = 6.0f + static_cast<float>(index) * 75.0f;
+            bottomRowSlot.x = 6.0f + static_cast<float>(index) * columnWidth;
             bottomRowSlot.y = 192.0f;
-            bottomRowSlot.width = 74.0f;
+            bottomRowSlot.width = columnWidth - 1.0f;
             bottomRowSlot.height = 128.0f;
             bottomRowSlot.baselineY = 324.0f;
             bottomRowSlot.verticalAlign = HouseShopVerticalAlign::Baseline;
@@ -2135,6 +2144,11 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
     const int screenWidth = input.screenWidth;
     const int screenHeight = input.screenHeight;
     GameplayUiController::JournalScreenState &journalScreen = view.journalScreenState();
+    GameplayMinimapState journalMinimapState = {};
+    const bool hasJournalMinimapState = view.tryGetGameplayMinimapState(journalMinimapState);
+    const GameplayMinimapState *pJournalMinimapState = hasJournalMinimapState
+        ? &journalMinimapState
+        : nullptr;
     JournalShortcutView requestedJournalView = JournalShortcutView::None;
 
     if (mapShortcutPressed)
@@ -2286,14 +2300,14 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
         {
             journalScreen.mapZoomStep =
                 std::min(journalScreen.mapZoomStep + 1, static_cast<int>(GameplayJournalMapZoomLevels.size()) - 1);
-            clampJournalMapState(journalScreen);
+            clampGameplayJournalMapState(journalScreen, pJournalMinimapState);
             journalScreen.cachedMapValid = false;
             view.interactionState().journalMapKeyZoomLatch = true;
         }
         else if (zoomOutPressed && !view.interactionState().journalMapKeyZoomLatch)
         {
             journalScreen.mapZoomStep = std::max(journalScreen.mapZoomStep - 1, 0);
-            clampJournalMapState(journalScreen);
+            clampGameplayJournalMapState(journalScreen, pJournalMinimapState);
             journalScreen.cachedMapValid = false;
             view.interactionState().journalMapKeyZoomLatch = true;
         }
@@ -2306,13 +2320,13 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
         {
             journalScreen.mapZoomStep =
                 std::min(journalScreen.mapZoomStep + 1, static_cast<int>(GameplayJournalMapZoomLevels.size()) - 1);
-            clampJournalMapState(journalScreen);
+            clampGameplayJournalMapState(journalScreen, pJournalMinimapState);
             journalScreen.cachedMapValid = false;
         }
         else if (mouseWheelDelta < 0.0f)
         {
             journalScreen.mapZoomStep = std::max(journalScreen.mapZoomStep - 1, 0);
-            clampJournalMapState(journalScreen);
+            clampGameplayJournalMapState(journalScreen, pJournalMinimapState);
             journalScreen.cachedMapValid = false;
         }
     }
@@ -2392,7 +2406,8 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
             screenWidth,
             screenHeight,
             pJournalEventRuntimeState,
-            &normalizedCurrentMapFileName
+            &normalizedCurrentMapFileName,
+            pJournalMinimapState
         ](float pointerX, float pointerY) -> GameplayJournalPointerTarget
         {
             static const std::pair<const char *, GameplayJournalPointerTargetType> CommonTargets[] = {
@@ -2453,7 +2468,8 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
                             journalScreen,
                             *mapViewport,
                             pointerX,
-                            pointerY);
+                            pointerY,
+                            pJournalMinimapState);
 
                         if (noteId != 0)
                         {
@@ -2536,7 +2552,8 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
                 mapViewport->y,
                 mapViewport->width,
                 mapViewport->height,
-                journalScreen);
+                journalScreen,
+                pJournalMinimapState);
 
             journalScreen.mapCursorWorldX = cursorWorld.x;
             journalScreen.mapCursorWorldY = cursorWorld.y;
@@ -2547,7 +2564,8 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
                 journalScreen,
                 *mapViewport,
                 journalPointerState.x,
-                journalPointerState.y);
+                journalPointerState.y,
+                pJournalMinimapState);
         }
         else
         {
@@ -2562,7 +2580,7 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
     }
 
     const auto activateJournalTarget =
-        [&view, &journalScreen, &adjustPage](const GameplayJournalPointerTarget &target)
+        [&view, &journalScreen, &adjustPage, pJournalMinimapState](const GameplayJournalPointerTarget &target)
         {
             switch (target.type)
             {
@@ -2640,7 +2658,7 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
                     journalScreen.mapCenterY = view.worldRuntime()->partyY();
                 }
 
-                clampJournalMapState(journalScreen);
+                clampGameplayJournalMapState(journalScreen, pJournalMinimapState);
                 journalScreen.cachedMapValid = false;
                 break;
 
@@ -2654,7 +2672,7 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
                     journalScreen.mapCenterY = view.worldRuntime()->partyY();
                 }
 
-                clampJournalMapState(journalScreen);
+                clampGameplayJournalMapState(journalScreen, pJournalMinimapState);
                 journalScreen.cachedMapValid = false;
                 break;
 
@@ -2707,23 +2725,41 @@ bool GameplayOverlayInputController::handleJournalOverlayInput(
     {
         if (journalPointerState.leftButtonPressed)
         {
-            const int zoom = GameplayJournalMapZoomLevels[journalScreen.mapZoomStep];
-            const float zoomFactor = static_cast<float>(zoom) / 384.0f;
             const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> mapViewport = resolveJournalViewport();
             const float viewportWidth = mapViewport.has_value() ? mapViewport->width : 336.0f;
             const float viewportHeight = mapViewport.has_value() ? mapViewport->height : 336.0f;
-            const float worldUnitsPerPixelX =
-                (GameplayJournalMapWorldHalfExtent * 2.0f) / (zoomFactor * std::max(1.0f, viewportWidth));
-            const float worldUnitsPerPixelY =
-                (GameplayJournalMapWorldHalfExtent * 2.0f) / (zoomFactor * std::max(1.0f, viewportHeight));
             const float deltaX = journalPointerState.x - journalScreen.mapDragStartMouseX;
             const float deltaY = journalPointerState.y - journalScreen.mapDragStartMouseY;
             const float previousCenterX = journalScreen.mapCenterX;
             const float previousCenterY = journalScreen.mapCenterY;
+            GameplayUiController::JournalScreenState dragStartScreen = journalScreen;
+            dragStartScreen.mapCenterX = journalScreen.mapDragStartCenterX;
+            dragStartScreen.mapCenterY = journalScreen.mapDragStartCenterY;
+            const GameplayJournalMapTransform dragTransform = gameplayJournalMapTransform(
+                dragStartScreen,
+                pJournalMinimapState,
+                viewportWidth,
+                viewportHeight);
+            const float centerU = dragTransform.uOrigin + dragTransform.uSpan * 0.5f
+                - deltaX * dragTransform.uSpan / std::max(1.0f, viewportWidth);
+            const float centerV = dragTransform.vOrigin + dragTransform.vSpan * 0.5f
+                - deltaY * dragTransform.vSpan / std::max(1.0f, viewportHeight);
+            GameplayJournalMapPoint draggedCenter = {
+                centerU * (GameplayJournalMapWorldHalfExtent * 2.0f) - GameplayJournalMapWorldHalfExtent,
+                GameplayJournalMapWorldHalfExtent - centerV * (GameplayJournalMapWorldHalfExtent * 2.0f)};
 
-            journalScreen.mapCenterX = journalScreen.mapDragStartCenterX - deltaX * worldUnitsPerPixelX;
-            journalScreen.mapCenterY = journalScreen.mapDragStartCenterY - deltaY * worldUnitsPerPixelY;
-            clampJournalMapState(journalScreen);
+            if (pJournalMinimapState != nullptr)
+            {
+                const GameplayMinimapPoint worldCenter = gameplayMinimapUvToWorld(
+                    *pJournalMinimapState,
+                    centerU,
+                    centerV);
+                draggedCenter = {worldCenter.x, worldCenter.y};
+            }
+
+            journalScreen.mapCenterX = draggedCenter.x;
+            journalScreen.mapCenterY = draggedCenter.y;
+            clampGameplayJournalMapState(journalScreen, pJournalMinimapState);
 
             if (std::abs(journalScreen.mapCenterX - previousCenterX) > 0.01f
                 || std::abs(journalScreen.mapCenterY - previousCenterY) > 0.01f)
@@ -3420,6 +3456,41 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
         {
             if (screenWidth <= 0 || screenHeight <= 0)
             {
+                return {};
+            }
+
+            if (view.activeEventDialog().presentation == EventDialogPresentation::Mm9Rude)
+            {
+                constexpr float canvasWidth = 800.0f;
+                constexpr float canvasHeight = 600.0f;
+                constexpr float backgroundX = 139.0f;
+                constexpr float backgroundWidth = 540.0f;
+                constexpr float topicsX = 184.0f;
+                constexpr float topicsY = 492.0f;
+                constexpr float topicAdvance = 16.0f;
+                const GameplayUiViewportRect viewport = GameplayHudCommon::computeUiViewportRect(
+                    screenWidth,
+                    screenHeight);
+                const float scale = std::min(viewport.width / canvasWidth, viewport.height / canvasHeight);
+                const float canvasX = viewport.x + (viewport.width - canvasWidth * scale) * 0.5f;
+                const float canvasY = viewport.y + (viewport.height - canvasHeight * scale) * 0.5f;
+                const float left = canvasX + topicsX * scale;
+                const float right = canvasX + (backgroundX + backgroundWidth - 20.0f) * scale;
+                const size_t visibleTopicCount = std::min<size_t>(view.activeEventDialog().actions.size(), 6);
+
+                for (size_t actionIndex = 0; actionIndex < visibleTopicCount; ++actionIndex)
+                {
+                    const float top = canvasY + (topicsY + static_cast<float>(actionIndex) * topicAdvance - 2.0f)
+                        * scale;
+                    if (mouseX >= left
+                        && mouseX < right
+                        && mouseY >= top
+                        && mouseY < top + topicAdvance * scale)
+                    {
+                        return {GameplayDialoguePointerTargetType::Action, actionIndex};
+                    }
+                }
+
                 return {};
             }
 

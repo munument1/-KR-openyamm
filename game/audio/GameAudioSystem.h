@@ -85,6 +85,12 @@ public:
         PlaybackGroup group,
         const std::optional<WorldPosition> &position,
         bool loop);
+    uint64_t playSoundInstanceByName(
+        const std::string &soundName,
+        PlaybackGroup group,
+        SoundScope scope,
+        const std::optional<WorldPosition> &position,
+        bool loop);
     bool playLoopingSound(
         uint32_t soundId,
         PlaybackGroup group,

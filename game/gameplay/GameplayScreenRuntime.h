@@ -220,6 +220,7 @@ public:
     void markHouseShopTransactionPerformed(uint32_t houseId);
     void openFollowerNpcDialogue(size_t followerSlotIndex);
     void openFollowerNpcDialogueByIndex(size_t followerIndex);
+    void presentActiveEventDialog();
     void ensurePendingEventDialogPresented(bool allowNpcFallbackContent = true);
     bool hasPendingEventDialog() const;
     void ensurePendingEventDialogPresented(

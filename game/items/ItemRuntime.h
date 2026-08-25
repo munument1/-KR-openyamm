@@ -24,6 +24,7 @@ public:
     static bool characterMeetsRaceRestriction(const Character &character, const ItemDefinition &itemDefinition);
     static bool canCharacterIdentifyItem(const Character &character, const ItemDefinition &itemDefinition);
     static bool canCharacterRepairItem(const Character &character, const ItemDefinition &itemDefinition);
+    static bool canDrop(const ItemDefinition &itemDefinition);
     static std::string displayName(const InventoryItem &item, const ItemDefinition &itemDefinition);
     static std::string displayName(
         const InventoryItem &item,

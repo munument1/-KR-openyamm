@@ -10,12 +10,48 @@
 namespace OpenYAMM::Game
 {
 class MapStats;
+class ItemTable;
+class StandardItemEnchantTable;
+class SpecialItemEnchantTable;
 class MergedHouseExitTable;
 class MergedHouseRuleTable;
 class MergedTransportLocationTable;
 
+enum class VendorStockProfile : uint8_t
+{
+    None = 0,
+    Weapon,
+    Armor,
+    Spellbook,
+    Mm9Apothecary,
+    Mm9GeneralStore,
+    Mm9Library,
+};
+
+enum class DialogueScenePolicy : uint8_t
+{
+    HouseVideo = 0,
+    LiveGameplay,
+};
+
 struct HouseEntry
 {
+    struct DeterministicStockItem
+    {
+        uint32_t itemId = 0;
+        uint32_t quantity = 1;
+        bool identified = true;
+        uint16_t standardEnchantId = 0;
+        uint16_t standardEnchantPower = 0;
+        uint16_t specialEnchantId = 0;
+    };
+
+    struct DeterministicStockPage
+    {
+        uint32_t pageIndex = 0;
+        std::vector<DeterministicStockItem> items;
+    };
+
     struct StockRule
     {
         int quality = 0;
@@ -103,6 +139,21 @@ struct HouseEntry
     uint32_t rawExtraExitMapId = 0;
     int rawExtraExitRestriction = 0;
     std::optional<ExtraExit> extraExit;
+    std::string packageId;
+    std::string canonicalId;
+    uint32_t sourceVendorId = 0;
+    uint32_t sourceServiceId = 0;
+    VendorStockProfile vendorStockProfile = VendorStockProfile::None;
+    DialogueScenePolicy dialogueScenePolicy = DialogueScenePolicy::HouseVideo;
+    bool vendorCanSell = true;
+    bool vendorCanIdentify = true;
+    bool vendorCanRepair = true;
+    bool templeCanHeal = true;
+    bool templeCanDonate = true;
+    bool serviceCanLearnSkills = true;
+    uint32_t deterministicStockGenerationVersion = 0;
+    std::vector<DeterministicStockPage> deterministicStandardStockPages;
+    std::vector<DeterministicStockPage> deterministicSpecialStockPages;
 };
 
 class HouseTable
@@ -113,6 +164,20 @@ public:
     bool loadAnimationRows(
         const std::vector<std::vector<std::string>> &rows,
         const std::vector<std::vector<std::string>> &movieRows);
+    bool appendVendorRows(
+        const std::vector<std::vector<std::string>> &vendorRows,
+        const std::vector<std::vector<std::string>> &aliasRows,
+        const std::vector<std::vector<std::string>> &stockRows,
+        std::string &errorMessage);
+    bool appendServiceVenueRows(
+        const std::vector<std::vector<std::string>> &venueRows,
+        const std::vector<std::vector<std::string>> &aliasRows,
+        std::string &errorMessage);
+    bool validateVendorStock(
+        const ItemTable &itemTable,
+        const StandardItemEnchantTable &standardItemEnchantTable,
+        const SpecialItemEnchantTable &specialItemEnchantTable,
+        std::string &errorMessage) const;
     bool applyHouseRules(
         const MergedHouseRuleTable &houseRules,
         const MergedTransportLocationTable &transportLocations,
@@ -121,6 +186,12 @@ public:
     bool applyHouseExits(const MergedHouseExitTable &houseExits, const MapStats &mapStats);
     std::optional<std::string> getName(uint32_t houseId) const;
     const HouseEntry *get(uint32_t houseId) const;
+    const HouseEntry *resolvePackageSourceVendorId(
+        const std::string &packageId,
+        uint32_t sourceVendorId) const;
+    const HouseEntry *resolvePackageSourceServiceId(
+        const std::string &packageId,
+        uint32_t sourceServiceId) const;
     const std::unordered_map<uint32_t, HouseEntry> &entries() const;
 
 private:
@@ -129,5 +200,7 @@ private:
         const std::unordered_map<uint32_t, std::string> &movieStemsByAnimationId);
 
     std::unordered_map<uint32_t, HouseEntry> m_entries;
+    std::unordered_map<std::string, uint32_t> m_vendorAliases;
+    std::unordered_map<std::string, uint32_t> m_serviceAliases;
 };
 }

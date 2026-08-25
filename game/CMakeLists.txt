@@ -40,6 +40,9 @@ add_library(openyamm_game STATIC
     fx/WorldFxSystem.cpp
     gameplay/GameMechanics.cpp
     gameplay/GameplayActionController.cpp
+    gameplay/GameplayWorldItemPolicy.cpp
+    gameplay/SearchableLootPropRuntime.cpp
+    gameplay/LootContainerRuntime.cpp
     gameplay/GameplayCombatController.cpp
     gameplay/GameplayController.cpp
     gameplay/CorpseLootRuntime.cpp
@@ -79,15 +82,26 @@ add_library(openyamm_game STATIC
     gameplay/StoryTextFormatter.cpp
     gameplay/TreasureRuntime.cpp
     gameplay/TurnBasedCombatRuntime.cpp
+    gameplay/TravelRuntime.cpp
     pathfinding/ActorPathRuntime.cpp
     pathfinding/PathMap.cpp
     pathfinding/PathPlanner.cpp
     audio/HouseVideoPlayer.cpp
     content/ContentManifest.cpp
+    content/ContentTableComposer.cpp
     items/InventoryItemUseRuntime.cpp
     items/InventoryItemMixingRuntime.cpp
     maps/IndoorSceneYml.cpp
+    maps/MapItemSourceYml.cpp
+    maps/MapPresentation.cpp
     maps/MapDeltaData.cpp
+    mm9/Mm9MapTransition.cpp
+    mm9/Mm9TeacherSchedule.cpp
+    mm9/Mm9TransportRoute.cpp
+    mm9/Mm9PositionedTransitionRuntime.cpp
+    mm9/Mm9RudeDialogue.cpp
+    mm9/Mm9SkillTrainer.cpp
+    mm9/Mm9QuestMarkers.cpp
     maps/OutdoorSceneYml.cpp
     maps/TerrainTileData.cpp
     data/GameDataLoader.cpp

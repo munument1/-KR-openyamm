@@ -5,6 +5,8 @@
 #include "game/events/ScriptedEventProgram.h"
 #include "game/events/EventRuntime.h"
 #include "game/maps/MapDeltaData.h"
+#include "game/mm9/Mm9PositionedTransitionRuntime.h"
+#include "game/mm9/Mm9TeacherSchedule.h"
 #include "game/scene/IMapSceneRuntime.h"
 #include "game/tables/ChestTable.h"
 
@@ -23,6 +25,8 @@ class MergedBolsterMapTable;
 class MergedBolsterMonsterTable;
 class MonsterProjectileTable;
 class NpcDialogTable;
+class Mm9MapTransitionTable;
+class Mm9TeacherScheduleTable;
 class SpriteFrameTable;
 class SpellTable;
 
@@ -67,7 +71,10 @@ public:
         const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
         const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr,
         bool bolsterMonstersEnabled = false,
-        const NpcDialogTable *pNpcDialogTable = nullptr
+        const NpcDialogTable *pNpcDialogTable = nullptr,
+        const MapItemSourceData *pItemSourceData = nullptr,
+        const Mm9MapTransitionTable *pMm9MapTransitionTable = nullptr,
+        const Mm9TeacherScheduleTable *pMm9TeacherScheduleTable = nullptr
     );
     IndoorSceneRuntime(
         const std::string &mapFileName,
@@ -88,7 +95,10 @@ public:
         const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
         const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr,
         bool bolsterMonstersEnabled = false,
-        const NpcDialogTable *pNpcDialogTable = nullptr
+        const NpcDialogTable *pNpcDialogTable = nullptr,
+        const MapItemSourceData *pItemSourceData = nullptr,
+        const Mm9MapTransitionTable *pMm9MapTransitionTable = nullptr,
+        const Mm9TeacherScheduleTable *pMm9TeacherScheduleTable = nullptr
     );
 
     SceneKind kind() const override;
@@ -152,5 +162,7 @@ private:
     std::optional<size_t> m_lastPartyFloorFaceForPressurePlateTriggers;
     std::unordered_map<uint32_t, MechanismAudioState> m_mechanismAudioStates;
     float m_mechanismAccumulatorMilliseconds = 0.0f;
+    Mm9PositionedTransitionRuntime m_mm9PositionedTransitionRuntime;
+    Mm9TeacherScheduleRuntime m_mm9TeacherScheduleRuntime;
 };
 }

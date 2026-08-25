@@ -731,6 +731,16 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "gameplay", "quest_markers"))
+    {
+        bool parsed = settings.questMarkers;
+
+        if (parseBoolValue(*value, parsed))
+        {
+            settings.questMarkers = parsed;
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "gameplay", "combat_target_panel"))
     {
         bool parsed = settings.combatTargetPanel;
@@ -1368,6 +1378,7 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "mouse_interaction_depth=" << std::clamp(settings.mouseInteractionDepth, 32, 4096) << '\n'
         << "combat_text=" << (settings.combatText ? "true" : "false") << '\n'
         << "combat_actor_hp_bars=" << (settings.combatActorHealthBars ? "true" : "false") << '\n'
+        << "quest_markers=" << (settings.questMarkers ? "true" : "false") << '\n'
         << "combat_target_panel=" << (settings.combatTargetPanel ? "true" : "false") << '\n'
         << "context_action_popup=" << (settings.contextActionPopup ? "true" : "false") << "\n\n"
         << "[startup]\n"

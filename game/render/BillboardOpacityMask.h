@@ -15,6 +15,8 @@ public:
     {
         m_width = 0;
         m_height = 0;
+        m_opaqueTop = 0;
+        m_hasOpaquePixel = false;
         m_bits.clear();
 
         if (width <= 0 || height <= 0)
@@ -38,6 +40,11 @@ public:
             if (pixels[pixelIndex * 4 + 3] != 0)
             {
                 m_bits[pixelIndex / 8] |= static_cast<uint8_t>(1u << (pixelIndex % 8));
+                if (!m_hasOpaquePixel)
+                {
+                    m_opaqueTop = static_cast<int>(pixelIndex / static_cast<size_t>(m_width));
+                    m_hasOpaquePixel = true;
+                }
             }
         }
     }
@@ -86,9 +93,20 @@ public:
         return isOpaque(x, y);
     }
 
+    float opaqueTopNormalized() const
+    {
+        if (!m_hasOpaquePixel || m_height <= 0)
+        {
+            return 0.0f;
+        }
+        return static_cast<float>(m_opaqueTop) / static_cast<float>(m_height);
+    }
+
 private:
     int m_width = 0;
     int m_height = 0;
+    int m_opaqueTop = 0;
+    bool m_hasOpaquePixel = false;
     std::vector<uint8_t> m_bits;
 };
 }

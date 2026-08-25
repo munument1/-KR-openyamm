@@ -1,0 +1,149 @@
+#include "doctest/doctest.h"
+
+#include "engine/ImageAssetLoader.h"
+#include "engine/AssetScaleTier.h"
+#include "game/maps/MapPresentation.h"
+#include "game/ui/GameplayJournalMapUi.h"
+#include "game/ui/GameplayMinimapTransform.h"
+
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <vector>
+
+namespace
+{
+std::vector<uint8_t> readMapAsset(const std::filesystem::path &path)
+{
+    std::ifstream stream(path, std::ios::binary);
+    return std::vector<uint8_t>(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+}
+}
+
+TEST_CASE("map presentation catalog resolves elevation variants and omits unlisted maps")
+{
+    const std::string catalog = R"(
+format_version: 1
+kind: world_map_presentation_catalog
+maps:
+  - map: lichlab
+    world_bounds: {min_x: -100, max_x: 300, min_y: -200, max_y: 600}
+    flip_u: false
+    flip_v: true
+    reveal_entire_map: true
+    variants:
+      - {texture: ui/maps/lichlaba.pcx, width: 682, height: 695, maximum_z: 100}
+      - {texture: ui/maps/lichlabb.pcx, width: 678, height: 691, minimum_z: 100, maximum_z: 200}
+      - {texture: ui/maps/lichlabc.pcx, width: 677, height: 690, minimum_z: 200}
+)";
+    std::string errorMessage;
+    const std::optional<OpenYAMM::Game::MapPresentation> presentation =
+        OpenYAMM::Game::loadMapPresentationFromCatalog(catalog, "LICHLAB.blv", errorMessage);
+
+    REQUIRE(presentation.has_value());
+    CHECK(errorMessage.empty());
+    REQUIRE(OpenYAMM::Game::resolveMapPresentationVariant(*presentation, 100.0f) != nullptr);
+    CHECK(OpenYAMM::Game::resolveMapPresentationVariant(*presentation, 100.0f)->textureName
+        == "ui/maps/lichlaba.pcx");
+    CHECK(OpenYAMM::Game::resolveMapPresentationVariant(*presentation, 150.0f)->textureName
+        == "ui/maps/lichlabb.pcx");
+    CHECK(OpenYAMM::Game::resolveMapPresentationVariant(*presentation, 250.0f)->textureName
+        == "ui/maps/lichlabc.pcx");
+
+    const std::optional<OpenYAMM::Game::MapPresentation> greatGate =
+        OpenYAMM::Game::loadMapPresentationFromCatalog(catalog, "greatgate.odm", errorMessage);
+    CHECK_FALSE(greatGate.has_value());
+    CHECK(errorMessage.empty());
+}
+
+TEST_CASE("MM9 map transform preserves flipped world coordinates and source aspect ratio")
+{
+    OpenYAMM::Game::GameplayMinimapState state = {};
+    state.worldMinX = 100.0f;
+    state.worldMaxX = 500.0f;
+    state.worldMinY = -200.0f;
+    state.worldMaxY = 600.0f;
+    state.flipU = true;
+    state.flipV = false;
+    state.zoomWidth = 1000.0f;
+    state.zoomHeight = 500.0f;
+
+    const OpenYAMM::Game::GameplayMinimapPoint uv =
+        OpenYAMM::Game::gameplayMinimapWorldToUv(state, 200.0f, 0.0f);
+    CHECK(uv.x == doctest::Approx(0.75f));
+    CHECK(uv.y == doctest::Approx(0.25f));
+
+    const OpenYAMM::Game::GameplayMinimapPoint world =
+        OpenYAMM::Game::gameplayMinimapUvToWorld(state, uv.x, uv.y);
+    CHECK(world.x == doctest::Approx(200.0f));
+    CHECK(world.y == doctest::Approx(0.0f));
+
+    OpenYAMM::Game::GameplayUiController::JournalScreenState journal = {};
+    journal.mapCenterX = 300.0f;
+    journal.mapCenterY = 200.0f;
+    journal.mapZoomStep = 0;
+    const OpenYAMM::Game::GameplayJournalMapTransform transform =
+        OpenYAMM::Game::gameplayJournalMapTransform(journal, &state, 300.0f, 300.0f);
+    CHECK(transform.uSpan == doctest::Approx(1.0f));
+    CHECK(transform.vSpan == doctest::Approx(2.0f));
+}
+
+TEST_CASE("promoted MM9 map catalog and PCX asset are runtime decodable")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::filesystem::path assetRoot = sourceRoot / "assets_dev" / "worlds" / "mm9" / "ui" / "maps";
+    const std::vector<uint8_t> catalogBytes = readMapAsset(assetRoot / "catalog.yml");
+    const std::vector<uint8_t> pcxBytes = readMapAsset(assetRoot / "bootcamp.pcx");
+
+    REQUIRE_FALSE(catalogBytes.empty());
+    REQUIRE_FALSE(pcxBytes.empty());
+    const std::string catalog(catalogBytes.begin(), catalogBytes.end());
+    std::string errorMessage;
+    const std::optional<OpenYAMM::Game::MapPresentation> bootcamp =
+        OpenYAMM::Game::loadMapPresentationFromCatalog(catalog, "bootcamp.odm", errorMessage);
+    REQUIRE(bootcamp.has_value());
+    CHECK(errorMessage.empty());
+    CHECK(bootcamp->worldMinX == doctest::Approx(-11796.48f));
+    CHECK(bootcamp->worldMaxX == doctest::Approx(60293.12f));
+
+    OpenYAMM::Game::GameplayMinimapState bootcampState = {};
+    REQUIRE(OpenYAMM::Game::applyMapPresentationToMinimapState(*bootcamp, 0.0f, bootcampState));
+    const OpenYAMM::Game::GameplayMinimapPoint ravensfordParty =
+        OpenYAMM::Game::gameplayMinimapWorldToUv(bootcampState, 25969.0f, -6717.0f);
+    CHECK(ravensfordParty.x == doctest::Approx(0.52387f));
+    CHECK(ravensfordParty.y == doctest::Approx(0.88933f));
+    CHECK_FALSE(OpenYAMM::Game::loadMapPresentationFromCatalog(
+        catalog,
+        "greatgate.odm",
+        errorMessage).has_value());
+    CHECK(errorMessage.empty());
+
+    const std::optional<OpenYAMM::Engine::ImagePixelsBgra> image =
+        OpenYAMM::Engine::decodeImagePixelsBgra(pcxBytes, "ui/maps/bootcamp.pcx");
+    REQUIRE(image.has_value());
+    CHECK(image->width == 1000);
+    CHECK(image->height == 570);
+
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    REQUIRE(assetFileSystem.initialize(
+        sourceRoot,
+        sourceRoot / "assets_dev",
+        OpenYAMM::Engine::AssetScaleTier::X1,
+        "mm9"));
+    REQUIRE(assetFileSystem.readTextFile("worlds/mm9/ui/maps/catalog.yml").has_value());
+    OpenYAMM::Engine::DirectoryAssetPathCache directoryCache;
+    OpenYAMM::Engine::AssetPathLookupCache pathCache;
+    OpenYAMM::Engine::BinaryAssetCache binaryCache;
+    const std::optional<OpenYAMM::Engine::ImagePixelsBgra> mountedImage =
+        OpenYAMM::Engine::loadImageAssetPixelsBgra(
+            assetFileSystem,
+            "ui/maps",
+            "bootcamp.pcx",
+            directoryCache,
+            pathCache,
+            binaryCache);
+    REQUIRE(mountedImage.has_value());
+    CHECK(mountedImage->width == 1000);
+    CHECK(mountedImage->height == 570);
+}

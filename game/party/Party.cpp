@@ -19,11 +19,13 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <optional>
 #include <random>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace OpenYAMM::Game
@@ -394,13 +396,14 @@ void applyRosterSpellKnowledge(Character &character, const RosterEntry &rosterEn
 
 void grantDefaultEquipmentSkills(Character &character)
 {
-    static const std::array<const char *, 11> skillNames = {
+    static const std::array<const char *, 12> skillNames = {
         "LeatherArmor",
         "ChainArmor",
         "PlateArmor",
         "Spear",
         "Sword",
         "Bow",
+        "Throwing",
         "Dagger",
         "Mace",
         "Axe",
@@ -1039,9 +1042,16 @@ bool matchesMonsterAttackPreference(const Character &member, uint32_t preference
 bool hasConditionImmunity(const Character &member, CharacterCondition condition)
 {
     const size_t conditionIndex = static_cast<size_t>(condition);
+    const bool ameliorationBlocksCondition =
+        member.equippedItemEffectFlags.contains("Amelioration")
+        && (condition == CharacterCondition::Weak
+            || condition == CharacterCondition::Drunk
+            || condition == CharacterCondition::PoisonWeak
+            || condition == CharacterCondition::DiseaseWeak);
 
     return conditionIndex < CharacterConditionCount
-        && (member.permanentConditionImmunities.test(conditionIndex)
+        && (ameliorationBlocksCondition
+            || member.permanentConditionImmunities.test(conditionIndex)
             || member.magicalConditionImmunities.test(conditionIndex));
 }
 
@@ -2177,6 +2187,45 @@ const SpecialItemEnchantTable *Party::specialItemEnchantTable() const
     return m_pSpecialItemEnchantTable;
 }
 
+size_t Party::equippedItemSetPieceCount(size_t memberIndex, const std::string &setId) const
+{
+    const Character *pMember = member(memberIndex);
+
+    if (pMember == nullptr || m_pItemTable == nullptr || setId.empty())
+    {
+        return 0;
+    }
+
+    const std::array<std::pair<uint32_t, bool>, 16> equippedItems = {{
+        {pMember->equipment.offHand, pMember->equipmentRuntime.offHand.broken},
+        {pMember->equipment.mainHand, pMember->equipmentRuntime.mainHand.broken},
+        {pMember->equipment.bow, pMember->equipmentRuntime.bow.broken},
+        {pMember->equipment.armor, pMember->equipmentRuntime.armor.broken},
+        {pMember->equipment.helm, pMember->equipmentRuntime.helm.broken},
+        {pMember->equipment.belt, pMember->equipmentRuntime.belt.broken},
+        {pMember->equipment.cloak, pMember->equipmentRuntime.cloak.broken},
+        {pMember->equipment.gauntlets, pMember->equipmentRuntime.gauntlets.broken},
+        {pMember->equipment.boots, pMember->equipmentRuntime.boots.broken},
+        {pMember->equipment.amulet, pMember->equipmentRuntime.amulet.broken},
+        {pMember->equipment.ring1, pMember->equipmentRuntime.ring1.broken},
+        {pMember->equipment.ring2, pMember->equipmentRuntime.ring2.broken},
+        {pMember->equipment.ring3, pMember->equipmentRuntime.ring3.broken},
+        {pMember->equipment.ring4, pMember->equipmentRuntime.ring4.broken},
+        {pMember->equipment.ring5, pMember->equipmentRuntime.ring5.broken},
+        {pMember->equipment.ring6, pMember->equipmentRuntime.ring6.broken},
+    }};
+    return static_cast<size_t>(std::count_if(
+        equippedItems.begin(),
+        equippedItems.end(),
+        [this, &setId](const std::pair<uint32_t, bool> &equippedItem)
+        {
+            const ItemDefinition *pItem = equippedItem.first != 0 && !equippedItem.second
+                ? m_pItemTable->get(equippedItem.first)
+                : nullptr;
+            return pItem != nullptr && pItem->setId == setId;
+        }));
+}
+
 int32_t Party::eventVariableValue(uint16_t variableId) const
 {
     const auto iterator = m_eventVariables.find(variableId);
@@ -2323,6 +2372,8 @@ Party::Snapshot Party::snapshot() const
     snapshot.hardLandingSoundCount = m_hardLandingSoundCount;
     snapshot.monsterTargetSelectionCounter = m_monsterTargetSelectionCounter;
     snapshot.houseStockSeed = m_houseStockSeed;
+    snapshot.itemEffectElapsedGameSeconds = m_itemEffectElapsedGameSeconds;
+    snapshot.itemWeeklyEffectSequence = m_itemWeeklyEffectSequence;
     snapshot.lastFallDamageDistance = m_lastFallDamageDistance;
     snapshot.foundArtifactItems = m_foundArtifactItems;
     snapshot.arcomageWonHouseIds = m_arcomageWonHouseIds;
@@ -2368,6 +2419,8 @@ void Party::restoreSnapshot(const Snapshot &snapshot)
     m_hardLandingSoundCount = snapshot.hardLandingSoundCount;
     m_monsterTargetSelectionCounter = snapshot.monsterTargetSelectionCounter;
     m_houseStockSeed = snapshot.houseStockSeed;
+    m_itemEffectElapsedGameSeconds = snapshot.itemEffectElapsedGameSeconds;
+    m_itemWeeklyEffectSequence = snapshot.itemWeeklyEffectSequence;
     m_lastFallDamageDistance = snapshot.lastFallDamageDistance;
     m_foundArtifactItems = snapshot.foundArtifactItems;
     m_arcomageWonHouseIds = snapshot.arcomageWonHouseIds;
@@ -2419,6 +2472,7 @@ void Party::restoreSnapshot(const Snapshot &snapshot)
     m_pendingAudioRequests.clear();
     recordEverOwnedItemsFromCurrentState();
     rebuildMagicalBonusesFromBuffs();
+    ++m_dialogueEligibilityRevision;
 }
 
 void Party::seed(const PartySeed &seed)
@@ -2434,6 +2488,8 @@ void Party::seed(const PartySeed &seed)
     m_fineGold = 0;
     m_monsterTargetSelectionCounter = 0;
     m_houseStockSeed = generateHouseStockSeed();
+    m_itemEffectElapsedGameSeconds = 0.0f;
+    m_itemWeeklyEffectSequence = 0;
     m_foundArtifactItems.clear();
     m_everOwnedItemIds.clear();
     m_continentReputations.clear();
@@ -2448,6 +2504,7 @@ void Party::seed(const PartySeed &seed)
     m_unavailableNpcIds.clear();
     m_hiredNpcFollowers.clear();
     m_houseStockStates.clear();
+    ++m_dialogueEligibilityRevision;
 
     for (Character &member : m_members)
     {
@@ -2997,9 +3054,12 @@ uint32_t Party::grantSharedExperience(uint32_t totalExperience)
         }
 
         const int learningPercent = learningPercentForExperienceGain(member);
-        const uint32_t grantedExperience =
+        const uint32_t learnedExperience =
             experiencePerEligibleMember
             + experiencePerEligibleMember * std::max(0, learningPercent) / 100;
+        const uint32_t grantedExperience = static_cast<uint32_t>(std::max(
+            0.0f,
+            std::floor(static_cast<float>(learnedExperience) * member.experienceGainMultiplier)));
         addExperienceToMember(memberIndex, grantedExperience);
         totalGrantedExperience += grantedExperience;
     }
@@ -3082,6 +3142,7 @@ void Party::addGold(int amount)
 
     if (m_gold != previousGold)
     {
+        ++m_dialogueEligibilityRevision;
         queueSound(SoundId::Gold);
     }
 }
@@ -3454,9 +3515,9 @@ bool Party::trainActiveMember(uint32_t maxLevel, uint32_t &newLevel, uint32_t &s
     return true;
 }
 
-bool Party::canActiveMemberLearnSkill(const std::string &skillName) const
+bool Party::canMemberLearnSkill(size_t memberIndex, const std::string &skillName) const
 {
-    const Character *pMember = activeMember();
+    const Character *pMember = member(memberIndex);
     const std::string canonicalSkill = canonicalSkillName(skillName);
 
     if (pMember == nullptr || canonicalSkill.empty() || m_pClassSkillTable == nullptr || pMember->hasSkill(canonicalSkill))
@@ -3468,14 +3529,14 @@ bool Party::canActiveMemberLearnSkill(const std::string &skillName) const
         != SkillMastery::None;
 }
 
-bool Party::learnActiveMemberSkill(const std::string &skillName)
+bool Party::learnMemberSkill(size_t memberIndex, const std::string &skillName)
 {
-    if (!canActiveMemberLearnSkill(skillName))
+    if (!canMemberLearnSkill(memberIndex, skillName))
     {
         return false;
     }
 
-    Character *pMember = activeMember();
+    Character *pMember = member(memberIndex);
 
     if (pMember == nullptr)
     {
@@ -3489,6 +3550,16 @@ bool Party::learnActiveMemberSkill(const std::string &skillName)
     pMember->skills[skill.name] = skill;
     GameMechanics::refreshCharacterBaseResources(*pMember, false, m_pClassMultiplierTable);
     return true;
+}
+
+bool Party::canActiveMemberLearnSkill(const std::string &skillName) const
+{
+    return canMemberLearnSkill(activeMemberIndex(), skillName);
+}
+
+bool Party::learnActiveMemberSkill(const std::string &skillName)
+{
+    return learnMemberSkill(activeMemberIndex(), skillName);
 }
 
 bool Party::canIncreaseActiveMemberSkillLevel(const std::string &skillName) const
@@ -3820,6 +3891,7 @@ void Party::setQuestBit(uint32_t questBitId, bool value)
         const bool inserted = m_questBits.insert(questBitId).second;
         if (inserted)
         {
+            ++m_dialogueEligibilityRevision;
             GAMEPLAY_DEBUG_TRACE("qbit_set id=" + std::to_string(questBitId));
         }
     }
@@ -3828,9 +3900,15 @@ void Party::setQuestBit(uint32_t questBitId, bool value)
         const size_t erased = m_questBits.erase(questBitId);
         if (erased != 0)
         {
+            ++m_dialogueEligibilityRevision;
             GAMEPLAY_DEBUG_TRACE("qbit_cleared id=" + std::to_string(questBitId));
         }
     }
+}
+
+uint64_t Party::dialogueEligibilityRevision() const
+{
+    return m_dialogueEligibilityRevision;
 }
 
 void Party::applyGlobalNpcStateTo(EventRuntimeState &runtimeState) const
@@ -5530,6 +5608,41 @@ bool Party::spendSpellPointsOnActiveMember(int amount)
     return spendSpellPoints(activeMemberIndex(), amount);
 }
 
+void Party::applyWeeklyItemEffects()
+{
+    ++m_itemWeeklyEffectSequence;
+    bool grantWeeklyGold = false;
+
+    for (size_t memberIndex = 0; memberIndex < m_members.size(); ++memberIndex)
+    {
+        Character &member = m_members[memberIndex];
+        grantWeeklyGold = grantWeeklyGold
+            || member.equippedItemEffectFlags.contains("WeeklyGold1000");
+        const uint32_t rollSeed = m_itemWeeklyEffectSequence * 0x9e3779b9u
+            ^ static_cast<uint32_t>(memberIndex + 1) * 0x85ebca6bu;
+
+        if (member.equippedItemEffectFlags.contains("WeeklyInsanityChance10")
+            && rollSeed % 100u < 10u)
+        {
+            applyMemberCondition(memberIndex, CharacterCondition::Insane);
+        }
+
+        if (member.equippedItemEffectFlags.contains("WeeklyHealthLossChance10")
+            && (rollSeed ^ 0xc2b2ae35u) % 100u < 10u)
+        {
+            applyDamageToMember(
+                memberIndex,
+                std::max(1, currentMaximumHealth(member) / 10),
+                "An equipped relic exacts its weekly price");
+        }
+    }
+
+    if (grantWeeklyGold)
+    {
+        addGold(1000);
+    }
+}
+
 void Party::advanceTimedStates(float deltaSeconds)
 {
     if (deltaSeconds <= 0.0f)
@@ -5539,6 +5652,14 @@ void Party::advanceTimedStates(float deltaSeconds)
 
     bool buffsChanged = false;
     bool itemsChanged = false;
+    constexpr float GameSecondsPerWeek = 7.0f * 24.0f * 60.0f * 60.0f;
+    m_itemEffectElapsedGameSeconds += deltaSeconds;
+
+    while (m_itemEffectElapsedGameSeconds >= GameSecondsPerWeek)
+    {
+        m_itemEffectElapsedGameSeconds -= GameSecondsPerWeek;
+        applyWeeklyItemEffects();
+    }
 
     for (PartyBuffState &buff : m_partyBuffs)
     {
@@ -5640,6 +5761,20 @@ void Party::advanceTimedStates(float deltaSeconds)
 
     for (Character &member : m_members)
     {
+        for (TimedPrimaryStatBonus &bonus : member.timedPrimaryStatBonuses)
+        {
+            if (bonus.remainingSeconds <= 0.0f)
+            {
+                continue;
+            }
+            bonus.remainingSeconds = std::max(0.0f, bonus.remainingSeconds - deltaSeconds);
+            if (bonus.remainingSeconds <= 0.0f)
+            {
+                bonus.power = 0;
+                buffsChanged = true;
+            }
+        }
+
         for (InventoryItem &item : member.inventory)
         {
             updateTimedInventoryItem(item);
@@ -5814,6 +5949,22 @@ void Party::applyCharacterBuff(
     buff.skillMastery = skillMastery;
     buff.power = power;
     buff.casterMemberIndex = casterMemberIndex;
+    rebuildMagicalBonusesFromBuffs();
+}
+
+void Party::applyTemporaryPrimaryStatBonus(uint32_t statIndex, int power, float durationSeconds)
+{
+    if (statIndex >= 6 || power <= 0 || durationSeconds <= 0.0f)
+    {
+        return;
+    }
+
+    for (Character &member : m_members)
+    {
+        TimedPrimaryStatBonus &bonus = member.timedPrimaryStatBonuses[statIndex];
+        bonus.power += power;
+        bonus.remainingSeconds = std::max(bonus.remainingSeconds, durationSeconds);
+    }
     rebuildMagicalBonusesFromBuffs();
 }
 
@@ -6443,6 +6594,12 @@ void Party::rebuildMagicalBonusesFromBuffs()
         member.physicalAttackDisabled = false;
         member.physicalDamageImmune = false;
         member.halfMissileDamage = false;
+        member.meleeArmorClassBonus = 0;
+        member.missileArmorClassBonus = 0;
+        member.magicArmorClassBonus = 0;
+        member.physicalDamageTakenMultiplier = 1.0f;
+        member.experienceGainMultiplier = 1.0f;
+        member.randomEncounterChanceMultiplier = 1.0f;
         member.waterWalking = false;
         member.featherFalling = false;
         member.healthRegenPerSecond = 0.0f;
@@ -6452,6 +6609,24 @@ void Party::rebuildMagicalBonusesFromBuffs()
         member.attackRecoveryReductionTicks = 0;
         member.recoveryProgressMultiplier = 1.0f;
         member.itemSkillBonuses.clear();
+        member.equippedItemEffectFlags.clear();
+
+        const std::array<int CharacterStatBonuses::*, 6> primaryStats = {
+            &CharacterStatBonuses::might,
+            &CharacterStatBonuses::intellect,
+            &CharacterStatBonuses::personality,
+            &CharacterStatBonuses::endurance,
+            &CharacterStatBonuses::speed,
+            &CharacterStatBonuses::accuracy,
+        };
+        for (size_t statIndex = 0; statIndex < primaryStats.size(); ++statIndex)
+        {
+            const TimedPrimaryStatBonus &bonus = member.timedPrimaryStatBonuses[statIndex];
+            if (bonus.remainingSeconds > 0.0f)
+            {
+                member.magicalBonuses.*primaryStats[statIndex] += bonus.power;
+            }
+        }
     }
 
     for (Character &member : m_members)
@@ -6642,6 +6817,85 @@ void Party::rebuildMagicalBonusesFromBuffs()
             applyEquippedItemEnchant(member, member.equipment.ring4, member.equipmentRuntime.ring4);
             applyEquippedItemEnchant(member, member.equipment.ring5, member.equipmentRuntime.ring5);
             applyEquippedItemEnchant(member, member.equipment.ring6, member.equipmentRuntime.ring6);
+
+            const std::array<std::pair<uint32_t, bool>, 16> equippedItems = {{
+                {member.equipment.offHand, member.equipmentRuntime.offHand.broken},
+                {member.equipment.mainHand, member.equipmentRuntime.mainHand.broken},
+                {member.equipment.bow, member.equipmentRuntime.bow.broken},
+                {member.equipment.armor, member.equipmentRuntime.armor.broken},
+                {member.equipment.helm, member.equipmentRuntime.helm.broken},
+                {member.equipment.belt, member.equipmentRuntime.belt.broken},
+                {member.equipment.cloak, member.equipmentRuntime.cloak.broken},
+                {member.equipment.gauntlets, member.equipmentRuntime.gauntlets.broken},
+                {member.equipment.boots, member.equipmentRuntime.boots.broken},
+                {member.equipment.amulet, member.equipmentRuntime.amulet.broken},
+                {member.equipment.ring1, member.equipmentRuntime.ring1.broken},
+                {member.equipment.ring2, member.equipmentRuntime.ring2.broken},
+                {member.equipment.ring3, member.equipmentRuntime.ring3.broken},
+                {member.equipment.ring4, member.equipmentRuntime.ring4.broken},
+                {member.equipment.ring5, member.equipmentRuntime.ring5.broken},
+                {member.equipment.ring6, member.equipmentRuntime.ring6.broken},
+            }};
+            std::unordered_map<std::string, size_t> equippedSetPieceCounts;
+
+            for (const auto &[itemId, broken] : equippedItems)
+            {
+                const ItemDefinition *pItem = itemId != 0 && !broken ? m_pItemTable->get(itemId) : nullptr;
+
+                if (pItem != nullptr && !pItem->setId.empty())
+                {
+                    ++equippedSetPieceCounts[pItem->setId];
+                }
+            }
+
+            for (const ItemSetBonusDefinition &setBonus : m_pItemTable->setBonuses())
+            {
+                const auto foundPieceCount = equippedSetPieceCounts.find(setBonus.setId);
+
+                if (foundPieceCount != equippedSetPieceCounts.end()
+                    && foundPieceCount->second >= setBonus.requiredPieceCount)
+                {
+                    ItemEnchantRuntime::applyContentEffect(setBonus.effect, member);
+                }
+            }
+        }
+
+        for (const Character &owner : m_members)
+        {
+            for (const InventoryItem &item : owner.inventory)
+            {
+                const ItemDefinition *pItem = m_pItemTable->get(item.objectDescriptionId);
+
+                if (pItem == nullptr
+                    || std::find(
+                        pItem->contentEffect.flags.begin(),
+                        pItem->contentEffect.flags.end(),
+                        "CarriedPartyEffect") == pItem->contentEffect.flags.end())
+                {
+                    continue;
+                }
+
+                for (Character &partyMember : m_members)
+                {
+                    ItemEnchantRuntime::applyContentEffect(pItem->contentEffect, partyMember);
+                }
+            }
+        }
+
+        const bool partyEndurancePenalty = std::any_of(
+            m_members.begin(),
+            m_members.end(),
+            [](const Character &member)
+            {
+                return member.equippedItemEffectFlags.contains("PartyEnduranceMinus40");
+            });
+
+        if (partyEndurancePenalty)
+        {
+            for (Character &member : m_members)
+            {
+                member.magicalBonuses.endurance -= 40;
+            }
         }
     }
 

@@ -70,6 +70,29 @@ std::vector<uint8_t> makeTwoPixelIndexedBmp()
     bytes.insert(bytes.end(), {0, 1, 0, 0});
     return bytes;
 }
+
+std::vector<uint8_t> makeTwoPixelIndexedPcx()
+{
+    std::vector<uint8_t> bytes(128, 0);
+    bytes[0] = 0x0a;
+    bytes[1] = 5;
+    bytes[2] = 1;
+    bytes[3] = 8;
+    bytes[8] = 1;
+    bytes[65] = 1;
+    bytes[66] = 2;
+    bytes.push_back(0);
+    bytes.push_back(1);
+    bytes.push_back(0x0c);
+    bytes.resize(bytes.size() + 256 * 3, 0);
+    const size_t paletteOffset = bytes.size() - 256 * 3;
+    bytes[paletteOffset + 1] = 255;
+    bytes[paletteOffset + 2] = 255;
+    bytes[paletteOffset + 3] = 10;
+    bytes[paletteOffset + 4] = 20;
+    bytes[paletteOffset + 5] = 30;
+    return bytes;
+}
 }
 
 TEST_CASE("ImageAssetLoader decodes PNG pixels through shared loader")
@@ -110,5 +133,25 @@ TEST_CASE("ImageAssetLoader applies palette zero transparency without override p
     CHECK(image->pixels[4] == 0);
     CHECK(image->pixels[5] == 0);
     CHECK(image->pixels[6] == 255);
+    CHECK(image->pixels[7] == 255);
+}
+
+TEST_CASE("ImageAssetLoader decodes indexed PCX and applies the teal transparency key")
+{
+    OpenYAMM::Engine::ImageDecodeOptions options = {};
+    options.applyTealTransparencyKey = true;
+    const std::vector<uint8_t> bytes = makeTwoPixelIndexedPcx();
+
+    const std::optional<OpenYAMM::Engine::ImagePixelsBgra> image =
+        OpenYAMM::Engine::decodeImagePixelsBgra(bytes, "dialogue-background.pcx", options);
+
+    REQUIRE(image.has_value());
+    REQUIRE(image->width == 2);
+    REQUIRE(image->height == 1);
+    REQUIRE(image->pixels.size() == 8);
+    CHECK(image->pixels[3] == 0);
+    CHECK(image->pixels[4] == 30);
+    CHECK(image->pixels[5] == 20);
+    CHECK(image->pixels[6] == 10);
     CHECK(image->pixels[7] == 255);
 }

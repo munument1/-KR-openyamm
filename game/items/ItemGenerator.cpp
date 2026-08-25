@@ -48,7 +48,8 @@ std::optional<uint32_t> chooseRandomRareItem(
 
     for (const ItemDefinition &entry : itemTable.entries())
     {
-        if (entry.itemId == 0 || !ItemRuntime::isUniquelyGeneratedRareItem(entry))
+        if (entry.itemId == 0 || entry.hasContentFlag("NoRandom")
+            || !ItemRuntime::isUniquelyGeneratedRareItem(entry))
         {
             continue;
         }
@@ -305,7 +306,8 @@ std::optional<uint32_t> ItemGenerator::chooseRandomBaseItem(
 
     for (const ItemDefinition &entry : itemTable.entries())
     {
-        if (entry.itemId == 0 || weightIndex >= entry.randomTreasureWeights.size())
+        if (entry.itemId == 0 || entry.hasContentFlag("NoRandom")
+            || weightIndex >= entry.randomTreasureWeights.size())
         {
             continue;
         }

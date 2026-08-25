@@ -11,6 +11,7 @@ enum class OutdoorFogMode : uint8_t
 {
     Static = 0,
     DailyRandom = 1,
+    AuthoredDayNight = 2,
 };
 
 enum class OutdoorPrecipitationKind : uint8_t
@@ -24,6 +25,14 @@ struct OutdoorFogDistances
 {
     int32_t weakDistance = 0;
     int32_t strongDistance = 0;
+};
+
+struct OutdoorAuthoredFogState
+{
+    bool configured = false;
+    bool enabled = false;
+    OutdoorFogDistances distances = {};
+    std::array<uint8_t, 3> colorRgb = {};
 };
 
 struct OutdoorWeatherProfile
@@ -44,6 +53,8 @@ struct OutdoorWeatherProfile
     OutdoorFogDistances smallFog = {4096, 8192};
     OutdoorFogDistances averageFog = {0, 4096};
     OutdoorFogDistances denseFog = {0, 2048};
+    OutdoorAuthoredFogState authoredDayFog = {};
+    OutdoorAuthoredFogState authoredNightFog = {};
     bool mergedWeatherConfigured = false;
     uint32_t mergedMapId = 0;
     bool mergedWeatherEnabled = false;

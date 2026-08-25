@@ -17,6 +17,12 @@
 #include "game/tables/ItemTable.h"
 #include "game/maps/MapAssetLoader.h"
 #include "game/maps/MapRegistry.h"
+#include "game/mm9/Mm9MapTransition.h"
+#include "game/mm9/Mm9TeacherSchedule.h"
+#include "game/mm9/Mm9QuestMarkers.h"
+#include "game/mm9/Mm9RudeDialogue.h"
+#include "game/mm9/Mm9SkillTrainer.h"
+#include "game/mm9/Mm9TransportRoute.h"
 #include "game/tables/MapStats.h"
 #include "game/tables/MonsterProjectileTable.h"
 #include "game/tables/MonsterTable.h"
@@ -36,6 +42,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -83,6 +90,7 @@ public:
     const ObjectTable &getObjectTable() const;
     const SpellTable &getSpellTable() const;
     const ItemTable &getItemTable() const;
+    const std::unordered_map<std::string, uint32_t> &getLoadedContentPackageSchemas() const;
     const StandardItemEnchantTable &getStandardItemEnchantTable() const;
     const SpecialItemEnchantTable &getSpecialItemEnchantTable() const;
     const ChestTable &getChestTable() const;
@@ -93,6 +101,12 @@ public:
     const ClassMultiplierTable &getClassMultiplierTable() const;
     const ClassSkillTable &getClassSkillTable() const;
     const NpcDialogTable &getNpcDialogTable() const;
+    const Mm9MapTransitionTable &getMm9MapTransitionTable() const;
+    const Mm9TeacherScheduleTable &getMm9TeacherScheduleTable() const;
+    const Mm9RudeDialogueTable &getMm9RudeDialogueTable() const;
+    const Mm9SkillTrainerTable &getMm9SkillTrainerTable() const;
+    const Mm9TransportRouteTable &getMm9TransportRouteTable() const;
+    const Mm9QuestInteractionTable &getMm9QuestInteractionTable() const;
     const RosterTable &getRosterTable() const;
     const CharacterDollTable &getCharacterDollTable() const;
     const CharacterInspectTable &getCharacterInspectTable() const;
@@ -170,6 +184,12 @@ private:
     bool loadClassMultiplierTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadClassSkillTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadNpcDialogTable(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadMm9MapTransitionTable(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadMm9TeacherScheduleTable(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadMm9RudeDialogueTable(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadMm9SkillTrainerTable(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadMm9TransportRouteTable(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadMm9QuestInteractionTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadRosterTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadCharacterDollTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadCharacterInspectTable(const Engine::AssetFileSystem &assetFileSystem);
@@ -212,6 +232,7 @@ private:
     ObjectTable m_objectTable;
     SpellTable m_spellTable;
     ItemTable m_itemTable;
+    std::unordered_map<std::string, uint32_t> m_loadedContentPackageSchemas = {{"engine", 1}};
     StandardItemEnchantTable m_standardItemEnchantTable;
     SpecialItemEnchantTable m_specialItemEnchantTable;
     ChestTable m_chestTable;
@@ -222,6 +243,12 @@ private:
     ClassMultiplierTable m_classMultiplierTable;
     ClassSkillTable m_classSkillTable;
     NpcDialogTable m_npcDialogTable;
+    std::shared_ptr<Mm9MapTransitionTable> m_pMm9MapTransitionTable;
+    std::shared_ptr<Mm9TeacherScheduleTable> m_pMm9TeacherScheduleTable;
+    std::shared_ptr<Mm9RudeDialogueTable> m_pMm9RudeDialogueTable;
+    std::shared_ptr<Mm9SkillTrainerTable> m_pMm9SkillTrainerTable;
+    std::shared_ptr<Mm9TransportRouteTable> m_pMm9TransportRouteTable;
+    Mm9QuestInteractionTable m_mm9QuestInteractionTable;
     RosterTable m_rosterTable;
     CharacterDollTable m_characterDollTable;
     CharacterInspectTable m_characterInspectTable;

@@ -58,6 +58,17 @@ inline OutdoorFogProfile buildOutdoorClearDistanceFogProfile(float visibleDistan
     return profile;
 }
 
+inline OutdoorFogProfile buildOutdoorDirectFogProfile(int32_t authoredNearDistance, int32_t authoredFarDistance)
+{
+    OutdoorFogProfile profile = {};
+    profile.nearOpacity = 0.0f;
+    profile.strongOpacity = 1.0f;
+    profile.weakDistance = std::max(static_cast<float>(authoredNearDistance), 0.0f);
+    profile.strongDistance = std::max(static_cast<float>(authoredFarDistance), profile.weakDistance + 1.0f);
+    profile.farDistance = profile.strongDistance + 1.0f;
+    return profile;
+}
+
 inline uint8_t outdoorClearDistanceFogBrightness(float gameMinutes)
 {
     const float minutesOfDay = std::fmod(std::max(gameMinutes, 0.0f), 1440.0f);

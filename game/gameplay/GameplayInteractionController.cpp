@@ -10,6 +10,7 @@
 #include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/gameplay/TurnBasedCombatRuntime.h"
 #include "game/debug/GameplayDebugTrace.h"
+#include "game/items/ItemRuntime.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/ItemTable.h"
 
@@ -34,6 +35,8 @@ constexpr uint64_t KeyboardInteractionRepeatNanoseconds = 67 * 1000 * 1000;
 constexpr float ContextActionRayOriginChangeThresholdSquared = 4.0f;
 constexpr float ContextActionRayDirectionChangeThresholdSquared = 0.000001f;
 constexpr uint32_t ArrowProjectileObjectId = 545;
+constexpr uint32_t ThrowingDaggerProjectileObjectId = 307;
+constexpr uint32_t ThrowingAxeProjectileObjectId = 309;
 constexpr uint32_t BlasterProjectileObjectId = 555;
 
 #if defined(__ANDROID__)
@@ -507,8 +510,11 @@ bool dropHeldItemToActiveWorld(
 
     const std::string itemName = heldItemDisplayName(runtime);
     IGameplayWorldRuntime *pWorldRuntime = runtime.worldRuntime();
+    const ItemTable *pItemTable = runtime.itemTable();
+    const ItemDefinition *pItemDefinition =
+        pItemTable != nullptr ? pItemTable->get(heldItem.item.objectDescriptionId) : nullptr;
 
-    if (pWorldRuntime == nullptr)
+    if (pWorldRuntime == nullptr || (pItemDefinition != nullptr && !ItemRuntime::canDrop(*pItemDefinition)))
     {
         runtime.setStatusBarEvent("Can't drop " + itemName);
         return false;
@@ -714,6 +720,11 @@ bool tryActivateWorldHit(
 
     if (hit.kind == GameplayWorldHitKind::WorldItem && hit.worldItem)
     {
+        if (pWorldRuntime->hasCustomWorldItemActivation(hit.worldItem->worldItemIndex))
+        {
+            return pWorldRuntime->activateCustomWorldItem(hit.worldItem->worldItemIndex);
+        }
+
         return pRuntime != nullptr
             && tryActivateWorldItem(*pRuntime, *pWorldRuntime, hit.worldItem->worldItemIndex);
     }
@@ -919,6 +930,8 @@ void executePartyAttack(
             .worldInspectionRefreshRequest = standardHoverInput.hoverRequest,
             .randomSeed = partyAttackRandomSeed(),
             .arrowProjectileObjectId = ArrowProjectileObjectId,
+            .throwingDaggerProjectileObjectId = ThrowingDaggerProjectileObjectId,
+            .throwingAxeProjectileObjectId = ThrowingAxeProjectileObjectId,
             .blasterProjectileObjectId = BlasterProjectileObjectId,
             .pressedThisFrame = decision.pressedThisFrame,
             .targetQueries = targetQueries,

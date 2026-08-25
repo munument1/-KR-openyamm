@@ -457,7 +457,7 @@ int baseRecoveryTicksForSkillName(const std::string &skillName)
         return 80;
     }
 
-    if (skillName == "Bow" || skillName == "Staff")
+    if (skillName == "Bow" || skillName == "Throwing" || skillName == "Staff")
     {
         return 100;
     }
@@ -1038,6 +1038,11 @@ int resolveRangedAttackSkillBonus(const Character &character, const EquippedItem
         return masteryMultiplier(skillMastery(character, "Bow"), 1, 1, 1, 1) * level;
     }
 
+    if (skillName == "Throwing")
+    {
+        return masteryMultiplier(skillMastery(character, "Throwing"), 1, 1, 2, 3) * level;
+    }
+
     if (skillName == "Blaster")
     {
         return masteryMultiplier(skillMastery(character, "Blaster"), 1, 2, 3, 5) * level;
@@ -1062,6 +1067,11 @@ int resolveRangedDamageSkillBonus(
     if (skillName == "Bow")
     {
         return masteryMultiplier(skillMastery(character, "Bow"), 0, 0, 0, 1) * level;
+    }
+
+    if (skillName == "Throwing")
+    {
+        return masteryMultiplier(skillMastery(character, "Throwing"), 0, 1, 1, 2) * level;
     }
 
     if (skillName == "Blaster")
@@ -1611,7 +1621,16 @@ float resolveAttackRecoverySeconds(
 
         if (pWeapon != nullptr)
         {
-            weaponRecoveryTicks = baseRecoveryTicksForSkillName(canonicalSkillName(pWeapon->skillGroup));
+            const std::string weaponSkillName = canonicalSkillName(pWeapon->skillGroup);
+            weaponRecoveryTicks = baseRecoveryTicksForSkillName(weaponSkillName);
+
+            if (weaponSkillName == "Throwing")
+            {
+                const SkillMastery throwingMastery = skillMastery(character, "Throwing");
+                weaponRecoveryTicks += throwingMastery >= SkillMastery::Grandmaster
+                    ? 0
+                    : throwingMastery >= SkillMastery::Master ? 15 : 30;
+            }
         }
     }
     else if (usesDragonBreath)
@@ -2514,7 +2533,6 @@ CharacterAttackProfile GameMechanics::buildCharacterAttackProfile(
             canonicalSkillName(pBlasterItem != nullptr ? pBlasterItem->skillGroup : std::string());
         profile.rangedSkillLevel = static_cast<uint32_t>(std::max(0, skillLevel(character, rangedSkillName)));
         profile.rangedSkillMastery = static_cast<uint32_t>(skillMastery(character, rangedSkillName));
-
         if (mainHandIsBlaster)
         {
             const std::pair<int, int> damageRange =
@@ -2537,6 +2555,19 @@ CharacterAttackProfile GameMechanics::buildCharacterAttackProfile(
             equippedItems.pBow != nullptr ? equippedItems.pBow->skillGroup : std::string());
         profile.rangedSkillLevel = static_cast<uint32_t>(std::max(0, skillLevel(character, rangedSkillName)));
         profile.rangedSkillMastery = static_cast<uint32_t>(skillMastery(character, rangedSkillName));
+        profile.rangedProjectileCount = rangedSkillName == "Bow"
+                && skillMastery(character, rangedSkillName) >= SkillMastery::Master
+            ? 2
+            : rangedSkillName == "Throwing"
+                    && skillMastery(character, rangedSkillName) >= SkillMastery::Grandmaster
+                    && equippedItems.pBow != nullptr
+                    && equippedItems.pBow->hasContentFlag("ExtraProjectileAtGrandmaster")
+                ? 2
+                : 1;
+        if (character.equippedItemEffectFlags.contains("TripleProjectile"))
+        {
+            profile.rangedProjectileCount = std::max<uint8_t>(profile.rangedProjectileCount, 3);
+        }
         profile.rangedMinDamage = std::max(
             0,
             resolveRangedDamageSkillBonus(character, equippedItems, attackTuning)
@@ -2621,6 +2652,7 @@ CharacterAttackResult GameMechanics::resolveCharacterAttackAgainstArmorClass(
         result.resolvesOnImpact = true;
         result.skillLevel = profile.rangedSkillLevel;
         result.skillMastery = profile.rangedSkillMastery;
+        result.projectileCount = profile.rangedProjectileCount;
         result.spellId = profile.rangedSpellId;
         result.attackSoundHook = "wand_cast";
 
@@ -2641,19 +2673,42 @@ CharacterAttackResult GameMechanics::resolveCharacterAttackAgainstArmorClass(
         return result;
     }
 
-    if (result.mode == CharacterAttackMode::DragonBreath)
+    int effectiveTargetArmorClass = result.targetArmorClass;
+
+    if (character.equippedItemEffectFlags.contains("HalveTargetArmor"))
+    {
+        effectiveTargetArmorClass /= 2;
+    }
+    else if (character.equippedItemEffectFlags.contains("BypassArmorChance20") && percentRoll(rng, 20))
+    {
+        effectiveTargetArmorClass = 0;
+    }
+
+    if (result.mode == CharacterAttackMode::DragonBreath
+        || character.equippedItemEffectFlags.contains("PerfectAccuracy"))
     {
         result.hit = true;
-        result.damageType = CombatDamageType::Irresistible;
+        if (result.mode == CharacterAttackMode::DragonBreath)
+        {
+            result.damageType = CombatDamageType::Irresistible;
+        }
     }
     else if (result.mode == CharacterAttackMode::Blaster)
     {
         result.damageType = CombatDamageType::Irresistible;
-        result.hit = characterRangedAttackHitsArmorClass(result.targetArmorClass, result.attackBonus, targetDistance, rng);
+        result.hit = characterRangedAttackHitsArmorClass(
+            effectiveTargetArmorClass,
+            result.attackBonus,
+            targetDistance,
+            rng);
     }
     else if (result.mode != CharacterAttackMode::Melee)
     {
-        result.hit = characterRangedAttackHitsArmorClass(result.targetArmorClass, result.attackBonus, targetDistance, rng);
+        result.hit = characterRangedAttackHitsArmorClass(
+            effectiveTargetArmorClass,
+            result.attackBonus,
+            targetDistance,
+            rng);
 
         if (result.mode == CharacterAttackMode::Wand)
         {
@@ -2663,7 +2718,7 @@ CharacterAttackResult GameMechanics::resolveCharacterAttackAgainstArmorClass(
     else
     {
         result.damageType = CombatDamageType::Physical;
-        result.hit = characterAttackHitsArmorClass(result.targetArmorClass, result.attackBonus, 0, 0, rng);
+        result.hit = characterAttackHitsArmorClass(effectiveTargetArmorClass, result.attackBonus, 0, 0, rng);
 
         if (!result.hit)
         {
@@ -2682,6 +2737,45 @@ CharacterAttackResult GameMechanics::resolveCharacterAttackAgainstArmorClass(
     const int maximumDamage =
         result.mode == CharacterAttackMode::Melee ? profile.meleeMaxDamage : profile.rangedMaxDamage;
     result.damage = randomInclusive(rng, minimumDamage, maximumDamage);
+
+    if (result.hit && character.equippedItemEffectFlags.contains("KillOnHit10") && percentRoll(rng, 10))
+    {
+        result.damage = std::numeric_limits<int>::max() / 4;
+        result.damageType = CombatDamageType::Irresistible;
+    }
+
+    if (result.hit && character.equippedItemEffectFlags.contains("StunOnHit5") && percentRoll(rng, 5))
+    {
+        result.stunTarget = true;
+    }
+
+    if (result.hit && character.equippedItemEffectFlags.contains("FearOnHit10") && percentRoll(rng, 10))
+    {
+        result.fearTarget = true;
+    }
+
+    if (result.hit
+        && character.equippedItemEffectFlags.contains("EnrageOnHit5Grandmaster")
+        && result.skillMastery >= static_cast<uint32_t>(SkillMastery::Grandmaster)
+        && percentRoll(rng, 5))
+    {
+        result.enrageTarget = true;
+    }
+
+    if (result.hit && character.equippedItemEffectFlags.contains("ReelOnHit"))
+    {
+        result.stunTarget = true;
+    }
+
+    if (result.hit
+        && (character.equippedItemEffectFlags.contains("PoisonWeaponDamage")
+            || character.equippedItemEffectFlags.contains("DiseaseWeaponDamage")
+            || (character.equippedItemEffectFlags.contains("PoisonOnHit40Grandmaster")
+                && result.skillMastery >= static_cast<uint32_t>(SkillMastery::Grandmaster)
+                && percentRoll(rng, 40))))
+    {
+        result.damageType = CombatDamageType::Body;
+    }
 
     if (hasCondition(character, CharacterCondition::Weak))
     {
@@ -3183,19 +3277,22 @@ int GameMechanics::resolveCharacterDisarmTrapValue(const Character &character)
     return effectiveLevel * masteryMultiplier(pSkill->mastery, 1, 2, 3, 5);
 }
 
-bool GameMechanics::partyDetectsSecretFaces(const Party &party, const MapStatsEntry &map)
+int GameMechanics::resolvePartyPerceptionValue(const Party &party)
 {
-    const int requiredPerception = map.perceptionDifficulty * 2;
+    int partyPerception = 0;
 
     for (const Character &member : party.members())
     {
-        if (resolveCharacterPerceptionValue(member) >= requiredPerception)
-        {
-            return true;
-        }
+        partyPerception = std::max(partyPerception, resolveCharacterPerceptionValue(member));
     }
 
-    return false;
+    return partyPerception;
+}
+
+bool GameMechanics::partyDetectsSecretFaces(const Party &party, const MapStatsEntry &map)
+{
+    const int requiredPerception = map.perceptionDifficulty * 2;
+    return resolvePartyPerceptionValue(party) >= requiredPerception;
 }
 
 bool GameMechanics::canSelectInGameplay(const Character &character)

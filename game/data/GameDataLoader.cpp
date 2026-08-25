@@ -4,6 +4,8 @@
 #include "engine/ImageAssetLoader.h"
 #include "engine/TextTable.h"
 #include "game/FaceEnums.h"
+#include "game/content/ContentManifest.h"
+#include "game/content/ContentTableComposer.h"
 #include "game/events/EventRuntime.h"
 #include "game/maps/MapIdentity.h"
 #include "game/StringUtils.h"
@@ -127,6 +129,84 @@ std::optional<std::string> readFirstExistingText(
     }
 
     return std::nullopt;
+}
+
+bool loadMountedWorldManifests(
+    const Engine::AssetFileSystem &assetFileSystem,
+    std::vector<WorldManifest> &manifests,
+    std::string &errorMessage)
+{
+    manifests.clear();
+    errorMessage.clear();
+
+    for (const std::string &worldPackageId : assetFileSystem.enumerate("worlds"))
+    {
+        const std::string normalizedPackageId = normalizeWorldId(worldPackageId);
+
+        if (normalizedPackageId.empty())
+        {
+            continue;
+        }
+
+        const std::string manifestPath = "worlds/" + normalizedPackageId + "/world.yml";
+        std::string manifestError;
+        const std::optional<WorldManifest> manifest =
+            loadWorldManifest(assetFileSystem, manifestPath, normalizedPackageId, manifestError);
+
+        if (!manifest)
+        {
+            if (assetFileSystem.exists(manifestPath))
+            {
+                errorMessage = "failed to load " + manifestPath + ": " + manifestError;
+                return false;
+            }
+
+            continue;
+        }
+
+        if (manifest->id != normalizedPackageId)
+        {
+            errorMessage = "manifest id '" + manifest->id + "' does not match package path '"
+                + normalizedPackageId + "'";
+            return false;
+        }
+
+        manifests.push_back(*manifest);
+    }
+
+    std::sort(
+        manifests.begin(),
+        manifests.end(),
+        [](const WorldManifest &left, const WorldManifest &right)
+        {
+            return left.id < right.id;
+        });
+
+    std::unordered_set<std::string> mountedPackageIds = {"engine"};
+
+    for (const WorldManifest &manifest : manifests)
+    {
+        if (!mountedPackageIds.insert(manifest.id).second)
+        {
+            errorMessage = "duplicate mounted content package id: " + manifest.id;
+            return false;
+        }
+    }
+
+    for (const WorldManifest &manifest : manifests)
+    {
+        for (const std::string &dependency : manifest.dependencies)
+        {
+            if (!mountedPackageIds.contains(dependency))
+            {
+                errorMessage = "mounted content package '" + manifest.id + "' requires missing package '"
+                    + dependency + "'";
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 std::optional<std::string> readExistingTexts(
@@ -1580,7 +1660,37 @@ bool GameDataLoader::loadInternal(
         return false;
     }
 
+    if (!loadMm9MapTransitionTable(assetFileSystem))
+    {
+        return false;
+    }
+
+    if (!loadMm9TeacherScheduleTable(assetFileSystem))
+    {
+        return false;
+    }
+
     if (!loadNpcDialogTable(assetFileSystem))
+    {
+        return false;
+    }
+
+    if (!loadMm9RudeDialogueTable(assetFileSystem))
+    {
+        return false;
+    }
+
+    if (!loadMm9TransportRouteTable(assetFileSystem))
+    {
+        return false;
+    }
+
+    if (!loadMm9SkillTrainerTable(assetFileSystem))
+    {
+        return false;
+    }
+
+    if (!loadMm9QuestInteractionTable(assetFileSystem))
     {
         return false;
     }
@@ -1773,6 +1883,11 @@ const ItemTable &GameDataLoader::getItemTable() const
     return m_itemTable;
 }
 
+const std::unordered_map<std::string, uint32_t> &GameDataLoader::getLoadedContentPackageSchemas() const
+{
+    return m_loadedContentPackageSchemas;
+}
+
 const StandardItemEnchantTable &GameDataLoader::getStandardItemEnchantTable() const
 {
     return m_standardItemEnchantTable;
@@ -1821,6 +1936,41 @@ const ClassSkillTable &GameDataLoader::getClassSkillTable() const
 const NpcDialogTable &GameDataLoader::getNpcDialogTable() const
 {
     return m_npcDialogTable;
+}
+
+const Mm9MapTransitionTable &GameDataLoader::getMm9MapTransitionTable() const
+{
+    static const Mm9MapTransitionTable EmptyTable;
+    return m_pMm9MapTransitionTable != nullptr ? *m_pMm9MapTransitionTable : EmptyTable;
+}
+
+const Mm9TeacherScheduleTable &GameDataLoader::getMm9TeacherScheduleTable() const
+{
+    static const Mm9TeacherScheduleTable EmptyTable;
+    return m_pMm9TeacherScheduleTable != nullptr ? *m_pMm9TeacherScheduleTable : EmptyTable;
+}
+
+const Mm9RudeDialogueTable &GameDataLoader::getMm9RudeDialogueTable() const
+{
+    static const Mm9RudeDialogueTable EmptyTable;
+    return m_pMm9RudeDialogueTable != nullptr ? *m_pMm9RudeDialogueTable : EmptyTable;
+}
+
+const Mm9SkillTrainerTable &GameDataLoader::getMm9SkillTrainerTable() const
+{
+    static const Mm9SkillTrainerTable EmptyTable;
+    return m_pMm9SkillTrainerTable != nullptr ? *m_pMm9SkillTrainerTable : EmptyTable;
+}
+
+const Mm9TransportRouteTable &GameDataLoader::getMm9TransportRouteTable() const
+{
+    static const Mm9TransportRouteTable EmptyTable;
+    return m_pMm9TransportRouteTable != nullptr ? *m_pMm9TransportRouteTable : EmptyTable;
+}
+
+const Mm9QuestInteractionTable &GameDataLoader::getMm9QuestInteractionTable() const
+{
+    return m_mm9QuestInteractionTable;
 }
 
 const RosterTable &GameDataLoader::getRosterTable() const
@@ -2200,20 +2350,99 @@ bool GameDataLoader::loadMapStats(const Engine::AssetFileSystem &assetFileSystem
 
 bool GameDataLoader::loadMonsterTable(const Engine::AssetFileSystem &assetFileSystem)
 {
-    std::vector<std::vector<std::string>> monsterDataRows;
+    std::vector<std::vector<std::string>> baseMonsterDataRows;
 
     const std::string monsterDataPath = engineDataTablePath("monster_data.txt");
 
-    if (!loadTextTableRows(assetFileSystem, monsterDataPath, monsterDataRows))
+    if (!loadTextTableRows(assetFileSystem, monsterDataPath, baseMonsterDataRows))
     {
         return false;
     }
 
-    std::vector<std::vector<std::string>> monsterDescriptorRows;
+    std::vector<std::vector<std::string>> baseMonsterDescriptorRows;
 
     const std::string monsterDescriptorPath = engineDataTablePath("monster_descriptors.txt");
 
-    if (!loadTextTableRows(assetFileSystem, monsterDescriptorPath, monsterDescriptorRows))
+    if (!loadTextTableRows(assetFileSystem, monsterDescriptorPath, baseMonsterDescriptorRows))
+    {
+        return false;
+    }
+
+    std::vector<WorldManifest> mountedWorlds;
+    std::string manifestError;
+
+    if (!loadMountedWorldManifests(assetFileSystem, mountedWorlds, manifestError))
+    {
+        std::cerr << "Failed to resolve monster table contributions: " << manifestError << '\n';
+        return false;
+    }
+
+    const auto composeMonsterRows =
+        [&](const std::string &tableName,
+            const std::vector<std::vector<std::string>> &baseRows,
+            std::vector<std::vector<std::string>> &composedRows) -> bool
+        {
+            std::vector<KeyedTableContributionRows> contributions;
+
+            for (const WorldManifest &manifest : mountedWorlds)
+            {
+                for (const TableContributionDefinition &contribution : manifest.tableContributions)
+                {
+                    if (contribution.table != tableName)
+                    {
+                        continue;
+                    }
+
+                    if (contribution.mode != TableContributionMode::Append)
+                    {
+                        std::cerr << "Unsupported " << tableName << " contribution mode in package '"
+                                  << manifest.id << "'\n";
+                        return false;
+                    }
+
+                    const ContentIdRangeDefinition *pMonsterRange =
+                        manifest.findIdRange(contribution.idDomain);
+
+                    if (pMonsterRange == nullptr)
+                    {
+                        std::cerr << tableName << " contribution from package '" << manifest.id
+                                  << "' has no monster id range\n";
+                        return false;
+                    }
+
+                    KeyedTableContributionRows contributionRows = {};
+                    contributionRows.packageId = manifest.id;
+                    contributionRows.idRange = *pMonsterRange;
+                    const std::string contributionPath =
+                        "worlds/" + manifest.id + "/" + contribution.path;
+
+                    if (!loadTextTableRows(assetFileSystem, contributionPath, contributionRows.rows))
+                    {
+                        std::cerr << "Failed to read " << tableName << " contribution from package '"
+                                  << manifest.id << "': " << contributionPath << '\n';
+                        return false;
+                    }
+
+                    contributions.push_back(std::move(contributionRows));
+                }
+            }
+
+            std::string compositionError;
+
+            if (!composeKeyedAppendTableRows(baseRows, contributions, composedRows, compositionError))
+            {
+                std::cerr << "Failed to compose " << tableName << ": " << compositionError << '\n';
+                return false;
+            }
+
+            return true;
+        };
+
+    std::vector<std::vector<std::string>> monsterDataRows;
+    std::vector<std::vector<std::string>> monsterDescriptorRows;
+
+    if (!composeMonsterRows("monster_data", baseMonsterDataRows, monsterDataRows)
+        || !composeMonsterRows("monster_descriptors", baseMonsterDescriptorRows, monsterDescriptorRows))
     {
         return false;
     }
@@ -2298,6 +2527,128 @@ bool GameDataLoader::loadHouseTable(const Engine::AssetFileSystem &assetFileSyst
     {
         std::cerr << "Failed to parse house table: " << sourcePath << '\n';
         return false;
+    }
+
+    std::vector<WorldManifest> mountedWorlds;
+    std::string manifestError;
+    if (!loadMountedWorldManifests(assetFileSystem, mountedWorlds, manifestError))
+    {
+        std::cerr << "Failed to resolve house table contributions: " << manifestError << '\n';
+        return false;
+    }
+
+    const auto loadHouseContributionRows =
+        [&](
+            const std::string &tableName,
+            const std::string &idColumnHeader,
+            const std::string &rangeLabel,
+            std::vector<std::vector<std::string>> &resultRows) -> bool
+        {
+            for (const WorldManifest &manifest : mountedWorlds)
+            {
+                for (const TableContributionDefinition &contribution : manifest.tableContributions)
+                {
+                    if (contribution.table != tableName)
+                    {
+                        continue;
+                    }
+                    if (contribution.mode != TableContributionMode::Append)
+                    {
+                        std::cerr << "Unsupported " << tableName << " contribution mode in package '"
+                                  << manifest.id << "'\n";
+                        return false;
+                    }
+
+                    const ContentIdRangeDefinition *pIdRange = manifest.findIdRange(contribution.idDomain);
+                    if (pIdRange == nullptr)
+                    {
+                        std::cerr << tableName << " contribution from package '" << manifest.id
+                                  << "' has no " << rangeLabel << " id range\n";
+                        return false;
+                    }
+
+                    std::vector<std::vector<std::string>> contributionRows;
+                    const std::string contributionPath = "worlds/" + manifest.id + "/" + contribution.path;
+                    if (!loadTextTableRows(assetFileSystem, contributionPath, contributionRows))
+                    {
+                        std::cerr << "Failed to read " << tableName << " contribution from package '"
+                                  << manifest.id << "': " << contributionPath << '\n';
+                        return false;
+                    }
+
+                    for (const std::vector<std::string> &row : contributionRows)
+                    {
+                        if (row.empty() || row[0].empty() || row[0] == idColumnHeader)
+                        {
+                            resultRows.push_back(row);
+                            continue;
+                        }
+                        char *pEnd = nullptr;
+                        const unsigned long rowId = std::strtoul(row[0].c_str(), &pEnd, 10);
+                        if (pEnd == row[0].c_str() || *pEnd != '\0'
+                            || rowId < pIdRange->begin || rowId > pIdRange->end)
+                        {
+                            std::cerr << tableName << " row id is outside package '" << manifest.id
+                                      << "' " << rangeLabel << " range: " << row[0] << '\n';
+                            return false;
+                        }
+                        resultRows.push_back(row);
+                    }
+                }
+            }
+            return true;
+        };
+
+    std::vector<std::vector<std::string>> vendorRows;
+    std::vector<std::vector<std::string>> vendorAliasRows;
+    std::vector<std::vector<std::string>> vendorStockRows;
+    if (!loadHouseContributionRows("vendors", "vendor_id", "vendor", vendorRows)
+        || !loadHouseContributionRows("vendor_aliases", "vendor_id", "vendor", vendorAliasRows)
+        || !loadHouseContributionRows("vendor_stock", "vendor_id", "vendor", vendorStockRows))
+    {
+        return false;
+    }
+    if (!vendorRows.empty())
+    {
+        std::string vendorError;
+        if (!m_houseTable.appendVendorRows(vendorRows, vendorAliasRows, vendorStockRows, vendorError))
+        {
+            std::cerr << "Failed to compose vendor tables: " << vendorError << '\n';
+            return false;
+        }
+        if (!m_houseTable.validateVendorStock(
+                m_itemTable,
+                m_standardItemEnchantTable,
+                m_specialItemEnchantTable,
+                vendorError))
+        {
+            std::cerr << "Failed to validate vendor stock: " << vendorError << '\n';
+            return false;
+        }
+    }
+
+    std::vector<std::vector<std::string>> serviceVenueRows;
+    std::vector<std::vector<std::string>> serviceVenueAliasRows;
+    if (!loadHouseContributionRows("service_venues", "service_id", "service venue", serviceVenueRows)
+        || !loadHouseContributionRows(
+            "service_venue_aliases",
+            "service_id",
+            "service venue",
+            serviceVenueAliasRows))
+    {
+        return false;
+    }
+    if (!serviceVenueRows.empty())
+    {
+        std::string serviceVenueError;
+        if (!m_houseTable.appendServiceVenueRows(
+                serviceVenueRows,
+                serviceVenueAliasRows,
+                serviceVenueError))
+        {
+            std::cerr << "Failed to compose service venue tables: " << serviceVenueError << '\n';
+            return false;
+        }
     }
 
     std::vector<std::vector<std::string>> animationRows;
@@ -2395,6 +2746,260 @@ bool GameDataLoader::loadNpcDialogTable(const Engine::AssetFileSystem &assetFile
     return true;
 }
 
+bool GameDataLoader::loadMm9RudeDialogueTable(const Engine::AssetFileSystem &assetFileSystem)
+{
+    m_pMm9RudeDialogueTable.reset();
+    if (m_activeWorldId != "mm9")
+    {
+        return true;
+    }
+
+    m_pMm9RudeDialogueTable = std::make_shared<Mm9RudeDialogueTable>();
+    if (!m_pMm9RudeDialogueTable->load(assetFileSystem))
+    {
+        std::cerr << "Failed to load MM9 RUDE dialogue assets\n";
+        for (const std::string &error : m_pMm9RudeDialogueTable->errors())
+        {
+            std::cerr << "  " << error << '\n';
+        }
+        return false;
+    }
+
+    return true;
+}
+
+bool GameDataLoader::loadMm9SkillTrainerTable(const Engine::AssetFileSystem &assetFileSystem)
+{
+    m_pMm9SkillTrainerTable.reset();
+    if (m_activeWorldId != "mm9")
+    {
+        return true;
+    }
+
+    std::string manifestError;
+    const WorldManifest manifest =
+        loadActiveWorldManifestOrDefault(assetFileSystem, m_activeWorldId, manifestError);
+    if (!manifestError.empty() || !manifest.loadedFromFile)
+    {
+        std::cerr << "Failed to resolve MM9 skill-trainer contribution: " << manifestError << '\n';
+        return false;
+    }
+
+    const TableContributionDefinition *pTrainerContribution = nullptr;
+    for (const TableContributionDefinition &contribution : manifest.tableContributions)
+    {
+        if (contribution.table != "skill_trainers")
+        {
+            continue;
+        }
+        if (pTrainerContribution != nullptr || contribution.mode != TableContributionMode::Distribution)
+        {
+            std::cerr << "MM9 requires one distribution-mode skill_trainers contribution\n";
+            return false;
+        }
+        pTrainerContribution = &contribution;
+    }
+    if (pTrainerContribution == nullptr)
+    {
+        std::cerr << "MM9 world manifest has no skill_trainers contribution\n";
+        return false;
+    }
+
+    m_pMm9SkillTrainerTable = std::make_shared<Mm9SkillTrainerTable>();
+    std::vector<std::vector<std::string>> rows;
+    const std::string path = "worlds/" + manifest.id + "/" + pTrainerContribution->path;
+    if (!loadTextTableRows(assetFileSystem, path, rows)
+        || !m_pMm9SkillTrainerTable->loadFromRows(rows, getMm9RudeDialogueTable()))
+    {
+        std::cerr << "Failed to load MM9 skill-trainer contribution: " << path << '\n';
+        for (const std::string &error : m_pMm9SkillTrainerTable->errors())
+        {
+            std::cerr << "  " << error << '\n';
+        }
+        return false;
+    }
+    return true;
+}
+
+bool GameDataLoader::loadMm9TransportRouteTable(const Engine::AssetFileSystem &assetFileSystem)
+{
+    m_pMm9TransportRouteTable.reset();
+    if (m_activeWorldId != "mm9")
+    {
+        return true;
+    }
+
+    std::string manifestError;
+    const WorldManifest manifest =
+        loadActiveWorldManifestOrDefault(assetFileSystem, m_activeWorldId, manifestError);
+    if (!manifestError.empty() || !manifest.loadedFromFile)
+    {
+        std::cerr << "Failed to resolve MM9 transport-route contribution: " << manifestError << '\n';
+        return false;
+    }
+
+    const TableContributionDefinition *pRouteContribution = nullptr;
+    for (const TableContributionDefinition &contribution : manifest.tableContributions)
+    {
+        if (contribution.table != "transport_routes")
+        {
+            continue;
+        }
+        if (pRouteContribution != nullptr || contribution.mode != TableContributionMode::Distribution)
+        {
+            std::cerr << "MM9 requires one distribution-mode transport_routes contribution\n";
+            return false;
+        }
+        pRouteContribution = &contribution;
+    }
+    if (pRouteContribution == nullptr)
+    {
+        std::cerr << "MM9 world manifest has no transport_routes contribution\n";
+        return false;
+    }
+
+    m_pMm9TransportRouteTable = std::make_shared<Mm9TransportRouteTable>();
+    std::vector<std::vector<std::string>> rows;
+    const std::string path = "worlds/" + manifest.id + "/" + pRouteContribution->path;
+    if (!loadTextTableRows(assetFileSystem, path, rows)
+        || !m_pMm9TransportRouteTable->loadFromRows(rows, m_mapRegistry, getMm9RudeDialogueTable()))
+    {
+        std::cerr << "Failed to load MM9 transport-route contribution: " << path << '\n';
+        for (const std::string &error : m_pMm9TransportRouteTable->errors())
+        {
+            std::cerr << "  " << error << '\n';
+        }
+        return false;
+    }
+    return true;
+}
+
+bool GameDataLoader::loadMm9QuestInteractionTable(const Engine::AssetFileSystem &assetFileSystem)
+{
+    m_mm9QuestInteractionTable.clear();
+    if (m_activeWorldId != "mm9")
+    {
+        return true;
+    }
+
+    if (!m_mm9QuestInteractionTable.load(assetFileSystem))
+    {
+        std::cerr << "Failed to load MM9 quest-interaction metadata\n";
+        for (const std::string &error : m_mm9QuestInteractionTable.errors())
+        {
+            std::cerr << "  " << error << '\n';
+        }
+        return false;
+    }
+    return true;
+}
+
+bool GameDataLoader::loadMm9MapTransitionTable(const Engine::AssetFileSystem &assetFileSystem)
+{
+    m_pMm9MapTransitionTable.reset();
+    if (m_activeWorldId != "mm9")
+    {
+        return true;
+    }
+
+    std::string manifestError;
+    const WorldManifest manifest =
+        loadActiveWorldManifestOrDefault(assetFileSystem, m_activeWorldId, manifestError);
+    if (!manifestError.empty() || !manifest.loadedFromFile)
+    {
+        std::cerr << "Failed to resolve MM9 map transition contribution: " << manifestError << '\n';
+        return false;
+    }
+
+    const TableContributionDefinition *pTransitionContribution = nullptr;
+    for (const TableContributionDefinition &contribution : manifest.tableContributions)
+    {
+        if (contribution.table != "map_transitions")
+        {
+            continue;
+        }
+        if (pTransitionContribution != nullptr || contribution.mode != TableContributionMode::Distribution)
+        {
+            std::cerr << "MM9 requires one distribution-mode map_transitions contribution\n";
+            return false;
+        }
+        pTransitionContribution = &contribution;
+    }
+    if (pTransitionContribution == nullptr)
+    {
+        std::cerr << "MM9 world manifest has no map_transitions contribution\n";
+        return false;
+    }
+
+    m_pMm9MapTransitionTable = std::make_shared<Mm9MapTransitionTable>();
+    std::vector<std::vector<std::string>> rows;
+    const std::string path = "worlds/" + manifest.id + "/" + pTransitionContribution->path;
+    if (!loadTextTableRows(assetFileSystem, path, rows)
+        || !m_pMm9MapTransitionTable->loadFromRows(rows, m_mapRegistry))
+    {
+        std::cerr << "Failed to load MM9 map transition contribution: " << path << '\n';
+        for (const std::string &error : m_pMm9MapTransitionTable->errors())
+        {
+            std::cerr << "  " << error << '\n';
+        }
+        return false;
+    }
+    return true;
+}
+
+bool GameDataLoader::loadMm9TeacherScheduleTable(const Engine::AssetFileSystem &assetFileSystem)
+{
+    m_pMm9TeacherScheduleTable.reset();
+    if (m_activeWorldId != "mm9")
+    {
+        return true;
+    }
+
+    std::string manifestError;
+    const WorldManifest manifest =
+        loadActiveWorldManifestOrDefault(assetFileSystem, m_activeWorldId, manifestError);
+    if (!manifestError.empty() || !manifest.loadedFromFile)
+    {
+        std::cerr << "Failed to resolve MM9 teacher schedule contribution: " << manifestError << '\n';
+        return false;
+    }
+
+    const TableContributionDefinition *pScheduleContribution = nullptr;
+    for (const TableContributionDefinition &contribution : manifest.tableContributions)
+    {
+        if (contribution.table != "teacher_schedules")
+        {
+            continue;
+        }
+        if (pScheduleContribution != nullptr || contribution.mode != TableContributionMode::Distribution)
+        {
+            std::cerr << "MM9 requires one distribution-mode teacher_schedules contribution\n";
+            return false;
+        }
+        pScheduleContribution = &contribution;
+    }
+    if (pScheduleContribution == nullptr)
+    {
+        std::cerr << "MM9 world manifest has no teacher_schedules contribution\n";
+        return false;
+    }
+
+    m_pMm9TeacherScheduleTable = std::make_shared<Mm9TeacherScheduleTable>();
+    std::vector<std::vector<std::string>> rows;
+    const std::string path = "worlds/" + manifest.id + "/" + pScheduleContribution->path;
+    if (!loadTextTableRows(assetFileSystem, path, rows)
+        || !m_pMm9TeacherScheduleTable->loadFromRows(rows, m_mapRegistry))
+    {
+        std::cerr << "Failed to load MM9 teacher schedule contribution: " << path << '\n';
+        for (const std::string &error : m_pMm9TeacherScheduleTable->errors())
+        {
+            std::cerr << "  " << error << '\n';
+        }
+        return false;
+    }
+    return true;
+}
+
 bool GameDataLoader::loadJournalTables(const Engine::AssetFileSystem &assetFileSystem)
 {
     std::vector<std::vector<std::string>> questRows;
@@ -2403,6 +3008,24 @@ bool GameDataLoader::loadJournalTables(const Engine::AssetFileSystem &assetFileS
     {
         std::cerr << "Failed to read journal quest table\n";
         return false;
+    }
+
+    const std::string questOverlayPath = engineEnglishDataTablePath("quests_overlay.txt");
+    if (const std::optional<std::string> overlayContents = assetFileSystem.readTextFile(questOverlayPath))
+    {
+        const std::optional<Engine::TextTable> overlayTable =
+            Engine::TextTable::parseTabSeparated(*overlayContents);
+
+        if (!overlayTable)
+        {
+            std::cerr << "Failed to parse journal quest overlay: " << questOverlayPath << '\n';
+            return false;
+        }
+
+        for (size_t rowIndex = 0; rowIndex < overlayTable->getRowCount(); ++rowIndex)
+        {
+            questRows.push_back(overlayTable->getRow(rowIndex));
+        }
     }
 
     std::vector<std::vector<std::string>> historyRows;
@@ -2651,11 +3274,70 @@ bool GameDataLoader::loadRaceStartingStatsTable(const Engine::AssetFileSystem &a
 
 bool GameDataLoader::loadReadableScrollTable(const Engine::AssetFileSystem &assetFileSystem)
 {
-    std::vector<std::vector<std::string>> rows;
+    std::vector<std::vector<std::string>> baseRows;
 
-    if (!loadFirstTextTableRows(assetFileSystem, {engineEnglishDataTablePath("scroll.txt")}, rows))
+    if (!loadFirstTextTableRows(assetFileSystem, {engineEnglishDataTablePath("scroll.txt")}, baseRows))
     {
         std::cerr << "Failed to read readable scroll table\n";
+        return false;
+    }
+
+    std::vector<WorldManifest> mountedWorlds;
+    std::string manifestError;
+
+    if (!loadMountedWorldManifests(assetFileSystem, mountedWorlds, manifestError))
+    {
+        std::cerr << "Failed to resolve readable table contributions: " << manifestError << '\n';
+        return false;
+    }
+
+    std::vector<KeyedTableContributionRows> readableContributions;
+
+    for (const WorldManifest &manifest : mountedWorlds)
+    {
+        for (const TableContributionDefinition &contribution : manifest.tableContributions)
+        {
+            if (contribution.table != "readable_scrolls")
+            {
+                continue;
+            }
+
+            if (contribution.mode != TableContributionMode::Append)
+            {
+                std::cerr << "Unsupported readable table contribution mode in package '" << manifest.id << "'\n";
+                return false;
+            }
+
+            const ContentIdRangeDefinition *pIdRange = manifest.findIdRange(contribution.idDomain);
+
+            if (pIdRange == nullptr)
+            {
+                std::cerr << "Readable contribution from package '" << manifest.id << "' has no id range\n";
+                return false;
+            }
+
+            KeyedTableContributionRows contributionRows = {};
+            contributionRows.packageId = manifest.id;
+            contributionRows.idRange = *pIdRange;
+            const std::string contributionPath = "worlds/" + manifest.id + "/" + contribution.path;
+
+            if (!loadTextTableRows(assetFileSystem, contributionPath, contributionRows.rows))
+            {
+                std::cerr << "Failed to read readable contribution from package '" << manifest.id << "': "
+                          << contributionPath << '\n';
+                return false;
+            }
+
+            readableContributions.push_back(std::move(contributionRows));
+        }
+    }
+
+    std::vector<std::vector<std::string>> rows;
+    std::string compositionError;
+
+    if (!composeKeyedAppendTableRows(baseRows, readableContributions, rows, compositionError))
+    {
+        std::cerr << "Failed to compose readable scroll table: " << compositionError << '\n';
         return false;
     }
 
@@ -2724,6 +3406,15 @@ bool GameDataLoader::loadTransitionTable(const Engine::AssetFileSystem &assetFil
 
 bool GameDataLoader::loadMergedBaseTables(const Engine::AssetFileSystem &assetFileSystem)
 {
+    std::vector<WorldManifest> mountedWorlds;
+    std::string manifestError;
+
+    if (!loadMountedWorldManifests(assetFileSystem, mountedWorlds, manifestError))
+    {
+        std::cerr << "Failed to resolve merged table contributions: " << manifestError << '\n';
+        return false;
+    }
+
     const auto loadBaseTable =
         [this, &assetFileSystem](const char *pFileName, auto &table, const char *pDisplayName) -> bool
         {
@@ -2737,6 +3428,90 @@ bool GameDataLoader::loadMergedBaseTables(const Engine::AssetFileSystem &assetFi
             }
 
             if (!table.loadFromRows(rows))
+            {
+                std::cerr << "Failed to parse merged base table: " << pDisplayName << '\n';
+                return false;
+            }
+
+            return true;
+        };
+
+    const auto loadComposedKeyedTable =
+        [this, &assetFileSystem, &mountedWorlds](
+            const char *pFileName,
+            const char *pContributionName,
+            size_t contributionIdColumn,
+            auto &table,
+            const char *pDisplayName) -> bool
+        {
+            const std::string tablePath = engineDataTablePath(pFileName);
+            std::vector<std::vector<std::string>> baseRows;
+
+            if (!loadTextTableRows(assetFileSystem, tablePath, baseRows))
+            {
+                std::cerr << "Failed to read merged base table: " << tablePath << '\n';
+                return false;
+            }
+
+            std::vector<KeyedTableContributionRows> contributions;
+
+            for (const WorldManifest &manifest : mountedWorlds)
+            {
+                for (const TableContributionDefinition &contribution : manifest.tableContributions)
+                {
+                    if (contribution.table != pContributionName)
+                    {
+                        continue;
+                    }
+
+                    if (contribution.mode != TableContributionMode::Append)
+                    {
+                        std::cerr << "Unsupported " << pContributionName << " contribution mode in package '"
+                                  << manifest.id << "'\n";
+                        return false;
+                    }
+
+                    const ContentIdRangeDefinition *pIdRange = manifest.findIdRange(contribution.idDomain);
+
+                    if (pIdRange == nullptr)
+                    {
+                        std::cerr << pContributionName << " contribution from package '" << manifest.id
+                                  << "' has no declared id range\n";
+                        return false;
+                    }
+
+                    KeyedTableContributionRows contributionRows = {};
+                    contributionRows.packageId = manifest.id;
+                    contributionRows.idRange = *pIdRange;
+                    contributionRows.idColumn = contributionIdColumn;
+                    const std::string contributionPath = "worlds/" + manifest.id + "/" + contribution.path;
+
+                    if (!loadTextTableRows(assetFileSystem, contributionPath, contributionRows.rows))
+                    {
+                        std::cerr << "Failed to read " << pContributionName << " contribution from package '"
+                                  << manifest.id << "': " << contributionPath << '\n';
+                        return false;
+                    }
+
+                    contributions.push_back(std::move(contributionRows));
+                }
+            }
+
+            std::vector<std::vector<std::string>> composedRows;
+            std::string compositionError;
+
+            if (!composeKeyedAppendTableRows(
+                baseRows,
+                contributions,
+                composedRows,
+                compositionError,
+                contributionIdColumn))
+            {
+                std::cerr << "Failed to compose " << pContributionName << ": " << compositionError << '\n';
+                return false;
+            }
+
+            if (!table.loadFromRows(composedRows))
             {
                 std::cerr << "Failed to parse merged base table: " << pDisplayName << '\n';
                 return false;
@@ -2852,8 +3627,10 @@ bool GameDataLoader::loadMergedBaseTables(const Engine::AssetFileSystem &assetFi
             "complex_item_picture_offsets.txt",
             m_mergedComplexItemPictureOffsetTable,
             "Complex item pictures offsets.txt")
-        && loadBaseTable(
+        && loadComposedKeyedTable(
             "complex_item_pictures.txt",
+            "complex_item_pictures",
+            1,
             m_mergedComplexItemPictureTable,
             "Complex item pictures.txt")
         && loadBaseTable(
@@ -3111,11 +3888,73 @@ bool GameDataLoader::loadFirstTextTableRows(
 
 bool GameDataLoader::loadObjectTable(const Engine::AssetFileSystem &assetFileSystem)
 {
-    std::vector<std::vector<std::string>> objectRows;
+    std::vector<std::vector<std::string>> baseObjectRows;
     const std::string objectListPath = engineDataTablePath("object_list.txt");
 
-    if (!loadTextTableRows(assetFileSystem, objectListPath, objectRows))
+    if (!loadTextTableRows(assetFileSystem, objectListPath, baseObjectRows))
     {
+        return false;
+    }
+
+    std::vector<WorldManifest> mountedWorlds;
+    std::string manifestError;
+
+    if (!loadMountedWorldManifests(assetFileSystem, mountedWorlds, manifestError))
+    {
+        std::cerr << "Failed to resolve object descriptor contributions: " << manifestError << '\n';
+        return false;
+    }
+
+    std::vector<KeyedTableContributionRows> contributions;
+
+    for (const WorldManifest &manifest : mountedWorlds)
+    {
+        for (const TableContributionDefinition &contribution : manifest.tableContributions)
+        {
+            if (contribution.table != "object_descriptors")
+            {
+                continue;
+            }
+
+            if (contribution.mode != TableContributionMode::Append)
+            {
+                std::cerr << "Unsupported object descriptor contribution mode in package '"
+                          << manifest.id << "'\n";
+                return false;
+            }
+
+            const ContentIdRangeDefinition *pObjectRange = manifest.findIdRange(contribution.idDomain);
+
+            if (pObjectRange == nullptr)
+            {
+                std::cerr << "Object descriptor contribution from package '" << manifest.id
+                          << "' has no object id range\n";
+                return false;
+            }
+
+            KeyedTableContributionRows contributionRows = {};
+            contributionRows.packageId = manifest.id;
+            contributionRows.idRange = *pObjectRange;
+            contributionRows.idColumn = 2;
+            const std::string contributionPath = "worlds/" + manifest.id + "/" + contribution.path;
+
+            if (!loadTextTableRows(assetFileSystem, contributionPath, contributionRows.rows))
+            {
+                std::cerr << "Failed to read object descriptor contribution from package '"
+                          << manifest.id << "': " << contributionPath << '\n';
+                return false;
+            }
+
+            contributions.push_back(std::move(contributionRows));
+        }
+    }
+
+    std::vector<std::vector<std::string>> objectRows;
+    std::string compositionError;
+
+    if (!composeKeyedAppendTableRows(baseObjectRows, contributions, objectRows, compositionError, 2))
+    {
+        std::cerr << "Failed to compose object descriptors: " << compositionError << '\n';
         return false;
     }
 
@@ -3170,12 +4009,81 @@ bool GameDataLoader::loadSpellTable(const Engine::AssetFileSystem &assetFileSyst
 
 bool GameDataLoader::loadItemTable(const Engine::AssetFileSystem &assetFileSystem)
 {
-    std::vector<std::vector<std::string>> itemRows;
+    std::vector<std::vector<std::string>> baseItemRows;
 
     const std::string itemsPath = engineDataTablePath("items.txt");
 
-    if (!loadTextTableRows(assetFileSystem, itemsPath, itemRows))
+    if (!loadTextTableRows(assetFileSystem, itemsPath, baseItemRows))
     {
+        return false;
+    }
+
+    std::vector<WorldManifest> mountedWorlds;
+    std::string manifestError;
+
+    if (!loadMountedWorldManifests(assetFileSystem, mountedWorlds, manifestError))
+    {
+        std::cerr << "Failed to resolve item table contributions: " << manifestError << '\n';
+        return false;
+    }
+
+    m_loadedContentPackageSchemas = {{"engine", 1}};
+
+    for (const WorldManifest &manifest : mountedWorlds)
+    {
+        m_loadedContentPackageSchemas[manifest.id] = manifest.contentSchemaVersion;
+    }
+
+    std::vector<ItemTableContributionRows> itemContributions;
+
+    for (const WorldManifest &manifest : mountedWorlds)
+    {
+        for (const TableContributionDefinition &contribution : manifest.tableContributions)
+        {
+            if (contribution.table != "items")
+            {
+                continue;
+            }
+
+            if (contribution.mode != TableContributionMode::Append)
+            {
+                std::cerr << "Unsupported item contribution mode in package '" << manifest.id << "'\n";
+                return false;
+            }
+
+            const ContentIdRangeDefinition *pItemRange = manifest.findIdRange(contribution.idDomain);
+
+            if (pItemRange == nullptr)
+            {
+                std::cerr << "Item contribution from package '" << manifest.id << "' has no item id range\n";
+                return false;
+            }
+
+            ItemTableContributionRows contributionRows = {};
+            contributionRows.packageId = manifest.id;
+            contributionRows.idRange = *pItemRange;
+            contributionRows.sourceIdColumn = contribution.sourceIdColumn;
+            contributionRows.canonicalIdColumn = contribution.canonicalIdColumn;
+            const std::string contributionPath =
+                "worlds/" + manifest.id + "/" + contribution.path;
+
+            if (!loadTextTableRows(assetFileSystem, contributionPath, contributionRows.rows))
+            {
+                std::cerr << "Failed to read item contribution from package '" << manifest.id << "': "
+                          << contributionPath << '\n';
+                return false;
+            }
+
+            itemContributions.push_back(std::move(contributionRows));
+        }
+    }
+
+    std::vector<std::vector<std::string>> itemRows;
+    std::string compositionError;
+
+    if (!composeItemTableRows(baseItemRows, itemContributions, itemRows, compositionError))
+    {
+        std::cerr << "Failed to compose item table: " << compositionError << '\n';
         return false;
     }
 
@@ -3191,6 +4099,82 @@ bool GameDataLoader::loadItemTable(const Engine::AssetFileSystem &assetFileSyste
     if (!m_itemTable.load(assetFileSystem, itemRows, randomItemRows))
     {
         std::cerr << "Failed to parse item table: " << itemsPath << " / " << randomItemsPath << '\n';
+        return false;
+    }
+
+    std::vector<KeyedTableContributionRows> itemEffectContributions;
+    std::vector<std::vector<std::string>> itemSetRows;
+    std::vector<std::vector<std::string>> itemAliasRows;
+
+    for (const WorldManifest &manifest : mountedWorlds)
+    {
+        for (const TableContributionDefinition &contribution : manifest.tableContributions)
+        {
+            if (contribution.table != "item_effects"
+                && contribution.table != "item_sets"
+                && contribution.table != "item_aliases")
+            {
+                continue;
+            }
+
+            if (contribution.mode != TableContributionMode::Append)
+            {
+                std::cerr << "Unsupported " << contribution.table << " contribution mode in package '"
+                          << manifest.id << "'\n";
+                return false;
+            }
+
+            const ContentIdRangeDefinition *pItemRange = manifest.findIdRange(contribution.idDomain);
+
+            if (pItemRange == nullptr)
+            {
+                std::cerr << contribution.table << " contribution from package '" << manifest.id
+                          << "' has no item id range\n";
+                return false;
+            }
+
+            std::vector<std::vector<std::string>> contributionRows;
+            const std::string contributionPath = "worlds/" + manifest.id + "/" + contribution.path;
+
+            if (!loadTextTableRows(assetFileSystem, contributionPath, contributionRows))
+            {
+                std::cerr << "Failed to read " << contribution.table << " contribution from package '"
+                          << manifest.id << "': " << contributionPath << '\n';
+                return false;
+            }
+
+            if (contribution.table == "item_effects")
+            {
+                KeyedTableContributionRows effectRows = {};
+                effectRows.packageId = manifest.id;
+                effectRows.idRange = *pItemRange;
+                effectRows.rows = std::move(contributionRows);
+                itemEffectContributions.push_back(std::move(effectRows));
+            }
+            else if (contribution.table == "item_sets")
+            {
+                itemSetRows.insert(itemSetRows.end(), contributionRows.begin(), contributionRows.end());
+            }
+            else
+            {
+                itemAliasRows.insert(itemAliasRows.end(), contributionRows.begin(), contributionRows.end());
+            }
+        }
+    }
+
+    std::vector<std::vector<std::string>> itemEffectRows;
+
+    if (!composeKeyedAppendTableRows({}, itemEffectContributions, itemEffectRows, compositionError))
+    {
+        std::cerr << "Failed to compose item effect table: " << compositionError << '\n';
+        return false;
+    }
+
+    if (!m_itemTable.loadContentEffectRows(itemEffectRows, compositionError)
+        || !m_itemTable.loadItemSetRows(itemSetRows, compositionError)
+        || !m_itemTable.loadSourceAliasRows(itemAliasRows, compositionError))
+    {
+        std::cerr << "Failed to parse contributed item effects: " << compositionError << '\n';
         return false;
     }
 

@@ -217,13 +217,14 @@ constexpr std::array<const char *, 5> PartySlotButtonLayoutIds = {{
     "CharacterCreationPartySlot5Button",
 }};
 
-constexpr std::array<const char *, 39> OrderedSkillNames = {{
+constexpr std::array<const char *, 40> OrderedSkillNames = {{
     "Staff",
     "Sword",
     "Dagger",
     "Axe",
     "Spear",
     "Bow",
+    "Throwing",
     "Mace",
     "Blaster",
     "Shield",

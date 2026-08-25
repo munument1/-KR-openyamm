@@ -104,13 +104,13 @@ std::vector<uint8_t> makeLightingBytes(const std::vector<uint8_t> &geometryBytes
     }
 
     appendU32(result, 42);
-    appendU32(result, 0);
+    appendU32(result, 1);
     appendFloat(result, 10.0f);
     appendFloat(result, 20.0f);
     appendFloat(result, 30.0f);
     appendFloat(result, 400.0f);
     appendU32(result, 0xff604020);
-    appendU32(result, 0x05);
+    appendU32(result, 0x23);
     for (size_t index = 0; index < 4; ++index)
     {
         appendFloat(result, index == 3 ? 1.0f : 0.0f);
@@ -147,7 +147,9 @@ TEST_CASE("outdoor lighting data loader validates atlas faces and authored light
     REQUIRE_EQ(lighting->authoredLights.size(), 1);
     CHECK_EQ(lighting->authoredLights[0].sourceObjectIndex, 42);
     CHECK(lighting->authoredLights[0].lightsObjects());
-    CHECK(lighting->authoredLights[0].staticObjectLightEligible());
+    CHECK(lighting->authoredLights[0].lightsFastObjects());
+    CHECK_FALSE(lighting->authoredLights[0].staticObjectLightEligible());
+    CHECK(lighting->authoredLights[0].globalObjectLight());
 }
 
 TEST_CASE("outdoor lighting data loader rejects stale geometry")
@@ -159,4 +161,27 @@ TEST_CASE("outdoor lighting data loader rejects stale geometry")
 
     CHECK_FALSE(loader.loadFromBytes(makeLightingBytes(geometryBytes), {1}, mapData, errorMessage));
     CHECK(errorMessage.find("different geometry") != std::string::npos);
+}
+
+TEST_CASE("outdoor lighting brightness scaling raises lightmap and fallback RGB and preserves alpha")
+{
+    OpenYAMM::Game::OutdoorLightingData lighting = {};
+    lighting.atlasPages.push_back({2, 1, {0xffc0a080, 0x80f0e0d0}});
+    lighting.facesByBModel.resize(1);
+    lighting.facesByBModel[0].resize(2);
+    lighting.facesByBModel[0][0].hasLightmap = false;
+    lighting.facesByBModel[0][0].vertices.push_back({0.5f, 0.5f, 0xff806040});
+    lighting.facesByBModel[0][1].hasLightmap = true;
+    lighting.facesByBModel[0][1].vertices.push_back({0.5f, 0.5f, 0xff604020});
+
+    OpenYAMM::Game::scaleOutdoorLightingBrightness(lighting, 1.25f);
+
+    REQUIRE_EQ(lighting.atlasPages.size(), 1);
+    REQUIRE_EQ(lighting.atlasPages[0].pixelsBgra.size(), 2);
+    CHECK_EQ(lighting.atlasPages[0].pixelsBgra[0], 0xfff0c8a0);
+    CHECK_EQ(lighting.atlasPages[0].pixelsBgra[1], 0x80ffffff);
+    REQUIRE_EQ(lighting.facesByBModel[0][0].vertices.size(), 1);
+    CHECK_EQ(lighting.facesByBModel[0][0].vertices[0].staticColorAbgr, 0xffa07850);
+    REQUIRE_EQ(lighting.facesByBModel[0][1].vertices.size(), 1);
+    CHECK_EQ(lighting.facesByBModel[0][1].vertices[0].staticColorAbgr, 0xff604020);
 }

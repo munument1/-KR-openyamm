@@ -183,6 +183,7 @@ struct GameSettings
     int mouseInteractionDepth = 512;
     bool combatText = true;
     bool combatActorHealthBars = true;
+    bool questMarkers = true;
     bool combatTargetPanel = false;
 #if defined(__ANDROID__)
     bool contextActionPopup = true;

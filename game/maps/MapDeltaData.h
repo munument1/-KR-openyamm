@@ -43,6 +43,14 @@ struct MapDeltaActor
 {
     std::string name;
     int16_t npcId = 0;
+    int32_t mm9RudeId = 0;
+    uint32_t mm9SourceObjectIndex = 0;
+    bool mm9CanReceiveDamage = true;
+    bool mm9Civilian = false;
+    bool mm9Guard = false;
+    bool proceduralDeathLoot = true;
+    uint16_t initialYawUnits = 0;
+    bool immobile = false;
     uint32_t attributes = 0;
     int16_t hp = 0;
     uint8_t hostilityType = 0;
@@ -95,6 +103,11 @@ struct MapDeltaSpriteObject
     int initialZ = 0;
     float lifetimeTickAccumulator = 0.0f;
     std::vector<uint8_t> rawContainingItem;
+    std::string semanticSourceId;
+    uint32_t semanticLootContainerId = 0;
+    bool semanticPlacedPickup = false;
+    bool semanticLootContainer = false;
+    bool semanticPolicyHidden = false;
 };
 
 struct MapDeltaChest

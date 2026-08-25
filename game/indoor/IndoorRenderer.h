@@ -433,6 +433,7 @@ private:
         const IndoorLightingFrame &lightingFrame,
         bool spriteOutlineEnabled,
         const GameplayContextActionState *pContextActionState = nullptr,
+        const GameSession *pGameSession = nullptr,
         const GameSettings *pSettings = nullptr,
         LightingStats *pLightingStats = nullptr
     );

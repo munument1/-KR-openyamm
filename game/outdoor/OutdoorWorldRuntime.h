@@ -9,6 +9,7 @@
 #include "game/gameplay/GameplayCombatController.h"
 #include "game/gameplay/GameplayProjectileService.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
+#include "game/gameplay/SearchableLootPropRuntime.h"
 #include "game/maps/MapAssetLoader.h"
 #include "game/maps/MapDeltaData.h"
 #include "game/pathfinding/ActorPathRuntime.h"
@@ -70,6 +71,11 @@ public:
         uint8_t fogTintRed = 255;
         uint8_t fogTintGreen = 255;
         uint8_t fogTintBlue = 255;
+        bool directFog = false;
+        bool hasAuthoredFogColor = false;
+        uint8_t authoredFogRed = 0;
+        uint8_t authoredFogGreen = 0;
+        uint8_t authoredFogBlue = 0;
         bool isNight = false;
         float fogDensity = 0.0f;
         float rainIntensity = 0.0f;
@@ -154,6 +160,15 @@ public:
         uint32_t actorId = 0;
         int16_t monsterId = 0;
         int16_t npcId = 0;
+        int32_t mm9RudeId = 0;
+        bool usesMm9ActorRules = false;
+        bool canReceiveDamage = true;
+        bool mm9Civilian = false;
+        bool mm9Guard = false;
+        bool mm9FleeingFromParty = false;
+        float mm9FleeRemainingSeconds = 0.0f;
+        float mm9HelpCooldownSeconds = 0.0f;
+        uint8_t mm9PlayerHitCount = 0;
         std::string displayName;
         uint32_t uniqueNameId = 0;
         bool spawnedAtRuntime = false;
@@ -163,6 +178,7 @@ public:
         uint32_t ally = 0;
         uint8_t hostilityType = 0;
         uint32_t specialItemId = 0;
+        bool proceduralDeathLoot = true;
         int currentHp = 0;
         int maxHp = 0;
         float bolsterRewardMultiplier = 1.0f;
@@ -416,6 +432,10 @@ public:
         uint32_t lifetimeTicks = 0;
         bool spawnedByPlayer = false;
         bool isExpired = false;
+        std::string semanticSourceId;
+        bool semanticPlacedPickup = false;
+        uint32_t semanticLootContainerId = 0;
+        bool semanticLootContainer = false;
     };
 
     struct SpawnPointState
@@ -528,6 +548,7 @@ public:
         std::vector<uint8_t> fullyRevealedCells;
         std::vector<uint8_t> partiallyRevealedCells;
         std::vector<uint32_t> faceAttributes;
+        std::vector<std::string> searchedLootPropSourceIds;
         bool hasOutdoorRuntimeSaveParityFields = false;
     };
 
@@ -558,11 +579,13 @@ public:
         GameplayCombatController *pGameplayCombatController = nullptr,
         GameplayFxService *pGameplayFxService = nullptr,
         const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
-        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
+        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr,
+        const MapItemSourceData *pItemSourceData = nullptr
     );
 
     bool isInitialized() const;
     void setBolsterMonstersEnabled(bool enabled);
+    void setPartyCollisionDimensions(float radius, float height);
     void bindInteractionView(OutdoorGameView *pView);
     void bindGlobalEventProgram(const std::optional<ScriptedEventProgram> *pGlobalEventProgram);
     int mapId() const;
@@ -590,6 +613,7 @@ public:
     const char *rainIntensityPresetName() const;
     void advanceGameMinutes(float minutes) override;
     void updateMapActors(float deltaSeconds, float partyX, float partyY, float partyZ);
+    void updateMm9FoundPlayerEvents(float deltaSeconds, float partyX, float partyY, float partyZ);
     void queueActorAiUpdate(float deltaSeconds, float partyX, float partyY, float partyZ);
     void setOutdoorPathfindingSettings(bool enabled, bool logEnabled);
 
@@ -608,6 +632,19 @@ public:
     bool isChestOpened(uint32_t chestId) const;
     size_t mapActorCount() const override;
     bool actorRuntimeState(size_t actorIndex, GameplayRuntimeActorState &state) const override;
+    bool setMapActorPosition(size_t actorIndex, float x, float y, float z) override;
+    bool isMapActorHostile(size_t actorIndex) const override;
+    bool isMapActorWithinPartyDistance(size_t actorIndex, float distance) const override;
+    bool searchLootProp(const std::string &sourceId) override;
+    bool spawnLootContainer(const std::string &sourceId) override;
+    bool consumeWorldItem(const std::string &sourceId) override;
+    bool setPersistentItemMechanismState(
+        const std::string &sourceId,
+        bool visible,
+        bool solid) override;
+    bool setPersistentItemMechanismVariant(
+        const std::string &sourceId,
+        uint32_t variantIndex) override;
     bool tryStealFromActor(size_t actorIndex, uint32_t successRoll, uint32_t caughtRoll) override;
     bool actorInspectState(
         size_t actorIndex,
@@ -724,6 +761,7 @@ public:
         float viewYawRadians,
         float viewPitchRadians,
         float viewAspectRatio) const override;
+    bool faceMapActorTowardPoint(size_t actorIndex, float targetX, float targetY);
     bool notifyPartyContactWithMapActor(size_t actorIndex, float partyX, float partyY, float partyZ);
     float sampleSupportFloorHeight(float x, float y, float z, float maxRise, float xySlack) const;
     size_t spawnPointCount() const;
@@ -752,6 +790,11 @@ public:
     const WorldItemState *worldItemState(size_t worldItemIndex) const;
     WorldItemState *worldItemStateMutable(size_t worldItemIndex);
     bool takeWorldItem(size_t worldItemIndex, WorldItemState &item);
+    bool hasCustomWorldItemActivation(size_t worldItemIndex) const override;
+    bool activateCustomWorldItem(size_t worldItemIndex) override;
+    bool isSemanticWorldItem(size_t worldItemIndex) const;
+    bool activateSemanticWorldItem(size_t worldItemIndex);
+    bool activateSemanticLootContainer(size_t worldItemIndex);
     bool spawnWorldItem(
         const InventoryItem &item,
         float sourceX,
@@ -820,6 +863,7 @@ public:
     float partyX() const override;
     float partyY() const override;
     float partyFootZ() const override;
+    float partyEngagementRange() const override;
     float gameplayCameraYawRadians() const override;
     float gameplayCameraPitchRadians() const override;
     bool partyIsAirborneForRest() const override;
@@ -1145,6 +1189,11 @@ private:
         std::string &objectName,
         std::string &objectSpriteName) const;
     void materializeMapDeltaWorldItems();
+    void materializeSemanticWorldItems();
+    bool groundMm9WorldItemPlacement(WorldItemState &worldItem) const;
+    bool groundMm9ActorPlacement(MapActorState &actor);
+    void groundMm9LoadedPlacements(bool updateActorHomes, bool includeRuntimeActors);
+    void removeDepletedSemanticLootContainer(uint32_t containerId);
     void spawnMonsterDeathDropsForActor(size_t actorIndex, const MapActorState &actor);
     bool spawnMonsterDeathDropWorldItem(
         const InventoryItem &item,
@@ -1152,6 +1201,11 @@ private:
         float y,
         float z,
         uint32_t seed);
+    std::optional<float> sampleBModelWorldItemFloorHeight(
+        float x,
+        float y,
+        float maximumZ,
+        std::vector<size_t> &candidateFaceIndices) const;
     void updateWorldItems(float deltaSeconds);
     void updateImmolation(float deltaSeconds);
     void updateFireSpikeTraps(float deltaSeconds, float partyX, float partyY, float partyZ);
@@ -1270,6 +1324,10 @@ private:
     bool m_timerDefinitionsInitialized = false;
     bool m_resetLegacyTimersOnInitialize = false;
     std::vector<MapActorState> m_mapActors;
+    std::vector<size_t> m_mm9FoundPlayerActorIndices;
+    std::vector<bool> m_mm9FoundPlayerEventAttempted;
+    std::vector<size_t> m_mm9CivilianActorIndices;
+    std::vector<size_t> m_mm9GuardActorIndices;
     std::vector<SpawnPointState> m_spawnPoints;
     std::vector<MapDeltaChest> m_chests;
     std::vector<bool> m_openedChests;
@@ -1283,6 +1341,8 @@ private:
     OutdoorPartyRuntime *m_pPartyRuntime = nullptr;
     const StandardItemEnchantTable *m_pStandardItemEnchantTable = nullptr;
     const SpecialItemEnchantTable *m_pSpecialItemEnchantTable = nullptr;
+    MapItemSourceData m_itemSourceData;
+    SearchableLootPropState m_searchableLootPropState;
     const ChestTable *m_pChestTable = nullptr;
     const MonsterTable *m_pMonsterTable = nullptr;
     const MergedBolsterMapTable *m_pMergedBolsterMapTable = nullptr;
@@ -1290,6 +1350,7 @@ private:
     const MonsterProjectileTable *m_pMonsterProjectileTable = nullptr;
     const ObjectTable *m_pObjectTable = nullptr;
     OutdoorMapData *m_pOutdoorMapData = nullptr;
+    bool m_usesBModelGround = false;
     MapDeltaData *m_pOutdoorMapDeltaData = nullptr;
     bool m_enclosedMinimapLinesValid = false;
     int32_t m_enclosedMinimapCellX = 0;
@@ -1335,6 +1396,7 @@ private:
     std::unordered_map<uint32_t, bool> m_outdoorNavigationMechanismMovingStates;
     std::unordered_map<int16_t, MonsterVisualState> m_monsterVisualsById;
     float m_actorUpdateAccumulatorSeconds = 0.0f;
+    float m_mm9FoundPlayerAccumulatorSeconds = 0.0f;
     float m_actorAiTraceAccumulatorSeconds = 0.0f;
     float m_projectileUpdateAccumulatorSeconds = 0.0f;
     float m_immolationTickAccumulatorGameMinutes = 0.0f;
@@ -1363,6 +1425,8 @@ private:
     std::vector<BloodSplatState> m_bloodSplats;
     uint64_t m_bloodSplatRevision = 0;
     ArmageddonState m_armageddonState = {};
+    float m_partyCollisionRadius = 37.0f;
+    float m_partyCollisionHeight = 192.0f;
 
     void invalidateOutdoorPathMaps(bool clearActorPaths);
     std::shared_ptr<const PathMap> outdoorPathMap(bool landOnly);
@@ -1457,6 +1521,8 @@ private:
         float partyZ,
         const std::vector<bool> &activeActorMask);
     void applyActorFrameSideEffects(float deltaSeconds, float partyX, float partyY, float partyZ);
+    void updateMm9ActorReactions(float deltaSeconds, float partyX, float partyY, float partyZ);
+    void startMm9CivilianFlee(MapActorState &actor);
     void advanceGameMinutesInternal(float minutes);
     void initializeTimers(
         const std::optional<ScriptedEventProgram> &localEventProgram,

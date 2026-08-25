@@ -24,6 +24,32 @@ bool shouldSuppressInitialAccept(const GameplayInputFrame &input)
         || input.isScancodeHeld(SDL_SCANCODE_RETURN)
         || input.isScancodeHeld(SDL_SCANCODE_KP_ENTER);
 }
+
+void prepareDialogPresentation(GameplayDialogUiFlowState &state)
+{
+    state.uiController.closeInventoryNestedOverlay();
+    state.interactionState.inventoryNestedOverlayClickLatch = false;
+    state.interactionState.inventoryNestedOverlayPressedTarget = {};
+    state.interactionState.inventoryNestedOverlayItemClickLatch = false;
+    state.uiController.houseShopOverlay() = {};
+}
+}
+
+void presentActiveEventDialog(
+    GameplayDialogUiFlowState &state,
+    const GameplayDialogUiFlowPresentOptions &options)
+{
+    if (!state.uiController.eventDialog().content.isActive)
+    {
+        return;
+    }
+
+    prepareDialogPresentation(state);
+    resetDialogInteractionState(
+        state,
+        options.suppressInitialAcceptIfActivationKeysHeld
+            && options.pInputFrame != nullptr
+            && shouldSuppressInitialAccept(*options.pInputFrame));
 }
 
 void presentPendingEventDialog(
@@ -40,11 +66,7 @@ void presentPendingEventDialog(
         return;
     }
 
-    state.uiController.closeInventoryNestedOverlay();
-    state.interactionState.inventoryNestedOverlayClickLatch = false;
-    state.interactionState.inventoryNestedOverlayPressedTarget = {};
-    state.interactionState.inventoryNestedOverlayItemClickLatch = false;
-    state.uiController.houseShopOverlay() = {};
+    prepareDialogPresentation(state);
 
     const bool showBankInputCursor = (SDL_GetTicks() / 500u) % 2u == 0u;
     const GameplayDialogController::PresentPendingDialogResult result =
@@ -61,7 +83,8 @@ void presentPendingEventDialog(
             " opened=" + std::string(result.dialogOpened ? "true" : "false")
             + " previous_message_count=" + std::to_string(previousMessageCount)
             + " total_message_count=" + std::to_string(pEventRuntimeState->messages.size())
-            + " active_dialog=" + (state.uiController.eventDialog().content.isActive ? std::string("true") : std::string("false"))
+            + " active_dialog="
+            + (state.uiController.eventDialog().content.isActive ? std::string("true") : std::string("false"))
             + " dialog_line_count=" + std::to_string(state.uiController.eventDialog().content.lines.size())
             + " dialog_action_count=" + std::to_string(state.uiController.eventDialog().content.actions.size())
             + " prompt_event_id=" + std::to_string(pEventRuntimeState->pendingInputPrompt->eventId));

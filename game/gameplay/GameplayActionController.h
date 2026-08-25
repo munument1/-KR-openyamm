@@ -123,6 +123,8 @@ public:
         GameplayWorldHoverRequest worldInspectionRefreshRequest = {};
         uint32_t randomSeed = 0;
         uint32_t arrowProjectileObjectId = 0;
+        uint32_t throwingDaggerProjectileObjectId = 0;
+        uint32_t throwingAxeProjectileObjectId = 0;
         uint32_t blasterProjectileObjectId = 0;
         bool pressedThisFrame = false;
         GameplaySpellActionController::TargetQueries targetQueries = {};

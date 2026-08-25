@@ -493,7 +493,8 @@ void GameplayHudRenderer::renderGameplayHud(GameplayScreenRuntime &context, int 
     context.prepareHudView(width, height);
     const Party &party = *pParty;
     const GameplayHudScreenState hudScreenState = context.currentHudScreenState();
-    const bool isLimitedOverlayHud = isOverlayHudState(hudScreenState);
+    const bool isLimitedOverlayHud = isOverlayHudState(hudScreenState)
+        && !activeEventDialogPreservesGameplayHud(context.activeEventDialog());
     const ActiveGameplayHudLayout gameplayHudLayout = isLimitedOverlayHud
         ? ActiveGameplayHudLayout::Overlay
 #if defined(__ANDROID__)

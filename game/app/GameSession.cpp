@@ -10,7 +10,9 @@
 
 #include <cassert>
 #include <algorithm>
+#include <cctype>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -190,6 +192,8 @@ GameSession::GameSession()
 void GameSession::bindDataRepository(const GameDataRepository *pDataRepository)
 {
     m_pDataRepository = pDataRepository;
+    m_mm9QuestMarkerCache.clear();
+    ++m_mm9QuestMarkerMapRevision;
     m_gameplayUiRuntime.bindDataRepository(pDataRepository);
     GameMechanics::bindClassMultiplierTable(
         pDataRepository != nullptr && pDataRepository->isBound() ? &pDataRepository->classMultiplierTable() : nullptr);
@@ -232,6 +236,8 @@ void GameSession::clear()
     m_overlayInteractionState = {};
     m_previousKeyboardState.fill(0);
     m_pActiveWorldRuntime = nullptr;
+    m_mm9QuestMarkerCache.clear();
+    ++m_mm9QuestMarkerMapRevision;
     m_pCurrentGameplayInputFrame = nullptr;
     m_sharedInputFrameResult = {};
     m_sharedWorldInteractionBlockedThisFrame = false;
@@ -295,11 +301,15 @@ const std::string &GameSession::currentMapFileName() const
 void GameSession::setCurrentMapFileName(const std::string &mapFileName)
 {
     m_currentMapFileName = mapFileName;
+    m_mm9QuestMarkerCache.clear();
+    ++m_mm9QuestMarkerMapRevision;
 }
 
 void GameSession::setCurrentMapFileName(std::string &&mapFileName)
 {
     m_currentMapFileName = std::move(mapFileName);
+    m_mm9QuestMarkerCache.clear();
+    ++m_mm9QuestMarkerMapRevision;
 }
 
 float GameSession::gameMinutes() const
@@ -466,6 +476,15 @@ void GameSession::bindActiveWorldRuntime(IGameplayWorldRuntime *pWorldRuntime)
     }
 
     m_pActiveWorldRuntime = pWorldRuntime;
+    m_mm9QuestMarkerCache.clear();
+    ++m_mm9QuestMarkerMapRevision;
+}
+
+Mm9QuestMarkerState GameSession::questMarkerForActor(size_t actorIndex) const
+{
+    return actorIndex <= static_cast<size_t>(std::numeric_limits<uint32_t>::max())
+        ? m_mm9QuestMarkerCache.markerForActor(static_cast<uint32_t>(actorIndex))
+        : Mm9QuestMarkerState::None;
 }
 
 const GameplayInputFrame *GameSession::currentGameplayInputFrame() const
@@ -933,6 +952,8 @@ void GameSession::updateGameplay(
             interactionFrameBeginTickCount);
     }
 
+    updateMm9QuestMarkerCache();
+
     if (deltaSeconds > 0.0f && !input.rightMouseButton.held)
     {
         const uint64_t projectileCooldownBeginTickCount = collectPerformanceDiagnostics ? SDL_GetTicksNS() : 0;
@@ -963,6 +984,91 @@ void GameSession::updateGameplay(
             m_gameplayUpdatePerformanceDiagnostics.totalNanoseconds += performanceLogNanoseconds;
         }
     }
+}
+
+void GameSession::updateMm9QuestMarkerCache()
+{
+    if (m_pDataRepository == nullptr
+        || !m_pDataRepository->isBound()
+        || m_pActiveWorldRuntime == nullptr
+        || data().mm9QuestInteractionTable().interactions().empty())
+    {
+        if (m_mm9QuestMarkerCache.active())
+        {
+            m_mm9QuestMarkerCache.clear();
+        }
+        return;
+    }
+
+    Party *pParty = m_pActiveWorldRuntime->party();
+    if (pParty == nullptr)
+    {
+        m_mm9QuestMarkerCache.clear();
+        return;
+    }
+
+    std::string mapId = std::filesystem::path(m_currentMapFileName).stem().string();
+    std::transform(
+        mapId.begin(),
+        mapId.end(),
+        mapId.begin(),
+        [](unsigned char character)
+        {
+            return static_cast<char>(std::tolower(character));
+        });
+    std::vector<Mm9LoadedQuestMarkerActor> actors;
+    uint64_t actorEligibilitySignature = 1469598103934665603ULL;
+    const auto addSignatureValue = [&actorEligibilitySignature](uint64_t value)
+    {
+        actorEligibilitySignature ^= value;
+        actorEligibilitySignature *= 1099511628211ULL;
+    };
+    for (size_t actorIndex = 0; actorIndex < m_pActiveWorldRuntime->mapActorCount(); ++actorIndex)
+    {
+        GameplayRuntimeActorState state = {};
+        if (!m_pActiveWorldRuntime->actorRuntimeState(actorIndex, state) || state.mm9RudeId <= 0)
+        {
+            continue;
+        }
+        const bool interactable = !state.isDead && !state.isInvisible && !state.hostileToParty;
+        actors.push_back({
+            static_cast<uint32_t>(actorIndex),
+            {
+                mapId,
+                state.mm9SourceObjectIndex,
+                static_cast<uint32_t>(state.mm9RudeId),
+                interactable,
+            },
+        });
+        addSignatureValue(actorIndex);
+        addSignatureValue(state.mm9SourceObjectIndex);
+        addSignatureValue(static_cast<uint32_t>(state.mm9RudeId));
+        addSignatureValue(interactable ? 1 : 0);
+    }
+
+    const Mm9QuestEligibilityStamp stamp = {
+        pParty->dialogueEligibilityRevision(),
+        m_mm9QuestMarkerMapRevision ^ actorEligibilitySignature,
+    };
+    if (!m_mm9QuestMarkerCache.active())
+    {
+        m_mm9QuestMarkerCache.loadLocation(
+            true,
+            actors,
+            stamp,
+            *pParty,
+            data().journalQuestTable(),
+            data().mm9RudeDialogueTable(),
+            data().mm9QuestInteractionTable());
+        return;
+    }
+    m_mm9QuestMarkerCache.update(
+        actors,
+        stamp,
+        *pParty,
+        data().journalQuestTable(),
+        data().mm9RudeDialogueTable(),
+        data().mm9QuestInteractionTable());
 }
 
 void GameSession::clearSharedInputFrameResult()

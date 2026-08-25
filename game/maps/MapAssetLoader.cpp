@@ -3,6 +3,7 @@
 #include "game/maps/IndoorSceneYml.h"
 #include "game/maps/MapAssetLoader.h"
 #include "game/maps/MapIdentity.h"
+#include "game/maps/MapPresentation.h"
 #include "game/maps/OutdoorSceneYml.h"
 #include "game/maps/TerrainTileData.h"
 #include "game/indoor/IndoorGeometryUtils.h"
@@ -46,6 +47,31 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+bool applyActorLootOverrides(
+    const MapItemSourceData &itemSources,
+    MapDeltaData &mapDeltaData,
+    std::string &errorMessage)
+{
+    for (const MapActorLootOverride &overrideEntry : itemSources.actorLootOverrides)
+    {
+        const auto actorIterator = std::find_if(
+            mapDeltaData.actors.begin(),
+            mapDeltaData.actors.end(),
+            [&overrideEntry](const MapDeltaActor &actor)
+            {
+                return actor.mm9SourceObjectIndex == overrideEntry.sourceObjectIndex;
+            });
+        if (actorIterator == mapDeltaData.actors.end())
+        {
+            errorMessage = "MM9 actor loot override does not resolve source object "
+                + std::to_string(overrideEntry.sourceObjectIndex);
+            return false;
+        }
+        actorIterator->proceduralDeathLoot = overrideEntry.proceduralDeathLoot;
+    }
+    return true;
+}
+
 double millisecondsFromNanoseconds(uint64_t nanoseconds)
 {
     return static_cast<double>(nanoseconds) / 1000000.0;
@@ -300,6 +326,8 @@ OutdoorWeatherProfile buildOutdoorWeatherProfile(
     profile.smallFog = environment.weather.smallFog;
     profile.averageFog = environment.weather.averageFog;
     profile.denseFog = environment.weather.denseFog;
+    profile.authoredDayFog = environment.weather.authoredDayFog;
+    profile.authoredNightFog = environment.weather.authoredNightFog;
 
     if (profile.alwaysFoggy && profile.defaultFog.strongDistance <= 0)
     {
@@ -1057,6 +1085,28 @@ std::optional<SpriteFrameTable> loadCommonSpriteFrameTable(
     {
         std::cerr << "Failed to load sprite frame data: " << errorMessage << '\n';
         return std::nullopt;
+    }
+
+    std::vector<std::string> worldPackages = assetFileSystem.enumerate("worlds");
+    std::sort(worldPackages.begin(), worldPackages.end());
+
+    for (const std::string &worldPackage : worldPackages)
+    {
+        const std::string contributionPath =
+            "worlds/" + worldPackage + "/rendering/sprite_frame_data_world_items.yml";
+        const std::optional<std::string> contribution = assetFileSystem.readTextFile(contributionPath);
+
+        if (!contribution)
+        {
+            continue;
+        }
+
+        if (!spriteFrameTable.loadFromYaml(*contribution, errorMessage, true))
+        {
+            std::cerr << "Failed to load world-item sprite frame data from "
+                      << contributionPath << ": " << errorMessage << '\n';
+            return std::nullopt;
+        }
     }
 
     if (pSharedCache != nullptr)
@@ -4088,6 +4138,37 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
         geometryBytes->begin() + std::min<size_t>(geometryBytes->size(), 64)
     );
 
+    std::optional<MapPresentation> mapPresentation;
+
+    if (!map.worldId.empty())
+    {
+        const std::optional<std::string> catalogPath = findAssetPathInDirectory(
+            assetFileSystem,
+            "worlds/" + map.worldId + "/ui/maps",
+            "catalog.yml");
+
+        if (catalogPath)
+        {
+            const std::optional<std::string> catalogText = assetFileSystem.readTextFile(*catalogPath);
+
+            if (!catalogText)
+            {
+                std::cerr << "Failed to load map presentation catalog for " << map.fileName << '\n';
+                return std::nullopt;
+            }
+
+            std::string presentationError;
+            mapPresentation = loadMapPresentationFromCatalog(*catalogText, map.fileName, presentationError);
+
+            if (!presentationError.empty())
+            {
+                std::cerr << "Failed to parse map presentation for " << map.fileName
+                          << ": " << presentationError << '\n';
+                return std::nullopt;
+            }
+        }
+    }
+
     std::optional<std::vector<uint8_t>> companionBytes;
     std::optional<std::string> sceneText;
     std::vector<std::pair<std::string, std::string>> sceneOverlays;
@@ -4179,6 +4260,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
         {
             assetInfo.outdoorMapData->worldId = map.worldId;
             assetInfo.outdoorMapData->fileName = map.fileName;
+            assetInfo.outdoorMapData->mapPresentation = mapPresentation;
 
             if (sceneText)
             {
@@ -4226,7 +4308,15 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     return std::nullopt;
                 }
 
+                if (!applyActorLootOverrides(sceneData->itemSources, sceneMapDeltaData, sceneError))
+                {
+                    std::cerr << "Failed to apply outdoor item sources for " << map.fileName
+                              << ": " << sceneError << '\n';
+                    return std::nullopt;
+                }
+
                 assetInfo.outdoorMapDeltaData = std::move(sceneMapDeltaData);
+                assetInfo.itemSourceData = sceneData->itemSources;
                 assetInfo.outdoorWeatherProfile =
                     buildOutdoorWeatherProfile(sceneData->environment, assetInfo.outdoorMapDeltaData->locationTime);
                 assetInfo.authoredCompanionSource = AuthoredCompanionSource::SceneYml;
@@ -4330,6 +4420,13 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                             std::cerr << "Failed to parse cooked outdoor lighting for " << map.fileName
                                       << ": " << sceneError << '\n';
                             return std::nullopt;
+                        }
+
+                        if (assetInfo.outdoorMapData->sceneProfile == OutdoorSceneProfile::BModelWorld)
+                        {
+                            scaleOutdoorLightingBrightness(
+                                *lightingData,
+                                assetInfo.outdoorMapData->lightmapBrightnessScale);
                         }
 
                         assetInfo.lightingDataPath = *lightingDataPath;
@@ -4522,6 +4619,8 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
 
         if (assetInfo.indoorMapData)
         {
+            assetInfo.indoorMapData->mapPresentation = mapPresentation;
+
             if (sceneText)
             {
                 IndoorSceneYmlLoader sceneLoader = {};
@@ -4567,7 +4666,15 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     return std::nullopt;
                 }
 
+                if (!applyActorLootOverrides(sceneData->itemSources, sceneMapDeltaData, sceneError))
+                {
+                    std::cerr << "Failed to apply indoor item sources for " << map.fileName
+                              << ": " << sceneError << '\n';
+                    return std::nullopt;
+                }
+
                 assetInfo.indoorMapDeltaData = std::move(sceneMapDeltaData);
+                assetInfo.itemSourceData = sceneData->itemSources;
                 assetInfo.authoredCompanionSource = AuthoredCompanionSource::SceneYml;
                 logStageComplete("indoor scene yml applied");
             }

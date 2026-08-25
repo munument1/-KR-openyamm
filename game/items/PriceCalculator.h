@@ -60,6 +60,11 @@ public:
         const HouseEntry &houseEntry,
         bool isBoat,
         int effectiveReputation = 0);
+    static int transportPrice(
+        const Character *pCharacter,
+        int basePrice,
+        float priceMultiplier,
+        int effectiveReputation = 0);
     static int tavernRoomPrice(
         const Character *pCharacter,
         const HouseEntry &houseEntry,

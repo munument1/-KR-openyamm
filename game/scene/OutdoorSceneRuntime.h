@@ -2,6 +2,8 @@
 
 #include "game/events/ScriptedEventProgram.h"
 #include "game/events/EventRuntime.h"
+#include "game/mm9/Mm9PositionedTransitionRuntime.h"
+#include "game/mm9/Mm9TeacherSchedule.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/outdoor/OutdoorWorldRuntime.h"
 #include "game/scene/IMapSceneRuntime.h"
@@ -14,6 +16,8 @@ namespace OpenYAMM::Game
 {
 class HouseTable;
 class NpcDialogTable;
+class Mm9MapTransitionTable;
+class Mm9TeacherScheduleTable;
 
 class OutdoorSceneRuntime : public IMapSceneRuntime
 {
@@ -32,7 +36,9 @@ public:
         const std::optional<ScriptedEventProgram> &localEventProgram,
         const std::optional<ScriptedEventProgram> &globalEventProgram,
         const HouseTable *pHouseTable = nullptr,
-        const NpcDialogTable *pNpcDialogTable = nullptr
+        const NpcDialogTable *pNpcDialogTable = nullptr,
+        const Mm9MapTransitionTable *pMm9MapTransitionTable = nullptr,
+        const Mm9TeacherScheduleTable *pMm9TeacherScheduleTable = nullptr
     );
 
     SceneKind kind() const override;
@@ -79,5 +85,7 @@ private:
     std::optional<ScriptedEventProgram> m_localEventProgram;
     std::optional<ScriptedEventProgram> m_globalEventProgram;
     EventRuntime m_eventRuntime;
+    Mm9PositionedTransitionRuntime m_mm9PositionedTransitionRuntime;
+    Mm9TeacherScheduleRuntime m_mm9TeacherScheduleRuntime;
 };
 }

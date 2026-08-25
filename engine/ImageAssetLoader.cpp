@@ -14,6 +14,32 @@ namespace OpenYAMM::Engine
 {
 namespace
 {
+#pragma pack(push, 1)
+struct PcxHeader
+{
+    uint8_t manufacturer = 0;
+    uint8_t version = 0;
+    uint8_t encoding = 0;
+    uint8_t bitsPerPixel = 0;
+    uint16_t xMin = 0;
+    uint16_t yMin = 0;
+    uint16_t xMax = 0;
+    uint16_t yMax = 0;
+    uint16_t horizontalDpi = 0;
+    uint16_t verticalDpi = 0;
+    uint8_t colorMap[48] = {};
+    uint8_t reserved = 0;
+    uint8_t colorPlanes = 0;
+    uint16_t bytesPerLine = 0;
+    uint16_t paletteType = 0;
+    uint16_t horizontalScreenSize = 0;
+    uint16_t verticalScreenSize = 0;
+    uint8_t filler[54] = {};
+};
+#pragma pack(pop)
+
+static_assert(sizeof(PcxHeader) == 128);
+
 std::string toLowerCopy(std::string_view value)
 {
     std::string result(value);
@@ -39,7 +65,7 @@ std::string stripKnownImageExtension(std::string_view textureName)
 {
     const std::string lowerName = toLowerCopy(textureName);
 
-    if (endsWith(lowerName, ".png") || endsWith(lowerName, ".bmp"))
+    if (endsWith(lowerName, ".png") || endsWith(lowerName, ".bmp") || endsWith(lowerName, ".pcx"))
     {
         return std::string(textureName.substr(0, textureName.size() - 4));
     }
@@ -56,6 +82,14 @@ bool hasPngSignature(const std::vector<uint8_t> &bytes)
 bool hasBmpSignature(const std::vector<uint8_t> &bytes)
 {
     return bytes.size() >= 2 && bytes[0] == 'B' && bytes[1] == 'M';
+}
+
+bool hasPcxSignature(const std::vector<uint8_t> &bytes)
+{
+    return bytes.size() >= sizeof(PcxHeader)
+        && bytes[0] == 0x0a
+        && bytes[2] == 1
+        && bytes[3] == 8;
 }
 
 bool isTransparentKey(
@@ -140,6 +174,129 @@ bool isTransparentKey(
         options.applyBlackTransparencyKey && red <= 8 && green <= 8 && blue <= 8;
 
     return isMagentaKey || isTealKey || isBlackKey;
+}
+
+bool decodePcxScanline(const std::vector<uint8_t> &bytes, size_t &offset, std::vector<uint8_t> &scanline)
+{
+    size_t outputOffset = 0;
+
+    while (outputOffset < scanline.size())
+    {
+        if (offset >= bytes.size())
+        {
+            return false;
+        }
+
+        uint8_t value = bytes[offset++];
+        size_t repeatCount = 1;
+
+        if ((value & 0xc0u) == 0xc0u)
+        {
+            repeatCount = value & 0x3fu;
+            if (repeatCount == 0 || offset >= bytes.size())
+            {
+                return false;
+            }
+            value = bytes[offset++];
+        }
+
+        if (repeatCount > scanline.size() - outputOffset)
+        {
+            return false;
+        }
+
+        std::fill_n(scanline.begin() + static_cast<ptrdiff_t>(outputOffset), repeatCount, value);
+        outputOffset += repeatCount;
+    }
+
+    return true;
+}
+
+std::optional<ImagePixelsBgra> decodePcxPixelsBgra(
+    const std::vector<uint8_t> &imageBytes,
+    const ImageDecodeOptions &options)
+{
+    if (!hasPcxSignature(imageBytes))
+    {
+        return std::nullopt;
+    }
+
+    PcxHeader header = {};
+    std::memcpy(&header, imageBytes.data(), sizeof(header));
+
+    if (header.colorPlanes != 1 && header.colorPlanes != 3)
+    {
+        return std::nullopt;
+    }
+
+    const int width = static_cast<int>(header.xMax) - static_cast<int>(header.xMin) + 1;
+    const int height = static_cast<int>(header.yMax) - static_cast<int>(header.yMin) + 1;
+    if (width <= 0 || height <= 0 || header.bytesPerLine < width)
+    {
+        return std::nullopt;
+    }
+
+    std::array<uint8_t, 256 * 3> sourcePalette = {};
+    if (header.colorPlanes == 1)
+    {
+        if (imageBytes.size() < sizeof(PcxHeader) + 769 || imageBytes[imageBytes.size() - 769] != 0x0c)
+        {
+            return std::nullopt;
+        }
+        std::memcpy(sourcePalette.data(), imageBytes.data() + imageBytes.size() - 768, sourcePalette.size());
+    }
+
+    ImagePixelsBgra result = {};
+    result.width = width;
+    result.height = height;
+    result.pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
+    const size_t scanlineSize = static_cast<size_t>(header.bytesPerLine) * header.colorPlanes;
+    std::vector<uint8_t> scanline(scanlineSize);
+    size_t sourceOffset = sizeof(PcxHeader);
+
+    for (int y = 0; y < height; ++y)
+    {
+        if (!decodePcxScanline(imageBytes, sourceOffset, scanline))
+        {
+            return std::nullopt;
+        }
+
+        for (int x = 0; x < width; ++x)
+        {
+            uint8_t red = 0;
+            uint8_t green = 0;
+            uint8_t blue = 0;
+            bool paletteZeroKey = false;
+
+            if (header.colorPlanes == 1)
+            {
+                const uint8_t paletteIndex = scanline[static_cast<size_t>(x)];
+                const std::array<uint8_t, 256 * 3> &palette =
+                    options.overridePalette.has_value() ? *options.overridePalette : sourcePalette;
+                const size_t paletteOffset = static_cast<size_t>(paletteIndex) * 3;
+                red = palette[paletteOffset];
+                green = palette[paletteOffset + 1];
+                blue = palette[paletteOffset + 2];
+                paletteZeroKey = options.applyPaletteZeroTransparencyKey && paletteIndex == 0;
+            }
+            else
+            {
+                red = scanline[static_cast<size_t>(x)];
+                green = scanline[static_cast<size_t>(header.bytesPerLine) + static_cast<size_t>(x)];
+                blue = scanline[static_cast<size_t>(header.bytesPerLine) * 2 + static_cast<size_t>(x)];
+            }
+
+            const size_t pixelOffset =
+                (static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)) * 4;
+            result.pixels[pixelOffset] = blue;
+            result.pixels[pixelOffset + 1] = green;
+            result.pixels[pixelOffset + 2] = red;
+            result.pixels[pixelOffset + 3] =
+                paletteZeroKey || isTransparentKey(red, green, blue, options) ? 0 : 255;
+        }
+    }
+
+    return result;
 }
 
 std::optional<ImagePixelsBgra> decodeBmpPixelsBgra(
@@ -318,7 +475,7 @@ std::optional<std::string> findImageAssetPath(
     }
 
     const std::string stem = stripKnownImageExtension(textureName);
-    const std::array<std::string, 2> candidateFileNames = {stem + ".png", stem + ".bmp"};
+    const std::array<std::string, 3> candidateFileNames = {stem + ".png", stem + ".bmp", stem + ".pcx"};
 
     for (const std::string &candidateFileName : candidateFileNames)
     {
@@ -361,6 +518,11 @@ std::optional<ImagePixelsBgra> decodeImagePixelsBgra(
     if (endsWith(lowerPath, ".bmp") || hasBmpSignature(imageBytes))
     {
         return decodeBmpPixelsBgra(imageBytes, options);
+    }
+
+    if (endsWith(lowerPath, ".pcx") || hasPcxSignature(imageBytes))
+    {
+        return decodePcxPixelsBgra(imageBytes, options);
     }
 
     return std::nullopt;

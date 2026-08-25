@@ -107,6 +107,8 @@ struct GameplayWorldItemInspectState
 struct GameplayRuntimeActorState
 {
     int16_t monsterId = 0;
+    int32_t mm9RudeId = 0;
+    uint32_t mm9SourceObjectIndex = 0;
     float preciseX = 0.0f;
     float preciseY = 0.0f;
     float preciseZ = 0.0f;
@@ -491,6 +493,10 @@ public:
     virtual float partyX() const = 0;
     virtual float partyY() const = 0;
     virtual float partyFootZ() const = 0;
+    virtual float partyEngagementRange() const
+    {
+        return 10240.0f;
+    }
     virtual float gameplayCameraYawRadians() const
     {
         return 0.0f;
@@ -569,6 +575,14 @@ public:
         return false;
     }
     virtual const std::optional<ScriptedEventProgram> *globalEventProgram() const = 0;
+    virtual const MapDeltaData *mapDeltaData() const
+    {
+        return nullptr;
+    }
+    virtual MapDeltaData *mapDeltaData()
+    {
+        return nullptr;
+    }
     virtual EventRuntimeState *eventRuntimeState() = 0;
     virtual const EventRuntimeState *eventRuntimeState() const = 0;
     virtual bool castEventSpell(
@@ -740,6 +754,16 @@ public:
     virtual GameplayWorldHit pickKeyboardInteractionTarget(const GameplayWorldPickRequest &request) = 0;
     virtual GameplayWorldHit pickHeldItemWorldTarget(const GameplayWorldPickRequest &request) = 0;
     virtual GameplayWorldHit pickMouseInteractionTarget(const GameplayWorldPickRequest &request) = 0;
+    virtual bool hasCustomWorldItemActivation(size_t worldItemIndex) const
+    {
+        (void)worldItemIndex;
+        return false;
+    }
+    virtual bool activateCustomWorldItem(size_t worldItemIndex)
+    {
+        (void)worldItemIndex;
+        return false;
+    }
     virtual bool worldItemInspectState(size_t worldItemIndex, GameplayWorldItemInspectState &state) const
     {
         (void)worldItemIndex;

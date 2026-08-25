@@ -88,6 +88,18 @@ TEST_CASE("Billboard opacity masks retain alpha hit testing in one bit per pixel
     CHECK_FALSE(mask.isOpaque(0, 2));
     CHECK(mask.isOpaqueNormalized(0.99f, 0.66f));
     CHECK_FALSE(mask.isOpaque(-1, 0));
+    CHECK(mask.opaqueTopNormalized() == doctest::Approx(0.0f));
+}
+
+TEST_CASE("Billboard opacity masks expose the visible top for world-space anchors")
+{
+    std::vector<uint8_t> pixels(2 * 4 * 4, 0);
+    pixels[(2 * 2 + 1) * 4 + 3] = 255;
+    BillboardOpacityMask mask;
+
+    mask.assignFromBgra(pixels, 2, 4);
+
+    CHECK(mask.opaqueTopNormalized() == doctest::Approx(0.5f));
 }
 
 TEST_CASE("Map render source cleanup releases decoded pixels while preserving texture metadata")

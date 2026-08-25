@@ -41,6 +41,7 @@ constexpr uint32_t FreeHavenTempleStoneHouseId = 326;
 constexpr uint32_t BlackshireTempleHouseId = 327;
 constexpr uint32_t FreeHavenTempleHouseId = 1442;
 constexpr uint32_t ElementalGuildHouseId = 139;
+constexpr uint32_t EarthGuildHouseId = 146;
 constexpr uint32_t TrainingHallHouseId = 1564;
 constexpr uint32_t BankHouseId = 281;
 constexpr uint32_t AdventurersInnHouseId = 756;
@@ -174,6 +175,12 @@ private:
     float m_currentGameMinutes = 0.0f;
 };
 constexpr uint32_t BerserkersFuryHouseId = 199;
+constexpr uint32_t FearsomeFetishesHouseId = 76;
+constexpr uint32_t NeedfulThingsHouseId = 77;
+constexpr uint32_t EmeraldEnchantmentsHouseId = 84;
+constexpr uint32_t HerbalElixirsHouseId = 110;
+constexpr uint32_t MysticMedicineHouseId = 303;
+constexpr uint32_t RitesOfPassageHouseId = 1564;
 constexpr uint32_t BrekishHallHouseId = 212;
 constexpr uint32_t FreeHavenHighCouncilHouseId = 209;
 constexpr uint32_t OracleHouseId = 451;
@@ -2792,6 +2799,234 @@ TEST_CASE("house service shop sell accepts a positive-value item from another me
         statusText));
     CHECK_GT(harness.party().gold(), initialGold);
     CHECK_LT(harness.party().inventoryItemCount(), initialInventoryCount);
+}
+
+TEST_CASE("basic skill offerings follow merged and OE house behavior")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    const OpenYAMM::Game::HouseEntry *pMm8WeaponShop = gameData.houseTable.get(1);
+    const OpenYAMM::Game::HouseEntry *pMm7EmeraldWeaponShop = gameData.houseTable.get(8);
+    const OpenYAMM::Game::HouseEntry *pMm7HarmondaleWeaponShop = gameData.houseTable.get(9);
+    const OpenYAMM::Game::HouseEntry *pMm6WeaponShop = gameData.houseTable.get(22);
+    REQUIRE(pMm8WeaponShop != nullptr);
+    REQUIRE(pMm7EmeraldWeaponShop != nullptr);
+    REQUIRE(pMm7HarmondaleWeaponShop != nullptr);
+    REQUIRE(pMm6WeaponShop != nullptr);
+
+    CHECK_EQ(
+        pMm8WeaponShop->offeredSkills,
+        std::vector<std::string>({"Sword", "Bow", "Axe", "Mace", "Staff", "Spear"}));
+    CHECK_EQ(
+        pMm7EmeraldWeaponShop->offeredSkills,
+        std::vector<std::string>({"Sword", "Bow", "Axe", "Staff"}));
+    CHECK_EQ(
+        pMm7HarmondaleWeaponShop->offeredSkills,
+        std::vector<std::string>({"Sword", "Dagger", "Mace"}));
+    CHECK_EQ(
+        pMm6WeaponShop->offeredSkills,
+        std::vector<std::string>({"Sword", "Spear", "Mace", "Bow"}));
+
+    const OpenYAMM::Game::HouseEntry *pMm8MagicShop = gameData.houseTable.get(NeedfulThingsHouseId);
+    const OpenYAMM::Game::HouseEntry *pMm7MagicShop = gameData.houseTable.get(EmeraldEnchantmentsHouseId);
+    const OpenYAMM::Game::HouseEntry *pMm6MagicShop = gameData.houseTable.get(SeeingEyeHouseId);
+    REQUIRE(pMm8MagicShop != nullptr);
+    REQUIRE(pMm7MagicShop != nullptr);
+    REQUIRE(pMm6MagicShop != nullptr);
+    CHECK_EQ(
+        pMm8MagicShop->offeredSkills,
+        std::vector<std::string>({"IdentifyItem", "RepairItem"}));
+    CHECK_EQ(pMm7MagicShop->offeredSkills, pMm8MagicShop->offeredSkills);
+    CHECK_EQ(pMm6MagicShop->offeredSkills, pMm8MagicShop->offeredSkills);
+
+    const OpenYAMM::Game::HouseEntry *pAlchemist = gameData.houseTable.get(HerbalElixirsHouseId);
+    const OpenYAMM::Game::HouseEntry *pTavern = gameData.houseTable.get(DaggerWoundTavernHouseId);
+    const OpenYAMM::Game::HouseEntry *pTemple = gameData.houseTable.get(MysticMedicineHouseId);
+    const OpenYAMM::Game::HouseEntry *pTrainingHall = gameData.houseTable.get(RitesOfPassageHouseId);
+    const OpenYAMM::Game::HouseEntry *pEarthGuild = gameData.houseTable.get(EarthGuildHouseId);
+    REQUIRE(pAlchemist != nullptr);
+    REQUIRE(pTavern != nullptr);
+    REQUIRE(pTemple != nullptr);
+    REQUIRE(pTrainingHall != nullptr);
+    REQUIRE(pEarthGuild != nullptr);
+    CHECK_EQ(pAlchemist->offeredSkills, std::vector<std::string>({"Alchemy", "IdentifyMonster"}));
+    CHECK_EQ(
+        pTavern->offeredSkills,
+        std::vector<std::string>({"Stealing", "DisarmTraps", "Perception"}));
+    CHECK_EQ(
+        pTemple->offeredSkills,
+        std::vector<std::string>({"Unarmed", "Dodging", "Regeneration", "Merchant"}));
+    CHECK_EQ(
+        pTrainingHall->offeredSkills,
+        std::vector<std::string>({"Armsmaster", "Bodybuilding"}));
+    CHECK_EQ(pEarthGuild->type, "Earth Guild");
+    CHECK_EQ(pEarthGuild->offeredSkills, std::vector<std::string>({"EarthMagic", "Learning"}));
+    CHECK_EQ(
+        OpenYAMM::Game::resolveHouseServiceType(*pEarthGuild),
+        OpenYAMM::Game::HouseServiceType::Guild);
+}
+
+TEST_CASE("every legacy basic skill house type exposes its OE and MMerge assignments")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    const std::unordered_map<std::string, std::vector<std::string>> expectedSkillsByHouseType = {
+        {"Magic Shop", {"IdentifyItem", "RepairItem"}},
+        {"Alchemist", {"Alchemy", "IdentifyMonster"}},
+        {"Elemental Guild", {"FireMagic", "AirMagic", "WaterMagic", "EarthMagic", "Learning"}},
+        {"Fire Guild", {"FireMagic", "Learning"}},
+        {"Air Guild", {"AirMagic", "Learning"}},
+        {"Water Guild", {"WaterMagic", "Learning"}},
+        {"Earth Guild", {"EarthMagic", "Learning"}},
+        {"Self Guild", {"SpiritMagic", "MindMagic", "BodyMagic", "Meditation"}},
+        {"Spirit Guild", {"SpiritMagic", "Meditation"}},
+        {"Mind Guild", {"MindMagic", "Meditation"}},
+        {"Body Guild", {"BodyMagic", "Meditation"}},
+        {"Light Guild", {"LightMagic"}},
+        {"Dark Guild", {"DarkMagic"}},
+        {"Thieves guild", {"Dagger", "Merchant", "IdentifyItem", "Perception", "DisarmTraps"}},
+        {"Merc Guild", {"Unarmed", "Dodging", "Armsmaster", "DisarmTraps"}},
+        {"Temple", {"Unarmed", "Dodging", "Regeneration", "Merchant"}},
+        {"Tavern", {"Stealing", "DisarmTraps", "Perception"}},
+        {"Training", {"Armsmaster", "Bodybuilding"}},
+    };
+    std::vector<std::string> foundHouseTypes;
+    std::vector<std::string> offeredSkills;
+
+    for (const std::pair<const uint32_t, OpenYAMM::Game::HouseEntry> &housePair : gameData.houseTable.entries())
+    {
+        const uint32_t houseId = housePair.first;
+        const OpenYAMM::Game::HouseEntry &houseEntry = housePair.second;
+        const std::unordered_map<std::string, std::vector<std::string>>::const_iterator expectedIt =
+            expectedSkillsByHouseType.find(houseEntry.type);
+
+        if (expectedIt == expectedSkillsByHouseType.end())
+        {
+            for (const std::string &skillName : houseEntry.offeredSkills)
+            {
+                offeredSkills.push_back(skillName);
+            }
+
+            continue;
+        }
+
+        CAPTURE(houseId);
+        CAPTURE(houseEntry.type);
+        CHECK_EQ(houseEntry.offeredSkills, expectedIt->second);
+        foundHouseTypes.push_back(houseEntry.type);
+
+        for (const std::string &skillName : houseEntry.offeredSkills)
+        {
+            offeredSkills.push_back(skillName);
+        }
+    }
+
+    for (const std::pair<const std::string, std::vector<std::string>> &expectedPair : expectedSkillsByHouseType)
+    {
+        const std::string &houseType = expectedPair.first;
+        CAPTURE(houseType);
+        CHECK(std::find(foundHouseTypes.begin(), foundHouseTypes.end(), houseType) != foundHouseTypes.end());
+    }
+
+    std::sort(offeredSkills.begin(), offeredSkills.end());
+    offeredSkills.erase(std::unique(offeredSkills.begin(), offeredSkills.end()), offeredSkills.end());
+
+    std::vector<std::string> expectedLegacyHouseSkills = {
+        "AirMagic", "Alchemy", "Armsmaster", "Axe", "BodyMagic", "Bodybuilding", "Bow", "ChainArmor",
+        "Dagger", "DarkMagic", "DisarmTraps", "Dodging", "EarthMagic", "FireMagic", "IdentifyItem",
+        "IdentifyMonster", "Learning", "LeatherArmor", "LightMagic", "Mace", "Meditation", "Merchant",
+        "MindMagic", "Perception", "PlateArmor", "Regeneration", "RepairItem", "Shield", "Spear",
+        "SpiritMagic", "Staff", "Stealing", "Sword", "Unarmed", "WaterMagic",
+    };
+    std::sort(expectedLegacyHouseSkills.begin(), expectedLegacyHouseSkills.end());
+    CHECK_EQ(offeredSkills, expectedLegacyHouseSkills);
+}
+
+TEST_CASE("training halls teach basic bodybuilding and armsmaster")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    OpenYAMM::Game::Character *pMember = harness.party().activeMember();
+    REQUIRE(pMember != nullptr);
+
+    pMember->className = "Knight";
+    harness.party().addGold(10000);
+
+    SUBCASE("Bodybuilding")
+    {
+        pMember->skills.erase("Bodybuilding");
+
+        const OpenYAMM::Game::EventDialogContent &rootDialog = harness.openHouseDialog(RitesOfPassageHouseId);
+        const std::optional<size_t> learnSkillsIndex = findActionIndexByLabel(rootDialog, "Learn Skills");
+        REQUIRE(learnSkillsIndex.has_value());
+
+        const OpenYAMM::Game::EventDialogContent &skillDialog = harness.executeAndPresent(*learnSkillsIndex);
+        const std::optional<size_t> bodybuildingIndex =
+            findActionIndexByLabelPrefix(skillDialog, "Learn Body Building ");
+        REQUIRE(bodybuildingIndex.has_value());
+        harness.executeAndPresent(*bodybuildingIndex);
+        CHECK(pMember->hasSkill("Bodybuilding"));
+    }
+
+    SUBCASE("Armsmaster")
+    {
+        pMember->skills.erase("Armsmaster");
+
+        const OpenYAMM::Game::EventDialogContent &rootDialog = harness.openHouseDialog(RitesOfPassageHouseId);
+        const std::optional<size_t> learnSkillsIndex = findActionIndexByLabel(rootDialog, "Learn Skills");
+        REQUIRE(learnSkillsIndex.has_value());
+
+        const OpenYAMM::Game::EventDialogContent &skillDialog = harness.executeAndPresent(*learnSkillsIndex);
+        const std::optional<size_t> armsmasterIndex =
+            findActionIndexByLabelPrefix(skillDialog, "Learn Armsmaster ");
+        REQUIRE(armsmasterIndex.has_value());
+        harness.executeAndPresent(*armsmasterIndex);
+        CHECK(pMember->hasSkill("Armsmaster"));
+    }
+}
+
+TEST_CASE("knight can learn basic repair at an MM8 magic shop")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    OpenYAMM::Game::Character *pMember = harness.party().activeMember();
+    REQUIRE(pMember != nullptr);
+
+    pMember->className = "Knight";
+    pMember->skills.erase("RepairItem");
+    harness.party().addGold(10000);
+
+    const OpenYAMM::Game::EventDialogContent &rootDialog = harness.openHouseDialog(NeedfulThingsHouseId);
+    const std::optional<size_t> learnSkillsIndex = findActionIndexByLabel(rootDialog, "Learn Skills");
+    REQUIRE(learnSkillsIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &skillDialog = harness.executeAndPresent(*learnSkillsIndex);
+    const std::optional<size_t> repairIndex = findActionIndexByLabelPrefix(skillDialog, "Learn Repair Item ");
+    REQUIRE(repairIndex.has_value());
+    harness.executeAndPresent(*repairIndex);
+    CHECK(pMember->hasSkill("RepairItem"));
+}
+
+TEST_CASE("troll can learn basic repair at Fearsome Fetishes")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    OpenYAMM::Game::Character *pMember = harness.party().activeMember();
+    REQUIRE(pMember != nullptr);
+
+    pMember->className = "Troll";
+    pMember->raceId = 4;
+    pMember->skills.erase("RepairItem");
+    harness.party().addGold(10000);
+
+    const OpenYAMM::Game::EventDialogContent &rootDialog = harness.openHouseDialog(FearsomeFetishesHouseId);
+    const std::optional<size_t> learnSkillsIndex = findActionIndexByLabel(rootDialog, "Learn Skills");
+    REQUIRE(learnSkillsIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &skillDialog = harness.executeAndPresent(*learnSkillsIndex);
+    const std::optional<size_t> repairIndex = findActionIndexByLabelPrefix(skillDialog, "Learn Repair Item ");
+    REQUIRE(repairIndex.has_value());
+    harness.executeAndPresent(*repairIndex);
+    CHECK(pMember->hasSkill("RepairItem"));
 }
 
 TEST_CASE("New Sorpigal magic shop identifies and repairs OE Misc item families")

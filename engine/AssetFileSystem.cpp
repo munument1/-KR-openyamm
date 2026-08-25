@@ -859,6 +859,18 @@ bool AssetFileSystem::mountPackagedAssetRoot(
         }
     }
 
+    for (const std::filesystem::path &worldArchive : worldArchives)
+    {
+        const std::string worldPackageId = normalizePackageId(worldArchive.stem().string(), {});
+
+        if (worldPackageId.empty()
+            || !mountSearchRootAt(worldArchive, "/worlds/" + worldPackageId, true))
+        {
+            std::cerr << "Could not mount world package namespace for " << worldArchive << '\n';
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -1512,16 +1524,30 @@ std::vector<std::string> AssetFileSystem::resolveVirtualPathCandidates(const std
         }
     };
 
-    for (const std::string &candidate : aliasCandidates)
+    const auto appendPathWithTierFallbacks =
+        [this, &appendCandidateWithAndroidApkPrefixes](const std::string &candidate)
     {
-        const std::string remappedCandidate = remapTieredVirtualPath(candidate, m_assetScaleProfile);
-        appendCandidateWithAndroidApkPrefixes(remappedCandidate);
+        appendCandidateWithAndroidApkPrefixes(remapTieredVirtualPath(candidate, m_assetScaleProfile));
         appendCandidateWithAndroidApkPrefixes(baseTieredVirtualPath(candidate));
+    };
+
+    const bool packageQualified = normalizedPath.starts_with("engine/")
+        || normalizedPath.starts_with("worlds/");
+
+    if (packageQualified)
+    {
+        appendPathWithTierFallbacks(normalizedPath);
     }
 
-    const std::string remappedLegacyPath = remapTieredVirtualPath(normalizedPath, m_assetScaleProfile);
-    appendCandidateWithAndroidApkPrefixes(remappedLegacyPath);
-    appendCandidateWithAndroidApkPrefixes(baseTieredVirtualPath(normalizedPath));
+    for (const std::string &candidate : aliasCandidates)
+    {
+        appendPathWithTierFallbacks(candidate);
+    }
+
+    if (!packageQualified)
+    {
+        appendPathWithTierFallbacks(normalizedPath);
+    }
 
     return resolvedPaths;
 }

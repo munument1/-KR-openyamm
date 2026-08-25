@@ -221,6 +221,7 @@ CharacterInventoryItemRect computeCharacterInventoryItemRect(
 constexpr const char *WeaponSkillNames[] = {
     "Axe",
     "Bow",
+    "Throwing",
     "Dagger",
     "Mace",
     "Spear",
@@ -2471,6 +2472,10 @@ GameplayDialogController::Context IndoorGameView::buildDialogContext(EventRuntim
         &m_gameSession.data().houseTable(),
         &m_gameSession.data().classSkillTable(),
         &m_gameSession.data().npcDialogTable(),
+        &m_gameSession.data().mm9RudeDialogueTable(),
+        &m_gameSession.data().mm9MapTransitionTable(),
+        &m_gameSession.data().mm9SkillTrainerTable(),
+        &m_gameSession.data().mm9TransportRouteTable(),
         &m_gameSession.data().transitionTable(),
         m_map ? &*m_map : nullptr,
         &m_gameSession.data().mapEntries(),

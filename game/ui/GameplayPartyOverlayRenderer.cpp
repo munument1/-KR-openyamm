@@ -63,9 +63,7 @@ constexpr int RestMonthsPerYear = 12;
 constexpr int RestStartingYear = 1168;
 constexpr int JournalRevealWidth = 88;
 constexpr int JournalRevealHeight = 88;
-constexpr int JournalMapBaseZoom = 384;
 constexpr float JournalMainIconAnimationFps = 10.0f;
-constexpr float JournalMapWorldHalfExtent = 32768.0f;
 constexpr char JournalMapTextureCacheName[] = "__journal_map_composited__";
 constexpr float ActorInspectMonsterHpBarMaxWidth = 200.0f;
 constexpr float ActorInspectMonsterHpBarMinWidth = 25.0f;
@@ -662,11 +660,6 @@ bool packedRevealBit(const std::vector<uint8_t> &bytes, size_t index)
     return (bytes[byteIndex] & mask) != 0;
 }
 
-int clampedJournalMapZoomValue(int zoomStep)
-{
-    return clampedGameplayJournalMapZoomValue(zoomStep);
-}
-
 void submitJournalTextureClipped(
     GameplayScreenRuntime &context,
     const GameplayScreenRuntime::HudTextureHandle &texture,
@@ -757,7 +750,8 @@ void renderRuntimeMapNotes(
     const GameplayScreenRuntime::ResolvedHudLayoutElement &mapResolved,
     const GameplayUiController::JournalScreenState &journalScreen,
     const EventRuntimeState *pEventRuntimeState,
-    const std::string &normalizedCurrentMapFileName)
+    const std::string &normalizedCurrentMapFileName,
+    const GameplayMinimapState *pMinimapState = nullptr)
 {
     if (pEventRuntimeState == nullptr)
     {
@@ -787,7 +781,9 @@ void renderRuntimeMapNotes(
         });
 
     const auto renderNote =
-        [&context, &mapResolved, &journalScreen](const EventRuntimeState::RuntimeMapNote &note, bool highlighted)
+        [&context, &mapResolved, &journalScreen, pMinimapState](
+            const EventRuntimeState::RuntimeMapNote &note,
+            bool highlighted)
         {
             const std::optional<GameplayScreenRuntime::HudTextureHandle> pinTexture =
                 context.gameplayUiRuntime().ensureHudTextureLoaded(highlighted ? "map-pin2" : "map-pin");
@@ -804,7 +800,8 @@ void renderRuntimeMapNotes(
                 mapResolved.y,
                 mapResolved.width,
                 mapResolved.height,
-                journalScreen);
+                journalScreen,
+                pMinimapState);
             const float pinWidth = static_cast<float>(pinTexture->width) * mapResolved.scale;
             const float pinHeight = static_cast<float>(pinTexture->height) * mapResolved.scale;
 
@@ -926,16 +923,15 @@ void renderJournalVectorMap(
             mapResolved.height);
     }
 
-    const int zoom = clampedJournalMapZoomValue(journalScreen.mapZoomStep);
-    const float zoomFactor = static_cast<float>(zoom) / static_cast<float>(JournalMapBaseZoom);
-    const float uCenter =
-        (journalScreen.mapCenterX + JournalMapWorldHalfExtent) / (JournalMapWorldHalfExtent * 2.0f);
-    const float vCenter =
-        (JournalMapWorldHalfExtent - journalScreen.mapCenterY) / (JournalMapWorldHalfExtent * 2.0f);
-    const float uSpan = 1.0f / std::max(zoomFactor, 0.000001f);
-    const float vSpan = 1.0f / std::max(zoomFactor, 0.000001f);
-    const float uOrigin = uCenter - uSpan * 0.5f;
-    const float vOrigin = vCenter - vSpan * 0.5f;
+    const GameplayJournalMapTransform transform = gameplayJournalMapTransform(
+        journalScreen,
+        &minimapState,
+        mapResolved.width,
+        mapResolved.height);
+    const float uSpan = transform.uSpan;
+    const float vSpan = transform.vSpan;
+    const float uOrigin = transform.uOrigin;
+    const float vOrigin = transform.vOrigin;
     const uint16_t mapScissorX = static_cast<uint16_t>(std::max(0.0f, std::floor(mapResolved.x)));
     const uint16_t mapScissorY = static_cast<uint16_t>(std::max(0.0f, std::floor(mapResolved.y)));
     const uint16_t mapScissorWidth = static_cast<uint16_t>(std::max(1.0f, std::ceil(mapResolved.width)));
@@ -1000,7 +996,13 @@ void renderJournalVectorMap(
     const EventRuntimeState *pEventRuntimeState = context.worldRuntime()->eventRuntimeState();
     const std::string normalizedCurrentMapFileName =
         gameplayJournalNormalizeMapFileName(context.currentMapFileName());
-    renderRuntimeMapNotes(context, mapResolved, journalScreen, pEventRuntimeState, normalizedCurrentMapFileName);
+    renderRuntimeMapNotes(
+        context,
+        mapResolved,
+        journalScreen,
+        pEventRuntimeState,
+        normalizedCurrentMapFileName,
+        &minimapState);
 
     const GameplayJournalMapPoint markerPoint = gameplayJournalWorldToScreen(
         context.partyX(),
@@ -1009,7 +1011,8 @@ void renderJournalVectorMap(
         mapResolved.y,
         mapResolved.width,
         mapResolved.height,
-        journalScreen);
+        journalScreen,
+        &minimapState);
     const int arrowIndex = outdoorMinimapArrowIndex(context.gameplayCameraYawRadians());
     const std::optional<GameplayScreenRuntime::HudTextureHandle> arrowTexture =
         context.gameplayUiRuntime().ensureHudTextureLoaded("MAPDIR" + std::to_string(arrowIndex + 1));
@@ -1968,6 +1971,7 @@ std::string npcPortraitTextureName(uint32_t pictureId)
 constexpr const char *WeaponSkillNames[] = {
     "Axe",
     "Bow",
+    "Throwing",
     "Dagger",
     "Mace",
     "Spear",
@@ -4447,21 +4451,34 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
 
         if (mapResolved)
         {
-            const std::string mapTextureName = toLowerCopy(std::filesystem::path(context.currentMapFileName()).stem().string());
+            GameplayMinimapState minimapState = {};
+            const bool hasMinimapState = context.tryGetGameplayMinimapState(minimapState);
+            const std::string mapTextureName = hasMinimapState && !minimapState.vectorBackground
+                ? minimapState.textureName
+                : toLowerCopy(std::filesystem::path(context.currentMapFileName()).stem().string());
             int mapTextureWidth = 0;
             int mapTextureHeight = 0;
+            const std::optional<GameplayScreenRuntime::HudTextureHandle> sourceMapTexture =
+                mapTextureName.empty()
+                    ? std::nullopt
+                    : context.gameplayUiRuntime().ensureHudTextureLoaded(mapTextureName);
             const std::vector<uint8_t> *pMapPixels =
-                mapTextureName.empty() ? nullptr : context.gameplayUiRuntime().hudTexturePixels(mapTextureName, mapTextureWidth, mapTextureHeight);
+                sourceMapTexture
+                    ? context.gameplayUiRuntime().hudTexturePixels(
+                        mapTextureName,
+                        mapTextureWidth,
+                        mapTextureHeight)
+                    : nullptr;
 
             if (pMapPixels != nullptr)
             {
-                const int zoom = clampedJournalMapZoomValue(journalScreen.mapZoomStep);
                 const int mapPixelWidth = std::max(1, static_cast<int>(std::lround(mapResolved->width)));
                 const int mapPixelHeight = std::max(1, static_cast<int>(std::lround(mapResolved->height)));
                 const bool needsMapRebuild =
                     !journalScreen.cachedMapValid
                     || journalScreen.cachedMapWidth != mapPixelWidth
                     || journalScreen.cachedMapHeight != mapPixelHeight
+                    || journalScreen.cachedMapTextureName != mapTextureName
                     || journalScreen.cachedMapZoomStep != journalScreen.mapZoomStep
                     || std::abs(journalScreen.cachedMapCenterX - journalScreen.mapCenterX) > 0.01f
                     || std::abs(journalScreen.cachedMapCenterY - journalScreen.mapCenterY) > 0.01f;
@@ -4470,17 +4487,19 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
 
                 if (needsMapRebuild)
                 {
-                    const float zoomFactor = static_cast<float>(zoom) / static_cast<float>(JournalMapBaseZoom);
+                    const GameplayJournalMapTransform transform = gameplayJournalMapTransform(
+                        journalScreen,
+                        hasMinimapState ? &minimapState : nullptr,
+                        mapResolved->width,
+                        mapResolved->height);
                     const float sourceCenterX =
-                        ((journalScreen.mapCenterX + JournalMapWorldHalfExtent) / (JournalMapWorldHalfExtent * 2.0f))
-                        * static_cast<float>(mapTextureWidth);
+                        (transform.uOrigin + transform.uSpan * 0.5f) * static_cast<float>(mapTextureWidth);
                     const float sourceCenterY =
-                        ((JournalMapWorldHalfExtent - journalScreen.mapCenterY) / (JournalMapWorldHalfExtent * 2.0f))
-                        * static_cast<float>(mapTextureHeight);
+                        (transform.vOrigin + transform.vSpan * 0.5f) * static_cast<float>(mapTextureHeight);
                     const float sourceWindowWidth =
-                        static_cast<float>(mapTextureWidth) / std::max(zoomFactor, 0.000001f);
+                        static_cast<float>(mapTextureWidth) * transform.uSpan;
                     const float sourceWindowHeight =
-                        static_cast<float>(mapTextureHeight) / std::max(zoomFactor, 0.000001f);
+                        static_cast<float>(mapTextureHeight) * transform.vSpan;
                     const float sourceOriginX = sourceCenterX - sourceWindowWidth * 0.5f;
                     const float sourceOriginY = sourceCenterY - sourceWindowHeight * 0.5f;
                     std::vector<uint8_t> composedMapPixels(
@@ -4519,7 +4538,11 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                             bool fullyRevealed = false;
                             bool partiallyRevealed = false;
 
-                            if (pFullyRevealedCells != nullptr
+                            if (hasMinimapState && minimapState.revealEntireMap)
+                            {
+                                fullyRevealed = true;
+                            }
+                            else if (pFullyRevealedCells != nullptr
                                 && pPartiallyRevealedCells != nullptr
                                 && revealCellX >= 0 && revealCellX < JournalRevealWidth
                                 && revealCellY >= 0 && revealCellY < JournalRevealHeight)
@@ -4574,6 +4597,7 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                         journalScreen.cachedMapValid = true;
                         journalScreen.cachedMapWidth = mapPixelWidth;
                         journalScreen.cachedMapHeight = mapPixelHeight;
+                        journalScreen.cachedMapTextureName = mapTextureName;
                         journalScreen.cachedMapZoomStep = journalScreen.mapZoomStep;
                         journalScreen.cachedMapCenterX = journalScreen.mapCenterX;
                         journalScreen.cachedMapCenterY = journalScreen.mapCenterY;
@@ -4601,7 +4625,8 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                         *mapResolved,
                         journalScreen,
                         pEventRuntimeState,
-                        normalizedCurrentMapFileName);
+                        normalizedCurrentMapFileName,
+                        hasMinimapState ? &minimapState : nullptr);
 
                     const GameplayJournalMapPoint markerPoint = gameplayJournalWorldToScreen(
                         context.partyX(),
@@ -4610,7 +4635,8 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                         mapResolved->y,
                         mapResolved->width,
                         mapResolved->height,
-                        journalScreen);
+                        journalScreen,
+                        hasMinimapState ? &minimapState : nullptr);
                     const int arrowIndex = outdoorMinimapArrowIndex(context.gameplayCameraYawRadians());
                     const std::optional<GameplayScreenRuntime::HudTextureHandle> arrowTexture =
                         loadHudTexture("MAPDIR" + std::to_string(arrowIndex + 1));
@@ -6010,10 +6036,47 @@ void GameplayPartyOverlayRenderer::renderItemInspectOverlay(GameplayScreenRuntim
         resolvedItemState,
         context.standardItemEnchantTable(),
         context.specialItemEnchantTable());
-    const std::string itemSpecialDetail =
-        showBrokenOnly || showUnidentifiedOnly || enchantDescription.empty()
-            ? std::string {}
-            : "Special: " + enchantDescription;
+    std::string setDescription;
+
+    if (!showBrokenOnly && !showUnidentifiedOnly && !pItemDefinition->setId.empty())
+    {
+        const auto foundSet = std::find_if(
+            context.itemTable()->setBonuses().begin(),
+            context.itemTable()->setBonuses().end(),
+            [pItemDefinition](const ItemSetBonusDefinition &setBonus)
+            {
+                return setBonus.setId == pItemDefinition->setId;
+            });
+
+        if (foundSet != context.itemTable()->setBonuses().end())
+        {
+            const Party *pParty = context.partyReadOnly();
+            const size_t equippedPieces = pParty != nullptr
+                ? pParty->equippedItemSetPieceCount(overlay.sourceMemberIndex, foundSet->setId)
+                : 0;
+            std::string setName = foundSet->setId.substr(foundSet->setId.find_last_of('/') + 1);
+            if (!setName.empty())
+            {
+                setName.front() = static_cast<char>(std::toupper(static_cast<unsigned char>(setName.front())));
+            }
+            setDescription = "Set: " + setName + " (" + std::to_string(equippedPieces) + "/"
+                + std::to_string(foundSet->requiredPieceCount) + ", "
+                + (equippedPieces >= foundSet->requiredPieceCount ? "active" : "inactive") + ")";
+        }
+    }
+
+    std::string itemSpecialDetail;
+    if (!showBrokenOnly && !showUnidentifiedOnly)
+    {
+        if (!enchantDescription.empty())
+        {
+            itemSpecialDetail = "Special: " + enchantDescription;
+        }
+        if (!setDescription.empty())
+        {
+            itemSpecialDetail += (itemSpecialDetail.empty() ? std::string {} : "\n") + setDescription;
+        }
+    }
     const std::string itemDescription =
         showBrokenOnly || showUnidentifiedOnly ? std::string {} : pItemDefinition->notes;
     const std::string itemStatusText =
@@ -8426,11 +8489,11 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             ? context.characterDollTable()->getDollType(pCharacterDollEntry->dollTypeId)
             : nullptr;
     const ItemDefinition *pMainHandItem =
-        pCharacter != nullptr && context.itemTable() != nullptr
+        pCharacter != nullptr && pCharacter->equipment.mainHand != 0 && context.itemTable() != nullptr
             ? context.itemTable()->get(pCharacter->equipment.mainHand)
             : nullptr;
     const ItemDefinition *pOffHandItem =
-        pCharacter != nullptr && context.itemTable() != nullptr
+        pCharacter != nullptr && pCharacter->equipment.offHand != 0 && context.itemTable() != nullptr
             ? context.itemTable()->get(pCharacter->equipment.offHand)
             : nullptr;
     SkillMastery spearMastery = SkillMastery::None;

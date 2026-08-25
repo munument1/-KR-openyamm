@@ -415,6 +415,21 @@ MonsterImpactHitCheck resolveMonsterImpactHitCheck(
     }
 
     result.baseArmorClass = incomingAttackArmorClass(*pMember, context.pRuntime);
+
+    if (event.spellId != 0)
+    {
+        result.baseArmorClass += pMember->magicArmorClassBonus;
+    }
+    else if (event.type == GameplayCombatController::CombatEventType::MonsterMeleeImpact)
+    {
+        result.baseArmorClass += pMember->meleeArmorClassBonus;
+    }
+    else
+    {
+        result.baseArmorClass += pMember->missileArmorClassBonus;
+    }
+
+    result.baseArmorClass = std::max(0, result.baseArmorClass);
     result.adjustedArmorClass =
         gameplayBolsterPlayerArmorClass(
             result.baseArmorClass,
@@ -487,6 +502,12 @@ int adjustedIncomingDamageForMember(
     if (isPhysicalProjectile && member.halfMissileDamage)
     {
         damage = GameMechanics::resolveShieldedPhysicalProjectileDamage(damage);
+    }
+
+    if (event.damageType == CombatDamageType::Physical)
+    {
+        damage = std::max(0, static_cast<int>(std::round(
+            static_cast<float>(damage) * member.physicalDamageTakenMultiplier)));
     }
 
     std::mt19937 rng = buildMonsterAttackRng(event, memberIndex, animationTicks(context.pRuntime));
@@ -678,6 +699,10 @@ std::vector<BreakItemCandidate> collectBreakItemCandidates(
 
             if (pItemDefinition != nullptr
                 && !item.broken
+                && std::find(
+                    pItemDefinition->contentEffect.flags.begin(),
+                    pItemDefinition->contentEffect.flags.end(),
+                    "Everlasting") == pItemDefinition->contentEffect.flags.end()
                 && itemMatchesBreakSpecial(*pItemDefinition, specialAttackKind))
             {
                 candidates.push_back({&item, nullptr, pItemDefinition});
@@ -695,6 +720,10 @@ std::vector<BreakItemCandidate> collectBreakItemCandidates(
             && pRuntimeState != nullptr
             && pItemDefinition != nullptr
             && !pRuntimeState->broken
+            && std::find(
+                pItemDefinition->contentEffect.flags.begin(),
+                pItemDefinition->contentEffect.flags.end(),
+                "Everlasting") == pItemDefinition->contentEffect.flags.end()
             && itemMatchesBreakSpecial(*pItemDefinition, specialAttackKind))
         {
             candidates.push_back({nullptr, pRuntimeState, pItemDefinition});

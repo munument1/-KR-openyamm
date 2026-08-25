@@ -1465,6 +1465,17 @@ PartySpellCastResult PartySpellSystem::castSpell(
             SpellFailedText);
     }
 
+    if (spellIdFromValue(request.spellId) == SpellId::DivineIntervention
+        && pCaster->equippedItemEffectFlags.contains("DisableDivineIntervention"))
+    {
+        return makeFailure(
+            request.spellId,
+            PartySpellCastStatus::Unsupported,
+            PartySpellCastTargetKind::None,
+            PartySpellCastEffectKind::PartyRestore,
+            "Divine Intervention is blocked by equipped gear");
+    }
+
     const SpellEntry *pSpellEntry = spellTable.findById(static_cast<int>(request.spellId));
 
     if (pSpellEntry == nullptr)

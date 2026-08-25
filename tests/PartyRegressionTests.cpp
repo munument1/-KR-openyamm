@@ -270,6 +270,35 @@ TEST_CASE("journal quest table rejects duplicate qbit ids")
     CHECK(questTable.entries().empty());
 }
 
+TEST_CASE("conditional journal quest overlays use required and forbidden qbits")
+{
+    OpenYAMM::Game::JournalQuestTable questTable = {};
+    REQUIRE(questTable.loadFromRows({
+        {"90001", "Complete training.", "", "MM9", "", "90473"},
+        {"90002", "Search the island.", "", "MM9", "90473", "90480"},
+        {"90003", "Find a boat.", "", "MM9", "90473;90474", "90481"},
+    }));
+
+    OpenYAMM::Game::Party party = {};
+    party.seed(createRegressionPartySeed());
+    CHECK(OpenYAMM::Game::buildCurrentQuestTexts(questTable, party) == std::vector<std::string>{"Complete training."});
+
+    party.setQuestBit(90473, true);
+    CHECK(questTable.qbitChangeRevealsQuest(90473, false, true, party));
+    CHECK(OpenYAMM::Game::buildCurrentQuestTexts(questTable, party) == std::vector<std::string>{"Search the island."});
+
+    party.setQuestBit(90474, true);
+    CHECK(questTable.qbitChangeRevealsQuest(90474, false, true, party));
+    CHECK(OpenYAMM::Game::buildCurrentQuestTexts(questTable, party)
+        == std::vector<std::string>{"Search the island.", "Find a boat."});
+
+    party.setQuestBit(90480, true);
+    CHECK(OpenYAMM::Game::buildCurrentQuestTexts(questTable, party) == std::vector<std::string>{"Find a boat."});
+
+    party.setQuestBit(90480, false);
+    CHECK(questTable.qbitChangeRevealsQuest(90480, true, false, party));
+}
+
 TEST_CASE("party quest bits survive save data round trip")
 {
     OpenYAMM::Game::Party party = {};
@@ -1342,4 +1371,52 @@ TEST_CASE("inventory member auto transfer places item in first free slot")
     CHECK_FALSE(party.tryAutoPlaceItemInMemberInventory(2, heldItem));
     CHECK_EQ(party.lastStatus(), "inventory full");
     CHECK_EQ(pFullMember->inventoryItemCount(), pFullMember->inventoryCapacity());
+}
+
+TEST_CASE("MM9 temporary primary stat reward applies to every member and expires")
+{
+    OpenYAMM::Game::Party party = makeInventoryParty();
+
+    party.applyTemporaryPrimaryStatBonus(0, 2, 3000.0f);
+    for (const OpenYAMM::Game::Character &member : party.members())
+    {
+        CHECK_EQ(member.magicalBonuses.might, 2);
+        CHECK_EQ(member.timedPrimaryStatBonuses[0].power, 2);
+    }
+
+    party.advanceTimedStates(2999.0f);
+    CHECK_EQ(party.member(0)->magicalBonuses.might, 2);
+    party.advanceTimedStates(1.0f);
+    for (const OpenYAMM::Game::Character &member : party.members())
+    {
+        CHECK_EQ(member.magicalBonuses.might, 0);
+        CHECK_EQ(member.timedPrimaryStatBonuses[0].power, 0);
+    }
+}
+
+TEST_CASE("MM9 temporary primary stat reward survives save round trip")
+{
+    OpenYAMM::Game::Party party = makeInventoryParty();
+    party.applyTemporaryPrimaryStatBonus(4, 1, 3000.0f);
+
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.mapFileName = "mm9_stat_reward_roundtrip.blv";
+    saveData.party = party.snapshot();
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_mm9_stat_reward_roundtrip.oysav";
+    std::string error;
+    REQUIRE(OpenYAMM::Game::saveGameDataToPath(savePath, saveData, error));
+
+    const std::optional<OpenYAMM::Game::GameSaveData> loaded =
+        OpenYAMM::Game::loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+    REQUIRE(loaded.has_value());
+
+    OpenYAMM::Game::Party restoredParty = makeInventoryParty();
+    restoredParty.restoreSnapshot(loaded->party);
+    for (const OpenYAMM::Game::Character &member : restoredParty.members())
+    {
+        CHECK_EQ(member.magicalBonuses.speed, 1);
+        CHECK_EQ(member.timedPrimaryStatBonuses[4].remainingSeconds, doctest::Approx(3000.0f));
+    }
 }

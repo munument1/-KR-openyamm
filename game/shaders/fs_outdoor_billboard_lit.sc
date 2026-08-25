@@ -24,6 +24,11 @@ float safeSmoothstep(float edge0, float edge1, float value)
 
 float getFogRatio(float dist)
 {
+    if (u_fogDensities.w > 0.5)
+    {
+        return clamp((dist - u_fogDistances.x) / max(u_fogDistances.y - u_fogDistances.x, 1.0), 0.0, 1.0);
+    }
+
     return
         u_fogDensities.x
         + (u_fogDensities.y - u_fogDensities.x) * safeSmoothstep(u_fogDistances.x, u_fogDistances.y, dist)

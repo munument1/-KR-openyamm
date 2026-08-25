@@ -2,6 +2,7 @@
 
 #include "game/maps/MapRuntimeRestrictions.h"
 #include "game/maps/MapDeltaData.h"
+#include "game/maps/MapItemSourceData.h"
 #include "game/maps/OutdoorSceneProfile.h"
 #include "game/outdoor/OutdoorMapData.h"
 #include "game/outdoor/OutdoorWeatherProfile.h"
@@ -43,6 +44,8 @@ struct OutdoorSceneEnvironment
         OutdoorFogDistances smallFog = {4096, 8192};
         OutdoorFogDistances averageFog = {0, 4096};
         OutdoorFogDistances denseFog = {0, 2048};
+        OutdoorAuthoredFogState authoredDayFog = {};
+        OutdoorAuthoredFogState authoredNightFog = {};
     };
 
     std::string skyTexture;
@@ -57,6 +60,16 @@ struct OutdoorSceneEnvironment
     int32_t fogStrongDistance = 0;
     int32_t ceiling = 0;
     WeatherConfig weather = {};
+};
+
+struct OutdoorSceneLighting
+{
+    float lightmapBrightnessScale = 1.0f;
+};
+
+struct OutdoorSceneRendering
+{
+    std::optional<float> viewDistanceScale;
 };
 
 struct OutdoorSceneTerrainAttributeOverride
@@ -87,6 +100,13 @@ struct OutdoorSceneInteractiveFace
     uint16_t cogNumber = 0;
     uint16_t cogTriggeredNumber = 0;
     uint16_t cogTrigger = 0;
+};
+
+struct OutdoorScenePerceptionFace
+{
+    size_t bmodelIndex = 0;
+    size_t faceIndex = 0;
+    int difficulty = 0;
 };
 
 struct OutdoorSceneEntity
@@ -142,14 +162,19 @@ struct OutdoorSceneData
     OutdoorSceneProfile sceneProfile = OutdoorSceneProfile::ClassicOdm;
     MapRuntimeRestrictions runtimeRestrictions = {};
     OutdoorSceneEnvironment environment = {};
+    OutdoorSceneLighting lighting = {};
+    OutdoorSceneRendering rendering = {};
     std::vector<OutdoorSceneTerrainAttributeOverride> terrainAttributeOverrides;
     std::vector<OutdoorSceneTerrainFootstepSoundOverride> terrainFootstepSoundOverrides;
     std::vector<OutdoorSceneSurfaceAnimation> surfaceAnimations;
     std::vector<OutdoorSceneInteractiveFace> interactiveFaces;
+    std::vector<OutdoorScenePerceptionFace> perceptionFaces;
     std::vector<OutdoorBModelMechanism> mechanisms;
+    std::vector<OutdoorMm9NpcGreeting> mm9NpcGreetings;
     std::vector<OutdoorSceneEntity> entities;
     std::vector<OutdoorSceneSpawn> spawns;
     OutdoorSceneInitialState initialState = {};
+    MapItemSourceData itemSources = {};
     OutdoorSceneBaseContentCounts baseContentCounts = {};
 };
 

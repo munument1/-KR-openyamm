@@ -246,7 +246,10 @@ float nearestHostileActorDistanceToParty(const IGameplayWorldRuntime *pWorldRunt
     return nearestHostileDistance;
 }
 
-PortraitAggroIndicator classifyPortraitAggroIndicator(const Character &member, float nearestHostileDistance)
+PortraitAggroIndicator classifyPortraitAggroIndicator(
+    const Character &member,
+    float nearestHostileDistance,
+    float partyEngagementRange)
 {
     if (!GameMechanics::canAct(member))
     {
@@ -256,6 +259,11 @@ PortraitAggroIndicator classifyPortraitAggroIndicator(const Character &member, f
     if (member.recoverySecondsRemaining > 0.0f)
     {
         return PortraitAggroIndicator::Hidden;
+    }
+
+    if (nearestHostileDistance >= partyEngagementRange)
+    {
+        return PortraitAggroIndicator::Green;
     }
 
     if (nearestHostileDistance < OeMeleeAlertDistance)
@@ -637,7 +645,9 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
     }
 
     const GameplayHudScreenState hudScreenState = context.currentHudScreenState();
-    const ActiveGameplayHudLayout gameplayHudLayout = isOverlayHudState(hudScreenState)
+    const bool isLimitedOverlayHud = isOverlayHudState(hudScreenState)
+        && !activeEventDialogPreservesGameplayHud(context.activeEventDialog());
+    const ActiveGameplayHudLayout gameplayHudLayout = isLimitedOverlayHud
         ? ActiveGameplayHudLayout::Overlay
 #if defined(__ANDROID__)
         : ActiveGameplayHudLayout::Widescreen;
@@ -888,8 +898,9 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
     const bool showSelectedMemberRing = hudScreenState == GameplayHudScreenState::Gameplay
         ? (pSelectedMember != nullptr && GameMechanics::canTakeGameplayAction(*pSelectedMember))
         : pSelectedMember != nullptr;
+    const IGameplayWorldRuntime *pWorldRuntime = context.worldRuntime();
     const float nearestHostileDistance =
-        manaFrame ? nearestHostileActorDistanceToParty(context.worldRuntime()) : std::numeric_limits<float>::max();
+        manaFrame ? nearestHostileActorDistanceToParty(pWorldRuntime) : std::numeric_limits<float>::max();
 
     for (size_t memberIndex = 0; memberIndex < displayedMemberCount; ++memberIndex)
     {
@@ -921,8 +932,13 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
 
         if (manaFrame)
         {
-            const PortraitAggroIndicator aggroIndicator =
-                classifyPortraitAggroIndicator(member, nearestHostileDistance);
+            const float partyEngagementRange = pWorldRuntime != nullptr
+                ? pWorldRuntime->partyEngagementRange()
+                : 10240.0f;
+            const PortraitAggroIndicator aggroIndicator = classifyPortraitAggroIndicator(
+                member,
+                nearestHostileDistance,
+                partyEngagementRange);
             const std::optional<GameplayHudTextureHandle> *pAggroTexture = nullptr;
 
             switch (aggroIndicator)
@@ -1137,8 +1153,14 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
                 continue;
             }
 
-            minimapState.uSpan = std::min(1.0f, pLayout->width / std::max(1.0f, minimapState.zoom));
-            minimapState.vSpan = std::min(1.0f, pLayout->height / std::max(1.0f, minimapState.zoom));
+            const float minimapZoomWidth = minimapState.zoomWidth > 0.0f
+                ? minimapState.zoomWidth
+                : minimapState.zoom;
+            const float minimapZoomHeight = minimapState.zoomHeight > 0.0f
+                ? minimapState.zoomHeight
+                : minimapState.zoom;
+            minimapState.uSpan = std::min(1.0f, pLayout->width / std::max(1.0f, minimapZoomWidth));
+            minimapState.vSpan = std::min(1.0f, pLayout->height / std::max(1.0f, minimapZoomHeight));
             minimapState.u0 = std::clamp(
                 minimapState.partyU - minimapState.uSpan * 0.5f,
                 0.0f,

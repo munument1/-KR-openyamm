@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <limits>
 
@@ -20,7 +21,9 @@ constexpr uint32_t VertexRecordSize = 12;
 constexpr uint32_t LightRecordSize = 80;
 constexpr uint16_t FaceHasLightmap = 0x01;
 constexpr uint16_t FaceKnownFlags = FaceHasLightmap;
-constexpr uint32_t LightKnownFlags = 0x1f;
+constexpr uint32_t LightStaticObjectEligible = 0x04;
+constexpr uint32_t LightGlobalObject = 0x20;
+constexpr uint32_t LightKnownFlags = 0x3f;
 
 uint16_t readU16(const std::vector<uint8_t> &bytes, size_t offset)
 {
@@ -90,6 +93,51 @@ size_t outdoorFaceVertexCount(const OutdoorMapData &outdoorMapData)
 }
 }
 
+void scaleOutdoorLightingBrightness(OutdoorLightingData &lightingData, float brightnessScale)
+{
+    if (!std::isfinite(brightnessScale) || brightnessScale <= 0.0f || brightnessScale == 1.0f)
+    {
+        return;
+    }
+
+    const auto scaledChannel = [brightnessScale](uint32_t channel)
+    {
+        return static_cast<uint32_t>(std::clamp(std::lround(static_cast<float>(channel) * brightnessScale), 0l, 255l));
+    };
+
+    for (OutdoorLightmapAtlasPage &page : lightingData.atlasPages)
+    {
+        for (uint32_t &pixelBgra : page.pixelsBgra)
+        {
+            const uint32_t alpha = pixelBgra & 0xff000000u;
+            const uint32_t red = scaledChannel((pixelBgra >> 16) & 0xffu);
+            const uint32_t green = scaledChannel((pixelBgra >> 8) & 0xffu);
+            const uint32_t blue = scaledChannel(pixelBgra & 0xffu);
+            pixelBgra = alpha | (red << 16) | (green << 8) | blue;
+        }
+    }
+
+    for (std::vector<OutdoorBModelFaceLighting> &bModelFaces : lightingData.facesByBModel)
+    {
+        for (OutdoorBModelFaceLighting &face : bModelFaces)
+        {
+            if (face.hasLightmap)
+            {
+                continue;
+            }
+
+            for (OutdoorBModelLightingVertex &vertex : face.vertices)
+            {
+                const uint32_t alpha = vertex.staticColorAbgr & 0xff000000u;
+                const uint32_t red = scaledChannel((vertex.staticColorAbgr >> 16) & 0xffu);
+                const uint32_t green = scaledChannel((vertex.staticColorAbgr >> 8) & 0xffu);
+                const uint32_t blue = scaledChannel(vertex.staticColorAbgr & 0xffu);
+                vertex.staticColorAbgr = alpha | (red << 16) | (green << 8) | blue;
+            }
+        }
+    }
+}
+
 bool OutdoorAuthoredLight::lightsObjects() const
 {
     return (flags & 0x01) != 0;
@@ -102,7 +150,12 @@ bool OutdoorAuthoredLight::lightsFastObjects() const
 
 bool OutdoorAuthoredLight::staticObjectLightEligible() const
 {
-    return (flags & 0x04) != 0;
+    return (flags & LightStaticObjectEligible) != 0;
+}
+
+bool OutdoorAuthoredLight::globalObjectLight() const
+{
+    return (flags & LightGlobalObject) != 0;
 }
 
 std::optional<OutdoorLightingData> OutdoorLightingDataLoader::loadFromBytes(
@@ -281,6 +334,9 @@ std::optional<OutdoorLightingData> OutdoorLightingDataLoader::loadFromBytes(
 
         if (type > static_cast<uint32_t>(OutdoorAuthoredLightType::Directional)
             || (flags & ~LightKnownFlags) != 0
+            || ((flags & LightGlobalObject) != 0
+                && type != static_cast<uint32_t>(OutdoorAuthoredLightType::Directional))
+            || ((flags & LightGlobalObject) != 0 && (flags & LightStaticObjectEligible) != 0)
             || reserved0 != 0
             || reserved1 != 0
             || reserved2 != 0)

@@ -55,6 +55,7 @@ struct OutdoorAuthoredLight
     bool lightsObjects() const;
     bool lightsFastObjects() const;
     bool staticObjectLightEligible() const;
+    bool globalObjectLight() const;
 };
 
 struct OutdoorLightingData
@@ -66,6 +67,8 @@ struct OutdoorLightingData
     std::vector<std::vector<OutdoorBModelFaceLighting>> facesByBModel;
     std::vector<OutdoorAuthoredLight> authoredLights;
 };
+
+void scaleOutdoorLightingBrightness(OutdoorLightingData &lightingData, float brightnessScale);
 
 class OutdoorLightingDataLoader
 {

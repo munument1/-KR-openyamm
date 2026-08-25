@@ -15,6 +15,9 @@
 
 namespace OpenYAMM::Game
 {
+class ItemTable;
+class HouseTable;
+
 struct GameSaveData
 {
     SceneKind currentSceneKind = SceneKind::Outdoor;
@@ -37,11 +40,23 @@ struct GameSaveData
     uint8_t heldInventoryItemGrabCellOffsetY = 0;
     float heldInventoryItemGrabOffsetX = 0.0f;
     float heldInventoryItemGrabOffsetY = 0.0f;
+    std::unordered_map<std::string, uint32_t> requiredContentPackages;
     std::string saveName;
     std::vector<uint8_t> previewBmp;
 };
 
 bool saveGameDataToPath(const std::filesystem::path &path, const GameSaveData &data, std::string &error);
 std::optional<GameSaveData> loadGameDataFromPath(const std::filesystem::path &path, std::string &error);
+std::unordered_map<std::string, uint32_t> collectRequiredContentPackages(
+    const GameSaveData &data,
+    const ItemTable &itemTable,
+    const HouseTable &houseTable,
+    const std::unordered_map<std::string, uint32_t> &loadedPackageSchemas);
+bool validateRequiredContentPackages(
+    const GameSaveData &data,
+    const ItemTable &itemTable,
+    const HouseTable &houseTable,
+    const std::unordered_map<std::string, uint32_t> &loadedPackageSchemas,
+    std::string &error);
 bool compareSavePathsForDisplay(const std::filesystem::path &left, const std::filesystem::path &right);
 }

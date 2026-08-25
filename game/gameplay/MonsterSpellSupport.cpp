@@ -12,7 +12,7 @@ bool isMonsterProjectileSpellName(const std::string &spellName)
         "fire bolt", "fireball", "incinerate", "lightning bolt", "implosion", "meteor shower",
         "ice bolt", "icebolt", "ice blast", "iceblast", "acid burst", "deadly swarm", "blades",
         "rock blast", "mass distortion", "sparks", "mind blast", "psychic shock", "psychic shockt",
-        "harm", "flying fist", "light bolt", "spirit lash", "toxic cloud", "shrapmetal",
+        "harm", "flying fist", "light bolt", "spirit lash", "toxic cloud", "shrapmetal", "dark grasp",
         "dragon breath", "poison spray"};
 
     const std::string lowered = toLowerCopy(spellName);

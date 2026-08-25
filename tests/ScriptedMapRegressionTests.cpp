@@ -70,6 +70,19 @@ public:
         bool moveParty = false;
     };
 
+    struct PersistentItemMechanismStateCall
+    {
+        std::string sourceId;
+        bool visible = false;
+        bool solid = false;
+    };
+
+    struct PersistentItemMechanismVariantCall
+    {
+        std::string sourceId;
+        uint32_t variantIndex = 0;
+    };
+
     float currentGameMinutes() const override
     {
         return m_currentGameMinutes;
@@ -206,10 +219,49 @@ public:
         return iterator != killedGroupResults.end() ? iterator->second : false;
     }
 
+    bool consumeWorldItem(const std::string &sourceId) override
+    {
+        consumedWorldItemSourceIds.push_back(sourceId);
+        return true;
+    }
+
+    bool setPersistentItemMechanismState(
+        const std::string &sourceId,
+        bool visible,
+        bool solid) override
+    {
+        persistentItemMechanismStateCalls.push_back({sourceId, visible, solid});
+        return true;
+    }
+
+    bool setPersistentItemMechanismVariant(
+        const std::string &sourceId,
+        uint32_t variantIndex) override
+    {
+        persistentItemMechanismVariantCalls.push_back({sourceId, variantIndex});
+        return true;
+    }
+
+    bool isMapActorHostile(size_t actorIndex) const override
+    {
+        return actorIndex == hostileActorIndex;
+    }
+
+    bool isMapActorWithinPartyDistance(size_t actorIndex, float distance) const override
+    {
+        return actorIndex == nearbyActorIndex && distance >= nearbyActorDistance;
+    }
+
     std::vector<CastSpellCall> castSpellCalls;
     std::vector<SummonMonstersCall> summonMonstersCalls;
     std::vector<OutdoorModelMechanismCall> outdoorModelMechanismCalls;
+    std::vector<std::string> consumedWorldItemSourceIds;
+    std::vector<PersistentItemMechanismStateCall> persistentItemMechanismStateCalls;
+    std::vector<PersistentItemMechanismVariantCall> persistentItemMechanismVariantCalls;
     std::unordered_map<uint32_t, bool> killedGroupResults;
+    size_t hostileActorIndex = 8;
+    size_t nearbyActorIndex = 3;
+    float nearbyActorDistance = 512.0f;
     const OpenYAMM::Game::IndoorMapData *pIndoorMapData = nullptr;
 
 private:
@@ -2614,6 +2666,64 @@ end)
     REQUIRE(runtimeState.chestItemRequests.contains(5));
     REQUIRE_FALSE(runtimeState.chestItemRequests.at(5).empty());
     CHECK_EQ(runtimeState.chestItemRequests.at(5).front().itemId, 772u);
+}
+
+TEST_CASE("event runtime routes generated pickup consumption through the scene source id")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    REQUIRE(supportLua.has_value());
+
+    const std::string localLuaSource =
+        *supportLua
+        + R"lua(
+
+RegisterEvent(30017, "Pickup", function()
+    evt.ConsumeWorldItem("mm9:test:object:17")
+    evt.SetPersistentItemMechanismState("mm9:test:object:18", false, false)
+    evt.SetPersistentItemMechanismVariant("mm9:test:object:18", 1)
+    evt.ApplyPartyPrimaryStatBuff(0, 2, 3000)
+    if evt.IsMapActorHostile(8) then
+        evt.SetMapVar("MM9ActorHostile", 1)
+    end
+    if evt.IsMapActorWithinPartyDistance(3, 512) then
+        evt.SetMapVar("MM9ActorNearby", 1)
+    end
+end)
+
+)lua";
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            localLuaSource,
+            "@events/maps/test_mm9_pickup.lua",
+            OpenYAMM::Game::ScriptedEventScope::Map,
+            error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    RecordingSceneEventContext sceneContext = {};
+
+    REQUIRE(eventRuntime.executeEventById(
+        localEventProgram,
+        std::nullopt,
+        30017,
+        runtimeState,
+        &party,
+        &sceneContext));
+    CHECK_EQ(sceneContext.consumedWorldItemSourceIds, std::vector<std::string>({"mm9:test:object:17"}));
+    REQUIRE_EQ(sceneContext.persistentItemMechanismStateCalls.size(), 1u);
+    CHECK_EQ(sceneContext.persistentItemMechanismStateCalls[0].sourceId, "mm9:test:object:18");
+    CHECK_FALSE(sceneContext.persistentItemMechanismStateCalls[0].visible);
+    CHECK_FALSE(sceneContext.persistentItemMechanismStateCalls[0].solid);
+    REQUIRE_EQ(sceneContext.persistentItemMechanismVariantCalls.size(), 1u);
+    CHECK_EQ(sceneContext.persistentItemMechanismVariantCalls[0].variantIndex, 1u);
+    CHECK_EQ(party.member(0)->magicalBonuses.might, 2);
+    CHECK_EQ(runtimeState.namedMapVars["MM9ActorHostile"], 1);
+    CHECK_EQ(runtimeState.namedMapVars["MM9ActorNearby"], 1);
 }
 
 TEST_CASE("mm7 lincoln mmmerge supplement registers containment actors on load")
@@ -8320,6 +8430,67 @@ TEST_CASE("full gameplay map load preloads object sprites that are not placed in
 
     CHECK(checkedTexture);
     CHECK(foundAnimationEnd);
+}
+
+TEST_CASE("MM9 quest and miscellaneous items resolve dedicated WorldItem sprites")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "6d01.blv",
+        OpenYAMM::Game::MapLoadPurpose::FullGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->indoorSpriteObjectBillboardSet.has_value());
+
+    const OpenYAMM::Game::ItemTable &itemTable = mapLoader.gameDataLoader.getItemTable();
+    const OpenYAMM::Game::ObjectTable &objectTable = mapLoader.gameDataLoader.getObjectTable();
+    const OpenYAMM::Game::SpriteObjectBillboardSet &billboardSet =
+        *pLoadedMap->indoorSpriteObjectBillboardSet;
+    size_t checkedItemCount = 0;
+
+    for (const OpenYAMM::Game::ItemDefinition &item : itemTable.entries())
+    {
+        if (item.packageId != "mm9"
+            || (!item.hasContentFlag("Quest") && OpenYAMM::Game::toLowerCopy(item.sourceEquipType) != "items"))
+        {
+            continue;
+        }
+
+        const uint32_t expectedObjectId = 20000 + item.sourceItemId;
+        const uint32_t expectedSpriteId = 24000 + item.sourceItemId;
+        CHECK_EQ(item.spriteIndex, expectedObjectId);
+        const std::optional<uint16_t> descriptionId =
+            objectTable.findDescriptionIdByObjectId(static_cast<int16_t>(expectedObjectId));
+        REQUIRE(descriptionId.has_value());
+        const OpenYAMM::Game::ObjectEntry *pObjectEntry = objectTable.get(*descriptionId);
+        REQUIRE(pObjectEntry != nullptr);
+        CHECK_EQ(pObjectEntry->spriteId, expectedSpriteId);
+
+        const OpenYAMM::Game::SpriteFrameEntry *pFrame =
+            billboardSet.spriteFrameTable.getFrame(pObjectEntry->spriteId, 0);
+        REQUIRE(pFrame != nullptr);
+        const std::string rawItemId = std::to_string(item.sourceItemId);
+        const std::string expectedTextureName =
+            "mm9wi" + std::string(4 - rawItemId.size(), '0') + rawItemId;
+        const OpenYAMM::Game::ResolvedSpriteTexture resolvedTexture =
+            OpenYAMM::Game::SpriteFrameTable::resolveTexture(*pFrame, 0);
+        CHECK_EQ(resolvedTexture.textureName, expectedTextureName);
+        CHECK(std::any_of(
+            billboardSet.textures.begin(),
+            billboardSet.textures.end(),
+            [&resolvedTexture](const OpenYAMM::Game::OutdoorBitmapTexture &texture)
+            {
+                return texture.textureName == resolvedTexture.textureName;
+            }));
+        ++checkedItemCount;
+    }
+
+    CHECK_EQ(checkedItemCount, 173);
 }
 
 TEST_CASE("full gameplay New Sorpigal load keeps outdoor actor textures lazy")

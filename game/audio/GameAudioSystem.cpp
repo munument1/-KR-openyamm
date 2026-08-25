@@ -942,6 +942,32 @@ uint64_t GameAudioSystem::playSoundInstance(
     return playResolvedSound(*virtualPath, group, position, loop, sound.id, "playSoundInstance");
 }
 
+uint64_t GameAudioSystem::playSoundInstanceByName(
+    const std::string &soundName,
+    PlaybackGroup group,
+    SoundScope scope,
+    const std::optional<WorldPosition> &position,
+    bool loop)
+{
+    const std::optional<std::string> virtualPath = m_soundCatalog.buildVirtualPathByName(scope, soundName);
+
+    if (!virtualPath)
+    {
+        if (audioTraceEnabled())
+        {
+            logAudioTracePrefix("request", "playSoundInstanceByName");
+            std::cerr << " name=\"" << soundName << "\" group=" << playbackGroupName(group)
+                      << " loop=" << (loop ? 1 : 0) << " result=unresolved";
+            logAudioTracePosition(position);
+            std::cerr << '\n';
+        }
+
+        return 0;
+    }
+
+    return playResolvedSound(*virtualPath, group, position, loop, 0, "playSoundInstanceByName");
+}
+
 bool GameAudioSystem::playLoopingSound(
     uint32_t soundId,
     PlaybackGroup group,

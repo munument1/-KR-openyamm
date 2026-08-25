@@ -6,6 +6,8 @@
 #include "game/gameplay/TurnBasedCombatRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
 #include "game/party/PartySpellSystem.h"
+#include "game/StringUtils.h"
+#include "game/tables/ItemTable.h"
 #include "game/tables/MonsterTable.h"
 
 #include <algorithm>
@@ -187,6 +189,7 @@ CharacterAttackResult buildRangedReleaseAttack(
     attack.recoverySeconds = profile.rangedRecoverySeconds;
     attack.skillLevel = profile.rangedSkillLevel;
     attack.skillMastery = profile.rangedSkillMastery;
+    attack.projectileCount = profile.rangedProjectileCount;
     attack.spellId = profile.rangedSpellId;
     attack.attackSoundHook = "wand_cast";
 
@@ -779,12 +782,24 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
         }
         else if (config.pWorldRuntime != nullptr)
         {
+            uint32_t projectileObjectId = config.arrowProjectileObjectId;
+            const ItemDefinition *pRangedWeapon = config.pItemTable != nullptr
+                ? config.pItemTable->get(pAttacker->equipment.bow)
+                : nullptr;
+
+            if (pRangedWeapon != nullptr && canonicalSkillName(pRangedWeapon->skillGroup) == "Throwing")
+            {
+                projectileObjectId = toLowerCopy(pRangedWeapon->unidentifiedName).find("axe") != std::string::npos
+                    ? config.throwingAxeProjectileObjectId
+                    : config.throwingDaggerProjectileObjectId;
+            }
+
             GameplayPartyAttackProjectileRequest projectileRequest = {
                 .sourcePartyMemberIndex = actingMemberIndex,
                 .objectId =
                     attack.mode == CharacterAttackMode::Blaster
                         ? config.blasterProjectileObjectId
-                        : config.arrowProjectileObjectId,
+                        : projectileObjectId,
                 .impactObjectId = attack.mode == CharacterAttackMode::Blaster ? config.blasterProjectileObjectId + 1 : 0,
                 .damage = attack.damage,
                 .attackBonus = attack.attackBonus,
@@ -797,14 +812,13 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
             };
             attacked = config.pWorldRuntime->spawnPartyAttackProjectile(projectileRequest);
 
-            if (attack.mode == CharacterAttackMode::Bow
-                && static_cast<SkillMastery>(attack.skillMastery) >= SkillMastery::Master)
+            for (uint8_t projectileIndex = 1; projectileIndex < attack.projectileCount; ++projectileIndex)
             {
                 const WorldPoint secondSource = offsetPartyProjectileSourceForMember(
                     config,
                     rangedTarget,
-                    actingMemberIndex + 1,
-                    party.members().size() + 1);
+                    actingMemberIndex + projectileIndex,
+                    party.members().size() + attack.projectileCount - 1);
                 projectileRequest.source = toRuntimeWorldPoint(secondSource);
                 attacked = config.pWorldRuntime->spawnPartyAttackProjectile(projectileRequest) || attacked;
             }
@@ -815,6 +829,46 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
 
     if (actionPerformed)
     {
+        const EquipmentSlot weaponSlot = attack.mode == CharacterAttackMode::Melee
+            ? EquipmentSlot::MainHand
+            : EquipmentSlot::Bow;
+        EquippedItemRuntimeState *pWeaponRuntime = party.equippedItemRuntimeMutable(actingMemberIndex, weaponSlot);
+        bool equippedStateChanged = false;
+
+        if (pWeaponRuntime != nullptr
+            && !pWeaponRuntime->broken
+            && pAttacker->equippedItemEffectFlags.contains("BreakAfterFirstAttack"))
+        {
+            pWeaponRuntime->broken = true;
+            equippedStateChanged = true;
+        }
+
+        if (pWeaponRuntime != nullptr
+            && !pWeaponRuntime->broken
+            && pAttacker->equippedItemEffectFlags.contains("BreakChance2SelfDamage")
+            && std::uniform_int_distribution<int>(0, 99)(rng) < 2)
+        {
+            pWeaponRuntime->broken = true;
+            party.applyDamageToMember(
+                actingMemberIndex,
+                std::max(1, pAttacker->maxHealth / 10),
+                "The weapon backfires");
+            equippedStateChanged = true;
+        }
+
+        if (attack.hit
+            && !attack.stunTarget
+            && pAttacker->equippedItemEffectFlags.contains("SelfKnockoutOnFailedStun70")
+            && std::uniform_int_distribution<int>(0, 99)(rng) < 70)
+        {
+            party.applyMemberCondition(actingMemberIndex, CharacterCondition::Unconscious);
+        }
+
+        if (equippedStateChanged)
+        {
+            party.refreshDerivedState();
+        }
+
         playPartyAttackSound(config, *pAttacker, attack);
 
         if (config.pRuntime != nullptr && config.pRuntime->turnBasedCombatRuntime().active())

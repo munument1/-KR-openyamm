@@ -5,6 +5,7 @@
 #include "game/events/ScriptedEventProgram.h"
 #include "game/gameplay/NpcFollowerTypes.h"
 #include "game/maps/MapDeltaData.h"
+#include "game/outdoor/OutdoorMechanismAudio.h"
 #include "game/party/Party.h"
 #include "game/tables/PortraitFxEventTable.h"
 
@@ -35,6 +36,7 @@ enum class DialogueContextKind
     NpcTalk,
     NpcNews,
     MapTransition,
+    Mm9Rude,
 };
 
 enum class DialogueMenuId : uint32_t
@@ -110,6 +112,7 @@ struct EventRuntimeState
         bool closed = true;
         bool openAway = false;
         bool moveParty = false;
+        OutdoorMechanismAudioProfile audio = {};
     };
 
     struct PendingMapMove
@@ -222,12 +225,23 @@ struct EventRuntimeState
         std::optional<uint32_t> sourceActorIndex;
     };
 
+    struct SuspendedMm9RudeDialogue
+    {
+        uint32_t rudeId = 0;
+        int32_t nodeId = 0;
+        std::optional<uint32_t> sourceActorIndex;
+        std::string response;
+        uint32_t selectionIndex = 0;
+        bool exitCallbackExecuted = false;
+    };
+
     struct DialogueRuntimeState
     {
         uint32_t hostHouseId = 0;
         std::vector<DialogueMenuId> menuStack;
         std::optional<DialogueOfferState> currentOffer;
         std::array<uint8_t, 4> templeDonationCounters = {};
+        std::optional<SuspendedMm9RudeDialogue> suspendedMm9RudeDialogue;
     };
 
     using HiredNpcFollower = ::OpenYAMM::Game::HiredNpcFollower;
@@ -707,6 +721,12 @@ public:
         Party *pParty,
         const std::vector<size_t> &targetMemberIndices
     );
+    static void setQuestBitValue(
+        EventRuntimeState &runtimeState,
+        Party &party,
+        uint32_t qbitId,
+        bool value,
+        const std::vector<size_t> &targetMemberIndices = {});
     static void applyMechanismAction(
         RuntimeMechanismState &runtimeMechanism,
         const MapDeltaDoor *pDoor,

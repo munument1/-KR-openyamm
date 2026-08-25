@@ -1,0 +1,119 @@
+#pragma once
+
+#include "game/party/SkillData.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+namespace OpenYAMM::Engine
+{
+class AssetFileSystem;
+}
+
+namespace OpenYAMM::Game
+{
+class Party;
+struct EventRuntimeState;
+
+constexpr uint32_t Mm9QuestKeyQBitBegin = 90000;
+constexpr uint32_t Mm9QuestKeyQBitEnd = 99999;
+constexpr int32_t Mm9QuestKeyRawIdMaximum = 9999;
+constexpr uint32_t Mm9RudeExitEventIdBegin = 50000;
+constexpr uint32_t Mm9RudeExitEventIdEnd = 52999;
+constexpr uint32_t Mm9RudeUseEventIdBegin = 53000;
+constexpr uint32_t Mm9RudeUseEventIdEnd = 55999;
+constexpr uint32_t Mm9RudeFoundPlayerEventIdBegin = 56000;
+constexpr uint32_t Mm9RudeFoundPlayerEventIdEnd = 58999;
+
+std::optional<uint32_t> mm9QBitForRawQuestKey(int32_t rawKeyId);
+std::optional<int32_t> mm9RawQuestKeyForQBit(uint32_t qbitId);
+std::optional<uint16_t> mm9RudeExitEventIdForSourceObject(uint32_t sourceObjectIndex);
+std::optional<uint16_t> mm9RudeUseEventIdForSourceObject(uint32_t sourceObjectIndex);
+std::optional<uint16_t> mm9RudeFoundPlayerEventIdForSourceObject(uint32_t sourceObjectIndex);
+
+enum class Mm9RudeSelectionKind
+{
+    GotoNode,
+    Close,
+    Service,
+    Unresolved,
+};
+
+struct Mm9RudeRow
+{
+    size_t rowIndex = 0;
+    size_t sourceLine = 0;
+    int32_t rudeId = 0;
+    int32_t nodeId = 0;
+    int32_t choiceSlot = 0;
+    std::string prompt;
+    std::string response;
+    int32_t next = 0;
+    std::vector<int32_t> requiredRawKeys;
+    std::vector<int32_t> grantedRawKeys;
+    std::vector<int32_t> forbiddenRawKeys;
+    std::vector<int32_t> removedRawKeys;
+    std::vector<std::string> rawColumns;
+};
+
+struct Mm9RudeSelection
+{
+    Mm9RudeSelectionKind kind = Mm9RudeSelectionKind::Unresolved;
+    int32_t next = 0;
+    int32_t serviceOpcode = 0;
+    std::string response;
+};
+
+struct Mm9RudeSkillTrainerTopic
+{
+    int32_t rawTrainerId = 0;
+    std::string displayName;
+    SkillMastery targetMastery = SkillMastery::None;
+    std::vector<std::string> skillNames;
+    uint32_t requiredSkillRank = 0;
+    uint32_t requiredGold = 0;
+};
+
+class Mm9RudeDialogueTable
+{
+public:
+    bool load(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadDialogueText(const std::string &sourceName, const std::string &text);
+    bool loadNpcNamesText(const std::string &sourceName, const std::string &text);
+    bool loadTopBlurbsText(const std::string &sourceName, const std::string &text);
+    void clear();
+
+    bool empty() const;
+    bool hasDialogue(uint32_t rudeId) const;
+    std::string npcName(uint32_t rudeId) const;
+    std::string topBlurb(uint32_t rudeId) const;
+    std::vector<const Mm9RudeRow *> visibleRows(uint32_t rudeId, int32_t nodeId, const Party &party) const;
+    const std::vector<Mm9RudeRow> &rows(uint32_t rudeId) const;
+    const Mm9RudeRow *rowByIndex(uint32_t rudeId, size_t rowIndex) const;
+    const std::vector<std::string> &errors() const;
+
+private:
+    void addError(const std::string &sourceName, size_t sourceLine, const std::string &message);
+
+    std::unordered_map<uint32_t, std::vector<Mm9RudeRow>> m_rowsByRudeId;
+    std::unordered_map<uint32_t, std::string> m_npcNames;
+    std::unordered_map<uint32_t, std::string> m_topBlurbs;
+    std::vector<std::string> m_errors;
+};
+
+Mm9RudeSelection selectMm9RudeRow(const Mm9RudeRow &row);
+std::optional<Mm9RudeSkillTrainerTopic> resolveMm9RudeSkillTrainerTopic(const Mm9RudeRow &row);
+bool mm9RudeRowPassesQuestKeys(
+    const Mm9RudeRow &row,
+    const std::function<bool(uint32_t)> &hasQBit);
+void applyMm9RudeRowActions(
+    const Mm9RudeRow &row,
+    Party &party,
+    EventRuntimeState *pEventRuntimeState = nullptr);
+std::string mm9RudeServiceName(int32_t opcode);
+}

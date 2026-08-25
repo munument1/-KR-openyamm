@@ -90,5 +90,65 @@ public:
         (void)verticalVelocity;
         return false;
     }
+
+    virtual bool setMapActorPosition(size_t actorIndex, float x, float y, float z)
+    {
+        (void)actorIndex;
+        (void)x;
+        (void)y;
+        (void)z;
+        return false;
+    }
+
+    virtual bool isMapActorHostile(size_t actorIndex) const
+    {
+        (void)actorIndex;
+        return false;
+    }
+
+    virtual bool isMapActorWithinPartyDistance(size_t actorIndex, float distance) const
+    {
+        (void)actorIndex;
+        (void)distance;
+        return false;
+    }
+
+    virtual bool searchLootProp(const std::string &sourceId)
+    {
+        (void)sourceId;
+        return false;
+    }
+
+    virtual bool spawnLootContainer(const std::string &sourceId)
+    {
+        (void)sourceId;
+        return false;
+    }
+
+    virtual bool consumeWorldItem(const std::string &sourceId)
+    {
+        (void)sourceId;
+        return false;
+    }
+
+    virtual bool setPersistentItemMechanismState(
+        const std::string &sourceId,
+        bool visible,
+        bool solid)
+    {
+        (void)sourceId;
+        (void)visible;
+        (void)solid;
+        return false;
+    }
+
+    virtual bool setPersistentItemMechanismVariant(
+        const std::string &sourceId,
+        uint32_t variantIndex)
+    {
+        (void)sourceId;
+        (void)variantIndex;
+        return false;
+    }
 };
 }

@@ -29,6 +29,14 @@ add_executable(openyamm_unit_tests
     MapDeltaDataTests.cpp
     MM7MechanicsRuntimeTests.cpp
     MercenaryRecruitmentRuntimeTests.cpp
+    Mm9MapTransitionTests.cpp
+    Mm9TeacherScheduleTests.cpp
+    Mm9RudeDialogueTests.cpp
+    Mm9SkillTrainerTests.cpp
+    Mm9TransportRouteTests.cpp
+    Mm9QuestMarkerTests.cpp
+    MapItemSourceTests.cpp
+    MapPresentationTests.cpp
     MonsterTableRegressionTests.cpp
     MobileJumpDoubleTapGestureTests.cpp
     MobileJoystickDirectionTests.cpp
@@ -38,6 +46,7 @@ add_executable(openyamm_unit_tests
     OutdoorPathfindingBuilderTests.cpp
     OutdoorNavigationDataTests.cpp
     OutdoorRenderDataTests.cpp
+    BillboardGeometryTests.cpp
     PartyRegressionTests.cpp
     PathMapTests.cpp
     PathPlannerTests.cpp
@@ -68,6 +77,7 @@ add_executable(openyamm_unit_tests
     ../game/audio/GameAudioSystem.cpp
     ../game/audio/SoundCatalog.cpp
     ../game/content/ContentManifest.cpp
+    ../game/content/ContentTableComposer.cpp
     ../game/data/ActorNameResolver.cpp
     ../game/data/GameDataLoader.cpp
     ../game/debug/GameplayDebugTrace.cpp
@@ -80,6 +90,9 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/GameplayBolsterRuntime.cpp
     ../game/gameplay/GameplayActorAiSystem.cpp
     ../game/gameplay/GameplayActorService.cpp
+    ../game/gameplay/GameplayWorldItemPolicy.cpp
+    ../game/gameplay/SearchableLootPropRuntime.cpp
+    ../game/gameplay/LootContainerRuntime.cpp
     ../game/gameplay/GameplayDialogController.cpp
     ../game/gameplay/GameplayCombatController.cpp
     ../game/gameplay/GameplaySpeechRules.cpp
@@ -100,6 +113,7 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/GameplayProjectileService.cpp
     ../game/gameplay/GameplaySaveLoadUiSupport.cpp
     ../game/gameplay/TurnBasedCombatRuntime.cpp
+    ../game/gameplay/TravelRuntime.cpp
     ../game/gameplay/CorpseLootRuntime.cpp
     ../game/gameplay/SavePreviewImage.cpp
     ../game/maps/MapDeltaData.cpp
@@ -108,6 +122,8 @@ add_executable(openyamm_unit_tests
     ../game/maps/SaveGame.cpp
     ../game/maps/MapRegistry.cpp
     ../game/maps/IndoorSceneYml.cpp
+    ../game/maps/MapItemSourceYml.cpp
+    ../game/maps/MapPresentation.cpp
     ../game/maps/OutdoorSceneYml.cpp
     ../game/maps/TerrainTileData.cpp
     ../game/indoor/IndoorCollisionPrimitives.cpp
@@ -149,6 +165,13 @@ add_executable(openyamm_unit_tests
     ../game/tables/MonsterTable.cpp
     ../game/tables/MonsterProjectileTable.cpp
     ../game/tables/MergedBaseTables.cpp
+    ../game/mm9/Mm9RudeDialogue.cpp
+    ../game/mm9/Mm9PositionedTransitionRuntime.cpp
+    ../game/mm9/Mm9SkillTrainer.cpp
+    ../game/mm9/Mm9TransportRoute.cpp
+    ../game/mm9/Mm9QuestMarkers.cpp
+    ../game/mm9/Mm9MapTransition.cpp
+    ../game/mm9/Mm9TeacherSchedule.cpp
     ../game/tables/MapStats.cpp
     ../game/tables/NpcDialogTable.cpp
     ../game/tables/ObjectTable.cpp

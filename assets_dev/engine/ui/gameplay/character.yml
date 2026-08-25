@@ -1343,7 +1343,7 @@ elements:
             offset_y: 0
             width: 0
             height: 0
-            z_index: 63
+            z_index: 66
             notes: Armor slot
 
           - id: CharacterDollBootsSlot

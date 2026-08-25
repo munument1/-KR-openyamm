@@ -11,6 +11,10 @@
 namespace OpenYAMM::Game
 {
 class GameplayScreenRuntime;
+class Mm9RudeDialogueTable;
+class Mm9MapTransitionTable;
+class Mm9SkillTrainerTable;
+class Mm9TransportRouteTable;
 
 inline GameplayDialogController::Context buildGameplayDialogContext(
     GameplayUiController &uiController,
@@ -23,6 +27,10 @@ inline GameplayDialogController::Context buildGameplayDialogContext(
     const HouseTable *pHouseTable,
     const ClassSkillTable *pClassSkillTable,
     const NpcDialogTable *pNpcDialogTable,
+    const Mm9RudeDialogueTable *pMm9RudeDialogueTable,
+    const Mm9MapTransitionTable *pMm9MapTransitionTable,
+    const Mm9SkillTrainerTable *pMm9SkillTrainerTable,
+    const Mm9TransportRouteTable *pMm9TransportRouteTable,
     const TransitionTable *pTransitionTable,
     const MapStatsEntry *pCurrentMap,
     const std::vector<MapStatsEntry> *pMapEntries,
@@ -51,6 +59,10 @@ inline GameplayDialogController::Context buildGameplayDialogContext(
         pHouseTable,
         pClassSkillTable,
         pNpcDialogTable,
+        pMm9RudeDialogueTable,
+        pMm9MapTransitionTable,
+        pMm9SkillTrainerTable,
+        pMm9TransportRouteTable,
         pTransitionTable,
         pCurrentMap,
         pMapEntries,

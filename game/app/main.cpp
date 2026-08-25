@@ -356,6 +356,12 @@ int runApplication(int argc, char **argv)
         return diagnostics.runDumpOutdoorNavigation(argv[0], arguments[1]);
     }
 
+    if (arguments.size() == 2 && arguments[0] == "--headless-verify-outdoor-world-item-floor")
+    {
+        OpenYAMM::Game::HeadlessGameplayDiagnostics diagnostics(config);
+        return diagnostics.runVerifyOutdoorWorldItemFloor(argv[0], arguments[1]);
+    }
+
     if (arguments.size() == 4 && arguments[0] == "--headless-verify-outdoor-save-roundtrip")
     {
         const int parsedChestEventId = std::stoi(arguments[2]);
@@ -389,6 +395,22 @@ int runApplication(int argc, char **argv)
             argv[0],
             arguments[1],
             static_cast<uint32_t>(parsedMechanismId));
+    }
+
+    if (arguments.size() == 3 && arguments[0] == "--headless-verify-mm9-positioned-transition")
+    {
+        const unsigned long parsedSourceObjectIndex = std::stoul(arguments[2]);
+
+        if (parsedSourceObjectIndex > UINT32_MAX)
+        {
+            return 2;
+        }
+
+        OpenYAMM::Game::HeadlessGameplayDiagnostics diagnostics(config);
+        return diagnostics.runVerifyMm9PositionedTransition(
+            argv[0],
+            arguments[1],
+            static_cast<uint32_t>(parsedSourceObjectIndex));
     }
 
     if (arguments.size() == 2 && arguments[0] == "--headless-capture-projectile-fx")

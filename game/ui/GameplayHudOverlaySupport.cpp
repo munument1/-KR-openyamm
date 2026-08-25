@@ -333,6 +333,7 @@ CharacterSkillUiData buildCharacterSkillUiData(const Character *pCharacter)
     static constexpr const char *WeaponSkillNames[] = {
         "Axe",
         "Bow",
+        "Throwing",
         "Dagger",
         "Mace",
         "Spear",

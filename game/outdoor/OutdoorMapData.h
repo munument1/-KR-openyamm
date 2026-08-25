@@ -1,9 +1,12 @@
 #pragma once
 
+#include "game/maps/MapPresentation.h"
+
 #include "game/maps/OutdoorSceneProfile.h"
 #include "game/outdoor/OutdoorNavigationData.h"
 #include "game/outdoor/OutdoorRenderData.h"
 #include "game/outdoor/OutdoorLightingData.h"
+#include "game/outdoor/OutdoorMechanismAudio.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -49,6 +52,7 @@ struct OutdoorBModelFace
     uint8_t polygonType = 0;
     uint8_t shade = 0;
     uint8_t visibility = 0;
+    int perceptionDifficulty = -1;
     std::string textureName;
 };
 
@@ -173,6 +177,13 @@ struct OutdoorBModelMechanism
     bool locked = false;
     bool openAway = false;
     bool moveParty = false;
+    OutdoorMechanismAudioProfile audio = {};
+};
+
+struct OutdoorMm9NpcGreeting
+{
+    uint32_t sourceObjectIndex = 0;
+    std::string soundName;
 };
 
 struct OutdoorMapData
@@ -189,6 +200,8 @@ struct OutdoorMapData
     std::string description;
     OutdoorSceneProfile sceneProfile = OutdoorSceneProfile::ClassicOdm;
     OutdoorLocationType locationType = OutdoorLocationType::Exterior;
+    float lightmapBrightnessScale = 1.0f;
+    float viewDistanceScale = 1.0f;
     bool noTerrain = false;
     std::string skyTexture;
     std::string groundTilesetName;
@@ -207,9 +220,11 @@ struct OutdoorMapData
     std::vector<OutdoorSpawn> spawns;
     std::vector<OutdoorTerrainFootstepSoundOverride> terrainFootstepSoundOverrides;
     std::vector<OutdoorBModelMechanism> mechanisms;
+    std::vector<OutdoorMm9NpcGreeting> mm9NpcGreetings;
     std::optional<OutdoorNavigationData> navigationData;
     std::optional<OutdoorRenderData> renderData;
     std::optional<OutdoorLightingData> lightingData;
+    std::optional<MapPresentation> mapPresentation;
     size_t terrainNormalCount = 0;
     size_t bmodelCount = 0;
     size_t entityCount = 0;

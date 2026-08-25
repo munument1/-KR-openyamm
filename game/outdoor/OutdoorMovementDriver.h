@@ -133,6 +133,7 @@ public:
     void setWaterWalkActive(bool active);
     void setFeatherFallActive(bool active);
     void setSpeedMultiplier(float multiplier);
+    void setBodyDimensions(float radius, float height);
     void setCollisionTraceEnabled(bool enabled, std::string mapName);
     void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 1.0f);
     void requestSpecialJump(float velocityX, float velocityY, float velocityZ);
@@ -144,6 +145,7 @@ private:
     OutdoorMoveState m_state;
     OutdoorPartyMovementState m_partyMovementState;
     OutdoorMovementTuning m_tuning;
+    OutdoorBodyDimensions m_bodyDimensions;
     OutdoorMovementEvents m_lastEvents;
     OutdoorMovementConsequences m_lastConsequences;
     OutdoorMovementEffects m_pendingEffects;

@@ -3,6 +3,7 @@
 #include "game/audio/SoundIds.h"
 #include "game/debug/GameplayDebugTrace.h"
 #include "game/items/ItemGenerator.h"
+#include "game/items/ItemRuntime.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/party/Party.h"
 #include "game/tables/ItemTable.h"
@@ -222,11 +223,21 @@ InventoryItem normalizedCorpseInventoryItem(const GameplayChestItemState &item)
 
 bool displaceHeldItemToWorld(
     IGameplayWorldRuntime &worldRuntime,
-    GameplayUiController::HeldInventoryItemState &heldInventoryItem)
+    GameplayUiController::HeldInventoryItemState &heldInventoryItem,
+    const ItemTable *pItemTable)
 {
     if (!heldInventoryItem.active)
     {
         return true;
+    }
+
+    const ItemDefinition *pItemDefinition = pItemTable != nullptr
+        ? pItemTable->get(heldInventoryItem.item.objectDescriptionId)
+        : nullptr;
+
+    if (pItemDefinition != nullptr && !ItemRuntime::canDrop(*pItemDefinition))
+    {
+        return false;
     }
 
     std::optional<GameplayHeldItemDropRequest> dropRequest = worldRuntime.buildHeldItemDropRequest();
@@ -440,7 +451,8 @@ GameplayCorpseAutoLootResult autoLootActiveCorpseView(
             continue;
         }
 
-        if (pHeldInventoryItem != nullptr && displaceHeldItemToWorld(worldRuntime, *pHeldInventoryItem))
+        if (pHeldInventoryItem != nullptr
+            && displaceHeldItemToWorld(worldRuntime, *pHeldInventoryItem, pItemTable))
         {
             GameplayChestItemState removedItem = {};
 

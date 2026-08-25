@@ -10,11 +10,13 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayHeldItemController.h"
 #include "game/app/GameSession.h"
+#include "game/mm9/Mm9RudeDialogue.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
 #include "game/outdoor/OutdoorMechanismRuntime.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/SpawnPreview.h"
 #include "game/outdoor/OutdoorWorldRuntime.h"
+#include "game/render/BillboardGeometry.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/ItemTable.h"
 #include "game/tables/MergedBaseTables.h"
@@ -1734,6 +1736,10 @@ GameplayDialogController::Context OutdoorInteractionController::createGameplayDi
         &view.data().houseTable(),
         &view.data().classSkillTable(),
         &view.data().npcDialogTable(),
+        &view.data().mm9RudeDialogueTable(),
+        &view.data().mm9MapTransitionTable(),
+        &view.data().mm9SkillTrainerTable(),
+        &view.data().mm9TransportRouteTable(),
         &view.data().transitionTable(),
         view.m_map ? &*view.m_map : nullptr,
         &view.data().mapEntries(),
@@ -3082,11 +3088,12 @@ bool OutdoorInteractionController::hitTestDecorationBillboard(
     const float halfWidth = worldWidth * 0.5f;
     const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
-    const bx::Vec3 center = {
+    const bx::Vec3 center = bottomAnchoredBillboardCenter(
         static_cast<float>(billboard.x),
         static_cast<float>(billboard.y),
-        static_cast<float>(billboard.z) + worldHeight * 0.5f
-    };
+        static_cast<float>(billboard.z),
+        cameraUp,
+        worldHeight);
     const bx::Vec3 right = {
         cameraRight.x * halfWidth,
         cameraRight.y * halfWidth,
@@ -3262,11 +3269,12 @@ bool OutdoorInteractionController::hitTestActorBillboard(
     const float halfWidth = worldWidth * 0.5f;
     const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
-    const bx::Vec3 center = {
+    const bx::Vec3 center = bottomAnchoredBillboardCenter(
         static_cast<float>(actorX),
         static_cast<float>(actorY),
-        static_cast<float>(actorZ) + worldHeight * 0.5f
-    };
+        static_cast<float>(actorZ),
+        cameraUp,
+        worldHeight);
     const bx::Vec3 right = {
         cameraRight.x * halfWidth,
         cameraRight.y * halfWidth,
@@ -4926,23 +4934,27 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(OutdoorGameView 
     auto faceTalkingActor = [&view, &inspectHit]() {
         if (view.m_pOutdoorWorldRuntime == nullptr || view.m_pOutdoorPartyRuntime == nullptr)
         {
-            return;
+            return false;
         }
 
         const OutdoorMoveState &moveState = view.m_pOutdoorPartyRuntime->movementState();
 
         if (inspectHit.kind != "actor")
         {
-            return;
+            return false;
         }
 
         const std::optional<size_t> runtimeActorIndex = resolveRuntimeActorIndexForInspectHit(view, inspectHit);
 
         if (runtimeActorIndex)
         {
-            view.m_pOutdoorWorldRuntime->notifyPartyContactWithMapActor(*runtimeActorIndex, moveState.x, moveState.y,
-                                                                        moveState.footZ);
+            return view.m_pOutdoorWorldRuntime->faceMapActorTowardPoint(
+                *runtimeActorIndex,
+                moveState.x,
+                moveState.y);
         }
+
+        return false;
     };
 
     const std::optional<size_t> resolvedRuntimeActorIndex =
@@ -4961,6 +4973,157 @@ bool OutdoorInteractionController::tryActivateActorInspectEvent(OutdoorGameView 
         pResolvedActorState != nullptr ? pResolvedActorState->displayName : inspectHit.name;
     const uint32_t resolvedActorGroup =
         pResolvedActorState != nullptr ? pResolvedActorState->group : inspectHit.actorGroup;
+
+    GAMEPLAY_DEBUG_TRACE(
+        "outdoor_actor_activation"
+        " name=\"" + resolvedActorName + "\""
+        + " inspect_npc_id=" + std::to_string(inspectHit.npcId)
+        + " runtime_actor="
+        + (resolvedRuntimeActorIndex.has_value()
+            ? std::to_string(*resolvedRuntimeActorIndex)
+            : std::string("none"))
+        + " mm9_rude_id="
+        + (pResolvedActorState != nullptr
+            ? std::to_string(pResolvedActorState->mm9RudeId)
+            : std::string("none"))
+        + " distance=" + std::to_string(inspectHit.distance));
+
+    if (inspectHit.kind == "actor" && pResolvedActorState != nullptr && pResolvedActorState->mm9RudeId > 0)
+    {
+        if (pResolvedActorState->mm9FleeingFromParty)
+        {
+            pEventRuntimeState->lastActivationResult = "fleeing MM9 dialogue actor blocked";
+            return false;
+        }
+
+        if (inspectHitTargetsLivingHostileActor(view, inspectHit))
+        {
+            pEventRuntimeState->lastActivationResult = "hostile MM9 dialogue actor blocked";
+            return false;
+        }
+
+        const bool facedParty = faceTalkingActor();
+        const MapDeltaData *pMapDeltaData = view.m_pOutdoorWorldRuntime->mapDeltaData();
+        const MapDeltaActor *pSourceActor =
+            resolvedRuntimeActorIndex.has_value()
+                && pMapDeltaData != nullptr
+                && *resolvedRuntimeActorIndex < pMapDeltaData->actors.size()
+            ? &pMapDeltaData->actors[*resolvedRuntimeActorIndex]
+            : nullptr;
+
+        if (pSourceActor != nullptr)
+        {
+            const OutdoorMapData *pMapData = view.m_pOutdoorWorldRuntime->mapData();
+            const OutdoorMm9NpcGreeting *pGreeting = nullptr;
+
+            if (pMapData != nullptr)
+            {
+                const auto greeting = std::find_if(
+                    pMapData->mm9NpcGreetings.begin(),
+                    pMapData->mm9NpcGreetings.end(),
+                    [pSourceActor](const OutdoorMm9NpcGreeting &entry)
+                    {
+                        return entry.sourceObjectIndex == pSourceActor->mm9SourceObjectIndex;
+                    });
+
+                if (greeting != pMapData->mm9NpcGreetings.end())
+                {
+                    pGreeting = &*greeting;
+                }
+            }
+
+            if (pGreeting != nullptr && !pGreeting->soundName.empty())
+            {
+                EventRuntimeState::PendingSound sound = {};
+                sound.soundScope = SoundScope::World;
+                sound.soundName = pGreeting->soundName;
+                sound.x = static_cast<int32_t>(std::lround(pResolvedActorState->preciseX));
+                sound.y = static_cast<int32_t>(std::lround(pResolvedActorState->preciseY));
+                sound.z = static_cast<int32_t>(std::lround(pResolvedActorState->preciseZ));
+                sound.positional = true;
+                sound.hasExplicitZ = true;
+                pEventRuntimeState->pendingSounds.push_back(std::move(sound));
+            }
+        }
+
+        const std::optional<ScriptedEventProgram> *pLocalEventProgram =
+            view.m_pOutdoorSceneRuntime != nullptr
+            ? &view.m_pOutdoorSceneRuntime->localEventProgram()
+            : nullptr;
+        std::optional<uint16_t> entryEventId;
+
+        if (pSourceActor != nullptr && pLocalEventProgram != nullptr && pLocalEventProgram->has_value())
+        {
+            const std::optional<uint16_t> useEventId =
+                mm9RudeUseEventIdForSourceObject(pSourceActor->mm9SourceObjectIndex);
+
+            if (useEventId.has_value() && (*pLocalEventProgram)->hasEvent(*useEventId))
+            {
+                entryEventId = useEventId;
+            }
+        }
+
+        if (entryEventId.has_value())
+        {
+            EventRuntimeState::ActiveHookContext hookContext = {};
+            hookContext.actorIndex = resolvedRuntimeActorIndex32;
+            const std::optional<EventRuntimeState::ActiveHookContext> previousHookContext =
+                pEventRuntimeState->activeHookContext;
+            pEventRuntimeState->activeHookContext = std::move(hookContext);
+            size_t previousMessageCount = pEventRuntimeState->messages.size();
+            const bool executed = view.m_pOutdoorWorldRuntime->executeMapEvent(
+                *entryEventId,
+                previousMessageCount);
+            pEventRuntimeState->activeHookContext = previousHookContext;
+
+            if (executed && pEventRuntimeState->pendingDialogueContext.has_value())
+            {
+                OutdoorInteractionController::presentPendingEventDialog(
+                    view,
+                    previousMessageCount,
+                    false);
+            }
+
+            const bool dialogActive = view.m_gameSession.gameplayScreenRuntime().activeEventDialog().isActive
+                && view.m_gameSession.gameplayScreenRuntime().activeEventDialog().presentation
+                    == EventDialogPresentation::Mm9Rude;
+            pEventRuntimeState->lastActivationResult = executed
+                ? "MM9 SCR entry " + std::to_string(*entryEventId) + " executed"
+                : "MM9 SCR entry " + std::to_string(*entryEventId) + " failed";
+            GAMEPLAY_DEBUG_TRACE(
+                "outdoor_mm9_scr_activation"
+                " event_id=" + std::to_string(*entryEventId)
+                + " runtime_actor=" + std::to_string(*resolvedRuntimeActorIndex)
+                + " faced_party=" + std::string(facedParty ? "true" : "false")
+                + " executed=" + std::string(executed ? "true" : "false")
+                + " dialog_active=" + std::string(dialogActive ? "true" : "false"));
+            return executed;
+        }
+
+        GameplayDialogController::Context context =
+            createGameplayDialogContext(view, *pEventRuntimeState, "activate_actor_mm9_rude_dialog");
+        GameplayScreenRuntime &screenRuntime = view.m_gameSession.gameplayScreenRuntime();
+        view.m_gameSession.gameplayDialogController().openMm9RudeDialogue(
+            context,
+            static_cast<uint32_t>(pResolvedActorState->mm9RudeId),
+            resolvedRuntimeActorIndex32);
+        screenRuntime.presentActiveEventDialog();
+        const bool dialogActive = context.activeEventDialog.isActive
+            && context.activeEventDialog.presentation == EventDialogPresentation::Mm9Rude;
+        GAMEPLAY_DEBUG_TRACE(
+            "outdoor_mm9_rude_activation"
+            " rude_id=" + std::to_string(pResolvedActorState->mm9RudeId)
+            + " runtime_actor=" + std::to_string(*resolvedRuntimeActorIndex)
+            + " faced_party=" + std::string(facedParty ? "true" : "false")
+            + " actor_yaw=" + std::to_string(pResolvedActorState->yawRadians)
+            + " dialog_active=" + std::string(dialogActive ? "true" : "false")
+            + " title=\"" + context.activeEventDialog.title + "\""
+            + " actions=" + std::to_string(context.activeEventDialog.actions.size()));
+        pEventRuntimeState->lastActivationResult = dialogActive
+            ? "MM9 RUDE " + std::to_string(pResolvedActorState->mm9RudeId) + " engaged"
+            : "MM9 RUDE " + std::to_string(pResolvedActorState->mm9RudeId) + " failed";
+        return dialogActive;
+    }
 
     if (inspectHit.kind == "actor" && inspectHit.npcId > 0)
     {
@@ -5100,6 +5263,22 @@ bool OutdoorInteractionController::tryActivateWorldItemInspectEvent(
     if (pWorldItem == nullptr)
     {
         return false;
+    }
+
+    if (pWorldItem->semanticLootContainer)
+    {
+        return view.m_pOutdoorWorldRuntime->activateSemanticLootContainer(inspectHit.bModelIndex);
+    }
+
+    if (view.m_pOutdoorWorldRuntime->isSemanticWorldItem(inspectHit.bModelIndex))
+    {
+        const bool activated = view.m_pOutdoorWorldRuntime->activateSemanticWorldItem(inspectHit.bModelIndex);
+        if (activated)
+        {
+            view.m_pOutdoorPartyRuntime->party().requestSound(SoundId::Gold);
+            view.setStatusBarEvent("Item received.");
+        }
+        return activated;
     }
 
     const ItemDefinition *pItemDefinition = view.data().itemTable().get(pWorldItem->item.objectDescriptionId);
@@ -5455,6 +5634,18 @@ bool OutdoorInteractionController::canActivateActorInspectEvent(
         }
     }
 
+    const std::optional<size_t> resolvedRuntimeActorIndex = resolveRuntimeActorIndexForInspectHit(view, inspectHit);
+    const OutdoorWorldRuntime::MapActorState *pResolvedActorState =
+        resolvedRuntimeActorIndex && view.m_pOutdoorWorldRuntime != nullptr
+            ? view.m_pOutdoorWorldRuntime->mapActorState(*resolvedRuntimeActorIndex)
+            : nullptr;
+
+    if (pResolvedActorState != nullptr && pResolvedActorState->mm9RudeId > 0)
+    {
+        return !pResolvedActorState->mm9FleeingFromParty
+            && !inspectHitTargetsLivingHostileActor(view, inspectHit);
+    }
+
     if (inspectHit.npcId > 0)
     {
         return !inspectHitTargetsLivingHostileActor(view, inspectHit);
@@ -5465,11 +5656,6 @@ bool OutdoorInteractionController::canActivateActorInspectEvent(
         return false;
     }
 
-    const std::optional<size_t> resolvedRuntimeActorIndex = resolveRuntimeActorIndexForInspectHit(view, inspectHit);
-    const OutdoorWorldRuntime::MapActorState *pResolvedActorState =
-        resolvedRuntimeActorIndex && view.m_pOutdoorWorldRuntime != nullptr
-            ? view.m_pOutdoorWorldRuntime->mapActorState(*resolvedRuntimeActorIndex)
-            : nullptr;
     const uint32_t resolvedMonsterId = pResolvedActorState != nullptr && pResolvedActorState->monsterId > 0
         ? static_cast<uint32_t>(pResolvedActorState->monsterId)
         : 0;

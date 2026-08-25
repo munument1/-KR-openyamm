@@ -14,6 +14,7 @@ namespace OpenYAMM::Game
 struct Character;
 class ItemTable;
 struct ItemDefinition;
+struct ItemContentEffect;
 enum class CharacterAttackMode;
 
 enum class ItemEnchantCategory : uint8_t
@@ -78,6 +79,7 @@ public:
         const StandardItemEnchantTable *pStandardTable,
         const SpecialItemEnchantTable *pSpecialTable,
         Character &member);
+    static void applyContentEffect(const ItemContentEffect &effect, Character &member);
     static int characterAttackDamageMultiplierAgainstMonster(
         const Character &character,
         CharacterAttackMode attackMode,

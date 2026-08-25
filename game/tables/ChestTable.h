@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace OpenYAMM::Game
@@ -24,6 +26,7 @@ class ChestTable
 public:
     bool loadRows(const std::vector<std::vector<std::string>> &rows);
     const ChestEntry *get(uint16_t chestTypeId) const;
+    std::optional<uint16_t> findIdByName(std::string_view name) const;
     const std::vector<ChestEntry> &getEntries() const;
 
 private:

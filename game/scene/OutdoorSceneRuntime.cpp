@@ -1,6 +1,7 @@
 #include "game/scene/OutdoorSceneRuntime.h"
 #include "game/FaceEnums.h"
 #include "game/debug/GameplayDebugTrace.h"
+#include "game/gameplay/TravelRuntime.h"
 
 #include <SDL3/SDL.h>
 
@@ -161,7 +162,9 @@ OutdoorSceneRuntime::OutdoorSceneRuntime(
     const std::optional<ScriptedEventProgram> &localEventProgram,
     const std::optional<ScriptedEventProgram> &globalEventProgram,
     const HouseTable *pHouseTable,
-    const NpcDialogTable *pNpcDialogTable)
+    const NpcDialogTable *pNpcDialogTable,
+    const Mm9MapTransitionTable *pMm9MapTransitionTable,
+    const Mm9TeacherScheduleTable *pMm9TeacherScheduleTable)
     : m_mapFileName(mapFileName)
     , m_mapEntry(mapEntry)
     , m_pPartyRuntime(&partyRuntime)
@@ -170,6 +173,16 @@ OutdoorSceneRuntime::OutdoorSceneRuntime(
     , m_globalEventProgram(globalEventProgram)
     , m_eventRuntime(pHouseTable, pNpcDialogTable)
 {
+    if (pMm9MapTransitionTable != nullptr)
+    {
+        m_mm9PositionedTransitionRuntime.configure(
+            pMm9MapTransitionTable->forSourceMapFile(mapFileName));
+    }
+    if (pMm9TeacherScheduleTable != nullptr)
+    {
+        m_mm9TeacherScheduleRuntime.configure(
+            pMm9TeacherScheduleTable->forSourceMapFile(mapFileName));
+    }
 }
 
 SceneKind OutdoorSceneRuntime::kind() const
@@ -273,6 +286,11 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
 
     EventRuntimeState *pEventRuntimeState = m_pWorldRuntime->eventRuntimeState();
 
+    applyMm9TeacherScheduleActivations(
+        m_mm9TeacherScheduleRuntime.update(m_pWorldRuntime->gameMinutes()),
+        *m_pWorldRuntime,
+        *m_pWorldRuntime);
+
     if (pEventRuntimeState != nullptr)
     {
         result.previousMessageCount = pEventRuntimeState->messages.size();
@@ -371,6 +389,29 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
     if (pPerformanceDiagnostics != nullptr)
     {
         pPerformanceDiagnostics->pressurePlateNanoseconds += SDL_GetTicksNS() - stageBeginTickCount;
+    }
+
+    if (pEventRuntimeState != nullptr)
+    {
+        const std::optional<Mm9PositionedTransitionActivation> activation =
+            m_mm9PositionedTransitionRuntime.update(
+                moveState.x,
+                moveState.y,
+                moveState.footZ,
+                *pEventRuntimeState);
+        if (activation)
+        {
+            result.shouldOpenEventDialog = result.shouldOpenEventDialog
+                || activation->pTransition->askPlayer;
+            if (!activation->pTransition->askPlayer)
+            {
+                applyTravelDaysSideEffects(
+                    m_pPartyRuntime->party(),
+                    m_pWorldRuntime,
+                    activation->pTransition->travelDays,
+                    std::max(0, activation->pTransition->travelDays));
+            }
+        }
     }
 
     stageBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;

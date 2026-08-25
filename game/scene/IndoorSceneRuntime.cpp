@@ -4,6 +4,7 @@
 #include "game/gameplay/GameplayActorService.h"
 #include "game/indoor/IndoorGeometryUtils.h"
 #include "game/gameplay/InteractiveDecorationRules.h"
+#include "game/gameplay/TravelRuntime.h"
 #include "game/maps/MapAssetLoader.h"
 
 #include <algorithm>
@@ -400,7 +401,10 @@ IndoorSceneRuntime::IndoorSceneRuntime(
     const MergedBolsterMapTable *pMergedBolsterMapTable,
     const MergedBolsterMonsterTable *pMergedBolsterMonsterTable,
     bool bolsterMonstersEnabled,
-    const NpcDialogTable *pNpcDialogTable)
+    const NpcDialogTable *pNpcDialogTable,
+    const MapItemSourceData *pItemSourceData,
+    const Mm9MapTransitionTable *pMm9MapTransitionTable,
+    const Mm9TeacherScheduleTable *pMm9TeacherScheduleTable)
     : m_map(map)
     , m_mapFileName(mapFileName)
     , m_pIndoorMapData(&indoorMapData)
@@ -453,11 +457,22 @@ IndoorSceneRuntime::IndoorSceneRuntime(
         &indoorMapData,
         pIndoorDecorationBillboardSet,
         pMergedBolsterMapTable,
-        pMergedBolsterMonsterTable
+        pMergedBolsterMonsterTable,
+        pItemSourceData
     );
     m_worldRuntime.bindEventExecution(&m_eventRuntime, &m_localEventProgram, &m_globalEventProgram);
 
     initializeIndoorPartyStart(m_partyRuntime, indoorMapData);
+    if (pMm9MapTransitionTable != nullptr)
+    {
+        m_mm9PositionedTransitionRuntime.configure(
+            pMm9MapTransitionTable->forSourceMapFile(mapFileName));
+    }
+    if (pMm9TeacherScheduleTable != nullptr)
+    {
+        m_mm9TeacherScheduleRuntime.configure(
+            pMm9TeacherScheduleTable->forSourceMapFile(mapFileName));
+    }
 }
 
 IndoorSceneRuntime::IndoorSceneRuntime(
@@ -479,7 +494,10 @@ IndoorSceneRuntime::IndoorSceneRuntime(
     const MergedBolsterMapTable *pMergedBolsterMapTable,
     const MergedBolsterMonsterTable *pMergedBolsterMonsterTable,
     bool bolsterMonstersEnabled,
-    const NpcDialogTable *pNpcDialogTable)
+    const NpcDialogTable *pNpcDialogTable,
+    const MapItemSourceData *pItemSourceData,
+    const Mm9MapTransitionTable *pMm9MapTransitionTable,
+    const Mm9TeacherScheduleTable *pMm9TeacherScheduleTable)
     : m_map(map)
     , m_mapFileName(mapFileName)
     , m_pIndoorMapData(&indoorMapData)
@@ -527,11 +545,22 @@ IndoorSceneRuntime::IndoorSceneRuntime(
         &indoorMapData,
         pIndoorDecorationBillboardSet,
         pMergedBolsterMapTable,
-        pMergedBolsterMonsterTable
+        pMergedBolsterMonsterTable,
+        pItemSourceData
     );
     m_worldRuntime.bindEventExecution(&m_eventRuntime, &m_localEventProgram, &m_globalEventProgram);
 
     initializeIndoorPartyStart(m_partyRuntime, indoorMapData);
+    if (pMm9MapTransitionTable != nullptr)
+    {
+        m_mm9PositionedTransitionRuntime.configure(
+            pMm9MapTransitionTable->forSourceMapFile(mapFileName));
+    }
+    if (pMm9TeacherScheduleTable != nullptr)
+    {
+        m_mm9TeacherScheduleRuntime.configure(
+            pMm9TeacherScheduleTable->forSourceMapFile(mapFileName));
+    }
 }
 
 SceneKind IndoorSceneRuntime::kind() const
@@ -685,6 +714,8 @@ void IndoorSceneRuntime::restoreSnapshot(const Snapshot &snapshot)
     }
     m_mechanismAudioStates.clear();
     m_mechanismAccumulatorMilliseconds = snapshot.mechanismAccumulatorMilliseconds;
+    m_mm9PositionedTransitionRuntime.resetOverlapState();
+    m_mm9TeacherScheduleRuntime.reset();
 }
 
 void IndoorSceneRuntime::stampLastVisitTime()
@@ -723,7 +754,30 @@ bool IndoorSceneRuntime::advanceSimulation(float deltaMilliseconds)
     }
 
     bool stateChanged = updateTimers(deltaGameMinutes);
+    stateChanged = applyMm9TeacherScheduleActivations(
+        m_mm9TeacherScheduleRuntime.update(m_worldRuntime.gameMinutes()),
+        m_worldRuntime,
+        m_worldRuntime) || stateChanged;
     stateChanged = updatePartyFaceTriggers() || stateChanged;
+    const IndoorMoveState &moveState = m_partyRuntime.movementState();
+    const std::optional<Mm9PositionedTransitionActivation> activation =
+        m_mm9PositionedTransitionRuntime.update(
+            moveState.x,
+            moveState.y,
+            moveState.footZ,
+            *m_eventRuntimeState);
+    if (activation)
+    {
+        stateChanged = true;
+        if (!activation->pTransition->askPlayer)
+        {
+            applyTravelDaysSideEffects(
+                m_partyRuntime.party(),
+                &m_worldRuntime,
+                activation->pTransition->travelDays,
+                std::max(0, activation->pTransition->travelDays));
+        }
+    }
 
     if (!hasMovingMechanism(*m_eventRuntimeState))
     {

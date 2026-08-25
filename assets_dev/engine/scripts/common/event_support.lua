@@ -449,10 +449,10 @@ support.skillCheck = support.skillCheck or {
 }
 
 support.mechanismState = support.mechanismState or {
-    Closed = 0,
-    Opening = 1,
-    Open = 2,
-    Closing = 3,
+    Open = 0,
+    Closing = 1,
+    Closed = 2,
+    Opening = 3,
 }
 
 support.mechanismAction = support.mechanismAction or {

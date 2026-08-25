@@ -355,6 +355,7 @@ public:
         bool cachedMapValid = false;
         int cachedMapWidth = 0;
         int cachedMapHeight = 0;
+        std::string cachedMapTextureName;
         int cachedMapZoomStep = 0;
         float cachedMapCenterX = 0.0f;
         float cachedMapCenterY = 0.0f;

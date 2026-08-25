@@ -265,7 +265,18 @@ int PriceCalculator::transportPrice(
     int effectiveReputation)
 {
     const int basePrice = isBoat ? 50 : 25;
-    const int scaledBasePrice = std::max(1, static_cast<int>(std::round(static_cast<float>(basePrice) * houseEntry.priceMultiplier)));
+    return transportPrice(pCharacter, basePrice, houseEntry.priceMultiplier, effectiveReputation);
+}
+
+int PriceCalculator::transportPrice(
+    const Character *pCharacter,
+    int basePrice,
+    float priceMultiplier,
+    int effectiveReputation)
+{
+    basePrice = std::max(1, basePrice);
+    const int scaledBasePrice =
+        std::max(1, static_cast<int>(std::round(static_cast<float>(basePrice) * priceMultiplier)));
     const int minimumPrice = std::max(1, basePrice / 3);
     return std::max(minimumPrice, applyMerchantDiscount(pCharacter, scaledBasePrice, effectiveReputation));
 }

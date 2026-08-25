@@ -119,6 +119,16 @@ void GameplayActorService::bindTables(const MonsterTable *pMonsterTable, const S
     m_pSpellTable = pSpellTable;
 }
 
+void GameplayActorService::setPartyEngagementRange(float range)
+{
+    m_partyEngagementRange = range;
+}
+
+float GameplayActorService::configuredPartyEngagementRange() const
+{
+    return m_partyEngagementRange;
+}
+
 bool GameplayActorService::isBound() const
 {
     return m_pMonsterTable != nullptr && m_pSpellTable != nullptr;
@@ -658,7 +668,7 @@ float GameplayActorService::partyEngagementRange(const GameplayActorTargetPolicy
         return 0.0f;
     }
 
-    return actor.hostileToParty ? HostilityLongRange : 0.0f;
+    return actor.hostileToParty ? m_partyEngagementRange : 0.0f;
 }
 
 float GameplayActorService::hostilityPromotionRangeForFriendlyActor(int relation) const

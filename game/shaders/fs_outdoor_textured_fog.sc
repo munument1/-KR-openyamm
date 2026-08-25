@@ -26,6 +26,11 @@ float safeSmoothstep(float edge0, float edge1, float value)
 
 float getFogRatio(float dist)
 {
+    if (u_fogDensities.w > 0.5)
+    {
+        return clamp((dist - u_fogDistances.x) / max(u_fogDistances.y - u_fogDistances.x, 1.0), 0.0, 1.0);
+    }
+
     return
         u_fogDensities.x
         + (u_fogDensities.y - u_fogDensities.x) * safeSmoothstep(u_fogDistances.x, u_fogDistances.y, dist)
@@ -34,6 +39,11 @@ float getFogRatio(float dist)
 
 float getFogAlpha(float dist)
 {
+    if (u_fogDensities.w > 0.5)
+    {
+        return 1.0;
+    }
+
     return 1.0 - safeSmoothstep(u_fogDistances.y, u_fogDistances.z, dist);
 }
 
@@ -111,7 +121,19 @@ void main()
     textureColor.rgb = mix(textureColor.rgb, u_fogColor.rgb, u_fogDensities.z);
     vec4 litTextureColor = vec4(textureColor.rgb * getFxLighting(v_worldPosition), textureColor.a);
 
-    if (v_texcoord1.x > 0.5 && u_secretPulseParams.x > 0.5)
+    bool classicSecret = v_texcoord1.x > 0.5 && v_texcoord1.x < 1.5;
+    bool authoredPerception = v_texcoord1.x >= 1.5;
+    bool perceptionDetected = u_secretPulseParams.z >= v_texcoord1.x - 2.0;
+    bool secretDetected =
+        (classicSecret && u_secretPulseParams.x > 0.5)
+        || (authoredPerception && perceptionDetected);
+
+    if (authoredPerception && !perceptionDetected)
+    {
+        discard;
+    }
+
+    if (secretDetected)
     {
         float pulse = 0.5 + 0.5 * sin(u_secretPulseParams.y * 4.0);
         litTextureColor.rgb *= vec3(1.0, pulse, pulse);

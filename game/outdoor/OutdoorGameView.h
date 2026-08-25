@@ -117,6 +117,7 @@ public:
     float cameraYawRadians() const;
     float cameraPitchRadians() const;
     void setCameraAngles(float yawRadians, float pitchRadians);
+    void setCameraEyeHeight(float eyeHeight);
     void reopenMenuScreen();
     bool requestQuickSave();
     bool requestTravelAutosave();
@@ -349,6 +350,7 @@ private:
     struct ViewDistanceCache
     {
         std::string sourceValue;
+        float sourceScale = 0.0f;
         float farClipDistance = 18000.0f;
         float runtimeProjectileDistance = 12288.0f;
         float runtimeProjectileDistanceSquared = 12288.0f * 12288.0f;

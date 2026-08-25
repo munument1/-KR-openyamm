@@ -44,6 +44,33 @@ bool itemNameContains(const ItemDefinition &itemDefinition, const std::string &t
     return lowerAscii(itemDefinition.name).find(lowerAscii(text)) != std::string::npos;
 }
 
+std::vector<std::string> pipeSeparatedSkills(const std::string &value)
+{
+    std::vector<std::string> result;
+    size_t begin = 0;
+
+    while (begin <= value.size())
+    {
+        const size_t end = value.find('|', begin);
+        const std::string canonicalName = canonicalSkillName(value.substr(begin, end - begin));
+
+        if (!canonicalName.empty()
+            && std::find(result.begin(), result.end(), canonicalName) == result.end())
+        {
+            result.push_back(canonicalName);
+        }
+
+        if (end == std::string::npos)
+        {
+            break;
+        }
+
+        begin = end + 1;
+    }
+
+    return result;
+}
+
 int totalDaysFromGameMinutes(float gameMinutes)
 {
     const int totalMinutes = std::max(0, static_cast<int>(std::floor(gameMinutes)));
@@ -744,6 +771,16 @@ InventoryItemUseAction InventoryItemUseRuntime::classifyItemUse(
         return InventoryItemUseAction::UseConnectorStone;
     }
 
+    if (lowerAscii(pItemDefinition->useAction) == "learnskill")
+    {
+        return InventoryItemUseAction::LearnSkill;
+    }
+
+    if (lowerAscii(pItemDefinition->useAction) == "readtext")
+    {
+        return InventoryItemUseAction::ReadMessageScroll;
+    }
+
     if (pItemDefinition->equipStat == "Sscroll")
     {
         return InventoryItemUseAction::CastScroll;
@@ -967,6 +1004,78 @@ InventoryItemUseResult InventoryItemUseRuntime::useItemOnMember(
             result.consumed = true;
             result.spellId = *spellId;
             result.speechId = SpeechId::LearnSpell;
+            return result;
+        }
+
+        case InventoryItemUseAction::LearnSkill:
+        {
+            const std::vector<std::string> targetSkills = pipeSeparatedSkills(pItemDefinition->useTarget);
+
+            if (targetSkills.empty())
+            {
+                return makeFailure(result.action, itemCannotBeUsedStatusText(*pItemDefinition));
+            }
+
+            std::vector<std::string> learnableSkills;
+            bool hasAlreadyKnownSkill = false;
+            const ClassSkillTable *pClassSkillTable = party.classSkillTable();
+
+            for (const std::string &skillName : targetSkills)
+            {
+                const bool classCanLearn = pClassSkillTable != nullptr
+                    && pClassSkillTable->getEffectiveCap(
+                        pTargetMember->className,
+                        pTargetMember->raceId,
+                        skillName) != SkillMastery::None;
+
+                if (!classCanLearn)
+                {
+                    continue;
+                }
+
+                if (pTargetMember->hasSkill(skillName))
+                {
+                    hasAlreadyKnownSkill = true;
+                    continue;
+                }
+
+                if (party.canMemberLearnSkill(targetMemberIndex, skillName))
+                {
+                    learnableSkills.push_back(skillName);
+                }
+            }
+
+            if (hasAlreadyKnownSkill)
+            {
+                result = makeFailure(
+                    result.action,
+                    "You already know one or more skills in " + itemDisplayNameForStatus(*pItemDefinition));
+                result.alreadyKnown = true;
+                return result;
+            }
+
+            if (learnableSkills.size() != targetSkills.size())
+            {
+                result = makeFailure(
+                    result.action,
+                    "This character cannot learn the skills in " + itemDisplayNameForStatus(*pItemDefinition));
+                return result;
+            }
+
+            for (const std::string &skillName : learnableSkills)
+            {
+                if (!party.learnMemberSkill(targetMemberIndex, skillName))
+                {
+                    return makeFailure(result.action, "The skill could not be learned");
+                }
+            }
+
+            result.handled = true;
+            result.consumed = true;
+            result.learnedSkills = learnableSkills;
+            result.statusText = learnableSkills.size() == 1
+                ? "Learned " + displaySkillName(learnableSkills.front())
+                : "Learned the skills in " + itemDisplayNameForStatus(*pItemDefinition);
             return result;
         }
 

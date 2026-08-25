@@ -1263,6 +1263,61 @@ bool compileMechanismModel(
     result.generatedDoors.push_back(std::move(sceneDoor));
     return true;
 }
+
+bool compileStaticFaceGroupModel(
+    const ImportedModel &model,
+    const std::unordered_map<std::string, std::string> &materialTextureLookup,
+    float scale,
+    Game::IndoorMapData &indoorGeometry,
+    IndoorSourceGeometryCompileResult &result,
+    std::string &errorMessage)
+{
+    const uint16_t sectorIndex = chooseMechanismSector(indoorGeometry, model, scale);
+    Game::IndoorSector &sector = indoorGeometry.sectors[sectorIndex];
+    bool boundsInitialized = true;
+    IndoorVertexInterner vertexInterner;
+    std::vector<uint16_t> positionVertexIds;
+    if (!appendModelVertices(
+            model,
+            scale,
+            indoorGeometry,
+            &sector,
+            &boundsInitialized,
+            vertexInterner,
+            positionVertexIds,
+            errorMessage))
+    {
+        return false;
+    }
+
+    std::vector<uint16_t> appendedFaceIds;
+    if (!appendImportedFaces(
+            model,
+            materialTextureLookup,
+            positionVertexIds,
+            sectorIndex,
+            sectorIndex,
+            0,
+            false,
+            indoorGeometry,
+            appendedFaceIds,
+            result,
+            errorMessage))
+    {
+        return false;
+    }
+
+    for (uint16_t faceIndex : appendedFaceIds)
+    {
+        appendFaceToSector(sector, faceIndex, indoorGeometry.faces[faceIndex].facetType);
+    }
+    refreshSectorCounts(sector);
+    result.generatedFaceGroups.push_back(IndoorSourceFaceGroup{
+        sourceNodeNameFromModelName(model.name),
+        std::move(appendedFaceIds),
+    });
+    return true;
+}
 }
 
 bool compileIndoorSourceGeometry(
@@ -1346,6 +1401,28 @@ bool compileIndoorSourceGeometry(
                 materialTextureLookup,
                 metadata.source.unitScale,
                 staticVertexInterner,
+                result.indoorGeometry,
+                result,
+                errorMessage))
+        {
+            return false;
+        }
+    }
+
+    for (const ImportedModel &model : models)
+    {
+        const std::string sourceNodeName = sourceNodeNameFromModelName(model.name);
+
+        if (!startsWithInsensitive(sourceNodeName, "INTERACT_")
+            && !startsWithInsensitive(sourceNodeName, "IPVAR_"))
+        {
+            continue;
+        }
+
+        if (!compileStaticFaceGroupModel(
+                model,
+                materialTextureLookup,
+                metadata.source.unitScale,
                 result.indoorGeometry,
                 result,
                 errorMessage))

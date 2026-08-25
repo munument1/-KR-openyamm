@@ -226,6 +226,7 @@ TEST_CASE("settings debug startup options round trip")
     settings.combatTraceFile = "tmp/combat.log";
     settings.combatTraceAppend = false;
     settings.contextActionPopup = true;
+    settings.questMarkers = false;
     settings.verticalSync = true;
     settings.mouseSensitivity = 42;
 
@@ -262,6 +263,7 @@ TEST_CASE("settings debug startup options round trip")
     CHECK_EQ(loadedSettings->combatTraceFile, "tmp/combat.log");
     CHECK_FALSE(loadedSettings->combatTraceAppend);
     CHECK(loadedSettings->contextActionPopup);
+    CHECK_FALSE(loadedSettings->questMarkers);
     CHECK(loadedSettings->verticalSync);
     CHECK_EQ(loadedSettings->mouseSensitivity, 42);
 
@@ -422,6 +424,7 @@ TEST_CASE("settings monster bolster feature defaults off")
     CHECK_EQ(loadedSettings->combatTraceFile, "logs/combat_trace.log");
     CHECK(loadedSettings->combatTraceAppend);
     CHECK_EQ(loadedSettings->contextActionPopup, OpenYAMM::Game::GameSettings::createDefault().contextActionPopup);
+    CHECK(loadedSettings->questMarkers);
     CHECK(loadedSettings->outdoorBillboardDepthSlice == doctest::Approx(256.0f));
     CHECK_FALSE(loadedSettings->skipEventCutscenes);
     CHECK(loadedSettings->waitForLevelSprites);

@@ -98,6 +98,14 @@ const char *scenarioDialogActionKindName(EventDialogActionKind kind)
             return "guild_membership_join";
         case EventDialogActionKind::GeneratedMercenaryJoinOffer:
             return "generated_mercenary_join_offer";
+        case EventDialogActionKind::Mm9RudeTopic:
+            return "mm9_rude_topic";
+        case EventDialogActionKind::Mm9RudeSkillTrainerOffer:
+            return "mm9_rude_skill_trainer_offer";
+        case EventDialogActionKind::Mm9RudeSkillTrainerLearn:
+            return "mm9_rude_skill_trainer_learn";
+        case EventDialogActionKind::Mm9RudeSkillTrainerBack:
+            return "mm9_rude_skill_trainer_back";
     }
 
     return "unknown";

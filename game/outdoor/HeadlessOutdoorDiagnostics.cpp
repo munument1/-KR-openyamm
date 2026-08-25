@@ -17,6 +17,7 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/GameplayActorService.h"
 #include "game/gameplay/GameplayCombatController.h"
+#include "game/gameplay/GameplayDialogController.h"
 #include "game/gameplay/GameplayScreenController.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/GenericActorDialog.h"
@@ -349,6 +350,11 @@ struct GameApplicationTestAccess
         return application.loadGameData(assetFileSystem);
     }
 
+    static bool ensureCommonGameDataLoaded(GameApplication &application)
+    {
+        return application.ensureCommonGameDataLoaded();
+    }
+
     static bool loadMapByFileNameForGameplay(
         GameApplication &application,
         Engine::AssetFileSystem &assetFileSystem,
@@ -576,6 +582,12 @@ struct GameApplicationTestAccess
         return application.processPendingMapMove();
     }
 
+    static const std::optional<EventRuntimeState::PendingMapMove> &pendingSessionMapMove(
+        const GameApplication &application)
+    {
+        return application.m_gameSession.pendingMapMove();
+    }
+
     static SceneKind currentSceneKind(const GameApplication &application)
     {
         return application.m_gameSession.currentSceneKind();
@@ -666,27 +678,32 @@ struct GameApplicationTestAccess
             *pEventRuntimeState,
             screenRuntime.activeEventDialog(),
             screenRuntime.eventDialogSelectionIndex(),
-            &screenRuntime,
-            application.m_pOutdoorPartyRuntime != nullptr ? &application.m_pOutdoorPartyRuntime->party() : nullptr,
-            application.m_pOutdoorWorldRuntime.get(),
-            pGlobalEventProgram,
-            &application.m_gameDataLoader.getHouseTable(),
-            &application.m_gameDataLoader.getClassSkillTable(),
-            &application.m_gameDataLoader.getNpcDialogTable(),
-            &application.m_gameDataLoader.getTransitionTable(),
-            selectedMap ? &selectedMap->map : nullptr,
-            &application.m_gameDataLoader.getMapStats().getEntries(),
-            &application.m_gameDataLoader.getRosterTable(),
-            &application.m_gameDataLoader.getArcomageLibrary(),
-            &application.m_gameDataLoader.getMergedNpcProfessionTable(),
-            &application.m_gameDataLoader.getMergedNewsProfessionTopicTable(),
-            &application.m_gameDataLoader.getMergedNpcBtbTable(),
-            &application.m_gameDataLoader.getMergedBolsterMapTable(),
-            &application.m_gameDataLoader.getMergedContinentSettingTable(),
-            &application.m_gameDataLoader.getMergedTeacherTopicTable(),
-            &application.m_gameDataLoader.getMergedTeacherAutonoteTable(),
-            false
         };
+        context.pScreenRuntime = &screenRuntime;
+        context.pParty = application.m_pOutdoorPartyRuntime != nullptr
+            ? &application.m_pOutdoorPartyRuntime->party()
+            : nullptr;
+        context.pWorldRuntime = application.m_pOutdoorWorldRuntime.get();
+        context.pGlobalEventProgram = pGlobalEventProgram;
+        context.pHouseTable = &application.m_gameDataLoader.getHouseTable();
+        context.pClassSkillTable = &application.m_gameDataLoader.getClassSkillTable();
+        context.pNpcDialogTable = &application.m_gameDataLoader.getNpcDialogTable();
+        context.pMm9RudeDialogueTable = &application.m_gameDataLoader.getMm9RudeDialogueTable();
+        context.pMm9MapTransitionTable = &application.m_gameDataLoader.getMm9MapTransitionTable();
+        context.pMm9SkillTrainerTable = &application.m_gameDataLoader.getMm9SkillTrainerTable();
+        context.pMm9TransportRouteTable = &application.m_gameDataLoader.getMm9TransportRouteTable();
+        context.pTransitionTable = &application.m_gameDataLoader.getTransitionTable();
+        context.pCurrentMap = selectedMap ? &selectedMap->map : nullptr;
+        context.pMapEntries = &application.m_gameDataLoader.getMapStats().getEntries();
+        context.pRosterTable = &application.m_gameDataLoader.getRosterTable();
+        context.pArcomageLibrary = &application.m_gameDataLoader.getArcomageLibrary();
+        context.pNpcProfessionTable = &application.m_gameDataLoader.getMergedNpcProfessionTable();
+        context.pNewsProfessionTopicTable = &application.m_gameDataLoader.getMergedNewsProfessionTopicTable();
+        context.pNpcBtbTable = &application.m_gameDataLoader.getMergedNpcBtbTable();
+        context.pBolsterMapTable = &application.m_gameDataLoader.getMergedBolsterMapTable();
+        context.pContinentSettingTable = &application.m_gameDataLoader.getMergedContinentSettingTable();
+        context.pTeacherTopicTable = &application.m_gameDataLoader.getMergedTeacherTopicTable();
+        context.pTeacherAutonoteTable = &application.m_gameDataLoader.getMergedTeacherAutonoteTable();
 
         application.m_gameSession.gameplayDialogController().presentPendingEventDialog(
             context,
@@ -1936,6 +1953,25 @@ EventDialogContent buildHeadlessDialog(
     float currentGameMinutes
 )
 {
+    if (eventRuntimeState.pendingDialogueContext.has_value()
+        && eventRuntimeState.pendingDialogueContext->kind == DialogueContextKind::Mm9Rude)
+    {
+        GameplayUiController uiController = {};
+        EventDialogContent dialog = {};
+        size_t selectionIndex = 0;
+        GameplayDialogController::Context context = {
+            uiController,
+            eventRuntimeState,
+            dialog,
+            selectionIndex,
+        };
+        context.pParty = pParty;
+        context.pMm9RudeDialogueTable = &gameDataLoader.getMm9RudeDialogueTable();
+        GameplayDialogController controller = {};
+        controller.presentPendingEventDialog(context, previousMessageCount, allowNpcFallbackContent, false);
+        return dialog;
+    }
+
     promoteSingleResidentHouseContext(
         eventRuntimeState,
         gameDataLoader.getHouseTable(),
@@ -2811,7 +2847,11 @@ bool initializeRegressionScenario(
         selectedMap.outdoorSpriteObjectBillboardSet,
         &scenario.actorService,
         &scenario.projectileService,
-        &scenario.combatController
+        &scenario.combatController,
+        nullptr,
+        nullptr,
+        nullptr,
+        selectedMap.itemSourceData ? &*selectedMap.itemSourceData : nullptr
     );
 
     scenario.party = {};
@@ -2947,7 +2987,8 @@ bool prepareSharedHeadlessGameApplication(
 
     if (!session.isGameDataLoaded)
     {
-        if (!GameApplicationTestAccess::loadGameData(session.application, assetFileSystem))
+        if (!GameApplicationTestAccess::loadGameData(session.application, assetFileSystem)
+            || !GameApplicationTestAccess::ensureCommonGameDataLoaded(session.application))
         {
             failure = "could not load gameplay data";
             return false;
@@ -4047,6 +4088,264 @@ int HeadlessGameplayDiagnostics::runDumpOutdoorNavigation(
     return buildResult.pathFacetCount > 0 ? 0 : 1;
 }
 
+int HeadlessGameplayDiagnostics::runVerifyOutdoorWorldItemFloor(
+    const std::filesystem::path &basePath,
+    const std::string &mapFileName
+) const
+{
+    Engine::AssetFileSystem assetFileSystem;
+
+    if (!assetFileSystem.initialize(
+            basePath,
+            m_config.assetRoot,
+            m_config.assetScaleTier,
+            m_config.assetScaleProfile,
+            m_config.activeWorldId))
+    {
+        std::cerr << "Outdoor world-item floor check failed: could not initialize asset file system\n";
+        return 1;
+    }
+
+    GameDataLoader gameDataLoader;
+    gameDataLoader.setInitialMapFileName(mapFileName);
+
+    if (!gameDataLoader.loadForHeadlessGameplay(assetFileSystem)
+        || !gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, mapFileName))
+    {
+        std::cerr << "Outdoor world-item floor check failed: could not load map \"" << mapFileName << "\"\n";
+        return 1;
+    }
+
+    const std::optional<MapAssetInfo> &selectedMap = gameDataLoader.getSelectedMap();
+
+    if (!selectedMap || !selectedMap->outdoorMapData || !selectedMap->outdoorMapDeltaData
+        || !outdoorMapUsesBModelGround(*selectedMap->outdoorMapData))
+    {
+        std::cerr << "Outdoor world-item floor check failed: map does not use B-model ground\n";
+        return 1;
+    }
+
+    const OutdoorEntity *pPartyStart = nullptr;
+
+    for (const OutdoorEntity &entity : selectedMap->outdoorMapData->entities)
+    {
+        if (toLowerCopy(entity.name) == "party start")
+        {
+            pPartyStart = &entity;
+            break;
+        }
+    }
+
+    if (pPartyStart == nullptr)
+    {
+        std::cerr << "Outdoor world-item floor check failed: map has no party start entity\n";
+        return 1;
+    }
+
+    RegressionScenario scenario = {};
+
+    if (!initializeRegressionScenario(gameDataLoader, *selectedMap, scenario))
+    {
+        std::cerr << "Outdoor world-item floor check failed: scenario init failed\n";
+        return 1;
+    }
+
+    size_t groundedSemanticItemCount = 0;
+    const size_t semanticItemSourceCount = selectedMap->itemSourceData
+        ? selectedMap->itemSourceData->worldItems.size()
+            + static_cast<size_t>(std::count_if(
+                selectedMap->itemSourceData->lootContainers.begin(),
+                selectedMap->itemSourceData->lootContainers.end(),
+                [](const MapLootContainerSource &source)
+                {
+                    return source.kind == LootContainerKind::TreasureBag;
+                }))
+        : 0;
+    size_t resolvedMm9SemanticVisualCount = 0;
+    for (size_t itemIndex = 0; itemIndex < scenario.world.worldItemCount(); ++itemIndex)
+    {
+        const OutdoorWorldRuntime::WorldItemState *pPlacedItem = scenario.world.worldItemStateMutable(itemIndex);
+
+        if (pPlacedItem == nullptr || (!pPlacedItem->semanticPlacedPickup && !pPlacedItem->semanticLootContainer))
+        {
+            continue;
+        }
+
+        const OutdoorSupportFloorSample placedSupport = sampleOutdoorSupportFloor(
+            *selectedMap->outdoorMapData,
+            pPlacedItem->x,
+            pPlacedItem->y,
+            pPlacedItem->z,
+            5.0f,
+            std::max(5.0f, static_cast<float>(pPlacedItem->radius)));
+        const float expectedPlacedZ = placedSupport.height + 1.0f;
+
+        if (!placedSupport.hasFloor || std::abs(pPlacedItem->z - expectedPlacedZ) > 0.01f)
+        {
+            std::cerr << "Outdoor world-item floor check failed: semantic item " << itemIndex
+                      << " z=" << pPlacedItem->z
+                      << " expected_z=" << expectedPlacedZ
+                      << " has_floor=" << (placedSupport.hasFloor ? "yes" : "no")
+                      << '\n';
+            return 1;
+        }
+
+        if (pPlacedItem->semanticPlacedPickup)
+        {
+            const ItemDefinition *pPlacedItemDefinition =
+                gameDataLoader.getItemTable().get(pPlacedItem->item.objectDescriptionId);
+
+            if (pPlacedItemDefinition != nullptr && pPlacedItemDefinition->packageId == "mm9"
+                && pPlacedItemDefinition->spriteIndex >= 20000
+                && pPlacedItemDefinition->spriteIndex <= 20999)
+            {
+                const std::optional<uint16_t> expectedDescriptionId =
+                    gameDataLoader.getObjectTable().findDescriptionIdByObjectId(
+                        static_cast<int16_t>(pPlacedItemDefinition->spriteIndex));
+                const std::string rawItemId = std::to_string(pPlacedItemDefinition->sourceItemId);
+                const std::string expectedSpriteName =
+                    "mm9wi" + std::string(4 - rawItemId.size(), '0') + rawItemId;
+
+                if (!expectedDescriptionId
+                    || pPlacedItem->objectDescriptionId != *expectedDescriptionId
+                    || pPlacedItem->objectSpriteFrameIndex != 24000 + pPlacedItemDefinition->sourceItemId
+                    || pPlacedItem->objectSpriteName != expectedSpriteName)
+                {
+                    std::cerr << "Outdoor world-item floor check failed: MM9 semantic item "
+                              << pPlacedItemDefinition->itemId << " did not resolve dedicated visual\n";
+                    return 1;
+                }
+
+                ++resolvedMm9SemanticVisualCount;
+            }
+        }
+
+        ++groundedSemanticItemCount;
+    }
+
+    size_t groundedMm9ActorCount = 0;
+    if (toLowerCopy(selectedMap->map.worldId) == "mm9")
+    {
+        for (size_t actorIndex = 0; actorIndex < scenario.world.mapActorCount(); ++actorIndex)
+        {
+            const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(actorIndex);
+
+            if (pActor == nullptr || pActor->canFly || pActor->spawnedAtRuntime)
+            {
+                continue;
+            }
+
+            if (!pActor->movementStateInitialized
+                || pActor->movementState.airborne
+                || pActor->movementState.supportKind == OutdoorSupportKind::None)
+            {
+                std::cerr << "Outdoor world-item floor check failed: MM9 actor " << actorIndex
+                          << " was not grounded during load\n";
+                return 1;
+            }
+
+            ++groundedMm9ActorCount;
+        }
+    }
+
+    constexpr uint32_t TestItemId = 104;
+    constexpr float CameraEyeHeight = 176.0f;
+    constexpr float Pi = 3.14159265358979323846f;
+    constexpr float SimulationStepSeconds = 1.0f / 128.0f;
+    constexpr int SimulationStepCount = 2048;
+    const ItemDefinition *pItemDefinition = gameDataLoader.getItemTable().get(TestItemId);
+
+    if (pItemDefinition == nullptr)
+    {
+        std::cerr << "Outdoor world-item floor check failed: test item is missing\n";
+        return 1;
+    }
+
+    InventoryItem item = {};
+    item.objectDescriptionId = TestItemId;
+    item.quantity = 1;
+    item.width = pItemDefinition->inventoryWidth;
+    item.height = pItemDefinition->inventoryHeight;
+    const float sourceZ = static_cast<float>(pPartyStart->z) + CameraEyeHeight;
+    const float yawRadians = static_cast<float>(pPartyStart->facing) * Pi / 180.0f;
+    const size_t worldItemIndex = scenario.world.worldItemCount();
+
+    if (!scenario.world.spawnWorldItem(
+            item,
+            static_cast<float>(pPartyStart->x),
+            static_cast<float>(pPartyStart->y),
+            sourceZ,
+            yawRadians))
+    {
+        std::cerr << "Outdoor world-item floor check failed: could not spawn test item\n";
+        return 1;
+    }
+
+    for (int stepIndex = 0; stepIndex < SimulationStepCount; ++stepIndex)
+    {
+        scenario.world.updateActorAi(SimulationStepSeconds);
+
+        const OutdoorWorldRuntime::WorldItemState *pSettlingItem =
+            scenario.world.worldItemState(worldItemIndex);
+        if (pSettlingItem == nullptr
+            || (pSettlingItem->velocityX == 0.0f
+                && pSettlingItem->velocityY == 0.0f
+                && pSettlingItem->velocityZ == 0.0f))
+        {
+            break;
+        }
+    }
+
+    const OutdoorWorldRuntime::WorldItemState *pWorldItem = scenario.world.worldItemState(worldItemIndex);
+
+    if (pWorldItem == nullptr)
+    {
+        std::cerr << "Outdoor world-item floor check failed: test item disappeared\n";
+        return 1;
+    }
+
+    const OutdoorSupportFloorSample support = sampleOutdoorSupportFloor(
+        *selectedMap->outdoorMapData,
+        pWorldItem->x,
+        pWorldItem->y,
+        static_cast<float>(pPartyStart->z),
+        5.0f,
+        5.0f);
+    const float expectedZ = support.height + 1.0f;
+    const float terrainZ = sampleOutdoorRenderedTerrainHeight(
+        *selectedMap->outdoorMapData,
+        pWorldItem->x,
+        pWorldItem->y);
+
+    if (!support.hasFloor
+        || !support.fromBModel
+        || std::abs(pWorldItem->z - expectedZ) > 0.01f
+        || pWorldItem->velocityX != 0.0f
+        || pWorldItem->velocityY != 0.0f
+        || pWorldItem->velocityZ != 0.0f)
+    {
+        std::cerr << "Outdoor world-item floor check failed: item_z=" << pWorldItem->z
+                  << " expected_z=" << expectedZ
+                  << " terrain_z=" << terrainZ
+                  << " velocity=" << pWorldItem->velocityX << ','
+                  << pWorldItem->velocityY << ',' << pWorldItem->velocityZ
+                  << '\n';
+        return 1;
+    }
+
+    std::cout << "Outdoor world-item floor valid: map=\"" << selectedMap->map.fileName
+              << "\" item_z=" << pWorldItem->z
+              << " support_z=" << support.height
+              << " terrain_z=" << terrainZ
+              << " settled=yes"
+              << " semantic_sources=" << semanticItemSourceCount
+              << " semantic_grounded=" << groundedSemanticItemCount
+              << " semantic_mm9_visuals=" << resolvedMm9SemanticVisualCount
+              << " mm9_actors_grounded=" << groundedMm9ActorCount
+              << '\n';
+    return 0;
+}
+
 int HeadlessGameplayDiagnostics::runVerifyOutdoorSaveRoundtrip(
     const std::filesystem::path &basePath,
     const std::string &mapFileName,
@@ -4626,6 +4925,248 @@ int HeadlessGameplayDiagnostics::runVerifyOutdoorMechanismPassage(
               << " open_passed=" << (openPassed ? "yes" : "no")
               << '\n';
     return closedBlocked && openPassed ? 0 : 1;
+}
+
+int HeadlessGameplayDiagnostics::runVerifyMm9PositionedTransition(
+    const std::filesystem::path &basePath,
+    const std::string &mapFileName,
+    uint32_t sourceObjectIndex
+) const
+{
+    Engine::AssetFileSystem assetFileSystem;
+
+    if (!assetFileSystem.initialize(
+            basePath,
+            m_config.assetRoot,
+            m_config.assetScaleTier,
+            m_config.assetScaleProfile,
+            m_config.activeWorldId))
+    {
+        std::cerr << "MM9 positioned transition failed: could not initialize asset file system\n";
+        return 1;
+    }
+
+    SharedHeadlessApplicationSession session(m_config);
+    std::string failure;
+
+    if (!prepareSharedHeadlessGameApplication(session, assetFileSystem, mapFileName, true, failure))
+    {
+        std::cerr << "MM9 positioned transition failed: " << failure << '\n';
+        return 1;
+    }
+
+    GameApplication &application = session.application;
+    GameDataLoader &gameDataLoader = GameApplicationTestAccess::gameDataLoader(application);
+    const Mm9MapTransition *pTransition = nullptr;
+
+    for (const Mm9MapTransition *pCandidate :
+        gameDataLoader.getMm9MapTransitionTable().forSourceMapFile(mapFileName))
+    {
+        if (pCandidate != nullptr && pCandidate->sourceObjectIndex == sourceObjectIndex)
+        {
+            pTransition = pCandidate;
+            break;
+        }
+    }
+
+    OutdoorPartyRuntime *pPartyRuntime = GameApplicationTestAccess::outdoorPartyRuntime(application);
+    OutdoorWorldRuntime *pWorldRuntime = GameApplicationTestAccess::outdoorWorldRuntime(application);
+    EventRuntimeState *pEventRuntimeState = pWorldRuntime != nullptr ? pWorldRuntime->eventRuntimeState() : nullptr;
+
+    if (pTransition == nullptr || pPartyRuntime == nullptr || pWorldRuntime == nullptr || pEventRuntimeState == nullptr)
+    {
+        std::cerr << "MM9 positioned transition failed: transition or outdoor runtime is unavailable\n";
+        return 1;
+    }
+
+    const std::string destinationMapFileName = pTransition->destinationMapFileName;
+    const int arrivalX = pTransition->arrivalX;
+    const int arrivalY = pTransition->arrivalY;
+    const int arrivalZ = pTransition->arrivalZ;
+    const OutdoorMovementInput neutralInput = {};
+    const auto advanceAt = [&](float x, float y, float z)
+    {
+        pPartyRuntime->teleportTo(x, y, z);
+        return GameApplicationTestAccess::advanceOutdoorSceneFrame(application, neutralInput, 0.1f);
+    };
+    const float outsideX = static_cast<float>(pTransition->centerX + pTransition->halfExtentX + 256);
+    const float centerX = static_cast<float>(pTransition->centerX);
+    const float centerY = static_cast<float>(pTransition->centerY);
+    const float centerZ = static_cast<float>(pTransition->centerZ);
+
+    pEventRuntimeState->pendingDialogueContext.reset();
+    pEventRuntimeState->pendingMapMove.reset();
+    advanceAt(outsideX, centerY, centerZ);
+    const float gameMinutesBeforeEntry = pWorldRuntime->gameMinutes();
+    const OutdoorSceneRuntime::AdvanceFrameResult firstEntry = advanceAt(centerX, centerY, centerZ);
+
+    if (!pTransition->askPlayer)
+    {
+        const EventRuntimeState::PendingMapMove *pAutomaticMove = pWorldRuntime->pendingMapMove();
+        const float expectedGameMinutes = gameMinutesBeforeEntry
+            + static_cast<float>(std::max(0, pTransition->travelDays) * 1440);
+        if (firstEntry.shouldOpenEventDialog || pEventRuntimeState->pendingDialogueContext.has_value()
+            || pAutomaticMove == nullptr || !pAutomaticMove->mapName.has_value()
+            || *pAutomaticMove->mapName != destinationMapFileName
+            || pAutomaticMove->x != arrivalX || pAutomaticMove->y != arrivalY || pAutomaticMove->z != arrivalZ
+            || !pEventRuntimeState->lastMapTransitionRequested.has_value()
+            || pEventRuntimeState->lastMapTransitionRequested->confirmationRequired
+            || pEventRuntimeState->lastMapTransitionRequested->sourceKind != "mm9_exit_trigger"
+            || pEventRuntimeState->lastMapTransitionRequested->sourceId != sourceObjectIndex
+            || std::abs(pWorldRuntime->gameMinutes() - expectedGameMinutes) > 1.0f)
+        {
+            std::cerr << "MM9 positioned transition automatic state: dialog="
+                      << (firstEntry.shouldOpenEventDialog ? "yes" : "no")
+                      << " context=" << (pEventRuntimeState->pendingDialogueContext ? "yes" : "no")
+                      << " move=" << (pAutomaticMove != nullptr ? "yes" : "no")
+                      << " map=\"" << (pAutomaticMove != nullptr ? pAutomaticMove->mapName.value_or("") : "")
+                      << "\" minutes=" << pWorldRuntime->gameMinutes()
+                      << " expected_minutes=" << expectedGameMinutes << '\n';
+            if (pAutomaticMove != nullptr)
+            {
+                std::cerr << "MM9 positioned transition automatic move: pos=("
+                          << pAutomaticMove->x << ',' << pAutomaticMove->y << ',' << pAutomaticMove->z << ")\n";
+            }
+            if (pEventRuntimeState->lastMapTransitionRequested.has_value())
+            {
+                std::cerr << "MM9 positioned transition automatic trace: kind=\""
+                          << pEventRuntimeState->lastMapTransitionRequested->sourceKind
+                          << "\" id=" << pEventRuntimeState->lastMapTransitionRequested->sourceId
+                          << " confirmation="
+                          << (pEventRuntimeState->lastMapTransitionRequested->confirmationRequired ? "yes" : "no")
+                          << '\n';
+            }
+            std::cerr << "MM9 positioned transition failed: automatic entry queued incorrect state\n";
+            return 1;
+        }
+
+        const float gameMinutesAfterAutomaticEntry = pWorldRuntime->gameMinutes();
+        GameApplicationTestAccess::advanceOutdoorSceneFrame(application, neutralInput, 0.1f);
+        if (pWorldRuntime->pendingMapMove() == nullptr
+            || pWorldRuntime->gameMinutes() - gameMinutesAfterAutomaticEntry > 1.0f)
+        {
+            std::cerr << "MM9 positioned transition failed: automatic entry repeated side effects\n";
+            return 1;
+        }
+        if (!GameApplicationTestAccess::processPendingMapMove(application))
+        {
+            std::cerr << "MM9 positioned transition failed: automatic map move was not processed\n";
+            return 1;
+        }
+
+        const std::optional<MapAssetInfo> &arrivedMap = gameDataLoader.getSelectedMap();
+        if (!arrivedMap || toLowerCopy(arrivedMap->map.fileName) != toLowerCopy(destinationMapFileName))
+        {
+            std::cerr << "MM9 positioned transition failed: automatic destination map did not load\n";
+            return 1;
+        }
+
+        std::cout << "MM9 positioned transition: source_map=\"" << mapFileName
+                  << "\" source_object=" << sourceObjectIndex
+                  << " automatic=yes debounce=yes travel_days=" << pTransition->travelDays
+                  << " destination=\"" << destinationMapFileName
+                  << "\" arrival=(" << arrivalX << ',' << arrivalY << ',' << arrivalZ << ")\n";
+        return 0;
+    }
+
+    if (!firstEntry.shouldOpenEventDialog || !pEventRuntimeState->pendingDialogueContext.has_value())
+    {
+        std::cerr << "MM9 positioned transition failed: first volume entry did not request confirmation\n";
+        return 1;
+    }
+
+    GameApplicationTestAccess::openPendingEventDialog(application, firstEntry.previousMessageCount, true);
+    const EventDialogContent &cancelDialog = GameApplicationTestAccess::activeEventDialog(application);
+
+    if (!cancelDialog.isActive || cancelDialog.actions.size() < 2
+        || cancelDialog.actions[0].kind != EventDialogActionKind::MapTransitionConfirm
+        || cancelDialog.actions[1].kind != EventDialogActionKind::MapTransitionCancel)
+    {
+        printDialogSummary(cancelDialog);
+        std::cerr << "MM9 positioned transition failed: confirmation dialog actions are incomplete\n";
+        return 1;
+    }
+
+    const float gameMinutesBeforeCancel = pWorldRuntime->gameMinutes();
+    const int foodBeforeCancel = pPartyRuntime->party().food();
+    GameApplicationTestAccess::setEventDialogSelectionIndex(application, 1);
+    GameApplicationTestAccess::executeActiveDialogAction(application);
+
+    if (GameApplicationTestAccess::hasActiveEventDialog(application)
+        || pWorldRuntime->pendingMapMove() != nullptr
+        || GameApplicationTestAccess::pendingSessionMapMove(application).has_value()
+        || std::abs(pWorldRuntime->gameMinutes() - gameMinutesBeforeCancel) > 0.01f
+        || pPartyRuntime->party().food() != foodBeforeCancel)
+    {
+        std::cerr << "MM9 positioned transition failed: cancel changed map or party travel state\n";
+        return 1;
+    }
+
+    const OutdoorSceneRuntime::AdvanceFrameResult remainedInside =
+        GameApplicationTestAccess::advanceOutdoorSceneFrame(application, neutralInput, 0.1f);
+    if (remainedInside.shouldOpenEventDialog || pEventRuntimeState->pendingDialogueContext.has_value())
+    {
+        std::cerr << "MM9 positioned transition failed: remaining inside retriggered confirmation\n";
+        return 1;
+    }
+
+    advanceAt(outsideX, centerY, centerZ);
+    const OutdoorSceneRuntime::AdvanceFrameResult secondEntry = advanceAt(centerX, centerY, centerZ);
+    if (!secondEntry.shouldOpenEventDialog)
+    {
+        std::cerr << "MM9 positioned transition failed: re-entry did not request confirmation\n";
+        return 1;
+    }
+
+    GameApplicationTestAccess::openPendingEventDialog(application, secondEntry.previousMessageCount, true);
+    GameApplicationTestAccess::setEventDialogSelectionIndex(application, 0);
+    GameApplicationTestAccess::executeActiveDialogAction(application);
+    const std::optional<EventRuntimeState::PendingMapMove> &pendingMapMove =
+        GameApplicationTestAccess::pendingSessionMapMove(application);
+    const EventRuntimeState::PendingMapMove *pPendingMapMove =
+        pendingMapMove.has_value() ? &*pendingMapMove : nullptr;
+
+    if (pPendingMapMove == nullptr || !pPendingMapMove->mapName.has_value()
+        || *pPendingMapMove->mapName != destinationMapFileName
+        || pPendingMapMove->x != arrivalX || pPendingMapMove->y != arrivalY || pPendingMapMove->z != arrivalZ
+        || !pEventRuntimeState->lastMapTransitionConfirmed.has_value()
+        || pEventRuntimeState->lastMapTransitionConfirmed->sourceKind != "mm9_exit_trigger"
+        || pEventRuntimeState->lastMapTransitionConfirmed->sourceId != sourceObjectIndex)
+    {
+        if (pPendingMapMove != nullptr)
+        {
+            std::cerr << "MM9 positioned transition pending: map=\""
+                      << pPendingMapMove->mapName.value_or("") << "\" position=("
+                      << pPendingMapMove->x << ',' << pPendingMapMove->y << ',' << pPendingMapMove->z << ")\n";
+        }
+        if (pEventRuntimeState->lastMapTransitionConfirmed.has_value())
+        {
+            std::cerr << "MM9 positioned transition trace: kind=\""
+                      << pEventRuntimeState->lastMapTransitionConfirmed->sourceKind
+                      << "\" id=" << pEventRuntimeState->lastMapTransitionConfirmed->sourceId << '\n';
+        }
+        std::cerr << "MM9 positioned transition failed: confirm queued incorrect destination or trace data\n";
+        return 1;
+    }
+
+    if (!GameApplicationTestAccess::processPendingMapMove(application))
+    {
+        std::cerr << "MM9 positioned transition failed: confirmed map move was not processed\n";
+        return 1;
+    }
+
+    const std::optional<MapAssetInfo> &arrivedMap = gameDataLoader.getSelectedMap();
+    if (!arrivedMap || toLowerCopy(arrivedMap->map.fileName) != toLowerCopy(destinationMapFileName))
+    {
+        std::cerr << "MM9 positioned transition failed: destination map did not load\n";
+        return 1;
+    }
+
+    std::cout << "MM9 positioned transition: source_map=\"" << mapFileName
+              << "\" source_object=" << sourceObjectIndex
+              << " canceled=yes debounce=yes confirmed=yes destination=\"" << destinationMapFileName
+              << "\" arrival=(" << arrivalX << ',' << arrivalY << ',' << arrivalZ << ")\n";
+    return 0;
 }
 
 int HeadlessGameplayDiagnostics::runSimulateActor(
@@ -5416,15 +5957,28 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
               << " event=" << eventId
               << '\n';
 
-    std::vector<std::pair<bool, bool>> actorStatesBeforeEvent;
+    struct ActorStateBeforeEvent
+    {
+        bool invisible = false;
+        bool hostile = false;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+    };
+
+    std::vector<ActorStateBeforeEvent> actorStatesBeforeEvent;
     actorStatesBeforeEvent.reserve(outdoorWorldRuntime.mapActorCount());
 
     for (size_t actorIndex = 0; actorIndex < outdoorWorldRuntime.mapActorCount(); ++actorIndex)
     {
         const OutdoorWorldRuntime::MapActorState *pActor = outdoorWorldRuntime.mapActorState(actorIndex);
-        actorStatesBeforeEvent.emplace_back(
-            pActor != nullptr && pActor->isInvisible,
-            pActor != nullptr && pActor->hostileToParty);
+        actorStatesBeforeEvent.push_back({
+            .invisible = pActor != nullptr && pActor->isInvisible,
+            .hostile = pActor != nullptr && pActor->hostileToParty,
+            .x = pActor != nullptr ? pActor->preciseX : 0.0f,
+            .y = pActor != nullptr ? pActor->preciseY : 0.0f,
+            .z = pActor != nullptr ? pActor->preciseZ : 0.0f,
+        });
     }
 
     const bool executed = eventRuntime.executeEventById(
@@ -5449,17 +6003,28 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
     {
         const OutdoorWorldRuntime::MapActorState *pActor = outdoorWorldRuntime.mapActorState(actorIndex);
 
-        if (pActor == nullptr
-            || (pActor->isInvisible == actorStatesBeforeEvent[actorIndex].first
-                && pActor->hostileToParty == actorStatesBeforeEvent[actorIndex].second))
+        if (pActor == nullptr)
         {
             continue;
         }
 
-        std::cout << "Headless diagnostic: actor " << actorIndex
-                  << " invisible=" << (pActor->isInvisible ? "yes" : "no")
-                  << " hostile=" << (pActor->hostileToParty ? "yes" : "no")
-                  << '\n';
+        const ActorStateBeforeEvent &before = actorStatesBeforeEvent[actorIndex];
+        if (pActor->isInvisible != before.invisible || pActor->hostileToParty != before.hostile)
+        {
+            std::cout << "Headless diagnostic: actor " << actorIndex
+                      << " invisible=" << (pActor->isInvisible ? "yes" : "no")
+                      << " hostile=" << (pActor->hostileToParty ? "yes" : "no")
+                      << '\n';
+        }
+
+        if (pActor->preciseX != before.x || pActor->preciseY != before.y || pActor->preciseZ != before.z)
+        {
+            std::cout << "Headless diagnostic: actor " << actorIndex
+                      << " moved from=(" << before.x << ',' << before.y << ',' << before.z << ')'
+                      << " to=(" << pActor->preciseX << ',' << pActor->preciseY << ',' << pActor->preciseZ << ')'
+                      << " airborne=" << (pActor->movementState.airborne ? "yes" : "no")
+                      << '\n';
+        }
     }
 
     if (advanceSeconds > 0.0f)
@@ -5569,6 +6134,10 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
         else if (context.kind == DialogueContextKind::NpcNews)
         {
             std::cout << "Headless diagnostic: pending news=" << context.newsId << '\n';
+        }
+        else if (context.kind == DialogueContextKind::Mm9Rude)
+        {
+            std::cout << "Headless diagnostic: pending MM9 RUDE=" << context.sourceId << '\n';
         }
     }
 
@@ -5766,6 +6335,10 @@ int HeadlessGameplayDiagnostics::runOpenActor(
     std::cout << "Headless actor diagnostic: index=" << actorIndex
               << " name=\"" << actorName << "\""
               << " npc=" << actor.npcId
+              << " mm9Rude=" << actor.mm9RudeId
+              << " mm9Object=" << actor.mm9SourceObjectIndex
+              << " yawUnits=" << actor.initialYawUnits
+              << " immobile=" << (actor.immobile ? "yes" : "no")
               << " monsterInfo=" << actor.monsterInfoId
               << " monsterId=" << actor.monsterId
               << " group=" << actor.group
@@ -5779,6 +6352,65 @@ int HeadlessGameplayDiagnostics::runOpenActor(
                   << " hostile=" << (pActorState->hostileToParty ? "yes" : "no")
                   << " hostilityType=" << static_cast<unsigned>(pActorState->hostilityType)
                   << '\n';
+    }
+
+    if (actor.mm9RudeId > 0)
+    {
+        const OutdoorWorldRuntime::MapActorState *pActorState = outdoorWorldRuntime.mapActorState(actorIndex);
+
+        if (pActorState == nullptr)
+        {
+            std::cout << "Headless actor diagnostic: MM9 actor runtime state is unavailable\n";
+            return 3;
+        }
+
+        const bool facedTestParty = outdoorWorldRuntime.faceMapActorTowardPoint(
+            actorIndex,
+            pActorState->preciseX,
+            pActorState->preciseY + 256.0f);
+        pActorState = outdoorWorldRuntime.mapActorState(actorIndex);
+        constexpr float ExpectedFacingYaw = 1.57079632679489661923f;
+        const bool facingCorrectly = facedTestParty
+            && pActorState != nullptr
+            && std::abs(pActorState->yawRadians - ExpectedFacingYaw) < 0.001f;
+        std::cout << "Headless actor diagnostic: face_toward_party="
+                  << (facingCorrectly ? "yes" : "no")
+                  << " yaw=" << (pActorState != nullptr ? pActorState->yawRadians : 0.0f)
+                  << '\n';
+
+        if (!facingCorrectly)
+        {
+            return 4;
+        }
+
+        GameplayUiController uiController = {};
+        EventDialogContent dialog = {};
+        size_t selectionIndex = 0;
+        GameplayDialogController::Context context = {
+            uiController,
+            *pEventRuntimeState,
+            dialog,
+            selectionIndex,
+        };
+        context.pParty = &party;
+        context.pWorldRuntime = &outdoorWorldRuntime;
+        context.pMm9RudeDialogueTable = &gameDataLoader.getMm9RudeDialogueTable();
+        context.pCurrentMap = &selectedMap->map;
+
+        GameplayDialogController controller = {};
+        controller.openMm9RudeDialogue(
+            context,
+            static_cast<uint32_t>(actor.mm9RudeId),
+            static_cast<uint32_t>(actorIndex));
+
+        if (!dialog.isActive)
+        {
+            std::cout << "Headless actor diagnostic: no MM9 RUDE dialog resolved\n";
+            return 5;
+        }
+
+        printDialogSummary(dialog);
+        return 0;
     }
 
     if (actor.npcId > 0)
@@ -11954,6 +12586,197 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
+            return true;
+        }
+    );
+
+    runCase(
+        "mm9_invulnerable_actor_ignores_party_damage_without_hostility",
+        [&](std::string &failure)
+        {
+            MapAssetInfo modifiedMap = *selectedMap;
+            modifiedMap.outdoorMapDeltaData = *selectedMap->outdoorMapDeltaData;
+            modifiedMap.outdoorMapDeltaData->locationInfo.lastRespawnDay = 1;
+            MapDeltaActor &actor = modifiedMap.outdoorMapDeltaData->actors[3];
+            actor.attributes = 0;
+            actor.hostilityType = 0;
+            actor.mm9SourceObjectIndex = 207;
+            actor.mm9CanReceiveDamage = false;
+            actor.mm9Civilian = true;
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(gameDataLoader, modifiedMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::MapActorState *pBefore = scenario.world.mapActorState(3);
+            if (pBefore == nullptr)
+            {
+                failure = "MM9 invulnerable actor missing";
+                return false;
+            }
+            const int beforeHp = pBefore->currentHp;
+
+            if (!scenario.world.applyPartyAttackToMapActor(
+                    3,
+                    2,
+                    pBefore->preciseX + 64.0f,
+                    pBefore->preciseY,
+                    pBefore->preciseZ))
+            {
+                failure = "MM9 invulnerable actor did not consume party hit";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::MapActorState *pAfter = scenario.world.mapActorState(3);
+            if (pAfter == nullptr
+                || pAfter->currentHp != beforeHp
+                || pAfter->hostileToParty
+                || pAfter->mm9FleeingFromParty)
+            {
+                failure = "MM9 invulnerable actor changed after party hit";
+                return false;
+            }
+            return true;
+        }
+    );
+
+    runCase(
+        "mm9_civilian_actor_flees_friendly_and_alerts_nearby_guard",
+        [&](std::string &failure)
+        {
+            MapAssetInfo modifiedMap = *selectedMap;
+            modifiedMap.outdoorMapDeltaData = *selectedMap->outdoorMapDeltaData;
+            modifiedMap.outdoorMapDeltaData->locationInfo.lastRespawnDay = 1;
+            MapDeltaActor &civilian = modifiedMap.outdoorMapDeltaData->actors[3];
+            MapDeltaActor &guard = modifiedMap.outdoorMapDeltaData->actors[4];
+            civilian.attributes = 0;
+            civilian.hostilityType = 0;
+            civilian.hp = std::max<int16_t>(20, civilian.hp);
+            civilian.monsterInfoId = 520;
+            civilian.monsterId = 520;
+            civilian.mm9SourceObjectIndex = 209;
+            civilian.mm9CanReceiveDamage = true;
+            civilian.mm9Civilian = true;
+            guard.attributes = 0;
+            guard.hostilityType = 0;
+            guard.hp = std::max<int16_t>(20, guard.hp);
+            guard.monsterInfoId = civilian.monsterInfoId;
+            guard.monsterId = civilian.monsterId;
+            guard.x = civilian.x + 512;
+            guard.y = civilian.y;
+            guard.z = civilian.z;
+            guard.mm9SourceObjectIndex = 210;
+            guard.mm9CanReceiveDamage = true;
+            guard.mm9Guard = true;
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(gameDataLoader, modifiedMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::MapActorState *pCivilian = scenario.world.mapActorState(3);
+            if (pCivilian == nullptr)
+            {
+                failure = "MM9 civilian missing";
+                return false;
+            }
+            if (pCivilian->hostileToParty || pCivilian->hostilityType != 0)
+            {
+                failure = "MM9 civilian inherited hostility from its legacy monster template";
+                return false;
+            }
+            const int beforeHp = pCivilian->currentHp;
+            const float partyX = pCivilian->preciseX + 64.0f;
+            const float partyY = pCivilian->preciseY;
+            const float partyZ = pCivilian->preciseZ;
+
+            if (!scenario.world.applyPartyAttackToMapActor(3, 2, partyX, partyY, partyZ))
+            {
+                failure = "MM9 civilian party attack did not apply";
+                return false;
+            }
+
+            pCivilian = scenario.world.mapActorState(3);
+            if (pCivilian == nullptr
+                || pCivilian->currentHp != beforeHp - 2
+                || pCivilian->hostileToParty
+                || !pCivilian->mm9FleeingFromParty)
+            {
+                failure = "MM9 civilian did not enter friendly flee state";
+                return false;
+            }
+
+            scenario.world.updateMapActors(1.0f / 128.0f, partyX, partyY, partyZ);
+            const OutdoorWorldRuntime::MapActorState *pGuard = scenario.world.mapActorState(4);
+            if (pGuard == nullptr || !pGuard->hostileToParty)
+            {
+                failure = "MM9 guard did not answer civilian help call";
+                return false;
+            }
+            return true;
+        }
+    );
+
+    runCase(
+        "mm9_guard_actor_uses_three_party_hit_tolerance",
+        [&](std::string &failure)
+        {
+            MapAssetInfo modifiedMap = *selectedMap;
+            modifiedMap.outdoorMapDeltaData = *selectedMap->outdoorMapDeltaData;
+            modifiedMap.outdoorMapDeltaData->locationInfo.lastRespawnDay = 1;
+            MapDeltaActor &guard = modifiedMap.outdoorMapDeltaData->actors[3];
+            guard.attributes = 0;
+            guard.hostilityType = 0;
+            guard.hp = std::max<int16_t>(20, guard.hp);
+            guard.mm9SourceObjectIndex = 300;
+            guard.mm9CanReceiveDamage = true;
+            guard.mm9Guard = true;
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(gameDataLoader, modifiedMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::MapActorState *pGuard = scenario.world.mapActorState(3);
+            if (pGuard == nullptr)
+            {
+                failure = "MM9 guard missing";
+                return false;
+            }
+            const float partyX = pGuard->preciseX + 64.0f;
+            const float partyY = pGuard->preciseY;
+            const float partyZ = pGuard->preciseZ;
+
+            for (int hit = 0; hit < 2; ++hit)
+            {
+                if (!scenario.world.applyPartyAttackToMapActor(3, 1, partyX, partyY, partyZ))
+                {
+                    failure = "MM9 guard party attack did not apply";
+                    return false;
+                }
+            }
+
+            pGuard = scenario.world.mapActorState(3);
+            if (pGuard == nullptr || pGuard->hostileToParty || pGuard->mm9PlayerHitCount != 2)
+            {
+                failure = "MM9 guard became hostile before third party hit";
+                return false;
+            }
+
+            scenario.world.applyPartyAttackToMapActor(3, 1, partyX, partyY, partyZ);
+            pGuard = scenario.world.mapActorState(3);
+            if (pGuard == nullptr || !pGuard->hostileToParty || pGuard->mm9PlayerHitCount != 3)
+            {
+                failure = "MM9 guard did not become hostile on third party hit";
+                return false;
+            }
             return true;
         }
     );

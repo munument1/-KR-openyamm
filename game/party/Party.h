@@ -64,6 +64,12 @@ struct LloydBeacon
     std::vector<uint8_t> previewPixelsBgra;
 };
 
+struct TimedPrimaryStatBonus
+{
+    int power = 0;
+    float remainingSeconds = 0.0f;
+};
+
 struct Character
 {
     static constexpr int InventoryWidth = 14;
@@ -129,6 +135,12 @@ struct Character
     bool physicalAttackDisabled = false;
     bool physicalDamageImmune = false;
     bool halfMissileDamage = false;
+    int meleeArmorClassBonus = 0;
+    int missileArmorClassBonus = 0;
+    int magicArmorClassBonus = 0;
+    float physicalDamageTakenMultiplier = 1.0f;
+    float experienceGainMultiplier = 1.0f;
+    float randomEncounterChanceMultiplier = 1.0f;
     bool waterWalking = false;
     bool featherFalling = false;
     float healthRegenPerSecond = 0.0f;
@@ -138,6 +150,7 @@ struct Character
     int attackRecoveryReductionTicks = 0;
     float recoveryProgressMultiplier = 1.0f;
     std::unordered_map<std::string, int> itemSkillBonuses;
+    std::unordered_set<std::string> equippedItemEffectFlags;
     std::array<std::optional<LloydBeacon>, 5> lloydsBeacons = {};
 
     bool addInventoryItem(const InventoryItem &item);
@@ -165,6 +178,7 @@ struct Character
     bool forgetSpell(uint32_t spellId);
 
     std::vector<InventoryItem> inventory;
+    std::array<TimedPrimaryStatBonus, 6> timedPrimaryStatBonuses = {};
 };
 
 struct AdventurersInnMember
@@ -266,6 +280,7 @@ public:
         uint32_t houseId = 0;
         float nextRefreshGameMinutes = 0.0f;
         uint32_t refreshSequence = 0;
+        uint32_t generationVersion = 0;
         std::vector<InventoryItem> standardStock;
         std::vector<InventoryItem> specialStock;
         std::vector<InventoryItem> spellbookStock;
@@ -289,6 +304,8 @@ public:
         uint32_t hardLandingSoundCount = 0;
         uint32_t monsterTargetSelectionCounter = 0;
         uint32_t houseStockSeed = 0;
+        float itemEffectElapsedGameSeconds = 0.0f;
+        uint32_t itemWeeklyEffectSequence = 0;
         float lastFallDamageDistance = 0.0f;
         std::unordered_set<uint32_t> foundArtifactItems;
         std::unordered_set<uint32_t> arcomageWonHouseIds;
@@ -335,6 +352,7 @@ public:
     const JournalQuestTable *journalQuestTable() const;
     const StandardItemEnchantTable *standardItemEnchantTable() const;
     const SpecialItemEnchantTable *specialItemEnchantTable() const;
+    size_t equippedItemSetPieceCount(size_t memberIndex, const std::string &setId) const;
     int32_t eventVariableValue(uint16_t variableId) const;
     void setEventVariableValue(uint16_t variableId, int32_t value);
     void addEventVariableValue(uint16_t variableId, int32_t value);
@@ -375,6 +393,7 @@ public:
     void requestSpeech(size_t memberIndex, SpeechId speechId);
     bool hasQuestBit(uint32_t questBitId) const;
     void setQuestBit(uint32_t questBitId, bool value);
+    uint64_t dialogueEligibilityRevision() const;
     void applyGlobalNpcStateTo(EventRuntimeState &runtimeState) const;
     void setNpcTopicOverride(uint32_t npcId, uint32_t topicSlotIndex, uint32_t topicId);
     void setNpcGroupNews(uint32_t groupId, uint32_t newsId);
@@ -404,6 +423,8 @@ public:
     void restoreActiveMember();
     bool trainLeader(uint32_t maxLevel, uint32_t &newLevel, uint32_t &skillPointsEarned);
     bool trainActiveMember(uint32_t maxLevel, uint32_t &newLevel, uint32_t &skillPointsEarned);
+    bool canMemberLearnSkill(size_t memberIndex, const std::string &skillName) const;
+    bool learnMemberSkill(size_t memberIndex, const std::string &skillName);
     bool canActiveMemberLearnSkill(const std::string &skillName) const;
     bool learnActiveMemberSkill(const std::string &skillName);
     bool canIncreaseActiveMemberSkillLevel(const std::string &skillName) const;
@@ -539,6 +560,7 @@ public:
         uint32_t skillLevel,
         SkillMastery skillMastery,
         uint32_t casterMemberIndex);
+    void applyTemporaryPrimaryStatBonus(uint32_t statIndex, int power, float durationSeconds);
     void clearPartyBuff(PartyBuffId buffId);
     void clearCharacterBuff(size_t memberIndex, CharacterBuffId buffId);
     bool clearDispellableBuffs();
@@ -606,6 +628,7 @@ private:
     void markArtifactItemFoundIfRelevant(const InventoryItem &item);
     void recordEverOwnedItemIfRelevant(const InventoryItem &item);
     void recordEverOwnedItemsFromCurrentState();
+    void applyWeeklyItemEffects();
     void queueSound(SoundId soundId);
     void queueSpeech(size_t memberIndex, SpeechId speechId);
     SoundId resolveDamageImpactSoundForMember(size_t memberIndex) const;
@@ -633,6 +656,8 @@ private:
     uint32_t m_hardLandingSoundCount = 0;
     uint32_t m_monsterTargetSelectionCounter = 0;
     uint32_t m_houseStockSeed = 0;
+    float m_itemEffectElapsedGameSeconds = 0.0f;
+    uint32_t m_itemWeeklyEffectSequence = 0;
     float m_lastFallDamageDistance = 0.0f;
     std::string m_lastStatus;
     std::unordered_set<uint32_t> m_foundArtifactItems;
@@ -640,6 +665,7 @@ private:
     std::unordered_set<uint32_t> m_everOwnedItemIds;
     std::unordered_map<uint32_t, int32_t> m_continentReputations;
     std::unordered_set<uint32_t> m_questBits;
+    uint64_t m_dialogueEligibilityRevision = 1;
     uint32_t m_arcomageWinCount = 0;
     uint32_t m_arcomageLossCount = 0;
     bool m_debugDamageImmune = false;

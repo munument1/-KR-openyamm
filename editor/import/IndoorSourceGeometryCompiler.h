@@ -10,10 +10,17 @@
 
 namespace OpenYAMM::Editor
 {
+struct IndoorSourceFaceGroup
+{
+    std::string sourceNodeName;
+    std::vector<uint16_t> faceIds;
+};
+
 struct IndoorSourceGeometryCompileResult
 {
     Game::IndoorMapData indoorGeometry = {};
     std::vector<Game::IndoorSceneDoor> generatedDoors;
+    std::vector<IndoorSourceFaceGroup> generatedFaceGroups;
     std::vector<std::string> warnings;
 };
 

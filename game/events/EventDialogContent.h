@@ -50,6 +50,12 @@ enum class EventDialogActionKind
     GuildMembershipOffer,
     GuildMembershipJoin,
     GeneratedMercenaryJoinOffer,
+    Mm9RudeTopic,
+    Mm9RudeSkillTrainerOffer,
+    Mm9RudeSkillTrainerLearn,
+    Mm9RudeSkillTrainerBack,
+    Mm9RudeTransportRoute,
+    Mm9RudeTransportBack,
 };
 
 enum class EventDialogParticipantVisual
@@ -62,6 +68,7 @@ enum class EventDialogPresentation
 {
     Standard,
     Transition,
+    Mm9Rude,
 };
 
 enum class NpcFollowerActionTopicId : uint32_t
@@ -94,10 +101,13 @@ struct EventDialogContent
     bool isActive = false;
     bool isHouseDialog = false;
     uint32_t sourceId = 0;
+    int32_t dialogueNodeId = 0;
     std::optional<uint32_t> sourceActorIndex;
     uint32_t participantPictureId = 0;
     EventDialogParticipantVisual participantVisual = EventDialogParticipantVisual::Portrait;
     EventDialogPresentation presentation = EventDialogPresentation::Standard;
+    DialogueScenePolicy scenePolicy = DialogueScenePolicy::HouseVideo;
+    bool mm9RudeExitCallbackExecuted = false;
     std::string participantTextureName;
     std::string videoName;
     std::string videoDirectory;

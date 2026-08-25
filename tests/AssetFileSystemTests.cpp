@@ -577,6 +577,7 @@ TEST_CASE("AssetFileSystem merges inactive world music roots")
     writeTextFile(assetRoot / "worlds" / "mm6" / "music" / "37.mp3", "mm6-music");
     writeTextFile(assetRoot / "worlds" / "mm7" / "music" / "19.mp3", "mm7-music");
     writeTextFile(assetRoot / "worlds" / "mm8" / "music" / "5.mp3", "mm8-music");
+    writeTextFile(assetRoot / "worlds" / "mm9" / "music" / "90007.mp3", "mm9-music");
 
     {
         OpenYAMM::Engine::AssetFileSystem assetFileSystem;
@@ -601,10 +602,20 @@ TEST_CASE("AssetFileSystem merges inactive world music roots")
         REQUIRE(mm8MusicText.has_value());
         CHECK_EQ(*mm8MusicText, "mm8-music");
 
+        const std::optional<std::string> mm9MusicText =
+            assetFileSystem.readTextFile("Music/90007.mp3");
+        REQUIRE(mm9MusicText.has_value());
+        CHECK_EQ(*mm9MusicText, "mm9-music");
+
         const std::optional<std::filesystem::path> mm6PhysicalPath =
             assetFileSystem.resolvePhysicalPath("Music/37.mp3");
         REQUIRE(mm6PhysicalPath.has_value());
         CHECK(mm6PhysicalPath->generic_string().ends_with("assets_dev/worlds/mm6/music/37.mp3"));
+
+        const std::optional<std::filesystem::path> mm9PhysicalPath =
+            assetFileSystem.resolvePhysicalPath("Music/90007.mp3");
+        REQUIRE(mm9PhysicalPath.has_value());
+        CHECK(mm9PhysicalPath->generic_string().ends_with("assets_dev/worlds/mm9/music/90007.mp3"));
     }
 
     std::filesystem::remove_all(temporaryRoot);

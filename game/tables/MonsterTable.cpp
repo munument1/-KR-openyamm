@@ -96,7 +96,11 @@ bool isSupportedMonsterMissileToken(const std::string &value)
         || token == "ener"
         || token == "rock"
         || token == "cold"
-        || token == "elec";
+        || token == "elec"
+        || token == "mm9knife"
+        || token == "mm9axe"
+        || token == "mm9skull"
+        || token == "mm9egg";
 }
 
 bool isNumericString(const std::string &value);

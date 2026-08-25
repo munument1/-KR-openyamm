@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace OpenYAMM::Game
 {
@@ -22,6 +23,7 @@ enum class InventoryItemUseAction : uint8_t
     Equip,
     CastScroll,
     LearnSpell,
+    LearnSkill,
     ConsumePotion,
     ReadMessageScroll,
     UseHorseshoe,
@@ -47,6 +49,7 @@ struct InventoryItemUseResult
     bool consumed = false;
     InventoryItemUseAction action = InventoryItemUseAction::None;
     bool alreadyKnown = false;
+    std::vector<std::string> learnedSkills;
     uint32_t spellId = 0;
     uint32_t spellSkillLevelOverride = 0;
     SkillMastery spellSkillMasteryOverride = SkillMastery::None;

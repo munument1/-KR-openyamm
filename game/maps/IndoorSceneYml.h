@@ -2,6 +2,7 @@
 
 #include "game/maps/MapRuntimeRestrictions.h"
 #include "game/maps/MapDeltaData.h"
+#include "game/maps/MapItemSourceData.h"
 #include "game/indoor/IndoorMapData.h"
 
 #include <cstdint>
@@ -89,6 +90,7 @@ struct IndoorSceneData
     std::vector<IndoorSceneSpawn> spawns;
     std::vector<IndoorScenePartyStartPoint> partyStartPoints;
     IndoorSceneInitialState initialState = {};
+    MapItemSourceData itemSources = {};
 };
 
 class IndoorSceneYmlLoader

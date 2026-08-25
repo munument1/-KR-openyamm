@@ -1319,6 +1319,8 @@ void ItemEnchantRuntime::applyEquippedEnchantEffects(
         applyRareItemBonus(member, rareItemId);
     }
 
+    applyContentEffect(itemDefinition.contentEffect, member);
+
     if (runtimeState.standardEnchantId != 0 && pStandardTable != nullptr)
     {
         if (const StandardItemEnchantEntry *pEntry = pStandardTable->get(runtimeState.standardEnchantId))
@@ -1351,6 +1353,118 @@ void ItemEnchantRuntime::applyEquippedEnchantEffects(
                     runtimeState.specialEnchantId,
                     0},
                 pSpecialTable);
+        }
+    }
+}
+
+void ItemEnchantRuntime::applyContentEffect(const ItemContentEffect &effect, Character &member)
+{
+    member.magicalBonuses.might += effect.might;
+    member.magicalBonuses.intellect += effect.intellect;
+    member.magicalBonuses.personality += effect.personality;
+    member.magicalBonuses.endurance += effect.endurance;
+    member.magicalBonuses.speed += effect.speed;
+    member.magicalBonuses.accuracy += effect.accuracy;
+    member.magicalBonuses.luck += effect.luck;
+    member.magicalBonuses.maxHealth += effect.maxHealth;
+    member.magicalBonuses.maxSpellPoints += effect.maxSpellPoints;
+    member.magicalBonuses.armorClass += effect.armorClass;
+    member.magicalBonuses.meleeAttack += effect.meleeAttack;
+    member.magicalBonuses.rangedAttack += effect.rangedAttack;
+    member.magicalBonuses.meleeDamage += effect.meleeDamage;
+    member.magicalBonuses.rangedDamage += effect.rangedDamage;
+    member.magicalBonuses.resistances.fire += effect.allResistances + effect.fireResistance;
+    member.magicalBonuses.resistances.air += effect.allResistances + effect.airResistance;
+    member.magicalBonuses.resistances.water += effect.allResistances + effect.waterResistance;
+    member.magicalBonuses.resistances.earth += effect.allResistances + effect.earthResistance;
+    member.magicalBonuses.resistances.mind += effect.allResistances + effect.mindResistance;
+    member.magicalBonuses.resistances.body += effect.allResistances + effect.bodyResistance;
+    member.magicalBonuses.resistances.spirit += effect.allResistances + effect.spiritResistance;
+    member.weaponEnchantmentDamageBonus += effect.weaponDamage;
+    member.attackRecoveryReductionTicks += effect.recoveryReductionTicks;
+    member.healthRegenPerSecond += effect.healthRegenPerSecond;
+    member.spellRegenPerSecond += effect.spellRegenPerSecond;
+
+    for (const auto &[skillName, amount] : effect.skillBonuses)
+    {
+        addSkillBonus(member, skillName, amount);
+    }
+
+    for (const std::string &flag : effect.flags)
+    {
+        member.equippedItemEffectFlags.insert(flag);
+
+        if (flag == "HalfMissileDamage")
+        {
+            member.halfMissileDamage = true;
+        }
+        else if (flag == "Vampiric")
+        {
+            member.vampiricHealFraction = std::max(member.vampiricHealFraction, 0.2f);
+        }
+        else if (flag == "FeatherFalling")
+        {
+            member.featherFalling = true;
+        }
+        else if (flag == "WaterWalking")
+        {
+            member.waterWalking = true;
+        }
+        else if (flag == "PoisonImmunity")
+        {
+            addPoisonImmunity(member);
+        }
+        else if (flag == "DiseaseImmunity")
+        {
+            addDiseaseImmunity(member);
+        }
+        else if (flag == "FearImmunity")
+        {
+            addConditionImmunity(member, CharacterCondition::Fear);
+        }
+        else if (flag == "StoneImmunity")
+        {
+            addConditionImmunity(member, CharacterCondition::Petrified);
+        }
+        else if (flag == "ParalysisImmunity")
+        {
+            addConditionImmunity(member, CharacterCondition::Paralyzed);
+        }
+        else if (flag == "SleepImmunity")
+        {
+            addConditionImmunity(member, CharacterCondition::Asleep);
+        }
+        else if (flag == "AllConditionImmunity")
+        {
+            member.magicalConditionImmunities.set();
+        }
+        else if (flag == "MeleeArmor40")
+        {
+            member.meleeArmorClassBonus += 40;
+        }
+        else if (flag == "RangedArmorMinus10")
+        {
+            member.missileArmorClassBonus -= 10;
+        }
+        else if (flag == "MissileArmor30")
+        {
+            member.missileArmorClassBonus += 30;
+        }
+        else if (flag == "MagicArmor20")
+        {
+            member.magicArmorClassBonus += 20;
+        }
+        else if (flag == "PhysicalDamageReduction3Percent")
+        {
+            member.physicalDamageTakenMultiplier *= 0.97f;
+        }
+        else if (flag == "ExperienceGainMinus15Percent")
+        {
+            member.experienceGainMultiplier *= 0.85f;
+        }
+        else if (flag == "EncounterChancePlus15Percent")
+        {
+            member.randomEncounterChanceMultiplier *= 1.15f;
         }
     }
 }

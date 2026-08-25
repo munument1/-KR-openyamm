@@ -58,6 +58,13 @@ rules:
     exception: "2"
   - race: Minotaur
     race_id: 3
+    skill: Throwing
+    raw_token: "E/0/0"
+    min_mastery: expert
+    add: 0
+    exception: none
+  - race: Minotaur
+    race_id: 3
     skill: Plate
     raw_token: "E/1/0"
     min_mastery: expert

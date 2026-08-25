@@ -16,6 +16,7 @@
 #include "game/indoor/IndoorPortalVisibility.h"
 #include "game/indoor/IndoorRenderRevision.h"
 #include "game/render/CombatActorHealthBarPolicy.h"
+#include "game/render/QuestMarkerGeometry.h"
 #include "game/render/TextureFiltering.h"
 #include "game/scene/IndoorSceneRuntime.h"
 #include "game/SpriteObjectDefs.h"
@@ -60,6 +61,11 @@ constexpr uint64_t IndoorBillboardDrawState =
     BGFX_STATE_WRITE_RGB
     | BGFX_STATE_WRITE_A
     | BGFX_STATE_WRITE_Z
+    | BGFX_STATE_DEPTH_TEST_LEQUAL
+    | BGFX_STATE_BLEND_ALPHA;
+constexpr uint64_t IndoorBillboardOverlayDrawState =
+    BGFX_STATE_WRITE_RGB
+    | BGFX_STATE_WRITE_A
     | BGFX_STATE_DEPTH_TEST_LEQUAL
     | BGFX_STATE_BLEND_ALPHA;
 
@@ -664,9 +670,9 @@ std::vector<RuntimeSpriteObjectBillboard> buildRuntimeSpriteObjectBillboards(
         billboard.attributes = spriteObject.attributes;
         billboard.spellId = spriteObject.spellId;
         billboard.timeSinceCreatedTicks = uint32_t(spriteObject.timeSinceCreated) * 8;
-        billboard.hasContainingItem =
-            hasContainingItemPayload(spriteObject.rawContainingItem)
-            && (pObjectEntry->flags & ObjectDescUnpickable) == 0;
+        billboard.hasContainingItem = spriteObject.semanticLootContainer
+            || (hasContainingItemPayload(spriteObject.rawContainingItem)
+                && (pObjectEntry->flags & ObjectDescUnpickable) == 0);
         billboard.objectName = pContainedItemDefinition != nullptr && !pContainedItemDefinition->name.empty()
             ? pContainedItemDefinition->name
             : pObjectEntry->internalName;
@@ -4517,6 +4523,7 @@ void IndoorRenderer::render(
         lightingFrame,
         settings.spriteOutline,
         pContextActionState,
+        &gameSession,
         &settings,
         pLightingStats);
 
@@ -7659,6 +7666,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
     const IndoorLightingFrame &lightingFrame,
     bool spriteOutlineEnabled,
     const GameplayContextActionState *pContextActionState,
+    const GameSession *pGameSession,
     const GameSettings *pSettings,
     LightingStats *pLightingStats
 )
@@ -7706,6 +7714,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
         float healthRatio = 1.0f;
         float healthBarZ = 0.0f;
         float healthBarScale = 1.0f;
+        float questMarkerZ = 0.0f;
         uint64_t lightingCacheKey = 0;
     };
 
@@ -7847,6 +7856,8 @@ void IndoorRenderer::renderActorPreviewBillboards(
             }
 
             drawItem.healthBarZ = drawItem.z + worldHeight + 26.0f * drawItem.heightScale;
+            drawItem.questMarkerZ = drawItem.z
+                + worldHeight * (1.0f - pTexture->opacityMask.opaqueTopNormalized());
             drawItems.push_back(drawItem);
         }
     }
@@ -8321,6 +8332,140 @@ void IndoorRenderer::renderActorPreviewBillboards(
             | BGFX_STATE_DEPTH_TEST_LEQUAL
             | BGFX_STATE_BLEND_ALPHA);
         bgfx::submit(viewId, m_programHandle);
+    }
+
+    struct QuestMarkerBatch
+    {
+        Mm9QuestMarkerState state = Mm9QuestMarkerState::None;
+        const BillboardTextureHandle *pTexture = nullptr;
+        std::vector<LitBillboardVertex> vertices;
+    };
+
+    std::array<QuestMarkerBatch, 3> questMarkerBatches = {{
+        {Mm9QuestMarkerState::Available},
+        {Mm9QuestMarkerState::InProgress},
+        {Mm9QuestMarkerState::Ready},
+    }};
+
+    const bool hasVisibleQuestMarker =
+        pGameSession != nullptr
+        && pSettings != nullptr
+        && pSettings->questMarkers
+        && std::any_of(
+            drawItems.begin(),
+            drawItems.end(),
+            [pGameSession](const BillboardDrawItem &drawItem)
+            {
+                return questMarkerAlpha(std::sqrt(drawItem.distanceSquared)) > 0
+                    && !questMarkerTextureName(pGameSession->questMarkerForActor(drawItem.actorIndex)).empty();
+            });
+
+    if (hasVisibleQuestMarker)
+    {
+        ensureSpriteBillboardTexture("quest_marker_exclamation", 0);
+        ensureSpriteBillboardTexture("quest_marker_question", 0);
+
+        for (QuestMarkerBatch &batch : questMarkerBatches)
+        {
+            batch.pTexture = findBillboardTexture(std::string(questMarkerTextureName(batch.state)), 0);
+        }
+
+        for (const BillboardDrawItem &drawItem : drawItems)
+        {
+            const Mm9QuestMarkerState markerState = pGameSession->questMarkerForActor(drawItem.actorIndex);
+            const float distance = std::sqrt(drawItem.distanceSquared);
+            const uint8_t alpha = questMarkerAlpha(distance);
+            const auto batchIterator = std::find_if(
+                questMarkerBatches.begin(),
+                questMarkerBatches.end(),
+                [markerState](const QuestMarkerBatch &batch)
+                {
+                    return batch.state == markerState;
+                });
+
+            if (alpha == 0
+                || batchIterator == questMarkerBatches.end()
+                || batchIterator->pTexture == nullptr
+                || !bgfx::isValid(batchIterator->pTexture->textureHandle))
+            {
+                continue;
+            }
+
+            const float scale = questMarkerWorldScale(distance);
+            const float halfExtent = questMarkerHalfExtent(scale);
+            const bx::Vec3 origin = {
+                static_cast<float>(drawItem.x),
+                static_cast<float>(drawItem.y),
+                drawItem.questMarkerZ + questMarkerOriginOffset(scale),
+            };
+            const bx::Vec3 center = transformIndoorPoint(origin, pViewMatrix);
+            const bx::Vec3 right = {halfExtent, 0.0f, 0.0f};
+            const bx::Vec3 up = {0.0f, halfExtent, 0.0f};
+            std::vector<LitBillboardVertex> &vertices = batchIterator->vertices;
+            const uint32_t vertexColorAbgr = makeAbgrAlpha(0, 0, 0, alpha);
+            vertices.push_back(
+                {center.x - right.x - up.x, center.y - right.y - up.y, center.z - right.z - up.z, 0.0f, 1.0f,
+                 vertexColorAbgr});
+            vertices.push_back(
+                {center.x - right.x + up.x, center.y - right.y + up.y, center.z - right.z + up.z, 0.0f, 0.0f,
+                 vertexColorAbgr});
+            vertices.push_back(
+                {center.x + right.x + up.x, center.y + right.y + up.y, center.z + right.z + up.z, 1.0f, 0.0f,
+                 vertexColorAbgr});
+            vertices.push_back(vertices[vertices.size() - 3]);
+            vertices.push_back(vertices[vertices.size() - 2]);
+            vertices.push_back(
+                {center.x + right.x - up.x, center.y + right.y - up.y, center.z + right.z - up.z, 1.0f, 1.0f,
+                 vertexColorAbgr});
+        }
+    }
+
+    for (const QuestMarkerBatch &batch : questMarkerBatches)
+    {
+        if (batch.pTexture == nullptr
+            || batch.vertices.empty()
+            || bgfx::getAvailTransientVertexBuffer(
+                static_cast<uint32_t>(batch.vertices.size()),
+                LitBillboardVertex::ms_layout) < batch.vertices.size())
+        {
+            continue;
+        }
+
+        bgfx::TransientVertexBuffer transientVertexBuffer = {};
+        bgfx::allocTransientVertexBuffer(
+            &transientVertexBuffer,
+            static_cast<uint32_t>(batch.vertices.size()),
+            LitBillboardVertex::ms_layout);
+        std::memcpy(
+            transientVertexBuffer.data,
+            batch.vertices.data(),
+            batch.vertices.size() * sizeof(LitBillboardVertex));
+
+        const uint32_t colorAbgr = questMarkerColorAbgr(batch.state, 255);
+        const float ambient[4] = {
+            redChannel(colorAbgr),
+            greenChannel(colorAbgr),
+            blueChannel(colorAbgr),
+            1.0f,
+        };
+        const float clearUniform[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        const float fogDistances[4] = {4096.0f, 4096.0f, 4096.0f, 0.0f};
+        bgfx::setTransform(billboardModelMatrix);
+        bgfx::setVertexBuffer(0, &transientVertexBuffer, 0, static_cast<uint32_t>(batch.vertices.size()));
+        bindTexture(
+            0,
+            m_textureSamplerHandle,
+            batch.pTexture->textureHandle,
+            TextureFilterProfile::Billboard,
+            BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+        bgfx::setUniform(m_billboardAmbientUniformHandle, ambient);
+        bgfx::setUniform(m_billboardOverrideColorUniformHandle, clearUniform);
+        bgfx::setUniform(m_billboardOutlineParamsUniformHandle, clearUniform);
+        bgfx::setUniform(m_billboardFogColorUniformHandle, clearUniform);
+        bgfx::setUniform(m_billboardFogDensitiesUniformHandle, clearUniform);
+        bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
+        bgfx::setState(IndoorBillboardOverlayDrawState);
+        bgfx::submit(viewId, m_billboardProgramHandle);
     }
 }
 

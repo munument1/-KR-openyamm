@@ -56,6 +56,7 @@ public:
     void setRunning(bool active);
     void setDebugFlyingOverride(bool active);
     void setMovementSpeedMultiplier(float multiplier);
+    void setBodyDimensions(float radius, float height);
     void setCollisionTraceEnabled(bool enabled, const std::string &mapName);
     void syncSpellMovementStatesFromPartyBuffs();
     void requestJump(std::optional<float> verticalVelocity = std::nullopt, float lift = 1.0f);

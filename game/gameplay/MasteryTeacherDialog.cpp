@@ -175,6 +175,7 @@ int masteryTeacherCost(const std::string &skillName, SkillMastery targetMastery)
             || canonicalSkill == "Axe"
             || canonicalSkill == "Spear"
             || canonicalSkill == "Bow"
+            || canonicalSkill == "Throwing"
             || canonicalSkill == "Mace"
             || canonicalSkill == "LightMagic"
             || canonicalSkill == "DarkMagic"
@@ -237,6 +238,7 @@ int masteryTeacherCost(const std::string &skillName, SkillMastery targetMastery)
             || canonicalSkill == "Axe"
             || canonicalSkill == "Spear"
             || canonicalSkill == "Bow"
+            || canonicalSkill == "Throwing"
             || canonicalSkill == "Mace"
             || canonicalSkill == "LightMagic"
             || canonicalSkill == "DarkMagic"
@@ -288,6 +290,7 @@ int masteryTeacherCost(const std::string &skillName, SkillMastery targetMastery)
             || canonicalSkill == "Axe"
             || canonicalSkill == "Spear"
             || canonicalSkill == "Bow"
+            || canonicalSkill == "Throwing"
             || canonicalSkill == "Mace"
             || canonicalSkill == "FireMagic"
             || canonicalSkill == "AirMagic"
@@ -468,14 +471,6 @@ std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
     const MergedTeacherTopicTable *pTeacherTopicTable
 )
 {
-    const Character *pCharacter = party.activeMember();
-
-    if (pCharacter == nullptr)
-    {
-        return std::nullopt;
-    }
-
-    MasteryTeacherEvaluation evaluation = {};
     const std::optional<MasteryTeacherTopicDefinition> teacherTopic =
         resolveMasteryTeacherTopic(topicId, pTeacherTopicTable);
 
@@ -484,9 +479,33 @@ std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
         return std::nullopt;
     }
 
-    evaluation.skillName = teacherTopic->skillName;
-    evaluation.targetMastery = teacherTopic->targetMastery;
-    evaluation.cost = static_cast<int>(teacherTopic->requiredGold);
+    const SkillMasteryTrainingRequest request = {
+        .skillName = teacherTopic->skillName,
+        .targetMastery = teacherTopic->targetMastery,
+        .requiredGold = teacherTopic->requiredGold,
+        .requiredSkill = teacherTopic->requiredSkill,
+    };
+    return evaluateSkillMasteryTraining(request, party, classSkillTable, npcDialogTable);
+}
+
+std::optional<MasteryTeacherEvaluation> evaluateSkillMasteryTraining(
+    const SkillMasteryTrainingRequest &request,
+    const Party &party,
+    const ClassSkillTable &classSkillTable,
+    const NpcDialogTable &npcDialogTable
+)
+{
+    const Character *pCharacter = party.activeMember();
+
+    if (pCharacter == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    MasteryTeacherEvaluation evaluation = {};
+    evaluation.skillName = canonicalSkillName(request.skillName);
+    evaluation.targetMastery = request.targetMastery;
+    evaluation.cost = static_cast<int>(request.requiredGold);
 
     if (evaluation.skillName.empty() || evaluation.targetMastery == SkillMastery::None)
     {
@@ -546,7 +565,7 @@ std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
         party,
         evaluation.skillName,
         evaluation.targetMastery,
-        teacherTopic->requiredSkill);
+        request.requiredSkill);
 
     if (requirementFailure != MasteryRequirementFailure::None)
     {
@@ -587,17 +606,16 @@ std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
     return evaluation;
 }
 
-bool applyMasteryTeacherTopic(
-    uint32_t topicId,
+bool applySkillMasteryTraining(
+    const SkillMasteryTrainingRequest &request,
     Party &party,
     const ClassSkillTable &classSkillTable,
     const NpcDialogTable &npcDialogTable,
-    const MergedTeacherTopicTable *pTeacherTopicTable,
     std::string &message
 )
 {
     const std::optional<MasteryTeacherEvaluation> evaluation =
-        evaluateMasteryTeacherTopic(topicId, party, classSkillTable, npcDialogTable, pTeacherTopicTable);
+        evaluateSkillMasteryTraining(request, party, classSkillTable, npcDialogTable);
 
     if (!evaluation || !evaluation->approved)
     {
@@ -617,5 +635,126 @@ bool applyMasteryTeacherTopic(
         + masteryDisplayName(evaluation->targetMastery)
         + " in " + displaySkillName(evaluation->skillName) + ".";
     return true;
+}
+
+std::optional<MasteryTeacherEvaluation> evaluateSkillMasteryGroupTraining(
+    const SkillMasteryGroupTrainingRequest &request,
+    const Party &party,
+    const ClassSkillTable &classSkillTable,
+    const NpcDialogTable &npcDialogTable)
+{
+    const Character *pCharacter = party.activeMember();
+    if (pCharacter == nullptr || request.displayName.empty() || request.skillNames.empty()
+        || request.targetMastery == SkillMastery::None)
+    {
+        return std::nullopt;
+    }
+
+    std::optional<MasteryTeacherEvaluation> approvedEvaluation;
+    std::optional<MasteryTeacherEvaluation> alreadyTrainedEvaluation;
+    for (const std::string &skillName : request.skillNames)
+    {
+        const CharacterSkill *pSkill = pCharacter->findSkill(skillName);
+        const SkillMasteryTrainingRequest skillRequest = {
+            .skillName = skillName,
+            .targetMastery = request.targetMastery,
+            .requiredGold = request.requiredGold,
+            .requiredSkill = request.requiredSkill,
+        };
+        const std::optional<MasteryTeacherEvaluation> evaluation = evaluateSkillMasteryTraining(
+            skillRequest,
+            party,
+            classSkillTable,
+            npcDialogTable);
+        if (!evaluation)
+        {
+            return std::nullopt;
+        }
+        if (pSkill != nullptr && pSkill->mastery >= request.targetMastery)
+        {
+            alreadyTrainedEvaluation = evaluation;
+            continue;
+        }
+        if (!evaluation->approved)
+        {
+            return evaluation;
+        }
+        if (!approvedEvaluation)
+        {
+            approvedEvaluation = evaluation;
+        }
+    }
+
+    if (!approvedEvaluation)
+    {
+        return alreadyTrainedEvaluation;
+    }
+    approvedEvaluation->skillName = request.displayName;
+    approvedEvaluation->displayText =
+        "Become " + masteryDisplayName(request.targetMastery)
+        + " in " + request.displayName + " for " + std::to_string(approvedEvaluation->cost) + " gold";
+    return approvedEvaluation;
+}
+
+bool applySkillMasteryGroupTraining(
+    const SkillMasteryGroupTrainingRequest &request,
+    Party &party,
+    const ClassSkillTable &classSkillTable,
+    const NpcDialogTable &npcDialogTable,
+    std::string &message)
+{
+    const std::optional<MasteryTeacherEvaluation> evaluation = evaluateSkillMasteryGroupTraining(
+        request,
+        party,
+        classSkillTable,
+        npcDialogTable);
+    Character *pCharacter = party.activeMember();
+    if (!evaluation || !evaluation->approved || pCharacter == nullptr)
+    {
+        return false;
+    }
+
+    for (const std::string &skillName : request.skillNames)
+    {
+        CharacterSkill *pSkill = pCharacter->findSkill(skillName);
+        if (pSkill == nullptr)
+        {
+            return false;
+        }
+        if (pSkill->mastery < request.targetMastery)
+        {
+            pSkill->mastery = request.targetMastery;
+        }
+    }
+    party.addGold(-evaluation->cost);
+    message = pCharacter->name + " is now a " + masteryDisplayName(request.targetMastery)
+        + " in " + request.displayName + ".";
+    return true;
+}
+
+bool applyMasteryTeacherTopic(
+    uint32_t topicId,
+    Party &party,
+    const ClassSkillTable &classSkillTable,
+    const NpcDialogTable &npcDialogTable,
+    const MergedTeacherTopicTable *pTeacherTopicTable,
+    std::string &message
+)
+{
+    const std::optional<MasteryTeacherTopicDefinition> teacherTopic =
+        resolveMasteryTeacherTopic(topicId, pTeacherTopicTable);
+
+    if (!teacherTopic)
+    {
+        return false;
+    }
+
+    const SkillMasteryTrainingRequest request = {
+        .skillName = teacherTopic->skillName,
+        .targetMastery = teacherTopic->targetMastery,
+        .requiredGold = teacherTopic->requiredGold,
+        .requiredSkill = teacherTopic->requiredSkill,
+    };
+    return applySkillMasteryTraining(request, party, classSkillTable, npcDialogTable, message);
 }
 }

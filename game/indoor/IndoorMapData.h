@@ -1,5 +1,7 @@
 #pragma once
 
+#include "game/maps/MapPresentation.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -173,6 +175,7 @@ struct IndoorMapData
     std::vector<IndoorSpawn> spawns;
     std::vector<IndoorOutline> outlines;
     std::optional<IndoorPartyStartPoint> partyStartPoint;
+    std::optional<MapPresentation> mapPresentation;
     uint32_t doorCount = 0;
     size_t sectorCount = 0;
     size_t spriteCount = 0;

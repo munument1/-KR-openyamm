@@ -1,5 +1,9 @@
 #include "game/maps/SaveGame.h"
 
+#include "game/tables/HouseTable.h"
+#include "game/tables/ItemTable.h"
+
+#include <algorithm>
 #include <bitset>
 #include <cctype>
 #include <cstdint>
@@ -15,7 +19,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 70;
+constexpr uint32_t SaveVersion = 80;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -67,6 +71,17 @@ constexpr uint32_t SaveVersionLegacyEvtTimers = 67;
 constexpr uint32_t SaveVersionHiredNpcFollowerIdentity = 68;
 constexpr uint32_t SaveVersionOutdoorFaceAttributes = 69;
 constexpr uint32_t SaveVersionOutdoorMechanismRotationDirection = 70;
+constexpr uint32_t SaveVersionMm9DialogueActors = 71;
+constexpr uint32_t SaveVersionRequiredContentPackages = 72;
+constexpr uint32_t SaveVersionItemWeeklyEffects = 73;
+constexpr uint32_t SaveVersionMm9ActorReactions = 74;
+constexpr uint32_t SaveVersionActorProceduralDeathLoot = 75;
+constexpr uint32_t SaveVersionMm9ItemSourceState = 76;
+constexpr uint32_t SaveVersionMm9SemanticWorldItems = 77;
+constexpr uint32_t SaveVersionMm9IndoorSemanticWorldItems = 78;
+constexpr uint32_t SaveVersionTimedPrimaryStatBonuses = 79;
+constexpr uint32_t SaveVersionSuspendedMm9RudeVendor = 80;
+constexpr uint32_t SaveVersionVendorStockGeneration = 80;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -756,6 +771,18 @@ bool readValue(BinaryReader &reader, CharacterEquipmentRuntimeState &value)
         && readValue(reader, value.ring6);
 }
 
+void writeValue(BinaryWriter &writer, const TimedPrimaryStatBonus &value)
+{
+    writeValue(writer, value.power);
+    writeValue(writer, value.remainingSeconds);
+}
+
+bool readValue(BinaryReader &reader, TimedPrimaryStatBonus &value)
+{
+    return readValue(reader, value.power)
+        && readValue(reader, value.remainingSeconds);
+}
+
 void writeValue(BinaryWriter &writer, const Character &value)
 {
     writeValue(writer, value.name);
@@ -815,6 +842,7 @@ void writeValue(BinaryWriter &writer, const Character &value)
     writeValue(writer, value.spellRegenAccumulator);
     writeValue(writer, value.lloydsBeacons);
     writeValue(writer, value.inventory);
+    writeValue(writer, value.timedPrimaryStatBonuses);
 }
 
 bool readValue(BinaryReader &reader, Character &value)
@@ -876,7 +904,9 @@ bool readValue(BinaryReader &reader, Character &value)
         && readValue(reader, value.healthRegenAccumulator)
         && readValue(reader, value.spellRegenAccumulator)
         && readValue(reader, value.lloydsBeacons)
-        && readValue(reader, value.inventory);
+        && readValue(reader, value.inventory)
+        && (reader.version() < SaveVersionTimedPrimaryStatBonuses
+            || readValue(reader, value.timedPrimaryStatBonuses));
 }
 
 void writeValue(BinaryWriter &writer, const PartyBuffState &value)
@@ -929,6 +959,7 @@ void writeValue(BinaryWriter &writer, const Party::HouseStockState &value)
     writeValue(writer, value.standardStock);
     writeValue(writer, value.specialStock);
     writeValue(writer, value.spellbookStock);
+    writeValue(writer, value.generationVersion);
 }
 
 bool readValue(BinaryReader &reader, Party::HouseStockState &value)
@@ -938,7 +969,9 @@ bool readValue(BinaryReader &reader, Party::HouseStockState &value)
         && readValue(reader, value.refreshSequence)
         && readValue(reader, value.standardStock)
         && readValue(reader, value.specialStock)
-        && readValue(reader, value.spellbookStock);
+        && readValue(reader, value.spellbookStock)
+        && (reader.version() < SaveVersionVendorStockGeneration
+            || readValue(reader, value.generationVersion));
 }
 
 void writeValue(BinaryWriter &writer, const AdventurersInnMember &value)
@@ -971,6 +1004,8 @@ void writeValue(BinaryWriter &writer, const Party::Snapshot &value)
     writeValue(writer, value.hardLandingSoundCount);
     writeValue(writer, value.monsterTargetSelectionCounter);
     writeValue(writer, value.houseStockSeed);
+    writeValue(writer, value.itemEffectElapsedGameSeconds);
+    writeValue(writer, value.itemWeeklyEffectSequence);
     writeValue(writer, value.lastFallDamageDistance);
     writeValue(writer, value.foundArtifactItems);
     writeValue(writer, value.arcomageWonHouseIds);
@@ -1009,6 +1044,10 @@ bool readValue(BinaryReader &reader, Party::Snapshot &value)
         && readValue(reader, value.hardLandingSoundCount)
         && readValue(reader, value.monsterTargetSelectionCounter)
         && readValue(reader, value.houseStockSeed)
+        && (reader.version() < SaveVersionItemWeeklyEffects
+            || readValue(reader, value.itemEffectElapsedGameSeconds))
+        && (reader.version() < SaveVersionItemWeeklyEffects
+            || readValue(reader, value.itemWeeklyEffectSequence))
         && readValue(reader, value.lastFallDamageDistance)
         && readValue(reader, value.foundArtifactItems)
         && readValue(reader, value.arcomageWonHouseIds)
@@ -1410,6 +1449,7 @@ void writeValue(BinaryWriter &writer, const IndoorWorldRuntime::Snapshot &value)
     writeValue(writer, value.fireSpikeTraps);
     writeValue(writer, value.actorUpdateAccumulatorSeconds);
     writeValue(writer, value.projectileState);
+    writeValue(writer, value.searchedLootPropSourceIds);
 }
 
 bool readValue(BinaryReader &reader, IndoorWorldRuntime::Snapshot &value)
@@ -1429,7 +1469,9 @@ bool readValue(BinaryReader &reader, IndoorWorldRuntime::Snapshot &value)
         && (reader.version() < SaveVersionIndoorFireSpikeTraps || readValue(reader, value.fireSpikeTraps))
         && (reader.version() < SaveVersionIndoorSaveLoadParity
             || readValue(reader, value.actorUpdateAccumulatorSeconds))
-        && (reader.version() < SaveVersionFullProjectileState || readValue(reader, value.projectileState));
+        && (reader.version() < SaveVersionFullProjectileState || readValue(reader, value.projectileState))
+        && (reader.version() < SaveVersionMm9ItemSourceState
+            || readValue(reader, value.searchedLootPropSourceIds));
 }
 
 void writeValue(BinaryWriter &writer, const OutdoorPartyRuntime::Snapshot &value)
@@ -1662,18 +1704,41 @@ bool readValue(BinaryReader &reader, EventRuntimeState::DialogueOfferState &valu
         && (reader.version() < SaveVersionDialogueActorSource || readValue(reader, value.sourceActorIndex));
 }
 
+void writeValue(BinaryWriter &writer, const EventRuntimeState::SuspendedMm9RudeDialogue &value)
+{
+    writeValue(writer, value.rudeId);
+    writeValue(writer, value.nodeId);
+    writeValue(writer, value.sourceActorIndex);
+    writeValue(writer, value.response);
+    writeValue(writer, value.selectionIndex);
+    writeValue(writer, value.exitCallbackExecuted);
+}
+
+bool readValue(BinaryReader &reader, EventRuntimeState::SuspendedMm9RudeDialogue &value)
+{
+    return readValue(reader, value.rudeId)
+        && readValue(reader, value.nodeId)
+        && readValue(reader, value.sourceActorIndex)
+        && readValue(reader, value.response)
+        && readValue(reader, value.selectionIndex)
+        && readValue(reader, value.exitCallbackExecuted);
+}
+
 void writeValue(BinaryWriter &writer, const EventRuntimeState::DialogueRuntimeState &value)
 {
     writeValue(writer, value.hostHouseId);
     writeValue(writer, value.menuStack);
     writeValue(writer, value.currentOffer);
+    writeValue(writer, value.suspendedMm9RudeDialogue);
 }
 
 bool readValue(BinaryReader &reader, EventRuntimeState::DialogueRuntimeState &value)
 {
     return readValue(reader, value.hostHouseId)
         && readValue(reader, value.menuStack)
-        && readValue(reader, value.currentOffer);
+        && readValue(reader, value.currentOffer)
+        && (reader.version() < SaveVersionSuspendedMm9RudeVendor
+            || readValue(reader, value.suspendedMm9RudeDialogue));
 }
 
 void writeValue(BinaryWriter &writer, const EventRuntimeState::GeneratedMercenaryRecruit &value)
@@ -2133,6 +2198,14 @@ void writeValue(BinaryWriter &writer, const MapDeltaActor &value)
             ? static_cast<uint64_t>(value.diagnosticSourceActorIndex)
             : std::numeric_limits<uint64_t>::max();
     writeValue(writer, diagnosticSourceActorIndex);
+    writeValue(writer, value.mm9RudeId);
+    writeValue(writer, value.mm9SourceObjectIndex);
+    writeValue(writer, value.initialYawUnits);
+    writeValue(writer, value.immobile);
+    writeValue(writer, value.mm9CanReceiveDamage);
+    writeValue(writer, value.mm9Civilian);
+    writeValue(writer, value.mm9Guard);
+    writeValue(writer, value.proceduralDeathLoot);
 }
 
 bool readValue(BinaryReader &reader, MapDeltaActor &value)
@@ -2180,6 +2253,29 @@ bool readValue(BinaryReader &reader, MapDeltaActor &value)
         }
     }
 
+    if (reader.version() >= SaveVersionMm9DialogueActors
+        && (!readValue(reader, value.mm9RudeId)
+            || !readValue(reader, value.mm9SourceObjectIndex)
+            || !readValue(reader, value.initialYawUnits)
+            || !readValue(reader, value.immobile)))
+    {
+        return false;
+    }
+
+    if (reader.version() >= SaveVersionMm9ActorReactions
+        && (!readValue(reader, value.mm9CanReceiveDamage)
+            || !readValue(reader, value.mm9Civilian)
+            || !readValue(reader, value.mm9Guard)))
+    {
+        return false;
+    }
+
+    if (reader.version() >= SaveVersionActorProceduralDeathLoot
+        && !readValue(reader, value.proceduralDeathLoot))
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -2212,6 +2308,11 @@ void writeValue(BinaryWriter &writer, const MapDeltaSpriteObject &value)
     writeValue(writer, value.initialY);
     writeValue(writer, value.initialZ);
     writeValue(writer, value.rawContainingItem);
+    writeValue(writer, value.semanticSourceId);
+    writeValue(writer, value.semanticLootContainerId);
+    writeValue(writer, value.semanticPlacedPickup);
+    writeValue(writer, value.semanticLootContainer);
+    writeValue(writer, value.semanticPolicyHidden);
 }
 
 bool readValue(BinaryReader &reader, MapDeltaSpriteObject &value)
@@ -2242,7 +2343,13 @@ bool readValue(BinaryReader &reader, MapDeltaSpriteObject &value)
         && readValue(reader, value.initialX)
         && readValue(reader, value.initialY)
         && readValue(reader, value.initialZ)
-        && readValue(reader, value.rawContainingItem);
+        && readValue(reader, value.rawContainingItem)
+        && (reader.version() < SaveVersionMm9IndoorSemanticWorldItems
+            || (readValue(reader, value.semanticSourceId)
+                && readValue(reader, value.semanticLootContainerId)
+                && readValue(reader, value.semanticPlacedPickup)
+                && readValue(reader, value.semanticLootContainer)
+                && readValue(reader, value.semanticPolicyHidden)));
 }
 
 void writeValue(BinaryWriter &writer, const MapDeltaDoor &value)
@@ -2655,6 +2762,16 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::MapActorState &
     writeValue(writer, value.crowdEscapeAttempts);
     writeValue(writer, value.crowdSideSign);
     writeValue(writer, value.suppressLowHealthFlee);
+    writeValue(writer, value.mm9RudeId);
+    writeValue(writer, value.usesMm9ActorRules);
+    writeValue(writer, value.canReceiveDamage);
+    writeValue(writer, value.mm9Civilian);
+    writeValue(writer, value.mm9Guard);
+    writeValue(writer, value.mm9FleeingFromParty);
+    writeValue(writer, value.mm9FleeRemainingSeconds);
+    writeValue(writer, value.mm9HelpCooldownSeconds);
+    writeValue(writer, value.mm9PlayerHitCount);
+    writeValue(writer, value.proceduralDeathLoot);
 }
 
 bool readValue(BinaryReader &reader, OutdoorWorldRuntime::MapActorState &value)
@@ -2796,7 +2913,19 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::MapActorState &value)
                 && readValue(reader, value.crowdProbeElapsedSeconds)
                 && readValue(reader, value.crowdEscapeAttempts)
                 && readValue(reader, value.crowdSideSign)
-                && readValue(reader, value.suppressLowHealthFlee)));
+                && readValue(reader, value.suppressLowHealthFlee)))
+        && (reader.version() < SaveVersionMm9DialogueActors || readValue(reader, value.mm9RudeId))
+        && (reader.version() < SaveVersionMm9ActorReactions
+            || (readValue(reader, value.usesMm9ActorRules)
+                && readValue(reader, value.canReceiveDamage)
+                && readValue(reader, value.mm9Civilian)
+                && readValue(reader, value.mm9Guard)
+                && readValue(reader, value.mm9FleeingFromParty)
+                && readValue(reader, value.mm9FleeRemainingSeconds)
+                && readValue(reader, value.mm9HelpCooldownSeconds)
+                && readValue(reader, value.mm9PlayerHitCount)))
+        && (reader.version() < SaveVersionActorProceduralDeathLoot
+            || readValue(reader, value.proceduralDeathLoot));
 }
 
 void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::ChestItemState &value)
@@ -2895,6 +3024,10 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::WorldItemState 
     writeValue(writer, value.lifetimeTicks);
     writeValue(writer, value.spawnedByPlayer);
     writeValue(writer, value.isExpired);
+    writeValue(writer, value.semanticSourceId);
+    writeValue(writer, value.semanticPlacedPickup);
+    writeValue(writer, value.semanticLootContainerId);
+    writeValue(writer, value.semanticLootContainer);
 }
 
 bool readValue(BinaryReader &reader, OutdoorWorldRuntime::WorldItemState &value)
@@ -2926,7 +3059,12 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::WorldItemState &value)
         && readValue(reader, value.timeSinceCreatedTicks)
         && readValue(reader, value.lifetimeTicks)
         && readValue(reader, value.spawnedByPlayer)
-        && readValue(reader, value.isExpired);
+        && readValue(reader, value.isExpired)
+        && (reader.version() < SaveVersionMm9SemanticWorldItems
+            || (readValue(reader, value.semanticSourceId)
+                && readValue(reader, value.semanticPlacedPickup)
+                && readValue(reader, value.semanticLootContainerId)
+                && readValue(reader, value.semanticLootContainer)));
 }
 
 void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::ArmageddonState &value)
@@ -3303,6 +3441,7 @@ void writeValue(BinaryWriter &writer, const OutdoorWorldRuntime::Snapshot &value
     writeValue(writer, value.rainIntensityPreset);
     writeValue(writer, value.bloodSplats);
     writeValue(writer, value.faceAttributes);
+    writeValue(writer, value.searchedLootPropSourceIds);
 }
 
 bool readValue(BinaryReader &reader, OutdoorWorldRuntime::Snapshot &value)
@@ -3346,7 +3485,9 @@ bool readValue(BinaryReader &reader, OutdoorWorldRuntime::Snapshot &value)
                 && readValue(reader, value.rainIntensityPreset)
                 && readValue(reader, value.bloodSplats)))
         && (reader.version() < SaveVersionOutdoorFaceAttributes
-            || readValue(reader, value.faceAttributes));
+            || readValue(reader, value.faceAttributes))
+        && (reader.version() < SaveVersionMm9ItemSourceState
+            || readValue(reader, value.searchedLootPropSourceIds));
 
     if (loaded && reader.version() >= SaveVersionOutdoorRuntimeSaveParity)
     {
@@ -3401,6 +3542,7 @@ void writeValue(BinaryWriter &writer, const GameSaveData &value)
     writeValue(writer, value.heldInventoryItemGrabCellOffsetY);
     writeValue(writer, value.heldInventoryItemGrabOffsetX);
     writeValue(writer, value.heldInventoryItemGrabOffsetY);
+    writeValue(writer, value.requiredContentPackages);
     writeValue(writer, value.saveName);
     writeValue(writer, value.previewBmp);
 }
@@ -3429,9 +3571,296 @@ bool readValue(BinaryReader &reader, GameSaveData &value)
             || readValue(reader, value.heldInventoryItemGrabCellOffsetY))
         && (reader.version() < SaveVersionHeldCursorItem || readValue(reader, value.heldInventoryItemGrabOffsetX))
         && (reader.version() < SaveVersionHeldCursorItem || readValue(reader, value.heldInventoryItemGrabOffsetY))
+        && (reader.version() < SaveVersionRequiredContentPackages
+            || readValue(reader, value.requiredContentPackages))
         && readValue(reader, value.saveName)
         && readValue(reader, value.previewBmp);
 }
+}
+
+namespace
+{
+std::vector<uint32_t> persistentSaveItemIds(const GameSaveData &data)
+{
+    std::vector<uint32_t> itemIds;
+    const auto appendInventoryItem = [&itemIds](const InventoryItem &item)
+    {
+        if (item.objectDescriptionId != 0)
+        {
+            itemIds.push_back(item.objectDescriptionId);
+        }
+    };
+    const auto appendChestView = [&appendInventoryItem](const GameplayChestViewState &view)
+    {
+        for (const GameplayChestItemState &item : view.items)
+        {
+            appendInventoryItem(item.item);
+        }
+        for (const GameplayChestItemState &item : view.hiddenItems)
+        {
+            appendInventoryItem(item.item);
+        }
+    };
+    const auto appendCorpseView = [&appendInventoryItem](const GameplayCorpseViewState &view)
+    {
+        for (const GameplayChestItemState &item : view.items)
+        {
+            appendInventoryItem(item.item);
+        }
+    };
+    const auto appendCharacterItems = [&itemIds](const Character &member)
+    {
+        for (const InventoryItem &item : member.inventory)
+        {
+            if (item.objectDescriptionId != 0)
+            {
+                itemIds.push_back(item.objectDescriptionId);
+            }
+        }
+
+        const CharacterEquipment &equipment = member.equipment;
+        for (uint32_t itemId : {
+                 equipment.offHand,
+                 equipment.mainHand,
+                 equipment.bow,
+                 equipment.armor,
+                 equipment.helm,
+                 equipment.belt,
+                 equipment.cloak,
+                 equipment.gauntlets,
+                 equipment.boots,
+                 equipment.amulet,
+                 equipment.ring1,
+                 equipment.ring2,
+                 equipment.ring3,
+                 equipment.ring4,
+                 equipment.ring5,
+                 equipment.ring6})
+        {
+            if (itemId != 0)
+            {
+                itemIds.push_back(itemId);
+            }
+        }
+    };
+
+    for (const Character &member : data.party.members)
+    {
+        appendCharacterItems(member);
+    }
+
+    for (const AdventurersInnMember &member : data.party.adventurersInnMembers)
+    {
+        appendCharacterItems(member.character);
+    }
+
+    for (const Party::HouseStockState &state : data.party.houseStockStates)
+    {
+        for (const InventoryItem &item : state.standardStock)
+        {
+            appendInventoryItem(item);
+        }
+        for (const InventoryItem &item : state.specialStock)
+        {
+            appendInventoryItem(item);
+        }
+        for (const InventoryItem &item : state.spellbookStock)
+        {
+            appendInventoryItem(item);
+        }
+    }
+
+    if (data.heldInventoryItemActive && data.heldInventoryItem.objectDescriptionId != 0)
+    {
+        itemIds.push_back(data.heldInventoryItem.objectDescriptionId);
+    }
+
+    const auto appendOutdoorWorld = [&](const OutdoorWorldRuntime::Snapshot &snapshot)
+    {
+        for (const std::optional<GameplayChestViewState> &view : snapshot.materializedChestViews)
+        {
+            if (view)
+            {
+                appendChestView(*view);
+            }
+        }
+        if (snapshot.activeChestView)
+        {
+            appendChestView(*snapshot.activeChestView);
+        }
+        for (const std::optional<GameplayCorpseViewState> &view : snapshot.mapActorCorpseViews)
+        {
+            if (view)
+            {
+                appendCorpseView(*view);
+            }
+        }
+        if (snapshot.activeCorpseView)
+        {
+            appendCorpseView(*snapshot.activeCorpseView);
+        }
+        for (const OutdoorWorldRuntime::WorldItemState &item : snapshot.worldItems)
+        {
+            appendInventoryItem(item.item);
+        }
+    };
+    const auto appendIndoorWorld = [&](const IndoorWorldRuntime::Snapshot &snapshot)
+    {
+        for (const std::optional<GameplayChestViewState> &view : snapshot.materializedChestViews)
+        {
+            if (view)
+            {
+                appendChestView(*view);
+            }
+        }
+        if (snapshot.activeChestView)
+        {
+            appendChestView(*snapshot.activeChestView);
+        }
+        for (const std::optional<GameplayCorpseViewState> &view : snapshot.mapActorCorpseViews)
+        {
+            if (view)
+            {
+                appendCorpseView(*view);
+            }
+        }
+        if (snapshot.activeCorpseView)
+        {
+            appendCorpseView(*snapshot.activeCorpseView);
+        }
+    };
+
+    if (data.hasOutdoorRuntimeState)
+    {
+        appendOutdoorWorld(data.outdoorWorld);
+    }
+    for (const auto &[mapName, snapshot] : data.outdoorWorldStates)
+    {
+        (void)mapName;
+        appendOutdoorWorld(snapshot);
+    }
+    if (data.hasIndoorSceneState)
+    {
+        appendIndoorWorld(data.indoorScene.worldRuntime);
+    }
+    for (const auto &[mapName, snapshot] : data.indoorSceneStates)
+    {
+        (void)mapName;
+        appendIndoorWorld(snapshot.worldRuntime);
+    }
+
+    std::sort(itemIds.begin(), itemIds.end());
+    itemIds.erase(std::unique(itemIds.begin(), itemIds.end()), itemIds.end());
+    return itemIds;
+}
+}
+
+std::unordered_map<std::string, uint32_t> collectRequiredContentPackages(
+    const GameSaveData &data,
+    const ItemTable &itemTable,
+    const HouseTable &houseTable,
+    const std::unordered_map<std::string, uint32_t> &loadedPackageSchemas)
+{
+    std::unordered_map<std::string, uint32_t> result;
+
+    for (uint32_t itemId : persistentSaveItemIds(data))
+    {
+        const ItemDefinition *pDefinition = itemTable.get(itemId);
+
+        if (pDefinition == nullptr || pDefinition->packageId.empty() || pDefinition->packageId == "engine")
+        {
+            continue;
+        }
+
+        const auto foundSchema = loadedPackageSchemas.find(pDefinition->packageId);
+        result[pDefinition->packageId] = foundSchema != loadedPackageSchemas.end() ? foundSchema->second : 0;
+    }
+
+    for (const Party::HouseStockState &state : data.party.houseStockStates)
+    {
+        const HouseEntry *pHouseEntry = houseTable.get(state.houseId);
+        if (state.generationVersion == 0
+            || pHouseEntry == nullptr
+            || pHouseEntry->packageId.empty()
+            || pHouseEntry->packageId == "engine")
+        {
+            continue;
+        }
+        const auto foundSchema = loadedPackageSchemas.find(pHouseEntry->packageId);
+        result[pHouseEntry->packageId] = foundSchema != loadedPackageSchemas.end() ? foundSchema->second : 0;
+    }
+
+    return result;
+}
+
+bool validateRequiredContentPackages(
+    const GameSaveData &data,
+    const ItemTable &itemTable,
+    const HouseTable &houseTable,
+    const std::unordered_map<std::string, uint32_t> &loadedPackageSchemas,
+    std::string &error)
+{
+    error.clear();
+
+    for (const auto &[packageId, requiredSchema] : data.requiredContentPackages)
+    {
+        const auto foundPackage = loadedPackageSchemas.find(packageId);
+
+        if (foundPackage == loadedPackageSchemas.end())
+        {
+            error = "save requires missing content package '" + packageId + "'";
+            return false;
+        }
+
+        if (requiredSchema == 0 || foundPackage->second != requiredSchema)
+        {
+            error = "save requires content package '" + packageId + "' schema "
+                + std::to_string(requiredSchema) + ", loaded schema is " + std::to_string(foundPackage->second);
+            return false;
+        }
+    }
+
+    for (uint32_t itemId : persistentSaveItemIds(data))
+    {
+        const ItemDefinition *pDefinition = itemTable.get(itemId);
+
+        if (pDefinition == nullptr)
+        {
+            error = "save references missing item definition " + std::to_string(itemId);
+            return false;
+        }
+
+        if (pDefinition->packageId != "engine"
+            && !data.requiredContentPackages.contains(pDefinition->packageId))
+        {
+            error = "save item " + std::to_string(itemId) + " is missing required package metadata for '"
+                + pDefinition->packageId + "'";
+            return false;
+        }
+    }
+
+    for (const Party::HouseStockState &state : data.party.houseStockStates)
+    {
+        if (state.generationVersion == 0)
+        {
+            continue;
+        }
+        const HouseEntry *pHouseEntry = houseTable.get(state.houseId);
+        if (pHouseEntry == nullptr || pHouseEntry->vendorStockProfile == VendorStockProfile::None)
+        {
+            error = "save references missing vendor definition " + std::to_string(state.houseId);
+            return false;
+        }
+        if (pHouseEntry->packageId != "engine"
+            && !data.requiredContentPackages.contains(pHouseEntry->packageId))
+        {
+            error = "save vendor " + std::to_string(state.houseId)
+                + " is missing required package metadata for '" + pHouseEntry->packageId + "'";
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool saveGameDataToPath(const std::filesystem::path &path, const GameSaveData &data, std::string &error)

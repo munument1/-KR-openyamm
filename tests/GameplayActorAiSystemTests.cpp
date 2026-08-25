@@ -179,6 +179,33 @@ TEST_CASE("shared actor AI keeps already dead active actors on the dead frame")
     CHECK(update.fxRequests.empty());
 }
 
+TEST_CASE("shared actor AI keeps immobile actors standing instead of walking in place")
+{
+    GameplayActorAiSystem system;
+    ActorAiFrameFacts frame = makeFrame();
+    ActorAiFacts actor = makeActor(5, 102);
+    actor.world.active = true;
+    actor.runtime.motionState = ActorAiMotionState::Wandering;
+    actor.runtime.animationState = ActorAiAnimationState::Walking;
+    actor.runtime.actionSeconds = 1.0f;
+    actor.movement.movementAllowed = false;
+    actor.movement.allowIdleWander = true;
+    actor.movement.wanderRadius = 2048.0f;
+    actor.movement.moveDirectionX = 1.0f;
+    frame.activeActors.push_back(actor);
+
+    const OpenYAMM::Game::ActorAiFrameResult result = system.updateActors(frame);
+
+    REQUIRE_EQ(result.actorUpdates.size(), 1u);
+    const OpenYAMM::Game::ActorAiUpdate &update = result.actorUpdates.front();
+    REQUIRE(update.state.motionState.has_value());
+    CHECK(*update.state.motionState == ActorAiMotionState::Standing);
+    REQUIRE(update.animation.animationState.has_value());
+    CHECK(*update.animation.animationState == ActorAiAnimationState::Standing);
+    CHECK(update.movementIntent.action == ActorAiMovementAction::Stand);
+    CHECK_FALSE(update.movementIntent.applyMovement);
+}
+
 TEST_CASE("shared actor AI lets party controlled friendly actors wander near the party")
 {
     GameplayActorAiSystem system;
@@ -321,7 +348,13 @@ TEST_CASE("shared actor service respects runtime party hostility overrides")
 
     actor.hostileToParty = true;
 
-    CHECK(service.partyEngagementRange(actor) > 0.0f);
+    CHECK_EQ(
+        service.partyEngagementRange(actor),
+        OpenYAMM::Game::GameplayActorService::MaximumPartyEngagementRange);
+
+    service.setPartyEngagementRange(4096.0f);
+    CHECK_EQ(service.configuredPartyEngagementRange(), 4096.0f);
+    CHECK_EQ(service.partyEngagementRange(actor), 4096.0f);
 }
 
 TEST_CASE("shared actor AI exposes a melee recovery window after the attack animation")
@@ -786,6 +819,7 @@ TEST_CASE("monster spell support includes implemented monster-data spells")
     const std::vector<std::string> projectileSpellNames = {
         "Acid Burst",
         "Blades",
+        "Dark Grasp",
         "Fire Bolt",
         "Fireball",
         "Harm",

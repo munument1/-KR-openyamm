@@ -275,6 +275,122 @@ bgfx::TextureHandle ensureHudTextureColorWithMode(
     colorTextures.push_back(std::move(tintedTextureHandle));
     return colorTextures.back().textureHandle;
 }
+
+struct ColumnSeparatedGlyphRun
+{
+    int startX = 0;
+    int width = 0;
+};
+
+std::optional<GameplayHudFontData> buildColumnSeparatedHudFont(
+    const Engine::ImagePixelsBgra &image,
+    const std::string &fontName)
+{
+    constexpr int FirstPrintableCharacter = 33;
+    constexpr int LastPrintableCharacter = 126;
+    constexpr int PrintableCharacterCount = LastPrintableCharacter - FirstPrintableCharacter + 1;
+    constexpr int DefaultAdvanceGlyphIndex = 'E' - FirstPrintableCharacter;
+
+    const size_t expectedPixelCount = static_cast<size_t>(image.width) * static_cast<size_t>(image.height) * 4;
+    if (image.width <= 0 || image.height <= 0 || image.pixels.size() < expectedPixelCount)
+    {
+        return std::nullopt;
+    }
+
+    std::vector<ColumnSeparatedGlyphRun> glyphRuns;
+    int glyphStartX = -1;
+    for (int x = 0; x <= image.width; ++x)
+    {
+        bool columnHasInk = false;
+        if (x < image.width)
+        {
+            for (int y = 0; y < image.height; ++y)
+            {
+                const size_t pixelOffset =
+                    (static_cast<size_t>(y) * static_cast<size_t>(image.width) + static_cast<size_t>(x)) * 4;
+                if (image.pixels[pixelOffset + 3] != 0)
+                {
+                    columnHasInk = true;
+                    break;
+                }
+            }
+        }
+
+        if (columnHasInk && glyphStartX < 0)
+        {
+            glyphStartX = x;
+        }
+        else if (!columnHasInk && glyphStartX >= 0)
+        {
+            glyphRuns.push_back({.startX = glyphStartX, .width = x - glyphStartX});
+            glyphStartX = -1;
+        }
+    }
+
+    if (glyphRuns.size() < PrintableCharacterCount)
+    {
+        return std::nullopt;
+    }
+
+    int atlasCellWidth = 1;
+    for (size_t glyphIndex = 0; glyphIndex < PrintableCharacterCount; ++glyphIndex)
+    {
+        atlasCellWidth = std::max(atlasCellWidth, glyphRuns[glyphIndex].width);
+    }
+
+    const int atlasWidth = atlasCellWidth * 16;
+    const int atlasHeight = image.height * 16;
+    std::vector<uint8_t> atlasPixels(static_cast<size_t>(atlasWidth) * static_cast<size_t>(atlasHeight) * 4, 0);
+
+    GameplayHudFontData font = {};
+    font.fontName = toLowerCopy(fontName);
+    font.firstChar = 32;
+    font.lastChar = LastPrintableCharacter;
+    font.fontHeight = image.height;
+    font.atlasCellWidth = atlasCellWidth;
+    font.atlasWidth = atlasWidth;
+    font.atlasHeight = atlasHeight;
+
+    const int defaultAdvance = glyphRuns[DefaultAdvanceGlyphIndex].width + 1;
+    font.glyphMetrics[32].rightSpacing = std::max(1, defaultAdvance / 2);
+
+    for (int character = FirstPrintableCharacter; character <= LastPrintableCharacter; ++character)
+    {
+        const ColumnSeparatedGlyphRun &run = glyphRuns[character - FirstPrintableCharacter];
+        font.glyphMetrics[character].width = run.width;
+        font.glyphMetrics[character].rightSpacing = 1;
+
+        const int targetX = (character % 16) * atlasCellWidth;
+        const int targetY = (character / 16) * image.height;
+        for (int y = 0; y < image.height; ++y)
+        {
+            const size_t sourceOffset =
+                (static_cast<size_t>(y) * static_cast<size_t>(image.width) + static_cast<size_t>(run.startX)) * 4;
+            const size_t targetOffset =
+                (static_cast<size_t>(targetY + y) * static_cast<size_t>(atlasWidth)
+                    + static_cast<size_t>(targetX)) * 4;
+            std::copy_n(
+                image.pixels.begin() + static_cast<ptrdiff_t>(sourceOffset),
+                static_cast<size_t>(run.width) * 4,
+                atlasPixels.begin() + static_cast<ptrdiff_t>(targetOffset));
+        }
+    }
+
+    font.mainAtlasPixels = atlasPixels;
+    font.mainTextureHandle = createBgraTexture2D(
+        static_cast<uint16_t>(atlasWidth),
+        static_cast<uint16_t>(atlasHeight),
+        atlasPixels.data(),
+        static_cast<uint32_t>(atlasPixels.size()),
+        TextureFilterProfile::Text,
+        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+    if (!bgfx::isValid(font.mainTextureHandle))
+    {
+        return std::nullopt;
+    }
+
+    return font;
+}
 } // namespace
 
 GameplayUiViewportRect GameplayHudCommon::computeUiViewportRect(int screenWidth, int screenHeight)
@@ -793,10 +909,19 @@ std::optional<std::vector<uint8_t>> GameplayHudCommon::loadHudBitmapPixelsBgraCa
     decodeOptions.applyTealTransparencyKey = true;
     decodeOptions.applyBlackTransparencyKey = usesBlackTransparencyKey(textureName);
 
+    std::string directoryPath = "Data/icons";
+    std::string fileName = textureName;
+    const size_t separator = textureName.find_last_of('/');
+    if (separator != std::string::npos)
+    {
+        directoryPath = textureName.substr(0, separator);
+        fileName = textureName.substr(separator + 1);
+    }
+
     const std::optional<Engine::ImagePixelsBgra> image = Engine::loadImageAssetPixelsBgra(
         *pAssetFileSystem,
-        "Data/icons",
-        textureName,
+        directoryPath,
+        fileName,
         cache.directoryAssetPathsByPath,
         cache.assetPathByKey,
         cache.binaryFilesByPath,
@@ -1053,6 +1178,31 @@ bool GameplayHudCommon::loadHudFont(
 
     if (!fontPath)
     {
+        const std::optional<std::string> pcxFontPath =
+            findCachedAssetPath(pAssetFileSystem, cache, "ui/dialogue", fontName + ".pcx");
+        if (pcxFontPath)
+        {
+            Engine::ImageDecodeOptions decodeOptions = {};
+            decodeOptions.applyTealTransparencyKey = true;
+            const std::optional<Engine::ImagePixelsBgra> image = Engine::loadImageAssetPixelsBgra(
+                *pAssetFileSystem,
+                *pcxFontPath,
+                cache.binaryFilesByPath,
+                decodeOptions);
+            const std::optional<GameplayHudFontData> bitmapFont = image
+                ? buildColumnSeparatedHudFont(*image, fontName)
+                : std::nullopt;
+            if (bitmapFont)
+            {
+                fonts.push_back(*bitmapFont);
+                return true;
+            }
+
+            std::cout << "HUD font load failed: font=\"" << fontName << "\" path=\"" << *pcxFontPath
+                      << "\" reason=column-separated-pcx-parse-failed\n";
+            return false;
+        }
+
         std::cout << "HUD font load failed: font=\"" << fontName << "\" reason=path-not-found\n";
         return false;
     }

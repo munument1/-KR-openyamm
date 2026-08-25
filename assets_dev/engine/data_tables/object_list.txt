@@ -539,3 +539,4 @@ Breath Weapon 2	spell100	12010	16	16	768	4000	853	0x00000000	0	0	0	LifeTime,NoPi
 explosion	spell100x	12011	16	16	8	0	861	0x00000000	0	0	0	LifeTime,FTLifeTime,NoPickup,NoGravity
 Rain	Rain	12012	32	32	768	4000	23313	0x00000000	0	0	0	LifeTime,NoPickup,NoGravity,FlagOnIntercept
 Snow	Snow	12013	32	32	768	4000	23339	0x00000000	0	0	0	LifeTime,NoPickup,NoGravity,FlagOnIntercept
+MM9 Treasure Bag	bag01	19001	49	60	0	0	17877	0x00000000	0	0	0	NoGravity

@@ -874,6 +874,11 @@ std::string houseWelcomeLine(const HouseEntry &houseEntry)
 
 HouseServiceType resolveHouseServiceType(const HouseEntry &houseEntry)
 {
+    if (houseEntry.vendorStockProfile != VendorStockProfile::None)
+    {
+        return HouseServiceType::Shop;
+    }
+
     if (isHouseType(houseEntry, "Weapon Shop")
         || isHouseType(houseEntry, "Armor Shop")
         || isHouseType(houseEntry, "Magic Shop")
@@ -1063,27 +1068,39 @@ std::vector<HouseActionOption> buildHouseActionOptions(
 
     if (menuId == DialogueMenuId::ShopEquipment)
     {
-        HouseActionOption sell = makeOption(HouseActionId::ShopSell, "Sell", isHouseOpenNow, closedReason);
-
-        if (sell.enabled && !HouseServiceRuntime::supportsEquipmentSell(houseEntry))
+        const bool isExplicitVendor = houseEntry.vendorStockProfile != VendorStockProfile::None;
+        if (!isExplicitVendor || HouseServiceRuntime::supportsEquipmentSell(houseEntry))
         {
-            sell.enabled = false;
-            sell.disabledReason = "This house does not buy equipment.";
+            HouseActionOption sell = makeOption(HouseActionId::ShopSell, "Sell", isHouseOpenNow, closedReason);
+
+            if (sell.enabled && !HouseServiceRuntime::supportsEquipmentSell(houseEntry))
+            {
+                sell.enabled = false;
+                sell.disabledReason = "This house does not buy equipment.";
+            }
+
+            options.push_back(std::move(sell));
         }
 
-        options.push_back(std::move(sell));
-
-        HouseActionOption identify = makeOption(HouseActionId::ShopIdentify, "Identify", isHouseOpenNow, closedReason);
-
-        if (identify.enabled && !HouseServiceRuntime::supportsIdentify(houseEntry))
+        if (!isExplicitVendor || HouseServiceRuntime::supportsIdentify(houseEntry))
         {
-            identify.enabled = false;
-            identify.disabledReason = "This house cannot identify items.";
+            HouseActionOption identify = makeOption(
+                HouseActionId::ShopIdentify,
+                "Identify",
+                isHouseOpenNow,
+                closedReason);
+
+            if (identify.enabled && !HouseServiceRuntime::supportsIdentify(houseEntry))
+            {
+                identify.enabled = false;
+                identify.disabledReason = "This house cannot identify items.";
+            }
+
+            options.push_back(std::move(identify));
         }
 
-        options.push_back(std::move(identify));
-
-        if (!isHouseType(houseEntry, "Alchemist"))
+        if ((!isExplicitVendor && !isHouseType(houseEntry, "Alchemist"))
+            || (isExplicitVendor && HouseServiceRuntime::supportsRepair(houseEntry)))
         {
             HouseActionOption repair = makeOption(HouseActionId::ShopRepair, "Repair", isHouseOpenNow, closedReason);
 
@@ -1147,7 +1164,8 @@ std::vector<HouseActionOption> buildHouseActionOptions(
     {
         const Character *pMember = pParty != nullptr ? pParty->activeMember() : nullptr;
 
-        if (pParty == nullptr || activeMemberNeedsTempleHealing(*pParty, houseEntry))
+        if (houseEntry.templeCanHeal
+            && (pParty == nullptr || activeMemberNeedsTempleHealing(*pParty, houseEntry)))
         {
             options.push_back(makeOption(
                 HouseActionId::TempleHeal,
@@ -1157,13 +1175,23 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             ));
         }
 
-        options.push_back(makeOption(
-            HouseActionId::TempleDonate,
-            "Donate " + std::to_string(templeDonationCost(houseEntry)) + " gold",
-            isHouseOpenNow,
-            closedReason
-        ));
-        options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
+        if (houseEntry.templeCanDonate)
+        {
+            options.push_back(makeOption(
+                HouseActionId::TempleDonate,
+                "Donate " + std::to_string(templeDonationCost(houseEntry)) + " gold",
+                isHouseOpenNow,
+                closedReason
+            ));
+        }
+        if (houseEntry.serviceCanLearnSkills)
+        {
+            options.push_back(makeOption(
+                HouseActionId::OpenLearnSkillsMenu,
+                "Learn Skills",
+                isHouseOpenNow,
+                closedReason));
+        }
         return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
@@ -1269,7 +1297,14 @@ std::vector<HouseActionOption> buildHouseActionOptions(
         }
 
         options.push_back(std::move(train));
-        options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
+        if (houseEntry.serviceCanLearnSkills)
+        {
+            options.push_back(makeOption(
+                HouseActionId::OpenLearnSkillsMenu,
+                "Learn Skills",
+                isHouseOpenNow,
+                closedReason));
+        }
         return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
@@ -1298,7 +1333,14 @@ std::vector<HouseActionOption> buildHouseActionOptions(
             isHouseOpenNow,
             closedReason
         ));
-        options.push_back(makeOption(HouseActionId::OpenLearnSkillsMenu, "Learn Skills", isHouseOpenNow, closedReason));
+        if (houseEntry.vendorStockProfile == VendorStockProfile::None)
+        {
+            options.push_back(makeOption(
+                HouseActionId::OpenLearnSkillsMenu,
+                "Learn Skills",
+                isHouseOpenNow,
+                closedReason));
+        }
         return finalizeHouseActionOptions(houseEntry, serviceType, menuId, pParty, pWorldRuntime, currentGameMinutes, std::move(options));
     }
 
@@ -1579,6 +1621,12 @@ HouseActionResult performHouseAction(
     {
         case HouseActionId::TempleHeal:
         {
+            if (!houseEntry.templeCanHeal)
+            {
+                result.messages.push_back("Healing is not offered here.");
+                return result;
+            }
+
             Character *pMember = party.activeMember();
 
             if (pMember == nullptr)
@@ -1627,6 +1675,12 @@ HouseActionResult performHouseAction(
 
         case HouseActionId::TempleDonate:
         {
+            if (!houseEntry.templeCanDonate)
+            {
+                result.messages.push_back("Donations are not accepted here.");
+                return result;
+            }
+
             const int price = templeDonationCost(houseEntry);
 
             if (party.gold() < price)

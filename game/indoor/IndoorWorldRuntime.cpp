@@ -17,6 +17,8 @@
 #include "game/gameplay/GameplayActorService.h"
 #include "game/gameplay/GameplayCombatController.h"
 #include "game/gameplay/GameplayProjectileService.h"
+#include "game/gameplay/GameplayWorldItemPolicy.h"
+#include "game/gameplay/LootContainerRuntime.h"
 #include "game/gameplay/MonsterSpellSupport.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/gameplay/ReputationRuntime.h"
@@ -40,6 +42,7 @@
 #include "game/tables/MonsterProjectileTable.h"
 #include "game/tables/SpellTable.h"
 #include "game/ui/GameplayOverlayTypes.h"
+#include "game/ui/GameplayMinimapTransform.h"
 #include "game/ui/WizardEyeMinimapRules.h"
 
 #include <SDL3/SDL.h>
@@ -3750,6 +3753,213 @@ uint16_t yawAngleFromRadians(float yawRadians)
 }
 }
 
+namespace
+{
+void materializeIndoorLootContainers(
+    const MapItemSourceData &itemSourceData,
+    const std::optional<MapStatsEntry> &map,
+    uint32_t sessionSeed,
+    const ItemTable *pItemTable,
+    const ChestTable *pChestTable,
+    std::optional<MapDeltaData> *pMapDeltaData)
+{
+    if (itemSourceData.lootContainers.empty() || pMapDeltaData == nullptr || !pMapDeltaData->has_value())
+    {
+        return;
+    }
+
+    const uint32_t maximumContainerId = std::max_element(
+        itemSourceData.lootContainers.begin(),
+        itemSourceData.lootContainers.end(),
+        [](const MapLootContainerSource &left, const MapLootContainerSource &right)
+        {
+            return left.containerId < right.containerId;
+        })->containerId;
+    std::vector<MapDeltaChest> &chests = (**pMapDeltaData).chests;
+    chests.resize(std::max(chests.size(), static_cast<size_t>(maximumContainerId) + 1));
+    for (const MapLootContainerSource &source : itemSourceData.lootContainers)
+    {
+        chests[source.containerId] = buildLootContainerChest(
+            source,
+            map ? map->treasureLevel : 0,
+            map ? map->id : 0,
+            sessionSeed,
+            pItemTable,
+            pChestTable);
+    }
+}
+}
+
+void IndoorWorldRuntime::materializeSemanticWorldItems()
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr || m_pItemTable == nullptr || m_pObjectTable == nullptr)
+    {
+        return;
+    }
+
+    const auto sourceAlreadyMaterialized =
+        [pMapDeltaData](const std::string &sourceId)
+        {
+            return std::any_of(
+                pMapDeltaData->spriteObjects.begin(),
+                pMapDeltaData->spriteObjects.end(),
+                [&sourceId](const MapDeltaSpriteObject &object)
+                {
+                    return object.semanticSourceId == sourceId;
+                });
+        };
+    const auto resolveSector =
+        [this](const MapItemSourcePosition &position) -> int16_t
+        {
+            if (m_pIndoorMapData == nullptr
+                || m_pIndoorMapData->faces.empty()
+                || m_pIndoorMapData->vertices.empty())
+            {
+                return -1;
+            }
+
+            RuntimeGeometryCache &runtimeGeometry = runtimeGeometryCache();
+            const std::optional<int16_t> sector = findIndoorSectorForPoint(
+                *m_pIndoorMapData,
+                runtimeGeometry.vertices,
+                {static_cast<float>(position.x), static_cast<float>(position.y), static_cast<float>(position.z)},
+                &runtimeGeometry.geometryCache);
+            return sector.value_or(-1);
+        };
+
+    for (const MapWorldItemSource &source : m_itemSourceData.worldItems)
+    {
+        if (sourceAlreadyMaterialized(source.sourceId))
+        {
+            continue;
+        }
+
+        uint32_t visualItemId = source.itemId;
+        if (visualItemId == 0 && !source.randomItemPool.empty())
+        {
+            std::mt19937 rng(searchableLootPropSeed(m_sessionChestSeed, source.sourceId));
+            visualItemId = source.randomItemPool[
+                std::uniform_int_distribution<size_t>(0, source.randomItemPool.size() - 1)(rng)];
+        }
+        if (visualItemId == 0)
+        {
+            continue;
+        }
+
+        const InventoryItem item = ItemGenerator::makeInventoryItem(
+            visualItemId,
+            *m_pItemTable,
+            ItemGenerationMode::Generic);
+        const std::optional<uint16_t> objectDescriptionId =
+            resolveIndoorItemObjectDescriptionId(item, m_pItemTable, m_pObjectTable);
+        if (!objectDescriptionId)
+        {
+            continue;
+        }
+
+        const ObjectEntry *pObjectEntry = m_pObjectTable->get(*objectDescriptionId);
+        if (pObjectEntry == nullptr || (pObjectEntry->flags & ObjectDescNoSprite) != 0 || pObjectEntry->spriteId == 0)
+        {
+            continue;
+        }
+
+        MapDeltaSpriteObject spriteObject = {};
+        spriteObject.spriteId = pObjectEntry->spriteId;
+        spriteObject.objectDescriptionId = *objectDescriptionId;
+        spriteObject.x = source.position.x;
+        spriteObject.y = source.position.y;
+        spriteObject.z = source.position.z;
+        spriteObject.sectorId = resolveSector(source.position);
+        spriteObject.initialX = spriteObject.x;
+        spriteObject.initialY = spriteObject.y;
+        spriteObject.initialZ = spriteObject.z;
+        spriteObject.semanticSourceId = source.sourceId;
+        spriteObject.semanticPlacedPickup = true;
+        writeIndoorHeldItemPayload(spriteObject.rawContainingItem, item);
+        pMapDeltaData->spriteObjects.push_back(std::move(spriteObject));
+    }
+
+    size_t bagObjectDescriptionId = m_pObjectTable->entries().size();
+    for (size_t objectIndex = 0; objectIndex < m_pObjectTable->entries().size(); ++objectIndex)
+    {
+        if (toLowerCopy(m_pObjectTable->entries()[objectIndex].internalName) == "mm9 treasure bag")
+        {
+            bagObjectDescriptionId = objectIndex;
+            break;
+        }
+    }
+    if (bagObjectDescriptionId >= m_pObjectTable->entries().size()
+        || bagObjectDescriptionId > std::numeric_limits<uint16_t>::max())
+    {
+        synchronizeSemanticWorldItemVisibility();
+        return;
+    }
+
+    const ObjectEntry &bagObject = m_pObjectTable->entries()[bagObjectDescriptionId];
+    for (const MapLootContainerSource &source : m_itemSourceData.lootContainers)
+    {
+        if (source.kind != LootContainerKind::TreasureBag || sourceAlreadyMaterialized(source.sourceId))
+        {
+            continue;
+        }
+
+        MapDeltaSpriteObject spriteObject = {};
+        spriteObject.spriteId = bagObject.spriteId;
+        spriteObject.objectDescriptionId = static_cast<uint16_t>(bagObjectDescriptionId);
+        spriteObject.x = source.position.x;
+        spriteObject.y = source.position.y;
+        spriteObject.z = source.position.z;
+        spriteObject.sectorId = resolveSector(source.position);
+        spriteObject.initialX = spriteObject.x;
+        spriteObject.initialY = spriteObject.y;
+        spriteObject.initialZ = spriteObject.z;
+        spriteObject.semanticSourceId = source.sourceId;
+        spriteObject.semanticLootContainerId = source.containerId;
+        spriteObject.semanticLootContainer = true;
+        pMapDeltaData->spriteObjects.push_back(std::move(spriteObject));
+    }
+
+    synchronizeSemanticWorldItemVisibility();
+}
+
+void IndoorWorldRuntime::synchronizeSemanticWorldItemVisibility()
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr || m_pParty == nullptr)
+    {
+        return;
+    }
+
+    for (MapDeltaSpriteObject &object : pMapDeltaData->spriteObjects)
+    {
+        if (!object.semanticPlacedPickup)
+        {
+            continue;
+        }
+
+        const auto sourceIt = std::find_if(
+            m_itemSourceData.worldItems.begin(),
+            m_itemSourceData.worldItems.end(),
+            [&object](const MapWorldItemSource &source)
+            {
+                return source.sourceId == object.semanticSourceId;
+            });
+        const bool available = sourceIt != m_itemSourceData.worldItems.end()
+            && worldItemPolicyAvailable(*sourceIt, *m_pParty);
+        if (available && object.semanticPolicyHidden)
+        {
+            object.attributes &= ~SpriteAttrRemoved;
+            object.semanticPolicyHidden = false;
+        }
+        else if (!available && !object.semanticPolicyHidden)
+        {
+            object.attributes |= SpriteAttrRemoved;
+            object.semanticPolicyHidden = true;
+        }
+    }
+}
+
 void IndoorWorldRuntime::initialize(
     const MapStatsEntry &map,
     const MonsterTable &monsterTable,
@@ -3770,7 +3980,8 @@ void IndoorWorldRuntime::initialize(
     const IndoorMapData *pIndoorMapData,
     const DecorationBillboardSet *pIndoorDecorationBillboardSet,
     const MergedBolsterMapTable *pMergedBolsterMapTable,
-    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable
+    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable,
+    const MapItemSourceData *pItemSourceData
 )
 {
     m_map = map;
@@ -3783,6 +3994,8 @@ void IndoorWorldRuntime::initialize(
     m_pSpellTable = &spellTable;
     m_pItemTable = &itemTable;
     m_pChestTable = &chestTable;
+    m_itemSourceData = pItemSourceData != nullptr ? *pItemSourceData : MapItemSourceData{};
+    m_searchableLootPropState = {};
     m_pParty = pParty;
     m_pPartyRuntime = pPartyRuntime;
     m_pMapDeltaData = pMapDeltaData;
@@ -3806,6 +4019,14 @@ void IndoorWorldRuntime::initialize(
     std::random_device randomDevice;
     const uint64_t timeSeed = uint64_t(std::chrono::steady_clock::now().time_since_epoch().count());
     m_sessionChestSeed = randomDevice() ^ uint32_t(timeSeed) ^ uint32_t(timeSeed >> 32);
+    materializeIndoorLootContainers(
+        m_itemSourceData,
+        m_map,
+        m_sessionChestSeed,
+        m_pItemTable,
+        m_pChestTable,
+        m_pMapDeltaData);
+    materializeSemanticWorldItems();
     m_materializedChestViews.clear();
     m_activeChestView.reset();
     m_mapActorCorpseViews.clear();
@@ -3851,7 +4072,8 @@ void IndoorWorldRuntime::initialize(
     const IndoorMapData *pIndoorMapData,
     const DecorationBillboardSet *pIndoorDecorationBillboardSet,
     const MergedBolsterMapTable *pMergedBolsterMapTable,
-    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable
+    const MergedBolsterMonsterTable *pMergedBolsterMonsterTable,
+    const MapItemSourceData *pItemSourceData
 )
 {
     m_map = map;
@@ -3864,6 +4086,8 @@ void IndoorWorldRuntime::initialize(
     m_pSpellTable = nullptr;
     m_pItemTable = &itemTable;
     m_pChestTable = &chestTable;
+    m_itemSourceData = pItemSourceData != nullptr ? *pItemSourceData : MapItemSourceData{};
+    m_searchableLootPropState = {};
     m_pParty = pParty;
     m_pPartyRuntime = pPartyRuntime;
     m_pMapDeltaData = pMapDeltaData;
@@ -3882,6 +4106,14 @@ void IndoorWorldRuntime::initialize(
     std::random_device randomDevice;
     const uint64_t timeSeed = uint64_t(std::chrono::steady_clock::now().time_since_epoch().count());
     m_sessionChestSeed = randomDevice() ^ uint32_t(timeSeed) ^ uint32_t(timeSeed >> 32);
+    materializeIndoorLootContainers(
+        m_itemSourceData,
+        m_map,
+        m_sessionChestSeed,
+        m_pItemTable,
+        m_pChestTable,
+        m_pMapDeltaData);
+    materializeSemanticWorldItems();
     m_materializedChestViews.clear();
     m_activeChestView.reset();
     m_mapActorCorpseViews.clear();
@@ -8075,6 +8307,8 @@ bool IndoorWorldRuntime::updateWorldItemsStep(
 
 void IndoorWorldRuntime::updateWorldItems(float deltaSeconds)
 {
+    synchronizeSemanticWorldItemVisibility();
+
     if (deltaSeconds <= 0.0f || m_pIndoorMapData == nullptr)
     {
         return;
@@ -9752,6 +9986,13 @@ float IndoorWorldRuntime::partyFootZ() const
     return m_pPartyRuntime != nullptr ? m_pPartyRuntime->partyFootZ() : 0.0f;
 }
 
+float IndoorWorldRuntime::partyEngagementRange() const
+{
+    return m_pGameplayActorService != nullptr
+        ? m_pGameplayActorService->configuredPartyEngagementRange()
+        : GameplayActorService::MaximumPartyEngagementRange;
+}
+
 GameplayWorldPoint IndoorWorldRuntime::chooseBountyHuntSpawnPoint(uint32_t seed) const
 {
     if (m_pIndoorMapData != nullptr)
@@ -11016,6 +11257,8 @@ bool IndoorWorldRuntime::actorRuntimeState(size_t actorIndex, GameplayRuntimeAct
     const bool useEffectOverride = pEffectState != nullptr && hasActiveActorSpellEffectOverride(*pEffectState);
 
     state.monsterId = resolvedMonsterId;
+    state.mm9RudeId = actor.mm9RudeId;
+    state.mm9SourceObjectIndex = actor.mm9SourceObjectIndex;
     state.preciseX = pAiState != nullptr ? pAiState->preciseX : static_cast<float>(actor.x);
     state.preciseY = pAiState != nullptr ? pAiState->preciseY : static_cast<float>(actor.y);
     state.preciseZ = pAiState != nullptr ? pAiState->preciseZ : static_cast<float>(actor.z);
@@ -11105,7 +11348,9 @@ bool IndoorWorldRuntime::tryStealFromActor(size_t actorIndex, uint32_t successRo
         GameplayCorpseViewState corpse =
             buildMonsterCorpseView(
                 title,
-                gameplayBolsterLootPrototype(pStats->loot, pStats->hitPoints, rewardMultiplier),
+                actor.proceduralDeathLoot
+                    ? gameplayBolsterLootPrototype(pStats->loot, pStats->hitPoints, rewardMultiplier)
+                    : MonsterTable::LootPrototype {},
                 m_pItemTable,
                 m_pParty,
                 guaranteedItemIds);
@@ -13272,10 +13517,14 @@ bool IndoorWorldRuntime::canActivateWorldHit(
     if (hit.kind == GameplayWorldHitKind::WorldItem && hit.worldItem)
     {
         const MapDeltaData *pMapDeltaData = mapDeltaData();
+        if (pMapDeltaData == nullptr || hit.worldItem->worldItemIndex >= pMapDeltaData->spriteObjects.size())
+        {
+            return false;
+        }
 
-        return pMapDeltaData != nullptr
-            && hit.worldItem->worldItemIndex < pMapDeltaData->spriteObjects.size()
-            && hasContainingItemPayload(pMapDeltaData->spriteObjects[hit.worldItem->worldItemIndex].rawContainingItem);
+        const MapDeltaSpriteObject &object = pMapDeltaData->spriteObjects[hit.worldItem->worldItemIndex];
+        return (object.attributes & SpriteAttrRemoved) == 0
+            && (object.semanticLootContainer || hasContainingItemPayload(object.rawContainingItem));
     }
 
     return m_pRenderer != nullptr && m_pRenderer->canActivateGameplayWorldHit(hit);
@@ -13792,7 +14041,11 @@ void IndoorWorldRuntime::applyPartyAttackMeleeEffects(
     if (pMapDeltaData == nullptr
         || actorIndex >= pMapDeltaData->actors.size()
         || actorIndex >= m_mapActorAiStates.size()
-        || (!attack.stunTarget && !attack.paralyzeTarget && !attack.halveTargetArmorClass))
+        || (!attack.stunTarget
+            && !attack.paralyzeTarget
+            && !attack.fearTarget
+            && !attack.enrageTarget
+            && !attack.halveTargetArmorClass))
     {
         return;
     }
@@ -13835,6 +14088,17 @@ void IndoorWorldRuntime::applyPartyAttackMeleeEffects(
     if (attack.paralyzeTarget)
     {
         spellEffects.paralyzeRemainingSeconds = std::max(spellEffects.paralyzeRemainingSeconds, skillSeconds);
+    }
+
+    if (attack.fearTarget)
+    {
+        spellEffects.fearRemainingSeconds = std::max(spellEffects.fearRemainingSeconds, skillSeconds);
+    }
+
+    if (attack.enrageTarget)
+    {
+        spellEffects.controlMode = GameplayActorControlMode::Berserk;
+        spellEffects.controlRemainingSeconds = std::max(spellEffects.controlRemainingSeconds, skillSeconds);
     }
 
     if (attack.halveTargetArmorClass)
@@ -14228,6 +14492,132 @@ GameplayWorldHit IndoorWorldRuntime::pickMouseInteractionTarget(const GameplayWo
     return m_pRenderer != nullptr ? m_pRenderer->pickGameplayWorldHit(request) : GameplayWorldHit{};
 }
 
+bool IndoorWorldRuntime::hasCustomWorldItemActivation(size_t worldItemIndex) const
+{
+    const MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr || worldItemIndex >= pMapDeltaData->spriteObjects.size())
+    {
+        return false;
+    }
+
+    const MapDeltaSpriteObject &object = pMapDeltaData->spriteObjects[worldItemIndex];
+    return object.semanticPlacedPickup || object.semanticLootContainer;
+}
+
+bool IndoorWorldRuntime::activateCustomWorldItem(size_t worldItemIndex)
+{
+    const MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr || worldItemIndex >= pMapDeltaData->spriteObjects.size())
+    {
+        return false;
+    }
+
+    return pMapDeltaData->spriteObjects[worldItemIndex].semanticLootContainer
+        ? activateSemanticLootContainer(worldItemIndex)
+        : activateSemanticWorldItem(worldItemIndex);
+}
+
+bool IndoorWorldRuntime::activateSemanticWorldItem(size_t worldItemIndex)
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr
+        || worldItemIndex >= pMapDeltaData->spriteObjects.size()
+        || m_pParty == nullptr
+        || m_pItemTable == nullptr)
+    {
+        return false;
+    }
+
+    const MapDeltaSpriteObject &object = pMapDeltaData->spriteObjects[worldItemIndex];
+    const auto sourceIt = std::find_if(
+        m_itemSourceData.worldItems.begin(),
+        m_itemSourceData.worldItems.end(),
+        [&object](const MapWorldItemSource &source)
+        {
+            return source.sourceId == object.semanticSourceId;
+        });
+    InventoryItem randomPoolItem = {};
+    if (sourceIt == m_itemSourceData.worldItems.end()
+        || !readIndoorHeldItemPayload(object.rawContainingItem, m_pItemTable, randomPoolItem)
+        || !worldItemPolicyAvailable(*sourceIt, *m_pParty))
+    {
+        return false;
+    }
+
+    if (!sourceIt->onPickupEvent.empty())
+    {
+        const uint32_t eventId = 30000u + sourceIt->sourceObjectIndex;
+        size_t previousMessageCount = 0;
+        return eventId <= std::numeric_limits<uint16_t>::max()
+            && executeMapEvent(static_cast<uint16_t>(eventId), previousMessageCount);
+    }
+
+    if (!applyWorldItemPolicyActions(*sourceIt, randomPoolItem, *m_pParty, *m_pItemTable))
+    {
+        return false;
+    }
+
+    if (sourceIt->consumeOnSuccess)
+    {
+        pMapDeltaData->spriteObjects.erase(
+            pMapDeltaData->spriteObjects.begin() + static_cast<std::ptrdiff_t>(worldItemIndex));
+    }
+    synchronizeSemanticWorldItemVisibility();
+    m_pParty->requestSound(SoundId::Gold);
+    return true;
+}
+
+bool IndoorWorldRuntime::activateSemanticLootContainer(size_t worldItemIndex)
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr || worldItemIndex >= pMapDeltaData->spriteObjects.size())
+    {
+        return false;
+    }
+
+    const MapDeltaSpriteObject &object = pMapDeltaData->spriteObjects[worldItemIndex];
+    if (!object.semanticLootContainer)
+    {
+        return false;
+    }
+
+    m_pendingEventSourcePoint = GameplayWorldPoint{
+        static_cast<float>(object.x),
+        static_cast<float>(object.y),
+        static_cast<float>(object.z)};
+    const bool opened = attemptOpenChest(object.semanticLootContainerId);
+    m_pendingEventSourcePoint.reset();
+    if (opened)
+    {
+        activateChestView(object.semanticLootContainerId);
+    }
+    return opened;
+}
+
+void IndoorWorldRuntime::removeDepletedSemanticLootContainer(uint32_t containerId)
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr
+        || containerId >= m_materializedChestViews.size()
+        || !m_materializedChestViews[containerId].has_value())
+    {
+        return;
+    }
+
+    const ChestViewState &view = *m_materializedChestViews[containerId];
+    if (!view.items.empty() || !view.hiddenItems.empty())
+    {
+        return;
+    }
+
+    std::erase_if(
+        pMapDeltaData->spriteObjects,
+        [containerId](const MapDeltaSpriteObject &object)
+        {
+            return object.semanticLootContainer && object.semanticLootContainerId == containerId;
+        });
+}
+
 bool IndoorWorldRuntime::worldItemInspectState(size_t worldItemIndex, GameplayWorldItemInspectState &state) const
 {
     const MapDeltaData *pMapDeltaData = mapDeltaData();
@@ -14418,12 +14808,28 @@ bool IndoorWorldRuntime::tryGetGameplayMinimapState(GameplayMinimapState &state)
         pWizardEyeBuff != nullptr ? pWizardEyeBuff->skillMastery : SkillMastery::None;
     const IndoorMoveState &moveState = m_pPartyRuntime->movementState();
 
-    state.textureName.clear();
-    state.vectorBackground = true;
-    state.backgroundColorAbgr = 0xff780000u;
-    state.zoom = 1024.0f;
-    state.partyU = indoorMinimapU(moveState.x);
-    state.partyV = indoorMinimapV(moveState.y);
+    if (toLowerCopy(m_map->worldId) == "mm9")
+    {
+        if (m_pIndoorMapData == nullptr || !m_pIndoorMapData->mapPresentation
+            || !applyMapPresentationToMinimapState(
+                *m_pIndoorMapData->mapPresentation,
+                moveState.footZ,
+                state))
+        {
+            return false;
+        }
+    }
+    else
+    {
+        state.textureName.clear();
+        state.vectorBackground = true;
+        state.backgroundColorAbgr = 0xff780000u;
+        state.zoom = 1024.0f;
+    }
+
+    const GameplayMinimapPoint partyPoint = gameplayMinimapWorldToUv(state, moveState.x, moveState.y);
+    state.partyU = partyPoint.x;
+    state.partyV = partyPoint.y;
     state.wizardEyeActive = pWizardEyeBuff != nullptr;
     state.wizardEyeShowsExpertObjects = wizardEyeMastery >= SkillMastery::Expert;
     state.wizardEyeShowsDecorations = state.wizardEyeActive;
@@ -14434,7 +14840,9 @@ void IndoorWorldRuntime::collectGameplayMinimapLines(std::vector<GameplayMinimap
 {
     lines.clear();
 
-    if (m_pIndoorMapData == nullptr || m_pPartyRuntime == nullptr)
+    if (m_pIndoorMapData == nullptr
+        || m_pPartyRuntime == nullptr
+        || m_pIndoorMapData->mapPresentation)
     {
         return;
     }
@@ -14586,8 +14994,12 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
             : actorState.hostileToParty
             ? GameplayMinimapMarkerType::HostileActor
             : GameplayMinimapMarkerType::FriendlyActor;
-        marker.u = indoorMinimapU(actorState.preciseX);
-        marker.v = indoorMinimapV(actorState.preciseY);
+        const GameplayMinimapPoint markerPoint = gameplayMinimapWorldToUv(
+            minimapState,
+            actorState.preciseX,
+            actorState.preciseY);
+        marker.u = markerPoint.x;
+        marker.v = markerPoint.y;
         markers.push_back(marker);
     }
 
@@ -14610,8 +15022,12 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
             marker.type = (pObjectEntry->flags & ObjectDescUnpickable) != 0
                 ? GameplayMinimapMarkerType::Projectile
                 : GameplayMinimapMarkerType::WorldItem;
-            marker.u = indoorMinimapU(static_cast<float>(spriteObject.x));
-            marker.v = indoorMinimapV(static_cast<float>(spriteObject.y));
+            const GameplayMinimapPoint markerPoint = gameplayMinimapWorldToUv(
+                minimapState,
+                static_cast<float>(spriteObject.x),
+                static_cast<float>(spriteObject.y));
+            marker.u = markerPoint.x;
+            marker.v = markerPoint.y;
             markers.push_back(marker);
         }
 
@@ -14631,8 +15047,12 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
 
                 GameplayMinimapMarkerState marker = {};
                 marker.type = GameplayMinimapMarkerType::Projectile;
-                marker.u = indoorMinimapU(pProjectile->x);
-                marker.v = indoorMinimapV(pProjectile->y);
+                const GameplayMinimapPoint markerPoint = gameplayMinimapWorldToUv(
+                    minimapState,
+                    pProjectile->x,
+                    pProjectile->y);
+                marker.u = markerPoint.x;
+                marker.v = markerPoint.y;
                 markers.push_back(marker);
             }
         }
@@ -14669,8 +15089,12 @@ void IndoorWorldRuntime::collectGameplayMinimapMarkers(std::vector<GameplayMinim
 
             GameplayMinimapMarkerState marker = {};
             marker.type = GameplayMinimapMarkerType::Decoration;
-            marker.u = indoorMinimapU(static_cast<float>(entity.x));
-            marker.v = indoorMinimapV(static_cast<float>(entity.y));
+            const GameplayMinimapPoint markerPoint = gameplayMinimapWorldToUv(
+                minimapState,
+                static_cast<float>(entity.x),
+                static_cast<float>(entity.y));
+            marker.u = markerPoint.x;
+            marker.v = markerPoint.y;
             markers.push_back(marker);
         }
     }
@@ -14699,6 +15123,7 @@ void IndoorWorldRuntime::commitActiveChestView()
     {
         m_materializedChestViews[chestId] = *m_activeChestView;
     }
+    removeDepletedSemanticLootContainer(chestId);
 }
 
 
@@ -14715,6 +15140,7 @@ bool IndoorWorldRuntime::takeActiveChestItem(size_t itemIndex, ChestItemState &i
     {
         m_materializedChestViews[chestId] = *m_activeChestView;
     }
+    removeDepletedSemanticLootContainer(chestId);
 
     return true;
 }
@@ -14732,6 +15158,7 @@ bool IndoorWorldRuntime::takeActiveChestItemAt(uint8_t gridX, uint8_t gridY, Che
     {
         m_materializedChestViews[chestId] = *m_activeChestView;
     }
+    removeDepletedSemanticLootContainer(chestId);
 
     return true;
 }
@@ -14847,7 +15274,9 @@ bool IndoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
         CorpseViewState corpse =
             buildMonsterCorpseView(
                 title,
-                gameplayBolsterLootPrototype(pStats->loot, pStats->hitPoints, rewardMultiplier),
+                actor.proceduralDeathLoot
+                    ? gameplayBolsterLootPrototype(pStats->loot, pStats->hitPoints, rewardMultiplier)
+                    : MonsterTable::LootPrototype {},
                 m_pItemTable,
                 m_pParty,
                 guaranteedItemIds);
@@ -15513,6 +15942,25 @@ MapDeltaData *IndoorWorldRuntime::mapDeltaData()
     return &**m_pMapDeltaData;
 }
 
+bool IndoorWorldRuntime::isMapActorHostile(size_t actorIndex) const
+{
+    return actorIndex < m_mapActorAiStates.size() && m_mapActorAiStates[actorIndex].hostileToParty;
+}
+
+bool IndoorWorldRuntime::isMapActorWithinPartyDistance(size_t actorIndex, float distance) const
+{
+    if (actorIndex >= m_mapActorAiStates.size() || distance < 0.0f)
+    {
+        return false;
+    }
+
+    const MapActorAiState &actor = m_mapActorAiStates[actorIndex];
+    const float dx = actor.preciseX - partyX();
+    const float dy = actor.preciseY - partyY();
+    const float dz = actor.preciseZ - partyFootZ();
+    return dx * dx + dy * dy + dz * dz <= distance * distance;
+}
+
 bool IndoorWorldRuntime::setFacetBit(uint32_t cogNumber, uint32_t bit, bool isOn)
 {
     if (cogNumber == 0 || m_pIndoorMapData == nullptr)
@@ -15587,6 +16035,214 @@ bool IndoorWorldRuntime::setFacetBit(uint32_t cogNumber, uint32_t bit, bool isOn
         m_cachedGameplayMinimapLinesValid = false;
     }
 
+    return matchedAny;
+}
+
+bool IndoorWorldRuntime::searchLootProp(const std::string &sourceId)
+{
+    const auto sourceIt = std::find_if(
+        m_itemSourceData.searchableLootProps.begin(),
+        m_itemSourceData.searchableLootProps.end(),
+        [&sourceId](const MapSearchableLootPropSource &source)
+        {
+            return source.sourceId == sourceId;
+        });
+    const StandardItemEnchantTable *pStandardItemEnchantTable =
+        m_pParty != nullptr ? m_pParty->standardItemEnchantTable() : nullptr;
+    const SpecialItemEnchantTable *pSpecialItemEnchantTable =
+        m_pParty != nullptr ? m_pParty->specialItemEnchantTable() : nullptr;
+    if (sourceIt == m_itemSourceData.searchableLootProps.end()
+        || m_pItemTable == nullptr
+        || pStandardItemEnchantTable == nullptr
+        || pSpecialItemEnchantTable == nullptr
+        || m_pParty == nullptr)
+    {
+        return false;
+    }
+
+    std::mt19937 rng(searchableLootPropSeed(m_sessionChestSeed, sourceId));
+    const SearchableLootPropResult result = OpenYAMM::Game::searchLootProp(
+        *sourceIt,
+        m_searchableLootPropState,
+        *m_pItemTable,
+        *pStandardItemEnchantTable,
+        *pSpecialItemEnchantTable,
+        *m_pParty,
+        rng);
+    return result.handled;
+}
+
+bool IndoorWorldRuntime::spawnLootContainer(const std::string &sourceId)
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr || m_pItemTable == nullptr || m_pObjectTable == nullptr)
+    {
+        return false;
+    }
+
+    const auto sourceIt = std::find_if(
+        m_itemSourceData.spawnedLootContainers.begin(),
+        m_itemSourceData.spawnedLootContainers.end(),
+        [&sourceId](const MapSpawnedLootContainerSource &source)
+        {
+            return source.sourceId == sourceId;
+        });
+    if (sourceIt == m_itemSourceData.spawnedLootContainers.end()
+        || std::any_of(
+            pMapDeltaData->spriteObjects.begin(),
+            pMapDeltaData->spriteObjects.end(),
+            [&sourceId](const MapDeltaSpriteObject &object)
+            {
+                return object.semanticSourceId == sourceId;
+            }))
+    {
+        return false;
+    }
+
+    size_t bagObjectDescriptionId = m_pObjectTable->entries().size();
+    for (size_t objectIndex = 0; objectIndex < m_pObjectTable->entries().size(); ++objectIndex)
+    {
+        if (toLowerCopy(m_pObjectTable->entries()[objectIndex].internalName) == "mm9 treasure bag")
+        {
+            bagObjectDescriptionId = objectIndex;
+            break;
+        }
+    }
+    if (bagObjectDescriptionId >= m_pObjectTable->entries().size()
+        || bagObjectDescriptionId > std::numeric_limits<uint16_t>::max())
+    {
+        return false;
+    }
+
+    const uint32_t containerId = static_cast<uint32_t>(pMapDeltaData->chests.size());
+    const MapLootContainerSource container = materializeSpawnedLootContainerSource(*sourceIt, containerId);
+    pMapDeltaData->chests.push_back(buildLootContainerChest(
+        container,
+        m_map ? m_map->treasureLevel : 0,
+        m_map ? m_map->id : 0,
+        m_sessionChestSeed,
+        m_pItemTable,
+        m_pChestTable));
+
+    int16_t sectorId = -1;
+    if (m_pIndoorMapData != nullptr
+        && !m_pIndoorMapData->faces.empty()
+        && !m_pIndoorMapData->vertices.empty())
+    {
+        RuntimeGeometryCache &runtimeGeometry = runtimeGeometryCache();
+        sectorId = findIndoorSectorForPoint(
+            *m_pIndoorMapData,
+            runtimeGeometry.vertices,
+            {
+                static_cast<float>(sourceIt->position.x),
+                static_cast<float>(sourceIt->position.y),
+                static_cast<float>(sourceIt->position.z),
+            },
+            &runtimeGeometry.geometryCache).value_or(-1);
+    }
+
+    const ObjectEntry &bagObject = m_pObjectTable->entries()[bagObjectDescriptionId];
+    MapDeltaSpriteObject spriteObject = {};
+    spriteObject.spriteId = bagObject.spriteId;
+    spriteObject.objectDescriptionId = static_cast<uint16_t>(bagObjectDescriptionId);
+    spriteObject.x = sourceIt->position.x;
+    spriteObject.y = sourceIt->position.y;
+    spriteObject.z = sourceIt->position.z;
+    spriteObject.sectorId = sectorId;
+    spriteObject.initialX = spriteObject.x;
+    spriteObject.initialY = spriteObject.y;
+    spriteObject.initialZ = spriteObject.z;
+    spriteObject.semanticSourceId = sourceIt->sourceId;
+    spriteObject.semanticLootContainerId = containerId;
+    spriteObject.semanticLootContainer = true;
+    pMapDeltaData->spriteObjects.push_back(std::move(spriteObject));
+
+    const uint32_t eventId = 30000u + sourceIt->sourceObjectIndex;
+    setFacetBit(eventId, faceAttributeBit(FaceAttribute::Invisible), true);
+    setFacetBit(eventId, faceAttributeBit(FaceAttribute::Untouchable), true);
+    return true;
+}
+
+bool IndoorWorldRuntime::consumeWorldItem(const std::string &sourceId)
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr)
+    {
+        return false;
+    }
+
+    const auto sourceIt = std::find_if(
+        pMapDeltaData->spriteObjects.begin(),
+        pMapDeltaData->spriteObjects.end(),
+        [&sourceId](const MapDeltaSpriteObject &object)
+        {
+            return object.semanticPlacedPickup && object.semanticSourceId == sourceId;
+        });
+    if (sourceIt == pMapDeltaData->spriteObjects.end())
+    {
+        return false;
+    }
+
+    pMapDeltaData->spriteObjects.erase(sourceIt);
+    return true;
+}
+
+bool IndoorWorldRuntime::setPersistentItemMechanismState(
+    const std::string &sourceId,
+    bool visible,
+    bool solid)
+{
+    const auto sourceIt = std::find_if(
+        m_itemSourceData.persistentItemMechanisms.begin(),
+        m_itemSourceData.persistentItemMechanisms.end(),
+        [&sourceId](const MapPersistentItemMechanismSource &source)
+        {
+            return source.sourceId == sourceId;
+        });
+    if (sourceIt == m_itemSourceData.persistentItemMechanisms.end())
+    {
+        return false;
+    }
+
+    const uint32_t eventId = 30000u + sourceIt->sourceObjectIndex;
+    const bool visibilityMatched = setFacetBit(
+        eventId,
+        faceAttributeBit(FaceAttribute::Invisible),
+        !visible);
+    const bool solidityMatched = setFacetBit(
+        eventId,
+        faceAttributeBit(FaceAttribute::Untouchable),
+        !solid);
+    return visibilityMatched || solidityMatched;
+}
+
+bool IndoorWorldRuntime::setPersistentItemMechanismVariant(
+    const std::string &sourceId,
+    uint32_t variantIndex)
+{
+    const auto sourceIt = std::find_if(
+        m_itemSourceData.persistentItemMechanisms.begin(),
+        m_itemSourceData.persistentItemMechanisms.end(),
+        [&sourceId](const MapPersistentItemMechanismSource &source)
+        {
+            return source.sourceId == sourceId;
+        });
+    if (sourceIt == m_itemSourceData.persistentItemMechanisms.end()
+        || variantIndex > sourceIt->modelVariants.size())
+    {
+        return false;
+    }
+
+    bool matchedAny = false;
+    for (uint32_t candidateIndex = 0; candidateIndex <= sourceIt->modelVariants.size(); ++candidateIndex)
+    {
+        const uint32_t cogNumber = candidateIndex == 0
+            ? 30000u + sourceIt->sourceObjectIndex
+            : 60000u + sourceIt->sourceObjectIndex + candidateIndex - 1u;
+        const bool selected = candidateIndex == variantIndex;
+        matchedAny = setFacetBit(cogNumber, faceAttributeBit(FaceAttribute::Invisible), !selected) || matchedAny;
+        matchedAny = setFacetBit(cogNumber, faceAttributeBit(FaceAttribute::Untouchable), !selected) || matchedAny;
+    }
     return matchedAny;
 }
 
@@ -15866,6 +16522,10 @@ IndoorWorldRuntime::Snapshot IndoorWorldRuntime::snapshot() const
     {
         snapshot.projectileState = m_pGameplayProjectileService->snapshot();
     }
+    snapshot.searchedLootPropSourceIds.assign(
+        m_searchableLootPropState.searchedSourceIds.begin(),
+        m_searchableLootPropState.searchedSourceIds.end());
+    std::sort(snapshot.searchedLootPropSourceIds.begin(), snapshot.searchedLootPropSourceIds.end());
     return snapshot;
 }
 
@@ -15882,6 +16542,9 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_activatedIndoorSectorMask = snapshot.activatedIndoorSectorMask;
     m_bloodSplats = snapshot.bloodSplats;
     m_fireSpikeTraps = snapshot.fireSpikeTraps;
+    m_searchableLootPropState.searchedSourceIds = {
+        snapshot.searchedLootPropSourceIds.begin(),
+        snapshot.searchedLootPropSourceIds.end()};
     ++m_bloodSplatRevision;
     m_actorUpdateAccumulatorSeconds = snapshot.actorUpdateAccumulatorSeconds;
     m_immolationTickAccumulatorGameMinutes = 0.0f;

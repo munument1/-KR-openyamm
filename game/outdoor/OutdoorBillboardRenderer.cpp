@@ -10,7 +10,9 @@
 #include "game/outdoor/OutdoorGameView.h"
 #include "game/outdoor/OutdoorFogProfile.h"
 #include "game/outdoor/OutdoorInteractionController.h"
+#include "game/render/BillboardGeometry.h"
 #include "game/render/CombatActorHealthBarPolicy.h"
+#include "game/render/QuestMarkerGeometry.h"
 #include "game/render/TextureFiltering.h"
 #include "game/StringUtils.h"
 #include "game/scene/OutdoorSceneRuntime.h"
@@ -236,6 +238,14 @@ uint32_t computeClearDistanceFogColorAbgr(const OutdoorWorldRuntime &worldRuntim
 
 uint32_t computeBillboardFogColorAbgr(const OutdoorWorldRuntime::AtmosphereState &atmosphereState)
 {
+    if (atmosphereState.hasAuthoredFogColor)
+    {
+        return makeAbgr(
+            atmosphereState.authoredFogRed,
+            atmosphereState.authoredFogGreen,
+            atmosphereState.authoredFogBlue);
+    }
+
     if (atmosphereState.underwater)
     {
         return makeAbgr(UnderwaterFogRed, UnderwaterFogGreen, UnderwaterFogBlue);
@@ -572,18 +582,23 @@ void OutdoorBillboardRenderer::applyBillboardFogUniforms(OutdoorGameView &view, 
             && atmosphereState.fogWeakDistance >= 0
             && atmosphereState.fogStrongDistance > atmosphereState.fogWeakDistance)
         {
-            const OutdoorFogProfile fogProfile = buildOutdoorFogProfile(
-                atmosphereState.fogWeakDistance,
-                atmosphereState.fogStrongDistance,
-                clampedRenderDistance,
-                OutdoorFogNearOpacity,
-                OutdoorFogStrongOpacity);
+            const OutdoorFogProfile fogProfile = atmosphereState.directFog
+                ? buildOutdoorDirectFogProfile(
+                    atmosphereState.fogWeakDistance,
+                    atmosphereState.fogStrongDistance)
+                : buildOutdoorFogProfile(
+                    atmosphereState.fogWeakDistance,
+                    atmosphereState.fogStrongDistance,
+                    clampedRenderDistance,
+                    OutdoorFogNearOpacity,
+                    OutdoorFogStrongOpacity);
             fogColorAbgr = computeBillboardFogColorAbgr(atmosphereState);
             fogColor[0] = static_cast<float>(fogColorAbgr & 0xffu) / 255.0f;
             fogColor[1] = static_cast<float>((fogColorAbgr >> 8) & 0xffu) / 255.0f;
             fogColor[2] = static_cast<float>((fogColorAbgr >> 16) & 0xffu) / 255.0f;
             fogDensities[0] = fogProfile.nearOpacity;
             fogDensities[1] = fogProfile.strongOpacity;
+            fogDensities[3] = atmosphereState.directFog ? 1.0f : 0.0f;
             if (atmosphereState.underwater)
             {
                 fogDensities[2] = OutdoorUnderwaterTintOpacity;
@@ -780,16 +795,42 @@ std::optional<OutdoorGameView::InspectHit> OutdoorBillboardRenderer::resolveHove
 
 void OutdoorBillboardRenderer::applyBillboardAmbientUniform(OutdoorGameView &view)
 {
-    const uint32_t mapAmbientColor =
+    const OutdoorLightingData *pLightingData =
         view.m_pOutdoorMapData != nullptr && view.m_pOutdoorMapData->lightingData
-            ? view.m_pOutdoorMapData->lightingData->ambientColorAbgr
-            : 0;
-    const float ambient[4] = {
+            ? &*view.m_pOutdoorMapData->lightingData
+            : nullptr;
+    const uint32_t mapAmbientColor = pLightingData != nullptr ? pLightingData->ambientColorAbgr : 0;
+    float ambient[4] = {
         mapAmbientColor != 0 ? redChannel(mapAmbientColor) : BillboardAmbientLight,
         mapAmbientColor != 0 ? greenChannel(mapAmbientColor) : BillboardAmbientLight,
         mapAmbientColor != 0 ? blueChannel(mapAmbientColor) : BillboardAmbientLight,
         0.0f,
     };
+
+    if (pLightingData != nullptr)
+    {
+        for (const OutdoorAuthoredLight &light : pLightingData->authoredLights)
+        {
+            if (!light.lightsObjects() || !light.globalObjectLight())
+            {
+                continue;
+            }
+
+            ambient[0] = std::clamp(
+                ambient[0] + redChannel(light.effectiveColorAbgr) * BillboardLightContributionScale,
+                0.0f,
+                1.0f);
+            ambient[1] = std::clamp(
+                ambient[1] + greenChannel(light.effectiveColorAbgr) * BillboardLightContributionScale,
+                0.0f,
+                1.0f);
+            ambient[2] = std::clamp(
+                ambient[2] + blueChannel(light.effectiveColorAbgr) * BillboardLightContributionScale,
+                0.0f,
+                1.0f);
+        }
+    }
+
     bgfx::setUniform(view.m_outdoorBillboardAmbientUniformHandle, ambient);
 }
 
@@ -1076,11 +1117,12 @@ void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
             const float halfWidth = worldWidth * 0.5f;
-            const bx::Vec3 center = {
+            const bx::Vec3 center = bottomAnchoredBillboardCenter(
                 static_cast<float>(billboard.x),
                 static_cast<float>(billboard.y),
-                static_cast<float>(billboard.z) + worldHeight * 0.5f
-            };
+                static_cast<float>(billboard.z),
+                cameraUp,
+                worldHeight);
             const bx::Vec3 right = {
                 cameraRight.x * halfWidth,
                 cameraRight.y * halfWidth,
@@ -1210,11 +1252,12 @@ void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
             const float halfWidth = worldWidth * 0.5f;
-            const bx::Vec3 center = {
+            const bx::Vec3 center = bottomAnchoredBillboardCenter(
                 static_cast<float>(pActorState->x),
                 static_cast<float>(pActorState->y),
-                static_cast<float>(pActorState->z) + worldHeight * 0.5f
-            };
+                static_cast<float>(pActorState->z),
+                cameraUp,
+                worldHeight);
             const bx::Vec3 right = {
                 cameraRight.x * halfWidth,
                 cameraRight.y * halfWidth,
@@ -1348,11 +1391,12 @@ void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
                 const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
                 const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
                 const float halfWidth = worldWidth * 0.5f;
-                const bx::Vec3 center = {
+                const bx::Vec3 center = bottomAnchoredBillboardCenter(
                     pWorldItem->x,
                     pWorldItem->y,
-                    pWorldItem->z + worldHeight * 0.5f
-                };
+                    pWorldItem->z,
+                    cameraUp,
+                    worldHeight);
                 const bx::Vec3 right = {
                     cameraRight.x * halfWidth,
                     cameraRight.y * halfWidth,
@@ -2192,11 +2236,12 @@ void OutdoorBillboardRenderer::renderDecorationBillboards(
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
             const float halfWidth = worldWidth * 0.5f;
-            const bx::Vec3 center = {
+            const bx::Vec3 center = bottomAnchoredBillboardCenter(
                 static_cast<float>(billboard.x),
                 static_cast<float>(billboard.y),
-                static_cast<float>(billboard.z) + worldHeight * 0.5f
-            };
+                static_cast<float>(billboard.z),
+                cameraUp,
+                worldHeight);
             const bx::Vec3 right = {cameraRight.x * halfWidth, cameraRight.y * halfWidth, cameraRight.z * halfWidth};
             const bx::Vec3 up = {
                 cameraUp.x * worldHeight * 0.5f,
@@ -2295,6 +2340,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
 
     struct BillboardDrawItem
     {
+        size_t actorIndex = static_cast<size_t>(-1);
         const SpriteFrameEntry *pFrame = nullptr;
         const OutdoorGameView::BillboardTextureHandle *pTexture = nullptr;
         bool mirrored = false;
@@ -2313,6 +2359,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
         float healthRatio = 1.0f;
         float healthBarZ = 0.0f;
         float healthBarScale = 1.0f;
+        float questMarkerZ = 0.0f;
     };
 
     thread_local std::vector<BillboardDrawItem> drawItems;
@@ -2542,6 +2589,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             drawItem.pTexture = pTexture;
             drawItem.mirrored = resolvedTexture.mirrored;
             drawItem.actor = true;
+            drawItem.actorIndex = runtimeActorIndex.value_or(static_cast<size_t>(-1));
             const bool contextHighlighted =
                 runtimeActorIndex.has_value()
                 && contextActionHighlightsActor(pContextActionHit, *runtimeActorIndex);
@@ -2569,6 +2617,8 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             drawItem.cameraDepth = deltaX * cameraForward.x + deltaY * cameraForward.y + deltaZ * cameraForward.z;
             const float previewScale = std::max(pFrame->scale * drawItem.heightScale, 0.01f);
             const float worldHeight = static_cast<float>(pTexture->height) * previewScale;
+            drawItem.questMarkerZ = drawItem.z
+                + worldHeight * (1.0f - pTexture->opacityMask.opaqueTopNormalized());
             drawItem.lightContributionAbgr = computeBillboardLightContributionAbgr(
                 view,
                 drawItem.x,
@@ -3012,7 +3062,12 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
             const float halfWidth = worldWidth * 0.5f;
-            const bx::Vec3 center = {drawItem.x, drawItem.y, drawItem.z + worldHeight * 0.5f};
+            const bx::Vec3 center = bottomAnchoredBillboardCenter(
+                drawItem.x,
+                drawItem.y,
+                drawItem.z,
+                cameraUp,
+                worldHeight);
             const bx::Vec3 right = {
                 cameraRight.x * halfWidth,
                 cameraRight.y * halfWidth,
@@ -3068,7 +3123,12 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
             const float halfWidth = worldWidth * 0.5f;
-            const bx::Vec3 center = {drawItem.x, drawItem.y, drawItem.z + worldHeight * 0.5f};
+            const bx::Vec3 center = bottomAnchoredBillboardCenter(
+                drawItem.x,
+                drawItem.y,
+                drawItem.z,
+                cameraUp,
+                worldHeight);
             const bx::Vec3 right = {
                 cameraRight.x * halfWidth,
                 cameraRight.y * halfWidth,
@@ -3429,6 +3489,145 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
 
     submitColoredVertices(view, viewId, healthBarVertices, ColoredAlphaRenderState);
 
+    struct QuestMarkerBatch
+    {
+        Mm9QuestMarkerState state = Mm9QuestMarkerState::None;
+        const OutdoorGameView::BillboardTextureHandle *pTexture = nullptr;
+        std::vector<OutdoorGameView::LitBillboardVertex> vertices;
+    };
+
+    std::array<QuestMarkerBatch, 3> questMarkerBatches = {{
+        {Mm9QuestMarkerState::Available},
+        {Mm9QuestMarkerState::InProgress},
+        {Mm9QuestMarkerState::Ready},
+    }};
+
+    const bool hasVisibleQuestMarker =
+        view.settingsSnapshot().questMarkers
+        && std::any_of(
+            drawItems.begin(),
+            drawItems.end(),
+            [&view](const BillboardDrawItem &drawItem)
+            {
+                return drawItem.actor
+                    && drawItem.actorIndex != static_cast<size_t>(-1)
+                    && questMarkerAlpha(std::sqrt(drawItem.distanceSquared)) > 0
+                    && !questMarkerTextureName(view.m_gameSession.questMarkerForActor(drawItem.actorIndex)).empty();
+            });
+
+    if (hasVisibleQuestMarker)
+    {
+        ensureSpriteBillboardTexture(view, "quest_marker_exclamation", 0, "quest_marker");
+        ensureSpriteBillboardTexture(view, "quest_marker_question", 0, "quest_marker");
+
+        for (QuestMarkerBatch &batch : questMarkerBatches)
+        {
+            batch.pTexture = view.findBillboardTexture(std::string(questMarkerTextureName(batch.state)), 0);
+        }
+
+        for (const BillboardDrawItem &drawItem : drawItems)
+        {
+            if (!drawItem.actor || drawItem.actorIndex == static_cast<size_t>(-1))
+            {
+                continue;
+            }
+            const Mm9QuestMarkerState markerState = view.m_gameSession.questMarkerForActor(drawItem.actorIndex);
+            const float distance = std::sqrt(drawItem.distanceSquared);
+            const uint8_t alpha = questMarkerAlpha(distance);
+            const auto batchIterator = std::find_if(
+                questMarkerBatches.begin(),
+                questMarkerBatches.end(),
+                [markerState](const QuestMarkerBatch &batch)
+                {
+                    return batch.state == markerState;
+                });
+
+            if (alpha == 0
+                || batchIterator == questMarkerBatches.end()
+                || batchIterator->pTexture == nullptr
+                || !bgfx::isValid(batchIterator->pTexture->textureHandle))
+            {
+                continue;
+            }
+
+            const float scale = questMarkerWorldScale(distance);
+            const float halfExtent = questMarkerHalfExtent(scale);
+            const bx::Vec3 center = {
+                drawItem.x,
+                drawItem.y,
+                drawItem.questMarkerZ + questMarkerOriginOffset(scale),
+            };
+            const bx::Vec3 right = {
+                cameraRight.x * halfExtent,
+                cameraRight.y * halfExtent,
+                cameraRight.z * halfExtent,
+            };
+            const bx::Vec3 up = {
+                cameraUp.x * halfExtent,
+                cameraUp.y * halfExtent,
+                cameraUp.z * halfExtent,
+            };
+            appendLitBillboardVertices(
+                batchIterator->vertices,
+                center,
+                right,
+                up,
+                0.0f,
+                1.0f,
+                makeAbgrAlpha(0, 0, 0, alpha));
+        }
+    }
+
+    for (const QuestMarkerBatch &batch : questMarkerBatches)
+    {
+        if (batch.pTexture == nullptr
+            || batch.vertices.empty()
+            || bgfx::getAvailTransientVertexBuffer(
+                static_cast<uint32_t>(batch.vertices.size()),
+                OutdoorGameView::LitBillboardVertex::ms_layout) < batch.vertices.size())
+        {
+            continue;
+        }
+
+        bgfx::TransientVertexBuffer transientVertexBuffer = {};
+        bgfx::allocTransientVertexBuffer(
+            &transientVertexBuffer,
+            static_cast<uint32_t>(batch.vertices.size()),
+            OutdoorGameView::LitBillboardVertex::ms_layout);
+        std::memcpy(
+            transientVertexBuffer.data,
+            batch.vertices.data(),
+            batch.vertices.size() * sizeof(OutdoorGameView::LitBillboardVertex));
+
+        const uint32_t colorAbgr = questMarkerColorAbgr(batch.state, 255);
+        const float ambient[4] = {
+            redChannel(colorAbgr),
+            greenChannel(colorAbgr),
+            blueChannel(colorAbgr),
+            1.0f,
+        };
+        const float clearUniform[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        const float fogDistances[4] = {4096.0f, 4096.0f, 4096.0f, 0.0f};
+        float modelMatrix[16] = {};
+        bx::mtxIdentity(modelMatrix);
+        bgfx::setTransform(modelMatrix);
+        bgfx::setVertexBuffer(0, &transientVertexBuffer, 0, static_cast<uint32_t>(batch.vertices.size()));
+        bindTexture(
+            0,
+            view.m_terrainTextureSamplerHandle,
+            batch.pTexture->textureHandle,
+            TextureFilterProfile::Billboard,
+            BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+        bgfx::setUniform(view.m_outdoorBillboardAmbientUniformHandle, ambient);
+        bgfx::setUniform(view.m_outdoorBillboardOverrideColorUniformHandle, clearUniform);
+        bgfx::setUniform(view.m_outdoorBillboardOutlineParamsUniformHandle, clearUniform);
+        bgfx::setUniform(view.m_outdoorFogColorUniformHandle, clearUniform);
+        bgfx::setUniform(view.m_outdoorFogDensitiesUniformHandle, clearUniform);
+        bgfx::setUniform(view.m_outdoorFogDistancesUniformHandle, fogDistances);
+        bgfx::setState(ColoredAlphaRenderState);
+        bgfx::submit(viewId, view.m_outdoorLitBillboardProgramHandle);
+    }
+
     const uint64_t totalActorRenderNanoseconds =
         collectRenderDiagnostics ? SDL_GetTicksNS() - actorRenderStartTickCount : 0;
 
@@ -3751,7 +3950,12 @@ void OutdoorBillboardRenderer::renderRuntimeWorldItems(
         const float worldWidth = static_cast<float>(texture.width) * spriteScale;
         const float worldHeight = static_cast<float>(texture.height) * spriteScale;
         const float halfWidth = worldWidth * 0.5f;
-        const bx::Vec3 center = {worldItem.x, worldItem.y, worldItem.z + worldHeight * 0.5f};
+        const bx::Vec3 center = bottomAnchoredBillboardCenter(
+            worldItem.x,
+            worldItem.y,
+            worldItem.z,
+            cameraUp,
+            worldHeight);
         const bx::Vec3 right = {cameraRight.x * halfWidth, cameraRight.y * halfWidth, cameraRight.z * halfWidth};
         const bx::Vec3 up = {
             cameraUp.x * worldHeight * 0.5f,
@@ -4286,11 +4490,14 @@ void OutdoorBillboardRenderer::renderRuntimeProjectiles(
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
             const float halfWidth = worldWidth * 0.5f;
             const bool centerAnchored = SpriteFrameTable::hasFlag(frame.flags, SpriteFrameFlag::Center);
-            const bx::Vec3 center = {
-                drawItem.x,
-                drawItem.y,
-                centerAnchored ? drawItem.z : drawItem.z + worldHeight * 0.5f
-            };
+            const bx::Vec3 center = centerAnchored
+                ? bx::Vec3{drawItem.x, drawItem.y, drawItem.z}
+                : bottomAnchoredBillboardCenter(
+                    drawItem.x,
+                    drawItem.y,
+                    drawItem.z,
+                    cameraUp,
+                    worldHeight);
             const bx::Vec3 right = {cameraRight.x * halfWidth, cameraRight.y * halfWidth, cameraRight.z * halfWidth};
             const bx::Vec3 up = {
                 cameraUp.x * worldHeight * 0.5f,
@@ -4724,11 +4931,12 @@ void OutdoorBillboardRenderer::renderSpriteObjectBillboards(
         const float worldWidth = static_cast<float>(texture.width) * spriteScale;
         const float worldHeight = static_cast<float>(texture.height) * spriteScale;
         const float halfWidth = worldWidth * 0.5f;
-        const bx::Vec3 center = {
+        const bx::Vec3 center = bottomAnchoredBillboardCenter(
             static_cast<float>(billboard.x),
             static_cast<float>(billboard.y),
-            static_cast<float>(billboard.z) + worldHeight * 0.5f
-        };
+            static_cast<float>(billboard.z),
+            cameraUp,
+            worldHeight);
         const bx::Vec3 right = {cameraRight.x * halfWidth, cameraRight.y * halfWidth, cameraRight.z * halfWidth};
         const bx::Vec3 up = {cameraUp.x * worldHeight * 0.5f, cameraUp.y * worldHeight * 0.5f, cameraUp.z * worldHeight * 0.5f};
         const float u0 = drawItem.mirrored ? 1.0f : 0.0f;

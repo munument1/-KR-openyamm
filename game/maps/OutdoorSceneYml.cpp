@@ -1,6 +1,8 @@
 #include "game/maps/OutdoorSceneYml.h"
 
+#include "game/FaceEnums.h"
 #include "game/StringUtils.h"
+#include "game/maps/MapItemSourceYml.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -160,6 +162,82 @@ bool parseOptionalLocationType(
     return false;
 }
 
+bool parseOptionalLighting(
+    const YAML::Node &rootNode,
+    OutdoorSceneLighting &lighting,
+    std::string &errorMessage)
+{
+    const YAML::Node lightingNode = rootNode["lighting"];
+
+    if (!lightingNode)
+    {
+        return true;
+    }
+
+    if (!lightingNode.IsMap())
+    {
+        errorMessage = "lighting must be a map";
+        return false;
+    }
+
+    if (!readScalarNode(
+            lightingNode,
+            "lightmap_brightness_scale",
+            lighting.lightmapBrightnessScale,
+            errorMessage,
+            false))
+    {
+        return false;
+    }
+
+    if (!std::isfinite(lighting.lightmapBrightnessScale) || lighting.lightmapBrightnessScale <= 0.0f)
+    {
+        errorMessage = "lighting.lightmap_brightness_scale must be finite and greater than zero";
+        return false;
+    }
+
+    return true;
+}
+
+bool parseOptionalRendering(
+    const YAML::Node &rootNode,
+    OutdoorSceneRendering &rendering,
+    std::string &errorMessage)
+{
+    const YAML::Node renderingNode = rootNode["rendering"];
+
+    if (!renderingNode)
+    {
+        return true;
+    }
+
+    if (!renderingNode.IsMap())
+    {
+        errorMessage = "rendering must be a map";
+        return false;
+    }
+
+    if (!renderingNode["view_distance_scale"])
+    {
+        return true;
+    }
+
+    float viewDistanceScale = rendering.viewDistanceScale.value_or(1.0f);
+    if (!readScalarNode(renderingNode, "view_distance_scale", viewDistanceScale, errorMessage, false))
+    {
+        return false;
+    }
+
+    if (!std::isfinite(viewDistanceScale) || viewDistanceScale <= 0.0f)
+    {
+        errorMessage = "rendering.view_distance_scale must be finite and greater than zero";
+        return false;
+    }
+
+    rendering.viewDistanceScale = viewDistanceScale;
+    return true;
+}
+
 bool readOptionalBoolFlag(
     const YAML::Node &flagsNode,
     const char *key,
@@ -273,7 +351,13 @@ bool parseFogMode(
         return true;
     }
 
-    errorMessage = "environment.weather.fog_mode must be one of: static, daily_random";
+    if (fogModeText == "authored_day_night")
+    {
+        fogMode = OutdoorFogMode::AuthoredDayNight;
+        return true;
+    }
+
+    errorMessage = "environment.weather.fog_mode must be one of: static, daily_random, authored_day_night";
     return false;
 }
 
@@ -334,6 +418,22 @@ OutdoorSceneInteractiveFace *findOutdoorInteractiveFace(
     size_t faceIndex)
 {
     for (OutdoorSceneInteractiveFace &face : sceneData.interactiveFaces)
+    {
+        if (face.bmodelIndex == bmodelIndex && face.faceIndex == faceIndex)
+        {
+            return &face;
+        }
+    }
+
+    return nullptr;
+}
+
+OutdoorScenePerceptionFace *findOutdoorPerceptionFace(
+    OutdoorSceneData &sceneData,
+    size_t bmodelIndex,
+    size_t faceIndex)
+{
+    for (OutdoorScenePerceptionFace &face : sceneData.perceptionFaces)
     {
         if (face.bmodelIndex == bmodelIndex && face.faceIndex == faceIndex)
         {
@@ -452,6 +552,33 @@ bool parseOutdoorInteractiveFace(
         && readScalarNode(interactiveFaceNode, "cog_number", face.cogNumber, errorMessage, false)
         && readScalarNode(interactiveFaceNode, "cog_triggered_number", face.cogTriggeredNumber, errorMessage, false)
         && readScalarNode(interactiveFaceNode, "cog_trigger", face.cogTrigger, errorMessage, false);
+}
+
+bool parseOutdoorPerceptionFace(
+    const YAML::Node &perceptionFaceNode,
+    OutdoorScenePerceptionFace &face,
+    std::string &errorMessage)
+{
+    if (!perceptionFaceNode.IsMap())
+    {
+        errorMessage = "perception face entry must be a map";
+        return false;
+    }
+
+    if (!readScalarNode(perceptionFaceNode, "bmodel_index", face.bmodelIndex, errorMessage)
+        || !readScalarNode(perceptionFaceNode, "face_index", face.faceIndex, errorMessage)
+        || !readScalarNode(perceptionFaceNode, "difficulty", face.difficulty, errorMessage))
+    {
+        return false;
+    }
+
+    if (face.difficulty < 0 || face.difficulty > 20)
+    {
+        errorMessage = "perception face difficulty must be in the 0-20 range";
+        return false;
+    }
+
+    return true;
 }
 
 OutdoorBModelMechanismKind outdoorMechanismKindFromText(const std::string &kind)
@@ -618,6 +745,49 @@ bool parseOutdoorBModelMechanism(
         }
     }
 
+    const YAML::Node soundsNode = mechanismNode["sounds"];
+
+    if (soundsNode && !soundsNode.IsNull())
+    {
+        if (!soundsNode.IsMap()
+            || !readScalarNode(soundsNode, "open", mechanism.audio.openSound, errorMessage, false)
+            || !readScalarNode(soundsNode, "close", mechanism.audio.closeSound, errorMessage, false)
+            || !readScalarNode(
+                soundsNode, "open_start", mechanism.audio.openStartSound, errorMessage, false)
+            || !readScalarNode(
+                soundsNode, "open_busy", mechanism.audio.openBusySound, errorMessage, false)
+            || !readScalarNode(
+                soundsNode, "open_stop", mechanism.audio.openStopSound, errorMessage, false)
+            || !readScalarNode(
+                soundsNode, "close_start", mechanism.audio.closeStartSound, errorMessage, false)
+            || !readScalarNode(
+                soundsNode, "close_busy", mechanism.audio.closeBusySound, errorMessage, false)
+            || !readScalarNode(
+                soundsNode, "close_stop", mechanism.audio.closeStopSound, errorMessage, false)
+            || !readScalarNode(soundsNode, "jiggle", mechanism.audio.jiggleSound, errorMessage, false))
+        {
+            errorMessage = errorMessage.empty() ? "mechanism.sounds must be a map" : errorMessage;
+            return false;
+        }
+
+        const YAML::Node positionNode = soundsNode["position"];
+
+        if (positionNode)
+        {
+            if (!parsePositionNode(
+                positionNode,
+                mechanism.audio.x,
+                mechanism.audio.y,
+                mechanism.audio.z,
+                errorMessage))
+            {
+                return false;
+            }
+
+            mechanism.audio.positional = true;
+        }
+    }
+
     return true;
 }
 
@@ -651,6 +821,20 @@ void mergeOutdoorInteractiveFace(OutdoorSceneData &sceneData, const OutdoorScene
     if (pTargetFace == nullptr)
     {
         sceneData.interactiveFaces.push_back(sourceFace);
+        return;
+    }
+
+    *pTargetFace = sourceFace;
+}
+
+void mergeOutdoorPerceptionFace(OutdoorSceneData &sceneData, const OutdoorScenePerceptionFace &sourceFace)
+{
+    OutdoorScenePerceptionFace *pTargetFace =
+        findOutdoorPerceptionFace(sceneData, sourceFace.bmodelIndex, sourceFace.faceIndex);
+
+    if (pTargetFace == nullptr)
+    {
+        sceneData.perceptionFaces.push_back(sourceFace);
         return;
     }
 
@@ -867,6 +1051,53 @@ bool parseRgbTripletNode(
     return true;
 }
 
+bool parseAuthoredFogState(
+    const YAML::Node &authoredFogNode,
+    const char *key,
+    OutdoorAuthoredFogState &state,
+    std::string &errorMessage)
+{
+    const YAML::Node stateNode = authoredFogNode[key];
+
+    if (!stateNode)
+    {
+        return true;
+    }
+
+    if (!stateNode.IsMap())
+    {
+        errorMessage = std::string("authored fog state must be a map: ") + key;
+        return false;
+    }
+
+    bool hasColor = false;
+
+    if (!readScalarNode(stateNode, "enabled", state.enabled, errorMessage)
+        || !readScalarNode(stateNode, "near_distance", state.distances.weakDistance, errorMessage)
+        || !readScalarNode(stateNode, "far_distance", state.distances.strongDistance, errorMessage)
+        || !parseRgbTripletNode(stateNode, "color_rgb", hasColor, state.colorRgb, errorMessage))
+    {
+        return false;
+    }
+
+    if (!hasColor)
+    {
+        errorMessage = std::string("authored fog state requires color_rgb: ") + key;
+        return false;
+    }
+
+    if (state.enabled
+        && (state.distances.weakDistance < 0
+            || state.distances.strongDistance <= state.distances.weakDistance))
+    {
+        errorMessage = std::string("authored fog state requires 0 <= near_distance < far_distance: ") + key;
+        return false;
+    }
+
+    state.configured = true;
+    return true;
+}
+
 bool parseWeatherConfig(
     const YAML::Node &environmentNode,
     OutdoorSceneEnvironment::WeatherConfig &weatherConfig,
@@ -886,6 +1117,7 @@ bool parseWeatherConfig(
     }
 
     const YAML::Node dailyFogNode = weatherNode["daily_fog"];
+    const YAML::Node authoredFogNode = weatherNode["authored_fog"];
 
     if (!parseFogMode(weatherNode, weatherConfig.fogMode, errorMessage)
         || !parsePrecipitationKind(weatherNode, weatherConfig.precipitation, errorMessage)
@@ -916,6 +1148,32 @@ bool parseWeatherConfig(
         {
             return false;
         }
+    }
+
+    if (authoredFogNode)
+    {
+        if (!authoredFogNode.IsMap()
+            || !parseAuthoredFogState(
+                authoredFogNode,
+                "day",
+                weatherConfig.authoredDayFog,
+                errorMessage)
+            || !parseAuthoredFogState(
+                authoredFogNode,
+                "night",
+                weatherConfig.authoredNightFog,
+                errorMessage))
+        {
+            errorMessage = errorMessage.empty() ? "environment.weather.authored_fog must be a map" : errorMessage;
+            return false;
+        }
+    }
+
+    if (weatherConfig.fogMode == OutdoorFogMode::AuthoredDayNight
+        && (!weatherConfig.authoredDayFog.configured || !weatherConfig.authoredNightFog.configured))
+    {
+        errorMessage = "authored_day_night fog mode requires authored_fog.day and authored_fog.night";
+        return false;
     }
 
     return true;
@@ -1081,6 +1339,23 @@ bool parseOutdoorActor(
 
     if (!readScalarNode(actorNode, "name", actor.name, errorMessage)
         || !readScalarNode(actorNode, "npc_id", actor.npcId, errorMessage)
+        || !readScalarNode(actorNode, "mm9_rude_id", actor.mm9RudeId, errorMessage, false)
+        || !readScalarNode(
+            actorNode,
+            "mm9_source_object_index",
+            actor.mm9SourceObjectIndex,
+            errorMessage,
+            false)
+        || !readScalarNode(
+            actorNode,
+            "mm9_can_receive_damage",
+            actor.mm9CanReceiveDamage,
+            errorMessage,
+            false)
+        || !readScalarNode(actorNode, "mm9_civilian", actor.mm9Civilian, errorMessage, false)
+        || !readScalarNode(actorNode, "mm9_guard", actor.mm9Guard, errorMessage, false)
+        || !readScalarNode(actorNode, "initial_yaw_units", actor.initialYawUnits, errorMessage, false)
+        || !readScalarNode(actorNode, "immobile", actor.immobile, errorMessage, false)
         || !readScalarNode(actorNode, "attributes", actor.attributes, errorMessage)
         || !readScalarNode(actorNode, "hp", actor.hp, errorMessage)
         || !readScalarNode(actorNode, "hostility_type", actor.hostilityType, errorMessage)
@@ -1324,7 +1599,22 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
         return std::nullopt;
     }
 
+    if (!parseMapItemSourceData(rootNode, sceneData.itemSources, errorMessage))
+    {
+        return std::nullopt;
+    }
+
     if (!parseOptionalSceneProfile(rootNode, sceneData.sceneProfile, errorMessage))
+    {
+        return std::nullopt;
+    }
+
+    if (!parseOptionalLighting(rootNode, sceneData.lighting, errorMessage))
+    {
+        return std::nullopt;
+    }
+
+    if (!parseOptionalRendering(rootNode, sceneData.rendering, errorMessage))
     {
         return std::nullopt;
     }
@@ -1614,6 +1904,31 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
         sceneData.interactiveFaces.push_back(face);
     }
 
+    const YAML::Node perceptionFacesNode = bmodelFacesNode["perception_faces"];
+
+    if (perceptionFacesNode)
+    {
+        if (!perceptionFacesNode.IsSequence())
+        {
+            errorMessage = "bmodel_faces.perception_faces must be a sequence";
+            return std::nullopt;
+        }
+
+        sceneData.perceptionFaces.reserve(perceptionFacesNode.size());
+
+        for (const YAML::Node &perceptionFaceNode : perceptionFacesNode)
+        {
+            OutdoorScenePerceptionFace face = {};
+
+            if (!parseOutdoorPerceptionFace(perceptionFaceNode, face, errorMessage))
+            {
+                return std::nullopt;
+            }
+
+            sceneData.perceptionFaces.push_back(face);
+        }
+    }
+
     const YAML::Node mechanismsNode = rootNode["mechanisms"];
 
     if (mechanismsNode)
@@ -1650,6 +1965,52 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
             }
 
             sceneData.mechanisms.push_back(std::move(mechanism));
+        }
+    }
+
+    const YAML::Node mm9NpcGreetingsNode = rootNode["mm9_npc_greetings"];
+
+    if (mm9NpcGreetingsNode)
+    {
+        if (!mm9NpcGreetingsNode.IsSequence())
+        {
+            errorMessage = "mm9_npc_greetings must be a sequence";
+            return std::nullopt;
+        }
+
+        sceneData.mm9NpcGreetings.reserve(mm9NpcGreetingsNode.size());
+
+        for (const YAML::Node &greetingNode : mm9NpcGreetingsNode)
+        {
+            OutdoorMm9NpcGreeting greeting = {};
+
+            if (!greetingNode.IsMap()
+                || !readScalarNode(
+                    greetingNode,
+                    "source_object_index",
+                    greeting.sourceObjectIndex,
+                    errorMessage)
+                || !readScalarNode(greetingNode, "sound", greeting.soundName, errorMessage))
+            {
+                errorMessage = errorMessage.empty() ? "MM9 NPC greeting entry must be a map" : errorMessage;
+                return std::nullopt;
+            }
+
+            const bool duplicate = std::any_of(
+                sceneData.mm9NpcGreetings.begin(),
+                sceneData.mm9NpcGreetings.end(),
+                [&greeting](const OutdoorMm9NpcGreeting &existing)
+                {
+                    return existing.sourceObjectIndex == greeting.sourceObjectIndex;
+                });
+
+            if (duplicate)
+            {
+                errorMessage = "MM9 NPC greeting source_object_index must be unique";
+                return std::nullopt;
+            }
+
+            sceneData.mm9NpcGreetings.push_back(std::move(greeting));
         }
     }
 
@@ -1876,6 +2237,16 @@ bool OutdoorSceneYmlLoader::applyOverlayFromText(
     }
 
     if (!parseOptionalSceneProfile(rootNode, sceneData.sceneProfile, errorMessage))
+    {
+        return false;
+    }
+
+    if (!parseOptionalLighting(rootNode, sceneData.lighting, errorMessage))
+    {
+        return false;
+    }
+
+    if (!parseOptionalRendering(rootNode, sceneData.rendering, errorMessage))
     {
         return false;
     }
@@ -2139,6 +2510,29 @@ bool OutdoorSceneYmlLoader::applyOverlayFromText(
                 }
 
                 mergeOutdoorInteractiveFace(sceneData, face);
+            }
+        }
+
+        const YAML::Node perceptionFacesNode = bmodelFacesNode["perception_faces"];
+
+        if (perceptionFacesNode)
+        {
+            if (!perceptionFacesNode.IsSequence())
+            {
+                errorMessage = "bmodel_faces.perception_faces must be a sequence";
+                return false;
+            }
+
+            for (const YAML::Node &perceptionFaceNode : perceptionFacesNode)
+            {
+                OutdoorScenePerceptionFace face = {};
+
+                if (!parseOutdoorPerceptionFace(perceptionFaceNode, face, errorMessage))
+                {
+                    return false;
+                }
+
+                mergeOutdoorPerceptionFace(sceneData, face);
             }
         }
     }
@@ -2412,11 +2806,18 @@ bool buildOutdoorMapStateFromScene(
 {
     outdoorMapData.sceneProfile = sceneData.sceneProfile;
     outdoorMapData.locationType = sceneData.environment.locationType;
+    outdoorMapData.lightmapBrightnessScale = sceneData.lighting.lightmapBrightnessScale;
+    outdoorMapData.viewDistanceScale = sceneData.rendering.viewDistanceScale.value_or(
+        sceneData.sceneProfile == OutdoorSceneProfile::BModelWorld
+                && sceneData.environment.locationType == OutdoorLocationType::Enclosed
+            ? 0.4f
+            : 1.0f);
     outdoorMapData.skyTexture = sceneData.environment.skyTexture;
     outdoorMapData.groundTilesetName = sceneData.environment.groundTilesetName;
     outdoorMapData.masterTile = sceneData.environment.masterTile;
     outdoorMapData.tileSetLookupIndices = sceneData.environment.tileSetLookupIndices;
     outdoorMapData.mechanisms.clear();
+    outdoorMapData.mm9NpcGreetings = sceneData.mm9NpcGreetings;
 
     if (sceneData.sceneProfile == OutdoorSceneProfile::ClassicOdm && !sceneData.mechanisms.empty())
     {
@@ -2456,6 +2857,7 @@ bool buildOutdoorMapStateFromScene(
             face.cogNumber = 0;
             face.cogTriggeredNumber = 0;
             face.cogTrigger = 0;
+            face.perceptionDifficulty = -1;
         }
     }
 
@@ -2535,6 +2937,27 @@ bool buildOutdoorMapStateFromScene(
             errorMessage = "scene named interactive face bmodel was not found: " + interactiveFace.bmodelName;
             return false;
         }
+    }
+
+    for (const OutdoorScenePerceptionFace &perceptionFace : sceneData.perceptionFaces)
+    {
+        if (perceptionFace.bmodelIndex >= outdoorMapData.bmodels.size()
+            || perceptionFace.faceIndex >= outdoorMapData.bmodels[perceptionFace.bmodelIndex].faces.size())
+        {
+            errorMessage = "scene perception face index is out of bounds";
+            return false;
+        }
+
+        OutdoorBModelFace &face =
+            outdoorMapData.bmodels[perceptionFace.bmodelIndex].faces[perceptionFace.faceIndex];
+
+        if (!hasFaceAttribute(face.attributes, FaceAttribute::IsSecret))
+        {
+            errorMessage = "scene perception face must have the secret attribute";
+            return false;
+        }
+
+        face.perceptionDifficulty = perceptionFace.difficulty;
     }
 
     outdoorMapData.entities.assign(sceneData.entities.size(), {});

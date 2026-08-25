@@ -85,6 +85,7 @@ struct CharacterAttackProfile
     int rangedMaxDamage = 0;
     uint32_t rangedSkillLevel = 0;
     uint32_t rangedSkillMastery = 0;
+    uint8_t rangedProjectileCount = 1;
     int wandSpellId = 0;
     int rangedSpellId = 0;
     float meleeRecoverySeconds = 1.0f;
@@ -104,11 +105,14 @@ struct CharacterAttackResult
     float recoverySeconds = 0.0f;
     uint32_t skillLevel = 0;
     uint32_t skillMastery = 0;
+    uint8_t projectileCount = 1;
     int spellId = 0;
     CombatDamageType damageType = CombatDamageType::Physical;
     bool criticalDamage = false;
     bool stunTarget = false;
     bool paralyzeTarget = false;
+    bool fearTarget = false;
+    bool enrageTarget = false;
     bool halveTargetArmorClass = false;
     std::string attackSoundHook;
     std::string damageSoundHook;
@@ -240,6 +244,7 @@ public:
     static std::optional<CharacterCondition> displayedCondition(const Character &character);
     static bool canAct(const Character &character);
     static int resolveCharacterPerceptionValue(const Character &character);
+    static int resolvePartyPerceptionValue(const Party &party);
     static int resolveCharacterDisarmTrapValue(const Character &character);
     static bool partyDetectsSecretFaces(const Party &party, const MapStatsEntry &map);
     static bool canSelectInGameplay(const Character &character);

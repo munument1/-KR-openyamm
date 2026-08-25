@@ -110,7 +110,7 @@ OutdoorMovementDriver::OutdoorMovementDriver(
 
 void OutdoorMovementDriver::initialize(float x, float y, float footZHint)
 {
-    m_state = m_movementController.initializeState(x, y, footZHint);
+    m_state = m_movementController.initializeStateForBody(x, y, footZHint, m_bodyDimensions.radius);
     m_partyMovementState = {};
     m_tuning = {};
     m_lastEvents = {};
@@ -376,8 +376,9 @@ void OutdoorMovementDriver::update(
         OutdoorMoveDebugInfo debugInfo = {};
         OutdoorMoveDebugInfo *pDebugInfo = traceOutdoorMovement ? &debugInfo : nullptr;
         const uint64_t collisionBeginTickCount = pPerformanceDiagnostics != nullptr ? SDL_GetTicksNS() : 0;
-        m_state = m_movementController.resolveMove(
+        m_state = m_movementController.resolveMoveForBody(
             m_state,
+            m_bodyDimensions,
             moveVelocityX + impulseVelocityX,
             moveVelocityY + impulseVelocityY,
             moveVelocityZ,
@@ -391,6 +392,7 @@ void OutdoorMovementDriver::update(
             m_tuning.maxFlightHeight,
             OutdoorMovementStepSeconds,
             &contactedActorIndices,
+            std::nullopt,
             jumpLiftThisStep,
             pDebugInfo
         );
@@ -816,6 +818,12 @@ void OutdoorMovementDriver::setFeatherFallActive(bool active)
 void OutdoorMovementDriver::setSpeedMultiplier(float multiplier)
 {
     m_speedMultiplier = std::clamp(multiplier, 0.1f, 20.0f);
+}
+
+void OutdoorMovementDriver::setBodyDimensions(float radius, float height)
+{
+    m_bodyDimensions.radius = radius;
+    m_bodyDimensions.height = height;
 }
 
 void OutdoorMovementDriver::setCollisionTraceEnabled(bool enabled, std::string mapName)

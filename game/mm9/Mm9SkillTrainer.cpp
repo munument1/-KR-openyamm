@@ -1,0 +1,242 @@
+#include "game/mm9/Mm9SkillTrainer.h"
+
+#include <algorithm>
+#include <charconv>
+#include <cctype>
+#include <limits>
+#include <string_view>
+
+namespace OpenYAMM::Game
+{
+namespace
+{
+constexpr size_t ExpectedColumnCount = 20;
+
+std::string lowerCopy(const std::string &value)
+{
+    std::string result = value;
+    for (char &character : result)
+    {
+        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    }
+    return result;
+}
+
+template<typename T>
+bool parseUnsigned(const std::string &value, T &result)
+{
+    uint64_t parsed = 0;
+    const char *pBegin = value.data();
+    const char *pEnd = pBegin + value.size();
+    const std::from_chars_result parseResult = std::from_chars(pBegin, pEnd, parsed);
+    if (parseResult.ec != std::errc() || parseResult.ptr != pEnd
+        || parsed > static_cast<uint64_t>(std::numeric_limits<T>::max()))
+    {
+        return false;
+    }
+    result = static_cast<T>(parsed);
+    return true;
+}
+
+bool parseInt32(const std::string &value, int32_t &result)
+{
+    const char *pBegin = value.data();
+    const char *pEnd = pBegin + value.size();
+    const std::from_chars_result parseResult = std::from_chars(pBegin, pEnd, result);
+    return parseResult.ec == std::errc() && parseResult.ptr == pEnd;
+}
+
+std::vector<std::string> split(const std::string &value)
+{
+    std::vector<std::string> result;
+    size_t begin = 0;
+    while (begin <= value.size())
+    {
+        const size_t end = value.find('|', begin);
+        const std::string item = value.substr(begin, end == std::string::npos ? end : end - begin);
+        if (!item.empty())
+        {
+            result.push_back(item);
+        }
+        if (end == std::string::npos)
+        {
+            break;
+        }
+        begin = end + 1;
+    }
+    return result;
+}
+
+bool parseIntList(const std::string &value, std::vector<int32_t> &result)
+{
+    for (const std::string &item : split(value))
+    {
+        int32_t parsed = 0;
+        if (!parseInt32(item, parsed) || parsed <= 0)
+        {
+            return false;
+        }
+        result.push_back(parsed);
+    }
+    return true;
+}
+
+SkillMastery parseMastery(const std::string &value)
+{
+    if (value == "Expert")
+    {
+        return SkillMastery::Expert;
+    }
+    if (value == "Master")
+    {
+        return SkillMastery::Master;
+    }
+    if (value == "Grandmaster")
+    {
+        return SkillMastery::Grandmaster;
+    }
+    return SkillMastery::None;
+}
+
+uint32_t requiredRankForMastery(SkillMastery mastery)
+{
+    switch (mastery)
+    {
+        case SkillMastery::Expert: return 4;
+        case SkillMastery::Master: return 7;
+        case SkillMastery::Grandmaster: return 10;
+        default: return 0;
+    }
+}
+
+uint64_t rudeRowKey(uint32_t rudeId, size_t rowIndex)
+{
+    return (static_cast<uint64_t>(rudeId) << 32) | static_cast<uint64_t>(rowIndex);
+}
+}
+
+void Mm9SkillTrainerTable::clear()
+{
+    m_entries.clear();
+    m_entryIndexByCanonicalId.clear();
+    m_entryIndexByRudeRow.clear();
+    m_errors.clear();
+}
+
+bool Mm9SkillTrainerTable::loadFromRows(
+    const std::vector<std::vector<std::string>> &rows,
+    const Mm9RudeDialogueTable &rudeDialogueTable)
+{
+    clear();
+    for (size_t rowIndex = 0; rowIndex < rows.size(); ++rowIndex)
+    {
+        const std::vector<std::string> &row = rows[rowIndex];
+        if (row.empty() || row[0].empty() || row[0] == "CanonicalId")
+        {
+            continue;
+        }
+        const size_t rowNumber = rowIndex + 1;
+        if (row.size() < ExpectedColumnCount)
+        {
+            addError(rowNumber, "expected 20 columns");
+            continue;
+        }
+
+        Mm9SkillTrainerService entry = {};
+        entry.canonicalId = row[0];
+        entry.mm9Skill = row[6];
+        entry.topic.skillNames = split(row[7]);
+        entry.topic.targetMastery = parseMastery(row[8]);
+        entry.expectedRegion = row[13];
+        entry.sourceDisplayNames = split(row[14]);
+        entry.npc998Hint = row[15];
+        entry.actorOwnership = row[16];
+        entry.actorSources = split(row[17]);
+        entry.sourceRude = row[18];
+        entry.provenance = row[19];
+
+        if (!parseUnsigned(row[1], entry.rudeId)
+            || !parseUnsigned(row[2], entry.rudeRowIndex)
+            || !parseUnsigned(row[3], entry.sourceLine)
+            || !parseInt32(row[4], entry.choiceSlot)
+            || !parseInt32(row[5], entry.topic.rawTrainerId)
+            || !parseUnsigned(row[9], entry.requiredSkillRank)
+            || !parseUnsigned(row[10], entry.requiredGold)
+            || !parseIntList(row[11], entry.requiredRawKeys)
+            || !parseIntList(row[12], entry.forbiddenRawKeys))
+        {
+            addError(rowNumber, "invalid numeric field or quest-key list");
+            continue;
+        }
+        entry.topic.requiredSkillRank = entry.requiredSkillRank;
+        entry.topic.requiredGold = entry.requiredGold;
+        entry.topic.displayName = entry.mm9Skill;
+        if (!entry.canonicalId.starts_with("mm9:trainer/") || entry.mm9Skill.empty()
+            || entry.topic.skillNames.empty() || entry.topic.targetMastery == SkillMastery::None
+            || entry.requiredSkillRank != requiredRankForMastery(entry.topic.targetMastery)
+            || entry.expectedRegion.empty() || entry.sourceDisplayNames.empty() || entry.npc998Hint.empty()
+            || (entry.actorOwnership != "static" && entry.actorOwnership != "scheduled")
+            || entry.actorSources.empty() || entry.sourceRude.empty() || entry.provenance.empty())
+        {
+            addError(rowNumber, "invalid trainer identity, operation, actor ownership, or provenance");
+            continue;
+        }
+
+        const Mm9RudeRow *pRudeRow = rudeDialogueTable.rowByIndex(entry.rudeId, entry.rudeRowIndex);
+        if (pRudeRow == nullptr || pRudeRow->sourceLine != entry.sourceLine || pRudeRow->choiceSlot != entry.choiceSlot
+            || pRudeRow->next != -4 || pRudeRow->rawColumns.size() <= 15
+            || pRudeRow->rawColumns[15] != std::to_string(entry.topic.rawTrainerId)
+            || pRudeRow->requiredRawKeys != entry.requiredRawKeys
+            || pRudeRow->forbiddenRawKeys != entry.forbiddenRawKeys)
+        {
+            addError(rowNumber, "trainer service does not match its authoritative RUDE row");
+            continue;
+        }
+
+        const std::string normalizedId = lowerCopy(entry.canonicalId);
+        const uint64_t sourceKey = rudeRowKey(entry.rudeId, entry.rudeRowIndex);
+        if (m_entryIndexByCanonicalId.contains(normalizedId))
+        {
+            addError(rowNumber, "duplicate canonical trainer id");
+            continue;
+        }
+        if (m_entryIndexByRudeRow.contains(sourceKey))
+        {
+            addError(rowNumber, "duplicate RUDE row ownership");
+            continue;
+        }
+        const size_t entryIndex = m_entries.size();
+        m_entries.push_back(std::move(entry));
+        m_entryIndexByCanonicalId[normalizedId] = entryIndex;
+        m_entryIndexByRudeRow[sourceKey] = entryIndex;
+    }
+    return !m_entries.empty() && m_errors.empty();
+}
+
+const Mm9SkillTrainerService *Mm9SkillTrainerTable::find(uint32_t rudeId, size_t rudeRowIndex) const
+{
+    const auto iterator = m_entryIndexByRudeRow.find(rudeRowKey(rudeId, rudeRowIndex));
+    return iterator != m_entryIndexByRudeRow.end() ? &m_entries[iterator->second] : nullptr;
+}
+
+const Mm9SkillTrainerService *Mm9SkillTrainerTable::findByCanonicalId(const std::string &canonicalId) const
+{
+    const auto iterator = m_entryIndexByCanonicalId.find(lowerCopy(canonicalId));
+    return iterator != m_entryIndexByCanonicalId.end() ? &m_entries[iterator->second] : nullptr;
+}
+
+const std::vector<Mm9SkillTrainerService> &Mm9SkillTrainerTable::entries() const
+{
+    return m_entries;
+}
+
+const std::vector<std::string> &Mm9SkillTrainerTable::errors() const
+{
+    return m_errors;
+}
+
+void Mm9SkillTrainerTable::addError(size_t rowNumber, const std::string &message)
+{
+    m_errors.push_back("row " + std::to_string(rowNumber) + ": " + message);
+}
+}

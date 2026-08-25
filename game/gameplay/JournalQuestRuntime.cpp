@@ -11,7 +11,7 @@ std::vector<std::string> buildCurrentQuestTexts(const JournalQuestTable &questTa
 
     for (const JournalQuestEntry &entry : questTable.entries())
     {
-        if (party.hasQuestBit(entry.qbitId))
+        if (questTable.isVisible(entry, party))
         {
             questTexts.push_back(entry.text);
         }

@@ -1417,6 +1417,7 @@ std::string resolveItemInspectDetailText(const InventoryItem *pItemState, const 
 constexpr const char *WeaponSkillNames[] = {
     "Axe",
     "Bow",
+    "Throwing",
     "Dagger",
     "Mace",
     "Spear",
@@ -3006,6 +3007,11 @@ OutdoorGameView::OutdoorGameView(GameSession &gameSession)
 OutdoorGameView::~OutdoorGameView()
 {
     shutdown();
+}
+
+void OutdoorGameView::setCameraEyeHeight(float eyeHeight)
+{
+    m_cameraEyeHeight = eyeHeight;
 }
 
 bool OutdoorGameView::initialize(
@@ -4804,24 +4810,29 @@ void OutdoorGameView::setSettingsSnapshot(const GameSettings &settings)
 
 void OutdoorGameView::refreshViewDistanceCache()
 {
-    if (m_viewDistanceCache.sourceValue == m_gameSettings.viewDistance)
+    const float viewDistanceScale = m_pOutdoorMapData != nullptr
+        ? m_pOutdoorMapData->viewDistanceScale
+        : 1.0f;
+    if (m_viewDistanceCache.sourceValue == m_gameSettings.viewDistance
+        && m_viewDistanceCache.sourceScale == viewDistanceScale)
     {
         return;
     }
 
     m_viewDistanceCache.sourceValue = m_gameSettings.viewDistance;
+    m_viewDistanceCache.sourceScale = viewDistanceScale;
     m_viewDistanceCache.farClipDistance =
-        resolveViewDistanceSetting(m_gameSettings.viewDistance, DefaultOutdoorFarClip);
+        resolveViewDistanceSetting(m_gameSettings.viewDistance, DefaultOutdoorFarClip) * viewDistanceScale;
     m_viewDistanceCache.runtimeProjectileDistance =
-        resolveViewDistanceSetting(m_gameSettings.viewDistance, RuntimeProjectileRenderDistance);
+        resolveViewDistanceSetting(m_gameSettings.viewDistance, RuntimeProjectileRenderDistance) * viewDistanceScale;
     m_viewDistanceCache.runtimeProjectileDistanceSquared =
         m_viewDistanceCache.runtimeProjectileDistance * m_viewDistanceCache.runtimeProjectileDistance;
     m_viewDistanceCache.decorationBillboardDistance =
-        resolveViewDistanceSetting(m_gameSettings.viewDistance, DecorationBillboardRenderDistance);
+        resolveViewDistanceSetting(m_gameSettings.viewDistance, DecorationBillboardRenderDistance) * viewDistanceScale;
     m_viewDistanceCache.decorationBillboardDistanceSquared =
         m_viewDistanceCache.decorationBillboardDistance * m_viewDistanceCache.decorationBillboardDistance;
     m_viewDistanceCache.actorBillboardDistance =
-        resolveViewDistanceSetting(m_gameSettings.viewDistance, ActorBillboardRenderDistance);
+        resolveViewDistanceSetting(m_gameSettings.viewDistance, ActorBillboardRenderDistance) * viewDistanceScale;
     m_viewDistanceCache.actorBillboardDistanceSquared =
         m_viewDistanceCache.actorBillboardDistance * m_viewDistanceCache.actorBillboardDistance;
 }

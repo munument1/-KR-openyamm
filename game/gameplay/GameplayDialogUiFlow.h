@@ -24,6 +24,10 @@ struct GameplayDialogUiFlowPresentOptions
     bool suppressInitialAcceptIfActivationKeysHeld = false;
 };
 
+void presentActiveEventDialog(
+    GameplayDialogUiFlowState &state,
+    const GameplayDialogUiFlowPresentOptions &options = {});
+
 void presentPendingEventDialog(
     GameplayDialogUiFlowState &state,
     EventRuntimeState *pEventRuntimeState,

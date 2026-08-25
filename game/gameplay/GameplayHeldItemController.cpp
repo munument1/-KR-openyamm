@@ -116,8 +116,11 @@ bool GameplayHeldItemController::tryDisplaceHeldInventoryItem(
     }
 
     IGameplayWorldRuntime *pWorldRuntime = runtime.worldRuntime();
+    const ItemTable *pItemTable = runtime.itemTable();
+    const ItemDefinition *pItemDefinition =
+        pItemTable != nullptr ? pItemTable->get(heldInventoryItem.item.objectDescriptionId) : nullptr;
 
-    if (pWorldRuntime == nullptr)
+    if (pWorldRuntime == nullptr || (pItemDefinition != nullptr && !ItemRuntime::canDrop(*pItemDefinition)))
     {
         return false;
     }

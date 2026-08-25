@@ -7,6 +7,7 @@
 #include "game/gameplay/GameplayBolsterRuntime.h"
 #include "game/gameplay/GameplayProjectileService.h"
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
+#include "game/gameplay/SearchableLootPropRuntime.h"
 #include "game/ui/GameplayOverlayTypes.h"
 #include "game/indoor/IndoorMovementController.h"
 #include "game/maps/MapDeltaData.h"
@@ -205,6 +206,7 @@ public:
         std::vector<FireSpikeTrapState> fireSpikeTraps;
         float actorUpdateAccumulatorSeconds = 0.0f;
         GameplayProjectileService::Snapshot projectileState;
+        std::vector<std::string> searchedLootPropSourceIds;
     };
 
     IndoorWorldRuntime() = default;
@@ -240,7 +242,8 @@ public:
         const IndoorMapData *pIndoorMapData = nullptr,
         const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr,
         const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
-        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
+        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr,
+        const MapItemSourceData *pItemSourceData = nullptr
     );
     void initialize(
         const MapStatsEntry &map,
@@ -257,7 +260,8 @@ public:
         const IndoorMapData *pIndoorMapData = nullptr,
         const DecorationBillboardSet *pIndoorDecorationBillboardSet = nullptr,
         const MergedBolsterMapTable *pMergedBolsterMapTable = nullptr,
-        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr
+        const MergedBolsterMonsterTable *pMergedBolsterMonsterTable = nullptr,
+        const MapItemSourceData *pItemSourceData = nullptr
     );
     void setBolsterMonstersEnabled(bool enabled);
 
@@ -272,6 +276,18 @@ public:
     MapDeltaData *mapDeltaData() override;
     bool setFacetBit(uint32_t cogNumber, uint32_t bit, bool isOn) override;
     std::vector<uint32_t> resolveIndoorLightReferenceIds(int32_t rawReferenceId) const override;
+    bool isMapActorHostile(size_t actorIndex) const override;
+    bool isMapActorWithinPartyDistance(size_t actorIndex, float distance) const override;
+    bool searchLootProp(const std::string &sourceId) override;
+    bool spawnLootContainer(const std::string &sourceId) override;
+    bool consumeWorldItem(const std::string &sourceId) override;
+    bool setPersistentItemMechanismState(
+        const std::string &sourceId,
+        bool visible,
+        bool solid) override;
+    bool setPersistentItemMechanismVariant(
+        const std::string &sourceId,
+        uint32_t variantIndex) override;
     float gameMinutes() const override;
     int currentHour() const override;
     void advanceGameMinutes(float minutes) override;
@@ -285,6 +301,7 @@ public:
     float partyX() const override;
     float partyY() const override;
     float partyFootZ() const override;
+    float partyEngagementRange() const override;
     GameplayWorldPoint chooseBountyHuntSpawnPoint(uint32_t seed) const override;
     float gameplayCameraYawRadians() const override;
     float gameplayCameraPitchRadians() const override;
@@ -464,6 +481,8 @@ public:
     GameplayWorldHit pickKeyboardInteractionTarget(const GameplayWorldPickRequest &request) override;
     GameplayWorldHit pickHeldItemWorldTarget(const GameplayWorldPickRequest &request) override;
     GameplayWorldHit pickMouseInteractionTarget(const GameplayWorldPickRequest &request) override;
+    bool hasCustomWorldItemActivation(size_t worldItemIndex) const override;
+    bool activateCustomWorldItem(size_t worldItemIndex) override;
     bool worldItemInspectState(size_t worldItemIndex, GameplayWorldItemInspectState &state) const override;
     bool updateWorldItemInspectState(size_t worldItemIndex, const InventoryItem &item) override;
     bool takeWorldItemInspectState(size_t worldItemIndex, GameplayWorldItemInspectState &state) override;
@@ -693,6 +712,11 @@ private:
         const MonsterTable::MonsterStatsEntry &stats,
         const MonsterEntry *pMonsterEntry) const;
     bool indoorActorCanApplyPartyMeleeImpact(size_t actorIndex) const;
+    void materializeSemanticWorldItems();
+    void synchronizeSemanticWorldItemVisibility();
+    bool activateSemanticWorldItem(size_t worldItemIndex);
+    bool activateSemanticLootContainer(size_t worldItemIndex);
+    void removeDepletedSemanticLootContainer(uint32_t containerId);
     ChestViewState buildChestView(uint32_t chestId) const;
     void activateChestView(uint32_t chestId);
     bool attemptOpenChest(uint32_t chestId, bool openedByTelekinesis = false);
@@ -756,6 +780,8 @@ private:
     const SpellTable *m_pSpellTable = nullptr;
     const ItemTable *m_pItemTable = nullptr;
     const ChestTable *m_pChestTable = nullptr;
+    MapItemSourceData m_itemSourceData;
+    SearchableLootPropState m_searchableLootPropState;
     const SpriteFrameTable *m_pActorSpriteFrameTable = nullptr;
     const SpriteFrameTable *m_pProjectileSpriteFrameTable = nullptr;
     const IndoorMapData *m_pIndoorMapData = nullptr;

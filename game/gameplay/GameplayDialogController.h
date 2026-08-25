@@ -32,6 +32,10 @@ class MergedBolsterMapTable;
 class MergedContinentSettingTable;
 class MergedTeacherAutonoteTable;
 class MergedTeacherTopicTable;
+class Mm9RudeDialogueTable;
+class Mm9MapTransitionTable;
+class Mm9SkillTrainerTable;
+class Mm9TransportRouteTable;
 struct HouseEntry;
 class GameplayScreenRuntime;
 
@@ -51,6 +55,10 @@ public:
         const HouseTable *pHouseTable = nullptr;
         const ClassSkillTable *pClassSkillTable = nullptr;
         const NpcDialogTable *pNpcDialogTable = nullptr;
+        const Mm9RudeDialogueTable *pMm9RudeDialogueTable = nullptr;
+        const Mm9MapTransitionTable *pMm9MapTransitionTable = nullptr;
+        const Mm9SkillTrainerTable *pMm9SkillTrainerTable = nullptr;
+        const Mm9TransportRouteTable *pMm9TransportRouteTable = nullptr;
         const TransitionTable *pTransitionTable = nullptr;
         const MapStatsEntry *pCurrentMap = nullptr;
         const std::vector<MapStatsEntry> *pMapEntries = nullptr;
@@ -101,6 +109,10 @@ public:
         Context &context,
         uint32_t npcId,
         uint32_t hostHouseId = 0,
+        std::optional<uint32_t> sourceActorIndex = std::nullopt) const;
+    Result openMm9RudeDialogue(
+        Context &context,
+        uint32_t rudeId,
         std::optional<uint32_t> sourceActorIndex = std::nullopt) const;
     Result openNpcNews(
         Context &context,

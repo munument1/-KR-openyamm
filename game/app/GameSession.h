@@ -15,6 +15,7 @@
 #include "game/gameplay/GameplayRuntimeInterfaces.h"
 #include "game/gameplay/TurnBasedCombatRuntime.h"
 #include "game/maps/SaveGame.h"
+#include "game/mm9/Mm9QuestMarkers.h"
 #include "game/scene/SceneKind.h"
 #include "game/data/GameDataRepository.h"
 #include "game/ui/GameplayOverlayTypes.h"
@@ -125,6 +126,7 @@ public:
 
     IGameplayWorldRuntime *activeWorldRuntime() const;
     void bindActiveWorldRuntime(IGameplayWorldRuntime *pWorldRuntime);
+    Mm9QuestMarkerState questMarkerForActor(size_t actorIndex) const;
     const GameplayInputFrame *currentGameplayInputFrame() const;
     void bindCurrentGameplayInputFrame(const GameplayInputFrame *pInputFrame);
     void updateGameplay(
@@ -270,6 +272,7 @@ private:
         bool sharedWorldBlocked,
         float movementDeltaSeconds,
         float frameDeltaSeconds);
+    void updateMm9QuestMarkerCache();
 
     const GameDataRepository *m_pDataRepository = nullptr;
     std::optional<Party> m_partyState;
@@ -291,6 +294,8 @@ private:
     GameplayOverlayInteractionState m_overlayInteractionState;
     std::array<uint8_t, SDL_SCANCODE_COUNT> m_previousKeyboardState = {};
     IGameplayWorldRuntime *m_pActiveWorldRuntime = nullptr;
+    Mm9LoadedLocationQuestMarkerCache m_mm9QuestMarkerCache;
+    uint64_t m_mm9QuestMarkerMapRevision = 1;
     const GameplayInputFrame *m_pCurrentGameplayInputFrame = nullptr;
     GameplaySharedInputFrameResult m_sharedInputFrameResult = {};
     bool m_sharedWorldInteractionBlockedThisFrame = false;

@@ -84,6 +84,55 @@ bool isHouseType(const HouseEntry &houseEntry, const char *pTypeName)
 
 bool isShopItemFamilyAllowed(const HouseEntry &houseEntry, const ItemDefinition &itemDefinition)
 {
+    switch (houseEntry.vendorStockProfile)
+    {
+        case VendorStockProfile::Weapon:
+            return itemDefinition.equipStat == "Weapon"
+                || itemDefinition.equipStat == "Weapon1or2"
+                || itemDefinition.equipStat == "Weapon2"
+                || itemDefinition.equipStat == "Missile"
+                || itemDefinition.equipStat == "Bow";
+
+        case VendorStockProfile::Armor:
+            return itemDefinition.equipStat == "Armor"
+                || itemDefinition.equipStat == "Shield"
+                || itemDefinition.equipStat == "Helm"
+                || itemDefinition.equipStat == "Belt"
+                || itemDefinition.equipStat == "Cloak"
+                || itemDefinition.equipStat == "Gauntlets"
+                || itemDefinition.equipStat == "Boots";
+
+        case VendorStockProfile::Spellbook:
+            return itemDefinition.equipStat == "Book";
+
+        case VendorStockProfile::Mm9Apothecary:
+            return itemDefinition.equipStat == "Ring"
+                || itemDefinition.equipStat == "Amulet"
+                || itemDefinition.equipStat == "Belt"
+                || itemDefinition.equipStat == "Mscroll"
+                || itemDefinition.equipStat == "Misc";
+
+        case VendorStockProfile::Mm9GeneralStore:
+            return itemDefinition.equipStat == "Weapon"
+                || itemDefinition.equipStat == "Weapon1or2"
+                || itemDefinition.equipStat == "Weapon2"
+                || itemDefinition.equipStat == "Missile"
+                || itemDefinition.equipStat == "Bow"
+                || itemDefinition.equipStat == "Ring"
+                || itemDefinition.equipStat == "Amulet"
+                || itemDefinition.equipStat == "Belt"
+                || itemDefinition.equipStat == "Gauntlets"
+                || itemDefinition.equipStat == "Mscroll"
+                || itemDefinition.equipStat == "Misc";
+
+        case VendorStockProfile::Mm9Library:
+            return itemDefinition.equipStat == "LearnSkill"
+                && itemDefinition.hasContentFlag("SkillLearning");
+
+        case VendorStockProfile::None:
+            break;
+    }
+
     if (isHouseType(houseEntry, "Weapon Shop"))
     {
         return
@@ -502,7 +551,7 @@ std::vector<InventoryItem> generateStockItems(
 
     for (const ItemDefinition &entry : itemTable.entries())
     {
-        if (entry.itemId == 0 || entry.name.empty() || !predicate(entry))
+        if (entry.itemId == 0 || entry.name.empty() || entry.hasContentFlag("NoShop") || !predicate(entry))
         {
             continue;
         }
@@ -791,6 +840,36 @@ std::vector<InventoryItem> generateGuildSpellbookStock(
         });
 }
 
+std::vector<InventoryItem> deterministicStockItems(
+    const ItemTable &itemTable,
+    const std::vector<HouseEntry::DeterministicStockPage> &pages,
+    uint32_t refreshSequence)
+{
+    if (pages.empty())
+    {
+        return {};
+    }
+
+    const size_t pageOrdinal = refreshSequence > 0 ? static_cast<size_t>(refreshSequence - 1) : 0;
+    const HouseEntry::DeterministicStockPage &page = pages[pageOrdinal % pages.size()];
+    std::vector<InventoryItem> result;
+    result.reserve(page.items.size());
+    for (const HouseEntry::DeterministicStockItem &stockItem : page.items)
+    {
+        InventoryItem item = ItemGenerator::makeInventoryItem(
+            stockItem.itemId,
+            itemTable,
+            ItemGenerationMode::Shop);
+        item.quantity = stockItem.quantity;
+        item.identified = stockItem.identified;
+        item.standardEnchantId = stockItem.standardEnchantId;
+        item.standardEnchantPower = stockItem.standardEnchantPower;
+        item.specialEnchantId = stockItem.specialEnchantId;
+        result.push_back(item);
+    }
+    return result;
+}
+
 Party::HouseStockState &ensureHouseStockGenerated(
     Party &party,
     const ItemTable &itemTable,
@@ -813,6 +892,21 @@ Party::HouseStockState &ensureHouseStockGenerated(
 
     state.refreshSequence += 1;
     state.nextRefreshGameMinutes = gameMinutes + refreshMinutes;
+    if (houseEntry.vendorStockProfile != VendorStockProfile::None)
+    {
+        state.generationVersion = houseEntry.deterministicStockGenerationVersion;
+        state.standardStock = deterministicStockItems(
+            itemTable,
+            houseEntry.deterministicStandardStockPages,
+            state.refreshSequence);
+        state.specialStock = deterministicStockItems(
+            itemTable,
+            houseEntry.deterministicSpecialStockPages,
+            state.refreshSequence);
+        state.spellbookStock.clear();
+        return state;
+    }
+
     std::mt19937 rng = createStockRng(party, houseEntry, state);
     const size_t standardCount = HouseServiceRuntime::slotCountForStockMode(houseEntry, HouseStockMode::ShopStandard);
     const size_t specialCount = HouseServiceRuntime::slotCountForStockMode(houseEntry, HouseStockMode::ShopSpecial);
@@ -1097,21 +1191,59 @@ bool HouseServiceRuntime::supportsGeneratedStock(const HouseEntry &houseEntry)
 
 bool HouseServiceRuntime::supportsEquipmentSell(const HouseEntry &houseEntry)
 {
+    if (houseEntry.vendorStockProfile != VendorStockProfile::None)
+    {
+        return houseEntry.vendorCanSell;
+    }
     return resolveHouseServiceType(houseEntry) == HouseServiceType::Shop;
 }
 
 bool HouseServiceRuntime::supportsIdentify(const HouseEntry &houseEntry)
 {
+    if (houseEntry.vendorStockProfile != VendorStockProfile::None)
+    {
+        return houseEntry.vendorCanIdentify;
+    }
     return resolveHouseServiceType(houseEntry) == HouseServiceType::Shop;
 }
 
 bool HouseServiceRuntime::supportsRepair(const HouseEntry &houseEntry)
 {
+    if (houseEntry.vendorStockProfile != VendorStockProfile::None)
+    {
+        return houseEntry.vendorCanRepair;
+    }
     return resolveHouseServiceType(houseEntry) == HouseServiceType::Shop && !isHouseType(houseEntry, "Alchemist");
 }
 
 size_t HouseServiceRuntime::slotCountForStockMode(const HouseEntry &houseEntry, HouseStockMode mode)
 {
+    if (houseEntry.vendorStockProfile != VendorStockProfile::None)
+    {
+        if (mode == HouseStockMode::GuildSpellbooks)
+        {
+            return 0;
+        }
+        switch (houseEntry.vendorStockProfile)
+        {
+            case VendorStockProfile::Weapon:
+                return 6;
+
+            case VendorStockProfile::Armor:
+            case VendorStockProfile::Mm9GeneralStore:
+                return 8;
+
+            case VendorStockProfile::Spellbook:
+            case VendorStockProfile::Mm9Apothecary:
+            case VendorStockProfile::Mm9Library:
+                return 12;
+
+            case VendorStockProfile::None:
+            default:
+                return 0;
+        }
+    }
+
     switch (mode)
     {
         case HouseStockMode::GuildSpellbooks:
@@ -1218,7 +1350,10 @@ bool HouseServiceRuntime::canSellItemToHouse(
         return false;
     }
 
-    return supportsEquipmentSell(houseEntry) && pItemDefinition->value > 0;
+    return supportsEquipmentSell(houseEntry)
+        && pItemDefinition->value > 0
+        && (houseEntry.vendorStockProfile == VendorStockProfile::None
+            || isShopItemFamilyAllowed(houseEntry, *pItemDefinition));
 }
 
 std::string HouseServiceRuntime::buildBuyHoverText(

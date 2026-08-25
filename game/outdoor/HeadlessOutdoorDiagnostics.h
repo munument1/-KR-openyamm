@@ -43,6 +43,10 @@ public:
         const std::filesystem::path &basePath,
         const std::string &mapFileName
     ) const;
+    int runVerifyOutdoorWorldItemFloor(
+        const std::filesystem::path &basePath,
+        const std::string &mapFileName
+    ) const;
     int runVerifyOutdoorSaveRoundtrip(
         const std::filesystem::path &basePath,
         const std::string &mapFileName,
@@ -53,6 +57,11 @@ public:
         const std::filesystem::path &basePath,
         const std::string &mapFileName,
         uint32_t mechanismId
+    ) const;
+    int runVerifyMm9PositionedTransition(
+        const std::filesystem::path &basePath,
+        const std::string &mapFileName,
+        uint32_t sourceObjectIndex
     ) const;
     int runSimulateActor(
         const std::filesystem::path &basePath,

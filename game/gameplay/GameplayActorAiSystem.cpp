@@ -615,7 +615,7 @@ float monsterSelfBuffDurationSeconds(
         return monsterBuffDurationHours(1.0f) + monsterBuffDurationMinutes(level);
     }
 
-    if (spellName == "shield" || spellName == "stoneskin")
+    if (spellName == "shield" || spellName == "stone skin" || spellName == "stoneskin")
     {
         if (skillMastery == SkillMastery::Grandmaster)
         {
@@ -715,7 +715,7 @@ float *monsterSelfBuffTimer(GameplayActorSpellEffectState &state, const std::str
         return &state.shieldRemainingSeconds;
     }
 
-    if (spellName == "stoneskin")
+    if (spellName == "stone skin" || spellName == "stoneskin")
     {
         return &state.stoneskinRemainingSeconds;
     }
@@ -770,7 +770,7 @@ const float *monsterSelfBuffTimer(const GameplayActorSpellEffectState &state, co
         return &state.shieldRemainingSeconds;
     }
 
-    if (spellName == "stoneskin")
+    if (spellName == "stone skin" || spellName == "stoneskin")
     {
         return &state.stoneskinRemainingSeconds;
     }
@@ -884,7 +884,7 @@ void setMonsterSelfBuffPower(
     {
         state.hammerhandsPower = std::max(state.hammerhandsPower, power);
     }
-    else if (spellName == "stoneskin")
+    else if (spellName == "stone skin" || spellName == "stoneskin")
     {
         state.stoneskinPower = std::max(state.stoneskinPower, power);
     }
@@ -1346,11 +1346,11 @@ ActorEngagementState resolveActorEngagement(
         result.hasDetectedParty = false;
     }
 
-    result.shouldFlee =
-        result.shouldEngageTarget
-        && combatTarget.distanceToTarget <= HostilityLongRange
-        && actorService.shouldFleeForAiType(actor.stats.aiType, actor.stats.currentHp, actor.stats.maxHp)
-        && !(actor.status.suppressLowHealthFlee && actor.stats.aiType != GameplayActorAiType::Wimp);
+    result.shouldFlee = actor.status.forceFleeFromParty
+        || (result.shouldEngageTarget
+            && combatTarget.distanceToTarget <= HostilityLongRange
+            && actorService.shouldFleeForAiType(actor.stats.aiType, actor.stats.currentHp, actor.stats.maxHp)
+            && !(actor.status.suppressLowHealthFlee && actor.stats.aiType != GameplayActorAiType::Wimp));
     result.friendlyNearParty =
         !result.shouldEngageTarget
         && !actor.status.hostileToParty
@@ -3649,6 +3649,12 @@ void AI_StandOrBored(ActorAiCommandContext &ai)
 void AI_StandOrBored(ActorAiCommandContext &ai, float actionSeconds)
 {
     const ActorAiFacts &actor = ai.actor();
+
+    if (!actor.movement.movementAllowed)
+    {
+        AI_Stand(ai);
+        return;
+    }
 
     if (actor.status.hostileToParty || actor.movement.wanderRadius <= 0.0f)
     {

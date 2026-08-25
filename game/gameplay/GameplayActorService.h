@@ -69,6 +69,8 @@ public:
     };
 
     void bindTables(const MonsterTable *pMonsterTable, const SpellTable *pSpellTable);
+    void setPartyEngagementRange(float range);
+    float configuredPartyEngagementRange() const;
     bool isBound() const;
     bool actorLooksUndead(int16_t monsterId) const;
     int16_t relationMonsterId(int16_t monsterId, uint32_t allyMonsterType) const;
@@ -156,5 +158,6 @@ public:
 private:
     const MonsterTable *m_pMonsterTable = nullptr;
     const SpellTable *m_pSpellTable = nullptr;
+    float m_partyEngagementRange = MaximumPartyEngagementRange;
 };
 }

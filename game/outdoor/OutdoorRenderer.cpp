@@ -106,9 +106,14 @@ bool outdoorActorIsPartyControlled(OutdoorWorldRuntime::ActorControlMode mode)
     }
 }
 
-float secretFaceVertexFlag(uint32_t attributes)
+float secretFaceVertexValue(uint32_t attributes, int perceptionDifficulty = -1)
 {
-    return hasFaceAttribute(attributes, FaceAttribute::IsSecret) ? 1.0f : 0.0f;
+    if (!hasFaceAttribute(attributes, FaceAttribute::IsSecret))
+    {
+        return 0.0f;
+    }
+
+    return perceptionDifficulty >= 0 ? static_cast<float>(perceptionDifficulty + 2) : 1.0f;
 }
 
 uint32_t makeAbgr(uint8_t red, uint8_t green, uint8_t blue)
@@ -379,6 +384,14 @@ uint32_t computeOutdoorSkyTintAbgr(const OutdoorWorldRuntime &worldRuntime)
 
 uint32_t computeOutdoorSkyFogColorAbgr(const OutdoorWorldRuntime::AtmosphereState &atmosphereState)
 {
+    if (atmosphereState.hasAuthoredFogColor)
+    {
+        return makeAbgr(
+            atmosphereState.authoredFogRed,
+            atmosphereState.authoredFogGreen,
+            atmosphereState.authoredFogBlue);
+    }
+
     if (atmosphereState.underwater)
     {
         return makeAbgr(UnderwaterFogRed, UnderwaterFogGreen, UnderwaterFogBlue);
@@ -1023,12 +1036,16 @@ OutdoorFogParameters buildOutdoorWorldFogParameters(
         && pAtmosphereState->fogWeakDistance >= 0
         && pAtmosphereState->fogStrongDistance > pAtmosphereState->fogWeakDistance)
     {
-        const OutdoorFogProfile fogProfile = buildOutdoorFogProfile(
-            pAtmosphereState->fogWeakDistance,
-            pAtmosphereState->fogStrongDistance,
-            clampedFarClipDistance,
-            OutdoorWorldFogNearOpacity,
-            OutdoorWorldFogStrongOpacity);
+        const OutdoorFogProfile fogProfile = pAtmosphereState->directFog
+            ? buildOutdoorDirectFogProfile(
+                pAtmosphereState->fogWeakDistance,
+                pAtmosphereState->fogStrongDistance)
+            : buildOutdoorFogProfile(
+                pAtmosphereState->fogWeakDistance,
+                pAtmosphereState->fogStrongDistance,
+                clampedFarClipDistance,
+                OutdoorWorldFogNearOpacity,
+                OutdoorWorldFogStrongOpacity);
         const uint32_t fogColorAbgr = computeOutdoorSkyFogColorAbgr(*pAtmosphereState);
         parameters.color = {
             static_cast<float>(fogColorAbgr & 0xffu) / 255.0f,
@@ -1037,6 +1054,7 @@ OutdoorFogParameters buildOutdoorWorldFogParameters(
             1.0f
         };
         parameters.densities = {fogProfile.nearOpacity, fogProfile.strongOpacity, 0.0f, 0.0f};
+        parameters.densities[3] = pAtmosphereState->directFog ? 1.0f : 0.0f;
         if (pAtmosphereState->underwater)
         {
             parameters.densities[2] = OutdoorUnderwaterTintOpacity;
@@ -1092,12 +1110,16 @@ OutdoorFogParameters buildOutdoorSkyFogParameters(
         && pAtmosphereState->fogWeakDistance >= 0
         && pAtmosphereState->fogStrongDistance > pAtmosphereState->fogWeakDistance)
     {
-        const OutdoorFogProfile fogProfile = buildOutdoorFogProfile(
-            pAtmosphereState->fogWeakDistance,
-            pAtmosphereState->fogStrongDistance,
-            clampedRenderDistance,
-            OutdoorSkyFogNearOpacity,
-            OutdoorSkyFogStrongOpacity);
+        const OutdoorFogProfile fogProfile = pAtmosphereState->directFog
+            ? buildOutdoorDirectFogProfile(
+                pAtmosphereState->fogWeakDistance,
+                pAtmosphereState->fogStrongDistance)
+            : buildOutdoorFogProfile(
+                pAtmosphereState->fogWeakDistance,
+                pAtmosphereState->fogStrongDistance,
+                clampedRenderDistance,
+                OutdoorSkyFogNearOpacity,
+                OutdoorSkyFogStrongOpacity);
         const uint32_t fogColorAbgr = computeOutdoorSkyFogColorAbgr(*pAtmosphereState);
         parameters.color = {
             static_cast<float>(fogColorAbgr & 0xffu) / 255.0f,
@@ -1106,6 +1128,7 @@ OutdoorFogParameters buildOutdoorSkyFogParameters(
             1.0f
         };
         parameters.densities = {fogProfile.nearOpacity, fogProfile.strongOpacity, 0.0f, 0.0f};
+        parameters.densities[3] = pAtmosphereState->directFog ? 1.0f : 0.0f;
         if (pAtmosphereState->underwater)
         {
             parameters.densities[2] = OutdoorUnderwaterTintOpacity;
@@ -1170,10 +1193,13 @@ void OutdoorRenderer::applySecretPulseUniforms(OutdoorGameView &view)
         view.m_map.has_value()
         && view.m_pOutdoorPartyRuntime != nullptr
         && GameMechanics::partyDetectsSecretFaces(view.m_pOutdoorPartyRuntime->party(), view.m_map.value());
+    const float partyPerception = view.m_pOutdoorPartyRuntime != nullptr
+        ? static_cast<float>(GameMechanics::resolvePartyPerceptionValue(view.m_pOutdoorPartyRuntime->party()))
+        : -1.0f;
     const std::array<float, 4> params = {
         secretFacesDetected ? 1.0f : 0.0f,
         view.m_elapsedTime,
-        0.0f,
+        partyPerception,
         0.0f
     };
     bgfx::setUniform(view.m_secretPulseParamsUniformHandle, params.data());
@@ -1446,6 +1472,7 @@ void OutdoorRenderer::rebuildResolvedBModelDrawGroups(OutdoorGameView &view)
         }
 
         float secretPulse = batch.vertices.empty() ? 0.0f : batch.vertices.front().secretPulse;
+        int perceptionDifficulty = -1;
         std::array<float, 4> flowInfo = {0.0f, 0.0f, 0.0f, 0.0f};
 
         if (view.m_pOutdoorMapData
@@ -1454,11 +1481,12 @@ void OutdoorRenderer::rebuildResolvedBModelDrawGroups(OutdoorGameView &view)
         {
             OutdoorBModelFace effectiveFace =
                 view.m_pOutdoorMapData->bmodels[batch.bModelIndex].faces[batch.faceIndex];
+            perceptionDifficulty = effectiveFace.perceptionDifficulty;
             effectiveFace.attributes = effectiveAttributes;
             flowInfo = outdoorFaceFlowInfo(effectiveFace, batch.textureWidth, batch.textureHeight);
         }
 
-        secretPulse = secretFaceVertexFlag(effectiveAttributes);
+        secretPulse = secretFaceVertexValue(effectiveAttributes, perceptionDifficulty);
 
         const size_t oldSize = groupVertices.size();
         groupVertices.insert(groupVertices.end(), batch.vertices.begin(), batch.vertices.end());
@@ -1684,7 +1712,7 @@ void OutdoorRenderer::refreshBModelWorldRenderChunks(OutdoorGameView &view)
             effectiveFace.attributes = effectiveAttributes;
             const std::array<float, 4> flowInfo =
                 outdoorFaceFlowInfo(effectiveFace, face.textureWidth, face.textureHeight);
-            const float secretPulse = secretFaceVertexFlag(effectiveAttributes);
+            const float secretPulse = secretFaceVertexValue(effectiveAttributes, sourceFace.perceptionDifficulty);
 
             for (OutdoorGameView::TexturedTerrainVertex &vertex : vertices)
             {
@@ -2312,7 +2340,7 @@ std::vector<OutdoorGameView::TexturedTerrainVertex> OutdoorRenderer::buildTextur
             vertex.z = worldVertex.z;
             vertex.u = normalizedU;
             vertex.v = normalizedV;
-            vertex.secretPulse = secretFaceVertexFlag(face.attributes);
+            vertex.secretPulse = secretFaceVertexValue(face.attributes, face.perceptionDifficulty);
             vertex.flowUPerSecond = flowInfo[0];
             vertex.flowVPerSecond = flowInfo[1];
             vertex.lavaFlow = flowInfo[2];
@@ -3562,7 +3590,7 @@ void OutdoorRenderer::renderWorldPasses(OutdoorGameView &view, uint16_t viewWidt
 
             for (const OutdoorAuthoredLight &source : pLightingData->authoredLights)
             {
-                if (!source.lightsObjects() || source.radius <= 1.0f)
+                if (!source.lightsObjects() || source.globalObjectLight() || source.radius <= 1.0f)
                 {
                     continue;
                 }
@@ -4028,17 +4056,19 @@ void OutdoorRenderer::renderWorldPasses(OutdoorGameView &view, uint16_t viewWidt
                         }
 
                         std::array<float, 4> flowInfo = {0.0f, 0.0f, 0.0f, 0.0f};
+                        int perceptionDifficulty = -1;
 
                         if (view.m_pOutdoorMapData && batch.bModelIndex < view.m_pOutdoorMapData->bmodels.size() &&
                             batch.faceIndex < view.m_pOutdoorMapData->bmodels[batch.bModelIndex].faces.size())
                         {
                             OutdoorBModelFace effectiveFace =
                                 view.m_pOutdoorMapData->bmodels[batch.bModelIndex].faces[batch.faceIndex];
+                            perceptionDifficulty = effectiveFace.perceptionDifficulty;
                             effectiveFace.attributes = effectiveAttributes;
                             flowInfo = outdoorFaceFlowInfo(effectiveFace, batch.textureWidth, batch.textureHeight);
                         }
 
-                        const float secretPulse = secretFaceVertexFlag(effectiveAttributes);
+                        const float secretPulse = secretFaceVertexValue(effectiveAttributes, perceptionDifficulty);
                         const std::optional<OutdoorBModelRuntimeTransformState> runtimeTransform =
                             outdoorBModelRuntimeTransform(pEventRuntimeState, batch.bModelIndex);
                         std::vector<OutdoorGameView::TexturedTerrainVertex> vertices = batch.vertices;

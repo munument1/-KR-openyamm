@@ -1,0 +1,100 @@
+#include "game/gameplay/GameplayWorldItemPolicy.h"
+
+#include "game/items/ItemGenerator.h"
+#include "game/party/Party.h"
+#include "game/tables/ItemTable.h"
+
+#include <algorithm>
+
+namespace OpenYAMM::Game
+{
+bool worldItemPolicyAvailable(const MapWorldItemSource &source, const Party &party)
+{
+    const bool hasRequiredQBits = std::all_of(
+        source.requiredQBits.begin(),
+        source.requiredQBits.end(),
+        [&party](uint32_t qbit)
+        {
+            return party.hasQuestBit(qbit);
+        });
+    const bool hasForbiddenQBit = std::any_of(
+        source.forbiddenQBits.begin(),
+        source.forbiddenQBits.end(),
+        [&party](uint32_t qbit)
+        {
+            return party.hasQuestBit(qbit);
+        });
+    const bool hasRequiredItems = std::all_of(
+        source.requiredItems.begin(),
+        source.requiredItems.end(),
+        [&party](uint32_t itemId)
+        {
+            return party.hasItemAnywhere(itemId);
+        });
+    const bool hasForbiddenItem = std::any_of(
+        source.forbiddenItems.begin(),
+        source.forbiddenItems.end(),
+        [&party](uint32_t itemId)
+        {
+            return party.hasItemAnywhere(itemId);
+        });
+    return hasRequiredQBits && !hasForbiddenQBit && hasRequiredItems && !hasForbiddenItem;
+}
+
+bool applyWorldItemPolicyActions(
+    const MapWorldItemSource &source,
+    const InventoryItem &randomPoolItem,
+    Party &party,
+    const ItemTable &itemTable)
+{
+    if (!worldItemPolicyAvailable(source, party) || !source.onPickupEvent.empty())
+    {
+        return false;
+    }
+
+    const Party::Snapshot previousParty = party.snapshot();
+    for (uint32_t itemId : source.takeItems)
+    {
+        if (!party.removeItem(itemId))
+        {
+            party.restoreSnapshot(previousParty);
+            return false;
+        }
+    }
+
+    if (!source.randomItemPool.empty())
+    {
+        if (randomPoolItem.objectDescriptionId == 0 || !party.tryGrantInventoryItem(randomPoolItem))
+        {
+            party.restoreSnapshot(previousParty);
+            return false;
+        }
+    }
+    else
+    {
+        for (const MapWorldItemGrant &grant : source.grantItems)
+        {
+            InventoryItem item = ItemGenerator::makeInventoryItem(
+                grant.itemId,
+                itemTable,
+                ItemGenerationMode::Generic);
+            item.quantity = grant.quantity;
+            if (!party.tryGrantInventoryItem(item))
+            {
+                party.restoreSnapshot(previousParty);
+                return false;
+            }
+        }
+    }
+
+    for (uint32_t qbit : source.setQBits)
+    {
+        party.setQuestBit(qbit, true);
+    }
+    for (uint32_t qbit : source.clearQBits)
+    {
+        party.setQuestBit(qbit, false);
+    }
+    return true;
+}
+}

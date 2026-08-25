@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace OpenYAMM::Game
 {
@@ -33,6 +34,23 @@ struct MasteryTeacherTopicDefinition
     SkillMastery targetMastery = SkillMastery::None;
 };
 
+struct SkillMasteryTrainingRequest
+{
+    std::string skillName;
+    SkillMastery targetMastery = SkillMastery::None;
+    uint32_t requiredGold = 0;
+    uint32_t requiredSkill = 0;
+};
+
+struct SkillMasteryGroupTrainingRequest
+{
+    std::string displayName;
+    std::vector<std::string> skillNames;
+    SkillMastery targetMastery = SkillMastery::None;
+    uint32_t requiredGold = 0;
+    uint32_t requiredSkill = 0;
+};
+
 std::optional<MasteryTeacherTopicDefinition> resolveMasteryTeacherTopic(
     uint32_t topicId,
     const MergedTeacherTopicTable *pTeacherTopicTable
@@ -40,6 +58,32 @@ std::optional<MasteryTeacherTopicDefinition> resolveMasteryTeacherTopic(
 bool isMasteryTeacherTopic(
     uint32_t topicId,
     const MergedTeacherTopicTable *pTeacherTopicTable
+);
+std::optional<MasteryTeacherEvaluation> evaluateSkillMasteryTraining(
+    const SkillMasteryTrainingRequest &request,
+    const Party &party,
+    const ClassSkillTable &classSkillTable,
+    const NpcDialogTable &npcDialogTable
+);
+bool applySkillMasteryTraining(
+    const SkillMasteryTrainingRequest &request,
+    Party &party,
+    const ClassSkillTable &classSkillTable,
+    const NpcDialogTable &npcDialogTable,
+    std::string &message
+);
+std::optional<MasteryTeacherEvaluation> evaluateSkillMasteryGroupTraining(
+    const SkillMasteryGroupTrainingRequest &request,
+    const Party &party,
+    const ClassSkillTable &classSkillTable,
+    const NpcDialogTable &npcDialogTable
+);
+bool applySkillMasteryGroupTraining(
+    const SkillMasteryGroupTrainingRequest &request,
+    Party &party,
+    const ClassSkillTable &classSkillTable,
+    const NpcDialogTable &npcDialogTable,
+    std::string &message
 );
 std::optional<MasteryTeacherEvaluation> evaluateMasteryTeacherTopic(
     uint32_t topicId,

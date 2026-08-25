@@ -28,6 +28,7 @@
 #include "game/outdoor/OutdoorMapData.h"
 #include "game/maps/TerrainTileData.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
+#include "game/outdoor/OutdoorFogProfile.h"
 #include "game/outdoor/OutdoorMechanismRuntime.h"
 #include "game/outdoor/OutdoorMovementController.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
@@ -857,6 +858,56 @@ TEST_CASE("outdoor mechanism pivot transform is shared by runtime points and BMo
     }
 }
 
+TEST_CASE("MM9 outdoor mechanism audio follows movement phases")
+{
+    using OpenYAMM::Game::EventRuntimeState;
+    using OpenYAMM::Game::EvtMechanismState;
+    using OpenYAMM::Game::RuntimeMechanismState;
+
+    EventRuntimeState runtimeState = {};
+    EventRuntimeState::OutdoorModelMechanismDefinition definition = {};
+    definition.audio.openStartSound = "door/open.wav";
+    definition.audio.openBusySound = "door/moving.wav";
+    definition.audio.openStopSound = "door/stop.wav";
+    definition.audio.x = 10;
+    definition.audio.y = 20;
+    definition.audio.z = 30;
+    definition.audio.positional = true;
+    RuntimeMechanismState mechanism = {};
+    mechanism.state = static_cast<uint16_t>(EvtMechanismState::Opening);
+    mechanism.isMoving = true;
+
+    OpenYAMM::Game::queueOutdoorMechanismMovementAudio(
+        runtimeState,
+        900123,
+        definition,
+        static_cast<uint16_t>(EvtMechanismState::Closed),
+        false,
+        mechanism);
+
+    REQUIRE_EQ(runtimeState.pendingSounds.size(), 3u);
+    CHECK(runtimeState.pendingSounds[0].kind == EventRuntimeState::PendingSound::Kind::StopKeyed);
+    CHECK(runtimeState.pendingSounds[1].kind == EventRuntimeState::PendingSound::Kind::PlayOneShot);
+    CHECK_EQ(runtimeState.pendingSounds[1].soundName, "door/open.wav");
+    CHECK(runtimeState.pendingSounds[1].positional);
+    CHECK_EQ(runtimeState.pendingSounds[2].kind, EventRuntimeState::PendingSound::Kind::PlayLoopingKeyed);
+    CHECK_EQ(runtimeState.pendingSounds[2].soundName, "door/moving.wav");
+    CHECK_EQ(runtimeState.pendingSounds[0].key, runtimeState.pendingSounds[2].key);
+
+    runtimeState.pendingSounds.clear();
+    mechanism.state = static_cast<uint16_t>(EvtMechanismState::Open);
+    mechanism.isMoving = false;
+    OpenYAMM::Game::queueOutdoorMechanismCompletionAudio(
+        runtimeState,
+        900123,
+        definition,
+        mechanism);
+
+    REQUIRE_EQ(runtimeState.pendingSounds.size(), 2u);
+    CHECK(runtimeState.pendingSounds[0].kind == EventRuntimeState::PendingSound::Kind::StopKeyed);
+    CHECK_EQ(runtimeState.pendingSounds[1].soundName, "door/stop.wav");
+}
+
 TEST_CASE("outdoor fly command is refused above maximum flight height")
 {
     const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
@@ -1161,6 +1212,10 @@ TEST_CASE("outdoor scene profiles default to classic and require explicit BModel
         "format_version: 1\n"
         "kind: outdoor_scene_overlay\n"
         "scene_profile: bmodel_world\n"
+        "lighting:\n"
+        "  lightmap_brightness_scale: 1.25\n"
+        "rendering:\n"
+        "  view_distance_scale: 0.5\n"
         "runtime_restrictions:\n"
         "  allow_rest: false\n"
         "environment:\n"
@@ -1168,12 +1223,16 @@ TEST_CASE("outdoor scene profiles default to classic and require explicit BModel
     REQUIRE_MESSAGE(sceneLoader.applyOverlayFromText(mergedScene, overlayText, sceneError), sceneError.c_str());
     CHECK(mergedScene.sceneProfile == OpenYAMM::Game::OutdoorSceneProfile::BModelWorld);
     CHECK(mergedScene.environment.locationType == OpenYAMM::Game::OutdoorLocationType::Enclosed);
+    CHECK_EQ(mergedScene.lighting.lightmapBrightnessScale, doctest::Approx(1.25f));
+    REQUIRE(mergedScene.rendering.viewDistanceScale.has_value());
+    CHECK_EQ(*mergedScene.rendering.viewDistanceScale, doctest::Approx(0.5f));
     CHECK_FALSE(mergedScene.runtimeRestrictions.allowRest);
     CHECK(OpenYAMM::Game::outdoorLocationUsesIndoorGameplay(mergedScene.environment.locationType));
 
     OpenYAMM::Game::OutdoorSceneData propagationScene = {};
     propagationScene.sceneProfile = OpenYAMM::Game::OutdoorSceneProfile::BModelWorld;
     propagationScene.environment.locationType = OpenYAMM::Game::OutdoorLocationType::Enclosed;
+    propagationScene.lighting.lightmapBrightnessScale = 1.25f;
     OpenYAMM::Game::OutdoorMapData mapData = {};
     OpenYAMM::Game::MapDeltaData mapDeltaData = {};
     REQUIRE_MESSAGE(
@@ -1181,6 +1240,14 @@ TEST_CASE("outdoor scene profiles default to classic and require explicit BModel
         sceneError.c_str());
     CHECK(mapData.sceneProfile == OpenYAMM::Game::OutdoorSceneProfile::BModelWorld);
     CHECK(mapData.locationType == OpenYAMM::Game::OutdoorLocationType::Enclosed);
+    CHECK_EQ(mapData.lightmapBrightnessScale, doctest::Approx(1.25f));
+    CHECK_EQ(mapData.viewDistanceScale, doctest::Approx(0.4f));
+
+    propagationScene.rendering.viewDistanceScale = 0.5f;
+    REQUIRE_MESSAGE(
+        OpenYAMM::Game::buildOutdoorMapStateFromScene(propagationScene, mapData, mapDeltaData, sceneError),
+        sceneError.c_str());
+    CHECK_EQ(mapData.viewDistanceScale, doctest::Approx(0.5f));
 }
 
 TEST_CASE("outdoor scene profiles reject unknown values")
@@ -1205,6 +1272,73 @@ TEST_CASE("outdoor scene profiles reject unknown values")
         "format_version: 1\nkind: outdoor_scene_overlay\nenvironment:\n  location_type: cavernish\n",
         sceneError));
     CHECK(sceneError.find("location_type") != std::string::npos);
+}
+
+TEST_CASE("outdoor scenes preserve authored day and night fog profiles")
+{
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> baseScene = sceneLoader.loadFromText(
+        loadSourceFileText("assets_dev/worlds/mm8/maps/out01.scene.yml"),
+        sceneError);
+    REQUIRE_MESSAGE(baseScene.has_value(), sceneError.c_str());
+
+    OpenYAMM::Game::OutdoorSceneData scene = *baseScene;
+    const std::string overlayText =
+        "format_version: 1\n"
+        "kind: outdoor_scene_overlay\n"
+        "environment:\n"
+        "  weather:\n"
+        "    fog_mode: authored_day_night\n"
+        "    authored_fog:\n"
+        "      day:\n"
+        "        enabled: true\n"
+        "        near_distance: 64\n"
+        "        far_distance: 11520\n"
+        "        color_rgb: [127, 127, 127]\n"
+        "      night:\n"
+        "        enabled: true\n"
+        "        near_distance: 64\n"
+        "        far_distance: 11520\n"
+        "        color_rgb: [0, 0, 0]\n";
+    REQUIRE_MESSAGE(sceneLoader.applyOverlayFromText(scene, overlayText, sceneError), sceneError.c_str());
+    CHECK(scene.environment.weather.fogMode == OpenYAMM::Game::OutdoorFogMode::AuthoredDayNight);
+    CHECK(scene.environment.weather.authoredDayFog.configured);
+    CHECK(scene.environment.weather.authoredDayFog.enabled);
+    CHECK_EQ(scene.environment.weather.authoredDayFog.distances.weakDistance, 64);
+    CHECK_EQ(scene.environment.weather.authoredDayFog.distances.strongDistance, 11520);
+    CHECK_EQ(scene.environment.weather.authoredDayFog.colorRgb[0], 127);
+    CHECK(scene.environment.weather.authoredNightFog.configured);
+    CHECK_EQ(scene.environment.weather.authoredNightFog.colorRgb[0], 0);
+
+    const OpenYAMM::Game::OutdoorFogProfile fogProfile =
+        OpenYAMM::Game::buildOutdoorDirectFogProfile(64, 11520);
+    CHECK_EQ(fogProfile.nearOpacity, doctest::Approx(0.0f));
+    CHECK_EQ(fogProfile.strongOpacity, doctest::Approx(1.0f));
+    CHECK_EQ(fogProfile.weakDistance, doctest::Approx(64.0f));
+    CHECK_EQ(fogProfile.strongDistance, doctest::Approx(11520.0f));
+
+    sceneError.clear();
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> drangheimBaseScene = sceneLoader.loadFromText(
+        loadSourceFileText("assets_dev/worlds/mm9/maps/drangheim.scene.yml"),
+        sceneError);
+    REQUIRE_MESSAGE(drangheimBaseScene.has_value(), sceneError.c_str());
+    CHECK_EQ(drangheimBaseScene->lighting.lightmapBrightnessScale, doctest::Approx(1.25f));
+    CHECK(drangheimBaseScene->environment.weather.fogMode == OpenYAMM::Game::OutdoorFogMode::AuthoredDayNight);
+    CHECK_EQ(drangheimBaseScene->environment.weather.authoredDayFog.distances.weakDistance, 64);
+    CHECK_EQ(drangheimBaseScene->environment.weather.authoredDayFog.distances.strongDistance, 11520);
+
+    OpenYAMM::Game::OutdoorSceneData drangheimScene = *drangheimBaseScene;
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(
+            drangheimScene,
+            loadSourceFileText("assets_dev/worlds/mm9/maps/drangheim_authored.scene.yml"),
+            sceneError),
+        sceneError.c_str());
+    CHECK_EQ(drangheimScene.environment.weather.authoredDayFog.distances.weakDistance, 6400);
+    CHECK_EQ(drangheimScene.environment.weather.authoredDayFog.distances.strongDistance, 20480);
+    CHECK_EQ(drangheimScene.environment.weather.authoredNightFog.distances.weakDistance, 6400);
+    CHECK_EQ(drangheimScene.environment.weather.authoredNightFog.distances.strongDistance, 20480);
 }
 
 TEST_CASE("outdoor scene surface animations preserve MM9 sprite frame rate")
@@ -1250,6 +1384,47 @@ TEST_CASE("outdoor scene surface animations preserve MM9 sprite frame rate")
     CHECK_EQ(surfaceAnimation.animation.frameIndexAtTicks(162), 0);
 }
 
+TEST_CASE("outdoor scene perception faces preserve MM9 authored detection difficulty")
+{
+    OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
+    std::string sceneError;
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> baseScene = sceneLoader.loadFromText(
+        loadSourceFileText("assets_dev/worlds/mm8/maps/out01.scene.yml"),
+        sceneError);
+    REQUIRE_MESSAGE(baseScene.has_value(), sceneError.c_str());
+
+    OpenYAMM::Game::OutdoorSceneData parsedScene = *baseScene;
+    REQUIRE_MESSAGE(
+        sceneLoader.applyOverlayFromText(
+            parsedScene,
+            "format_version: 1\n"
+            "kind: outdoor_scene_overlay\n"
+            "bmodel_faces:\n"
+            "  perception_faces:\n"
+            "    - bmodel_index: 0\n"
+            "      face_index: 0\n"
+            "      difficulty: 12\n",
+            sceneError),
+        sceneError.c_str());
+    REQUIRE_EQ(parsedScene.perceptionFaces.size(), 1u);
+    CHECK_EQ(parsedScene.perceptionFaces.front().difficulty, 12);
+
+    OpenYAMM::Game::OutdoorSceneData scene = {};
+    scene.sceneProfile = OpenYAMM::Game::OutdoorSceneProfile::BModelWorld;
+    scene.perceptionFaces.push_back({0, 0, 12});
+
+    OpenYAMM::Game::OutdoorMapData mapData = {};
+    mapData.bmodels.resize(1);
+    mapData.bmodels.front().faces.resize(1);
+    mapData.bmodels.front().faces.front().attributes =
+        OpenYAMM::Game::faceAttributeBit(OpenYAMM::Game::FaceAttribute::IsSecret);
+    OpenYAMM::Game::MapDeltaData mapDeltaData = {};
+    REQUIRE_MESSAGE(
+        OpenYAMM::Game::buildOutdoorMapStateFromScene(scene, mapData, mapDeltaData, sceneError),
+        sceneError.c_str());
+    CHECK_EQ(mapData.bmodels.front().faces.front().perceptionDifficulty, 12);
+}
+
 TEST_CASE("BModel-world scenes load typed linear mechanisms into outdoor map state")
 {
     std::string sceneText = loadSourceFileText("assets_dev/worlds/mm8/maps/out01.scene.yml");
@@ -1282,7 +1457,16 @@ TEST_CASE("BModel-world scenes load typed linear mechanisms into outdoor map sta
         "      push_open: true\n"
         "      touch_to_open: false\n"
         "      locked: false\n"
-        "      open_away: true\n");
+        "      open_away: true\n"
+        "    sounds:\n"
+        "      position: {x: 100, y: 200, z: 300}\n"
+        "      open_start: door/open.wav\n"
+        "      open_busy: door/moving.wav\n"
+        "      open_stop: door/stop.wav\n"
+        "      close_start: door/close.wav\n"
+        "mm9_npc_greetings:\n"
+        "  - source_object_index: 207\n"
+        "    sound: voices/npc/npc_249.wav\n");
 
     OpenYAMM::Game::OutdoorSceneYmlLoader sceneLoader = {};
     std::string sceneError;
@@ -1303,6 +1487,17 @@ TEST_CASE("BModel-world scenes load typed linear mechanisms into outdoor map sta
     CHECK(mechanism.startOpen);
     CHECK(mechanism.pushOpen);
     CHECK(mechanism.openAway);
+    CHECK_EQ(mechanism.audio.openStartSound, "door/open.wav");
+    CHECK_EQ(mechanism.audio.openBusySound, "door/moving.wav");
+    CHECK_EQ(mechanism.audio.openStopSound, "door/stop.wav");
+    CHECK_EQ(mechanism.audio.closeStartSound, "door/close.wav");
+    CHECK(mechanism.audio.positional);
+    CHECK_EQ(mechanism.audio.x, 100);
+    CHECK_EQ(mechanism.audio.y, 200);
+    CHECK_EQ(mechanism.audio.z, 300);
+    REQUIRE_EQ(scene->mm9NpcGreetings.size(), 1u);
+    CHECK_EQ(scene->mm9NpcGreetings.front().sourceObjectIndex, 207u);
+    CHECK_EQ(scene->mm9NpcGreetings.front().soundName, "voices/npc/npc_249.wav");
 
     OpenYAMM::Game::OutdoorMapData mapData = {};
     size_t requiredBModelCount = 1;
@@ -1339,6 +1534,8 @@ TEST_CASE("BModel-world scenes load typed linear mechanisms into outdoor map sta
     REQUIRE_EQ(mapData.mechanisms.size(), 1u);
     CHECK_EQ(mapData.mechanisms.front().mechanismId, 900123u);
     CHECK_EQ(mapData.mechanisms.front().interactionEventId, 30123u);
+    REQUIRE_EQ(mapData.mm9NpcGreetings.size(), 1u);
+    CHECK_EQ(mapData.mm9NpcGreetings.front().sourceObjectIndex, 207u);
 }
 
 TEST_CASE("outdoor authored overlays append actors and encounter spawns without changing base ownership")
@@ -6188,6 +6385,36 @@ TEST_CASE("event runtime queues one quest sound for stat and autonote portrait f
     CHECK_EQ(runtimeState.pendingSounds.front().soundId, static_cast<uint32_t>(OpenYAMM::Game::SoundId::Quest));
 }
 
+TEST_CASE("event runtime queues quest fx when a conditional overlay quest becomes visible")
+{
+    OpenYAMM::Game::JournalQuestTable questTable = {};
+    REQUIRE(questTable.loadFromRows({
+        {"90001", "Complete training.", "", "MM9", "", "90473"},
+        {"90002", "Search the island.", "", "MM9", "90473", "90480"},
+    }));
+
+    OpenYAMM::Game::Party party = {};
+    party.setJournalQuestTable(&questTable);
+    party.seed(createRegressionPartySeed());
+
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt.SetQuestBit(90473)\n"
+        "    evt.PlaySoundOnce(20001, 0, 0)\n"
+        "end\n",
+        "@SyntheticConditionalQuest.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    REQUIRE(eventRuntime.executeEventById(*scriptedProgram, std::nullopt, 1, runtimeState, &party, nullptr));
+    REQUIRE_EQ(runtimeState.portraitFxRequests.size(), 1u);
+    CHECK_EQ(runtimeState.portraitFxRequests.front().kind, OpenYAMM::Game::PortraitFxEventKind::QuestComplete);
+    REQUIRE_EQ(runtimeState.pendingSounds.size(), 1u);
+    CHECK_EQ(runtimeState.pendingSounds.front().soundId, static_cast<uint32_t>(OpenYAMM::Game::SoundId::Quest));
+}
+
 TEST_CASE("lua event runtime Subtract clears condition variables")
 {
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
@@ -9221,4 +9448,39 @@ TEST_CASE("MMerge monster kill reputation ignores ordinary monsters")
     CHECK_FALSE(result.applied);
     CHECK_EQ(result.reputationDelta, 0);
     CHECK_EQ(worldRuntime.currentLocationReputation(), 12);
+}
+
+TEST_CASE("item class restrictions accept role-only base classes and promotions")
+{
+    OpenYAMM::Game::ItemDefinition broderickItem = {};
+    broderickItem.allowedClassRoots = {"Paladin"};
+
+    OpenYAMM::Game::Character paladin = {};
+    paladin.role = "Paladin";
+    CHECK(OpenYAMM::Game::ItemRuntime::characterMeetsClassRestriction(paladin, broderickItem));
+
+    OpenYAMM::Game::Character canonicalPaladin = {};
+    canonicalPaladin.className = "Paladin";
+    CHECK(OpenYAMM::Game::ItemRuntime::characterMeetsClassRestriction(canonicalPaladin, broderickItem));
+
+    OpenYAMM::Game::Character crusader = {};
+    crusader.role = "Crusader";
+    CHECK(OpenYAMM::Game::ItemRuntime::characterMeetsClassRestriction(crusader, broderickItem));
+
+    OpenYAMM::Game::Character canonicalCrusader = {};
+    canonicalCrusader.className = "Crusader";
+    CHECK(OpenYAMM::Game::ItemRuntime::characterMeetsClassRestriction(canonicalCrusader, broderickItem));
+
+    OpenYAMM::Game::Character hero = {};
+    hero.role = "Hero";
+    CHECK(OpenYAMM::Game::ItemRuntime::characterMeetsClassRestriction(hero, broderickItem));
+
+    OpenYAMM::Game::Character knight = {};
+    knight.role = "Knight";
+    CHECK_FALSE(OpenYAMM::Game::ItemRuntime::characterMeetsClassRestriction(knight, broderickItem));
+
+    OpenYAMM::Game::Character explicitClass = {};
+    explicitClass.className = "Knight";
+    explicitClass.role = "Paladin";
+    CHECK_FALSE(OpenYAMM::Game::ItemRuntime::characterMeetsClassRestriction(explicitClass, broderickItem));
 }

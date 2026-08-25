@@ -34,6 +34,12 @@ void GameDataRepository::clear()
     m_pClassMultiplierTable = nullptr;
     m_pClassSkillTable = nullptr;
     m_pNpcDialogTable = nullptr;
+    m_pMm9MapTransitionTable = nullptr;
+    m_pMm9TeacherScheduleTable = nullptr;
+    m_pMm9RudeDialogueTable = nullptr;
+    m_pMm9SkillTrainerTable = nullptr;
+    m_pMm9TransportRouteTable = nullptr;
+    m_pMm9QuestInteractionTable = nullptr;
     m_pRosterTable = nullptr;
     m_pCharacterDollTable = nullptr;
     m_pCharacterInspectTable = nullptr;
@@ -84,6 +90,12 @@ void GameDataRepository::bind(const GameDataLoader &loader)
     m_pClassMultiplierTable = &loader.getClassMultiplierTable();
     m_pClassSkillTable = &loader.getClassSkillTable();
     m_pNpcDialogTable = &loader.getNpcDialogTable();
+    m_pMm9MapTransitionTable = &loader.getMm9MapTransitionTable();
+    m_pMm9TeacherScheduleTable = &loader.getMm9TeacherScheduleTable();
+    m_pMm9RudeDialogueTable = &loader.getMm9RudeDialogueTable();
+    m_pMm9SkillTrainerTable = &loader.getMm9SkillTrainerTable();
+    m_pMm9TransportRouteTable = &loader.getMm9TransportRouteTable();
+    m_pMm9QuestInteractionTable = &loader.getMm9QuestInteractionTable();
     m_pRosterTable = &loader.getRosterTable();
     m_pCharacterDollTable = &loader.getCharacterDollTable();
     m_pCharacterInspectTable = &loader.getCharacterInspectTable();
@@ -205,6 +217,36 @@ const ClassSkillTable &GameDataRepository::classSkillTable() const
 const NpcDialogTable &GameDataRepository::npcDialogTable() const
 {
     return requireBound(m_pNpcDialogTable);
+}
+
+const Mm9MapTransitionTable &GameDataRepository::mm9MapTransitionTable() const
+{
+    return requireBound(m_pMm9MapTransitionTable);
+}
+
+const Mm9TeacherScheduleTable &GameDataRepository::mm9TeacherScheduleTable() const
+{
+    return requireBound(m_pMm9TeacherScheduleTable);
+}
+
+const Mm9RudeDialogueTable &GameDataRepository::mm9RudeDialogueTable() const
+{
+    return requireBound(m_pMm9RudeDialogueTable);
+}
+
+const Mm9SkillTrainerTable &GameDataRepository::mm9SkillTrainerTable() const
+{
+    return requireBound(m_pMm9SkillTrainerTable);
+}
+
+const Mm9TransportRouteTable &GameDataRepository::mm9TransportRouteTable() const
+{
+    return requireBound(m_pMm9TransportRouteTable);
+}
+
+const Mm9QuestInteractionTable &GameDataRepository::mm9QuestInteractionTable() const
+{
+    return requireBound(m_pMm9QuestInteractionTable);
 }
 
 const RosterTable &GameDataRepository::rosterTable() const

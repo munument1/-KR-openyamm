@@ -113,7 +113,7 @@ struct DimensionDoorLanding
 };
 
 constexpr const char *WeaponSkillNames[] = {
-    "Axe", "Bow", "Dagger", "Mace", "Spear", "Staff", "Sword", "Unarmed", "Blaster",
+    "Axe", "Bow", "Throwing", "Dagger", "Mace", "Spear", "Staff", "Sword", "Unarmed", "Blaster",
 };
 
 constexpr const char *MagicSkillNames[] = {

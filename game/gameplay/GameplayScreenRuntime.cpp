@@ -18,6 +18,7 @@
 #include "game/party/SpellSchool.h"
 #include "game/StringUtils.h"
 #include "game/tables/MergedBaseTables.h"
+#include "game/ui/GameplayJournalMapUi.h"
 #include "game/ui/SpellbookUiLayout.h"
 
 #include <SDL3/SDL.h>
@@ -133,9 +134,9 @@ bool isBodyEquipmentVisualSlot(EquipmentSlot slot)
     }
 }
 
-bool usesAlternateCloakBeltEquippedVariant(EquipmentSlot slot)
+bool usesAlternateCloakEquippedVariant(EquipmentSlot slot)
 {
-    return slot == EquipmentSlot::Cloak || slot == EquipmentSlot::Belt;
+    return slot == EquipmentSlot::Cloak;
 }
 
 uint32_t currentAnimationTicks()
@@ -506,6 +507,10 @@ GameplayDialogController::Context GameplayScreenRuntime::buildDialogContext(Even
         houseTable(),
         classSkillTable(),
         npcDialogTable(),
+        &m_session.data().mm9RudeDialogueTable(),
+        &m_session.data().mm9MapTransitionTable(),
+        &m_session.data().mm9SkillTrainerTable(),
+        &m_session.data().mm9TransportRouteTable(),
         &m_session.data().transitionTable(),
         pCurrentMap,
         &m_session.data().mapEntries(),
@@ -521,6 +526,15 @@ GameplayDialogController::Context GameplayScreenRuntime::buildDialogContext(Even
         &m_session.data().mergedTeacherTopicTable(),
         &m_session.data().mergedTeacherAutonoteTable(),
         &m_session.data().spellTable());
+}
+
+void GameplayScreenRuntime::presentActiveEventDialog()
+{
+    GameplayDialogUiFlowState state = dialogUiFlowState();
+    GameplayDialogUiFlowPresentOptions options = {};
+    options.pInputFrame = m_session.currentGameplayInputFrame();
+    options.suppressInitialAcceptIfActivationKeysHeld = true;
+    ::OpenYAMM::Game::presentActiveEventDialog(state, options);
 }
 
 void GameplayScreenRuntime::presentPendingEventDialog(
@@ -1885,7 +1899,15 @@ void GameplayScreenRuntime::openJournalOverlay()
             : DefaultJournalMapZoomStep;
     journalScreen.mapCenterX = partyX();
     journalScreen.mapCenterY = partyY();
-    clampJournalMapState(journalScreen);
+    GameplayMinimapState minimapState = {};
+    const bool hasMinimapState = tryGetGameplayMinimapState(minimapState);
+
+    if (hasMinimapState && minimapState.revealEntireMap)
+    {
+        journalScreen.mapZoomStep = DefaultJournalMapZoomStep;
+    }
+
+    clampGameplayJournalMapState(journalScreen, hasMinimapState ? &minimapState : nullptr);
     interactionState().journalToggleLatch = false;
     interactionState().journalClickLatch = false;
     interactionState().journalPressedTarget = {};
@@ -2728,11 +2750,18 @@ void GameplayScreenRuntime::consumePendingEventRuntimeAudioRequests()
         {
             if (m_keyedAudioInstances.find(request.key) == m_keyedAudioInstances.end())
             {
-                const uint64_t instanceId = m_pAudioSystem->playSoundInstance(
-                    SoundRef{request.soundScope, request.soundId},
-                    group,
-                    position,
-                    true);
+                const uint64_t instanceId = !request.soundName.empty()
+                    ? m_pAudioSystem->playSoundInstanceByName(
+                        request.soundName,
+                        group,
+                        request.soundScope,
+                        position,
+                        true)
+                    : m_pAudioSystem->playSoundInstance(
+                        SoundRef{request.soundScope, request.soundId},
+                        group,
+                        position,
+                        true);
 
                 if (instanceId != 0)
                 {
@@ -3167,7 +3196,8 @@ std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> GameplayScreenRun
 
     const GameplayHudScreenState hudScreenState = currentHudScreenState();
     const bool isLimitedOverlayHud =
-        hudScreenState == GameplayHudScreenState::Dialogue
+        (hudScreenState == GameplayHudScreenState::Dialogue
+            && !activeEventDialogPreservesGameplayHud(activeEventDialog()))
         || hudScreenState == GameplayHudScreenState::Character
         || hudScreenState == GameplayHudScreenState::Chest
         || hudScreenState == GameplayHudScreenState::Spellbook
@@ -3617,7 +3647,10 @@ bool GameplayScreenRuntime::tryGetGameplayMinimapState(GameplayMinimapState &sta
         return false;
     }
 
-    state.zoom *= gameplayMinimapZoomScale();
+    const float zoomScale = gameplayMinimapZoomScale();
+    state.zoom *= zoomScale;
+    state.zoomWidth *= zoomScale;
+    state.zoomHeight *= zoomScale;
     return true;
 }
 
@@ -3932,30 +3965,30 @@ std::string GameplayScreenRuntime::resolveEquippedItemHudTextureName(
 
     std::vector<std::string> candidateSuffixes;
 
-    switch (dollTypeId)
+    if (dollTypeId >= 5)
     {
-        case 0:
-            candidateSuffixes = hasRightHandWeapon
-                ? std::vector<std::string>{"v1", "v1a"}
-                : std::vector<std::string>{"v1a", "v1"};
-            break;
+        return itemDefinition.iconName;
+    }
 
-        case 1:
-            candidateSuffixes = hasRightHandWeapon
-                ? std::vector<std::string>{"v2", "v2a"}
-                : std::vector<std::string>{"v2a", "v2"};
-            break;
+    uint32_t variantNumber = dollTypeId + 1;
 
-        case 2:
-            candidateSuffixes = {usesAlternateCloakBeltEquippedVariant(slot) ? "v1" : "v3"};
-            break;
+    if (usesAlternateCloakEquippedVariant(slot) && (dollTypeId == 2 || dollTypeId == 3))
+    {
+        variantNumber = 1;
+    }
 
-        case 3:
-            candidateSuffixes = {usesAlternateCloakBeltEquippedVariant(slot) ? "v1" : "v4"};
-            break;
+    const std::string primarySuffix = "v" + std::to_string(variantNumber);
 
-        default:
-            break;
+    if (slot == EquipmentSlot::Armor)
+    {
+        const std::string alternateSuffix = primarySuffix + "a";
+        candidateSuffixes = hasRightHandWeapon
+            ? std::vector<std::string>{primarySuffix, alternateSuffix}
+            : std::vector<std::string>{alternateSuffix, primarySuffix};
+    }
+    else
+    {
+        candidateSuffixes = {primarySuffix};
     }
 
     for (const std::string &suffix : candidateSuffixes)

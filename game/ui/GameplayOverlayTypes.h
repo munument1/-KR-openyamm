@@ -36,6 +36,12 @@ enum class GameplayHudScreenState
     QuickReference
 };
 
+inline bool activeEventDialogPreservesGameplayHud(const EventDialogContent &activeEventDialog)
+{
+    return activeEventDialog.isActive
+        && activeEventDialog.presentation == EventDialogPresentation::Mm9Rude;
+}
+
 inline bool gameplayHudScreenFullyOccludesWorld(
     GameplayHudScreenState state,
     const EventDialogContent &activeEventDialog)
@@ -47,10 +53,20 @@ inline bool gameplayHudScreenFullyOccludesWorld(
 
     if (state == GameplayHudScreenState::Dialogue)
     {
-        return activeEventDialog.isActive && activeEventDialog.isHouseDialog;
+        return activeEventDialog.isActive
+            && activeEventDialog.isHouseDialog
+            && activeEventDialog.scenePolicy != DialogueScenePolicy::LiveGameplay;
     }
 
     return true;
+}
+
+inline bool activeEventDialogShowsVideoArea(
+    const EventDialogContent &activeEventDialog,
+    bool hasHostHouseEntry)
+{
+    return activeEventDialog.scenePolicy != DialogueScenePolicy::LiveGameplay
+        && (hasHostHouseEntry || !activeEventDialog.videoName.empty());
 }
 
 inline GameplayHudScreenState resolveGameplayHudScreenState(
@@ -203,12 +219,21 @@ struct GameplayMinimapState
     bool vectorBackground = false;
     uint32_t backgroundColorAbgr = 0xff780000u;
     float zoom = 512.0f;
+    float zoomWidth = 0.0f;
+    float zoomHeight = 0.0f;
     float u0 = 0.0f;
     float v0 = 0.0f;
     float uSpan = 1.0f;
     float vSpan = 1.0f;
     float partyU = 0.5f;
     float partyV = 0.5f;
+    float worldMinX = -32768.0f;
+    float worldMaxX = 32768.0f;
+    float worldMinY = -32768.0f;
+    float worldMaxY = 32768.0f;
+    bool flipU = false;
+    bool flipV = true;
+    bool revealEntireMap = false;
     bool wizardEyeActive = false;
     bool wizardEyeShowsExpertObjects = false;
     bool wizardEyeShowsDecorations = false;

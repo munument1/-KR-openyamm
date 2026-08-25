@@ -377,6 +377,27 @@ TEST_CASE("outdoor actor support query treats non-fluid BModel above water as br
             128.0f));
 }
 
+TEST_CASE("outdoor actor placement initialization grounds a static source position immediately")
+{
+    OutdoorMapData mapData = makeOutdoorMapWithTerrain();
+    const float actorX = outdoorGridCornerWorldX(64) + 256.0f;
+    const float actorY = outdoorGridCornerWorldY(64) - 256.0f;
+    constexpr float SourceFootZ = 129.0f;
+    constexpr float ActorRadius = 37.0f;
+
+    const OutdoorMovementController controller(mapData, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+    const OpenYAMM::Game::OutdoorMoveState preserved =
+        controller.initializeActorStateForBodyPreservingZ(actorX, actorY, SourceFootZ, ActorRadius);
+    const OpenYAMM::Game::OutdoorMoveState grounded =
+        controller.initializeActorStateForBody(actorX, actorY, SourceFootZ, ActorRadius);
+
+    CHECK(preserved.airborne);
+    CHECK(preserved.footZ == doctest::Approx(SourceFootZ));
+    CHECK_FALSE(grounded.airborne);
+    CHECK_EQ(grounded.supportKind, OutdoorSupportKind::Terrain);
+    CHECK(grounded.footZ == doctest::Approx(1.0f));
+}
+
 TEST_CASE("outdoor actor movement keeps BModel support across ramp to flat bridge seam")
 {
     OutdoorMapData mapData = makeOutdoorMapWithTerrain();

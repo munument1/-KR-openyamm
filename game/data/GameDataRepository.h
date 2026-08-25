@@ -2,6 +2,12 @@
 
 #include "game/arcomage/ArcomageTypes.h"
 #include "game/items/ItemEnchantTables.h"
+#include "game/mm9/Mm9MapTransition.h"
+#include "game/mm9/Mm9TeacherSchedule.h"
+#include "game/mm9/Mm9QuestMarkers.h"
+#include "game/mm9/Mm9RudeDialogue.h"
+#include "game/mm9/Mm9SkillTrainer.h"
+#include "game/mm9/Mm9TransportRoute.h"
 #include "game/tables/CharacterDollTable.h"
 #include "game/tables/CharacterInspectTable.h"
 #include "game/tables/ChestTable.h"
@@ -61,6 +67,12 @@ public:
     const ClassMultiplierTable &classMultiplierTable() const;
     const ClassSkillTable &classSkillTable() const;
     const NpcDialogTable &npcDialogTable() const;
+    const Mm9MapTransitionTable &mm9MapTransitionTable() const;
+    const Mm9TeacherScheduleTable &mm9TeacherScheduleTable() const;
+    const Mm9RudeDialogueTable &mm9RudeDialogueTable() const;
+    const Mm9SkillTrainerTable &mm9SkillTrainerTable() const;
+    const Mm9TransportRouteTable &mm9TransportRouteTable() const;
+    const Mm9QuestInteractionTable &mm9QuestInteractionTable() const;
     const RosterTable &rosterTable() const;
     const CharacterDollTable &characterDollTable() const;
     const CharacterInspectTable &characterInspectTable() const;
@@ -110,6 +122,12 @@ private:
     const ClassMultiplierTable *m_pClassMultiplierTable = nullptr;
     const ClassSkillTable *m_pClassSkillTable = nullptr;
     const NpcDialogTable *m_pNpcDialogTable = nullptr;
+    const Mm9MapTransitionTable *m_pMm9MapTransitionTable = nullptr;
+    const Mm9TeacherScheduleTable *m_pMm9TeacherScheduleTable = nullptr;
+    const Mm9RudeDialogueTable *m_pMm9RudeDialogueTable = nullptr;
+    const Mm9SkillTrainerTable *m_pMm9SkillTrainerTable = nullptr;
+    const Mm9TransportRouteTable *m_pMm9TransportRouteTable = nullptr;
+    const Mm9QuestInteractionTable *m_pMm9QuestInteractionTable = nullptr;
     const RosterTable *m_pRosterTable = nullptr;
     const CharacterDollTable *m_pCharacterDollTable = nullptr;
     const CharacterInspectTable *m_pCharacterInspectTable = nullptr;

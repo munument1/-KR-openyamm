@@ -141,6 +141,16 @@ TEST_CASE("map stats normalize non-audio redbook track")
     CHECK_EQ(pEscatonsPalace->redbookTrack, 0);
 }
 
+TEST_CASE("MM9 map music uses globally unique world track ids")
+{
+    const OpenYAMM::Game::MapStats mapStats = loadMapStats();
+    const OpenYAMM::Game::MapStatsEntry *pRavensford = mapStats.findByFileName("bootcamp.odm");
+
+    REQUIRE(pRavensford != nullptr);
+    CHECK_EQ(pRavensford->worldId, "mm9");
+    CHECK_EQ(pRavensford->redbookTrack, 90007);
+}
+
 TEST_CASE("MM6 named locations use their fixed soundtrack assignments")
 {
     const OpenYAMM::Game::MapStats mapStats = loadMapStats();

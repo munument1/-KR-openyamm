@@ -95,6 +95,11 @@ bool matchesClassOrPromotion(const std::string &characterClassName, const std::s
 
     return false;
 }
+
+const std::string &characterClassName(const Character &character)
+{
+    return character.className.empty() ? character.role : character.className;
+}
 }
 
 bool ItemRuntime::requiresIdentification(const ItemDefinition &itemDefinition)
@@ -122,6 +127,11 @@ bool ItemRuntime::isUniquelyGeneratedRareItem(const ItemDefinition &itemDefiniti
 
 std::optional<std::string> ItemRuntime::classRestriction(const ItemDefinition &itemDefinition)
 {
+    if (!itemDefinition.allowedClassRoots.empty())
+    {
+        return itemDefinition.allowedClassRoots.front();
+    }
+
     switch (itemDefinition.itemId)
     {
         case 515:
@@ -176,8 +186,35 @@ std::optional<std::string> ItemRuntime::raceRestriction(const ItemDefinition &it
 
 bool ItemRuntime::characterMeetsClassRestriction(const Character &character, const ItemDefinition &itemDefinition)
 {
+    if (!itemDefinition.allowedClassRoots.empty())
+    {
+        const bool matchesAllowedClass = std::any_of(
+            itemDefinition.allowedClassRoots.begin(),
+            itemDefinition.allowedClassRoots.end(),
+            [&character](const std::string &classRoot)
+            {
+                return matchesClassOrPromotion(characterClassName(character), classRoot);
+            });
+
+        if (!matchesAllowedClass)
+        {
+            return false;
+        }
+    }
+
+    const int actualMight = static_cast<int>(character.might)
+        + character.permanentBonuses.might + character.magicalBonuses.might;
+    const int actualAccuracy = static_cast<int>(character.accuracy)
+        + character.permanentBonuses.accuracy + character.magicalBonuses.accuracy;
+
+    if (actualMight < itemDefinition.requiredMight || actualAccuracy < itemDefinition.requiredAccuracy)
+    {
+        return false;
+    }
+
     const std::optional<std::string> restriction = classRestriction(itemDefinition);
-    return !restriction || matchesClassOrPromotion(character.className, *restriction);
+    return !restriction || !itemDefinition.allowedClassRoots.empty()
+        || matchesClassOrPromotion(characterClassName(character), *restriction);
 }
 
 bool ItemRuntime::characterMeetsRaceRestriction(const Character &character, const ItemDefinition &itemDefinition)
@@ -224,6 +261,11 @@ bool ItemRuntime::canCharacterIdentifyItem(const Character &character, const Ite
 bool ItemRuntime::canCharacterRepairItem(const Character &character, const ItemDefinition &itemDefinition)
 {
     return identifyRepairSkillScore(character, "RepairItem") >= identifyRepairDifficulty(itemDefinition);
+}
+
+bool ItemRuntime::canDrop(const ItemDefinition &itemDefinition)
+{
+    return !itemDefinition.hasContentFlag("NoDrop");
 }
 
 std::string ItemRuntime::displayName(const InventoryItem &item, const ItemDefinition &itemDefinition)

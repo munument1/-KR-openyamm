@@ -1107,6 +1107,7 @@ EventDialogContent buildEventDialogContent(
 
         if (pHouseEntry != nullptr)
         {
+            dialog.scenePolicy = pHouseEntry->dialogueScenePolicy;
             const HouseServiceType serviceType = resolveHouseServiceType(*pHouseEntry);
             const DialogueMenuId menuId = currentDialogueMenuId(eventRuntimeState);
             const DialogueMenuId houseServiceMenuId = currentHouseServiceMenuId(eventRuntimeState);

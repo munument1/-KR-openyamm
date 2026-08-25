@@ -158,6 +158,19 @@ const ChestEntry *ChestTable::get(uint16_t chestTypeId) const
     return &m_entries[chestTypeId];
 }
 
+std::optional<uint16_t> ChestTable::findIdByName(std::string_view name) const
+{
+    const std::string normalizedName = trimCopy(std::string(name));
+    for (size_t index = 0; index < m_entries.size(); ++index)
+    {
+        if (m_entries[index].name == normalizedName)
+        {
+            return static_cast<uint16_t>(index);
+        }
+    }
+    return std::nullopt;
+}
+
 const std::vector<ChestEntry> &ChestTable::getEntries() const
 {
     return m_entries;
