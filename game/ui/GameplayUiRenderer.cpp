@@ -32,6 +32,7 @@ constexpr float EventNpcPortraitUvCropX = 2.0f;
 constexpr float EventNpcPortraitUvCropY = 2.0f;
 constexpr float TurnBasedIndicatorX = 394.0f;
 constexpr float TurnBasedIndicatorY = 288.0f;
+constexpr uint32_t MistformPortraitModulationAbgr = 0x80ffffffu;
 
 enum class PortraitAggroIndicator
 {
@@ -912,9 +913,24 @@ void GameplayUiRenderer::renderGameplayHudArt(GameplayScreenRuntime &context, in
 
         if (portrait)
         {
+            GameplayHudTextureHandle renderedPortrait = *portrait;
+
+            if (party.hasCharacterBuff(memberIndex, CharacterBuffId::Mistform))
+            {
+                const bgfx::TextureHandle mistformTexture =
+                    context.gameplayUiRuntime().ensureHudTextureColorModulated(
+                        *portrait,
+                        MistformPortraitModulationAbgr);
+
+                if (bgfx::isValid(mistformTexture))
+                {
+                    renderedPortrait.textureHandle = mistformTexture;
+                }
+            }
+
             submitQuad(
                 queuedHudQuads,
-                *portrait,
+                renderedPortrait,
                 portraitX + portraitInset,
                 portraitY + portraitInset,
                 portraitWidth - portraitInset * 2.0f,

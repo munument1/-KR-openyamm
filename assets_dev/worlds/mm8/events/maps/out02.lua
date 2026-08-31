@@ -1246,15 +1246,15 @@ RegisterEvent(495, "Tree", function()
     elseif IsAtLeast(DisarmTrapSkill, 3) then
         local randomStep = PickRandomOption(495, 4, {5, 7, 9, 11, 13})
         if randomStep == 5 then
-            evt.SummonItem(200, 1376, 5312, 126, 1000, 1, true) -- Fae dust
+            evt.SummonItem(200, 1376, 5312, 126, 1000, 1, true) -- Widowsweep Berries
         elseif randomStep == 7 then
-            evt.SummonItem(205, 1376, 5312, 126, 1000, 1, true) -- Vial of Ooze endoplasm
+            evt.SummonItem(205, 1376, 5312, 126, 1000, 1, true) -- Phima Root
         elseif randomStep == 9 then
-            evt.SummonItem(210, 1376, 5312, 126, 1000, 1, true) -- Yellow Potion
+            evt.SummonItem(210, 1376, 5312, 126, 1000, 1, true) -- Poppy Pod
         elseif randomStep == 11 then
-            evt.SummonItem(215, 1376, 5312, 126, 1000, 1, true) -- Green Potion
+            evt.SummonItem(215, 1376, 5312, 126, 1000, 1, true) -- Mushroom
         elseif randomStep == 13 then
-            evt.SummonItem(220, 1376, 5312, 126, 1000, 1, true) -- Blue and Orange Potion
+            evt.SummonItem(220, 1376, 5312, 126, 1000, 1, true) -- Potion Bottle
         end
         SetQBit(QBit(272)) -- Reagant spout area 2
         return
@@ -1269,17 +1269,17 @@ RegisterEvent(497, "Rock", function()
     elseif IsAtLeast(DisarmTrapSkill, 7) then
         local randomStep = PickRandomOption(497, 4, {5, 7, 9, 11, 13, 15})
         if randomStep == 5 then
-            evt.SummonItem(240, 11520, 14320, 992, 1000, 1, true) -- Sealed Letter
+            evt.SummonItem(240, 11520, 14320, 992, 1000, 1, true) -- Might Boost
         elseif randomStep == 7 then
-            evt.SummonItem(241, 11520, 14320, 992, 1000, 1, true) -- Sealed Letter
+            evt.SummonItem(241, 11520, 14320, 992, 1000, 1, true) -- Intellect Boost
         elseif randomStep == 9 then
-            evt.SummonItem(242, 11520, 14320, 992, 1000, 1, true) -- Sealed Letter
+            evt.SummonItem(242, 11520, 14320, 992, 1000, 1, true) -- Personality Boost
         elseif randomStep == 11 then
-            evt.SummonItem(243, 11520, 14320, 992, 1000, 1, true) -- Sealed Letter
+            evt.SummonItem(243, 11520, 14320, 992, 1000, 1, true) -- Endurance Boost
         elseif randomStep == 13 then
-            evt.SummonItem(244, 11520, 14320, 992, 1000, 1, true) -- Sealed Letter
+            evt.SummonItem(244, 11520, 14320, 992, 1000, 1, true) -- Speed Boost
         elseif randomStep == 15 then
-            evt.SummonItem(245, 11520, 14320, 992, 1000, 1, true) -- Lich Jar
+            evt.SummonItem(245, 11520, 14320, 992, 1000, 1, true) -- Accuracy Boost
         end
         SetQBit(QBit(273)) -- Reagant spout area 2
         return

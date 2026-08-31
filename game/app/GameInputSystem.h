@@ -5,6 +5,7 @@
 #include "game/gameplay/GameplayInputFrame.h"
 
 #include <array>
+#include <cstdint>
 #include <string>
 
 namespace OpenYAMM::Game
@@ -63,6 +64,7 @@ private:
 
     GameplayInputFrame m_frame = {};
     std::string m_pendingTextInput;
+    std::array<uint16_t, SDL_SCANCODE_COUNT> m_pendingKeyboardPressCounts = {};
     std::array<bool, SDL_SCANCODE_COUNT> m_previousKeyboardHeld = {};
     std::array<bool, KeyboardActionCount> m_previousActionHeld = {};
     std::array<MobileTouchPoint, 8> m_mobileTouches = {};

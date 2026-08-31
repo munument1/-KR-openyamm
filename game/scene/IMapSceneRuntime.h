@@ -26,5 +26,6 @@ public:
     virtual const std::optional<ScriptedEventProgram> &globalEventProgram() const = 0;
     virtual std::optional<EventRuntimeState::PendingMapMove> consumePendingMapMove() = 0;
     virtual void advanceGameMinutes(float minutes) = 0;
+    virtual void advanceTurnBasedGameMinutes(float minutes) = 0;
 };
 }

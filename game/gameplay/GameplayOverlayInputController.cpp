@@ -141,10 +141,29 @@ bool eraseSaveGameEditCharacter(GameplayUiController::SaveGameScreenState &saveG
 void updateSaveGameEraseRepeat(
     GameplayUiController::SaveGameScreenState &saveGameScreen,
     GameplayOverlayInteractionState &state,
-    bool erasePressed,
+    bool eraseHeld,
+    uint16_t erasePressCount,
     uint64_t nowTicks)
 {
-    if (!erasePressed)
+    if (erasePressCount > 0)
+    {
+        for (uint16_t pressIndex = 0; pressIndex < erasePressCount; ++pressIndex)
+        {
+            if (!eraseSaveGameEditCharacter(saveGameScreen))
+            {
+                break;
+            }
+        }
+
+        state.saveGameEditBackspaceLatch = eraseHeld;
+        state.saveGameEditEraseHeld = eraseHeld && !saveGameScreen.editBuffer.empty();
+        state.saveGameEditEraseNextRepeatTicks = state.saveGameEditEraseHeld
+            ? nowTicks + SaveGameEraseInitialRepeatDelayMs
+            : 0;
+        return;
+    }
+
+    if (!eraseHeld)
     {
         state.saveGameEditBackspaceLatch = false;
         state.saveGameEditEraseHeld = false;
@@ -1981,6 +2000,8 @@ bool GameplayOverlayInputController::handleSaveGameOverlayInput(
             saveGameScreen,
             view.interactionState(),
             pKeyboardState[SDL_SCANCODE_BACKSPACE] || pKeyboardState[SDL_SCANCODE_DELETE],
+            input.scancodePressCount(SDL_SCANCODE_BACKSPACE)
+                + input.scancodePressCount(SDL_SCANCODE_DELETE),
             SDL_GetTicks());
     }
     else

@@ -6116,11 +6116,11 @@ RegisterGlobalEvent(598, "Rock Spire", function()
         evt.StatusText("You say you will find me the cheeses I desire, but here you are returned, empty-handed! Do not waste my precious time! Bring me cheese--Frelandeau, Eldenbrie and Dunduck! Do not return until you have them!")
         return
     end
-    evt.SummonItem(35, 4010, 7736, 544, 1000, 1, false) -- Phirna Root
-    evt.SummonItem(36, 4010, 7736, 544, 1000, 1, false) -- Widowsweep Berries
-    evt.SummonItem(37, 4010, 7736, 544, 1000, 1, false) -- Mushrooms
-    evt.SummonItem(38, 4010, 7736, 544, 1000, 1, false) -- Poppy Pod
-    evt.SummonItem(39, 4010, 7736, 544, 1000, 1, false) -- Datura
+    evt.SummonItem(35, 4010, 7736, 544, 1000, 1, false) -- Minotaur Battleaxe
+    evt.SummonItem(36, 4010, 7736, 544, 1000, 1, false) -- Two-Handed Axe
+    evt.SummonItem(37, 4010, 7736, 544, 1000, 1, false) -- Footman's Axe
+    evt.SummonItem(38, 4010, 7736, 544, 1000, 1, false) -- Minotaur War Axe
+    evt.SummonItem(39, 4010, 7736, 544, 1000, 1, false) -- Elite Minotaur Axe
     evt.StatusText("I have traveled to these lands to catalog its array of available cheese. My task is nearly complete, but there are yet three cheeses I have yet to sample. These are Frelandeau, Eldenbrie and Dunduck. I would reward highly any who could locate these rare and reputedly tasty culinary gems for me.")
 end)
 

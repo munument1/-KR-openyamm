@@ -12,11 +12,21 @@ local rescuedDwarves = {
 
 for _, rescue in ipairs(rescuedDwarves) do
     ReplaceMapEvent(rescue.event, "Rescue Dwarf", function()
-        if HasItem(1431) then -- Elixir
-            evt.SetSprite(rescue.sprite, 0, "0")
-            SetQBit(QBit(rescue.qbit))
-            AddFollowerNpc(rescue.npc)
-            evt.SpeakNPC(rescue.npc)
+        if IsQBitSet(QBit(rescue.qbit)) or not HasItem(1431) then -- Elixir
+            return
         end
+
+        evt.SetSprite(rescue.sprite, 0, "0")
+        SetQBit(QBit(rescue.qbit))
+        AddFollowerNpc(rescue.npc)
+        evt.SpeakNPC(rescue.npc)
     end, "Statue")
 end
+
+RegisterMapOnLoadEvent(65034, "Restore rescued dwarf statues", function()
+    for _, rescue in ipairs(rescuedDwarves) do
+        if IsQBitSet(QBit(rescue.qbit)) then
+            evt.SetSprite(rescue.sprite, 0, "0")
+        end
+    end
+end)

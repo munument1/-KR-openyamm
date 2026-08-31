@@ -714,17 +714,17 @@ RegisterEvent(496, "Pine tree", function()
     elseif IsAtLeast(DisarmTrapSkill, 7) then
         local randomStep = PickRandomOption(496, 4, {5, 7, 9, 11, 13, 15})
         if randomStep == 5 then
-            evt.SummonItem(240, -15104, 19808, 3698, 1000, 1, true) -- Sealed Letter
+            evt.SummonItem(240, -15104, 19808, 3698, 1000, 1, true) -- Might Boost
         elseif randomStep == 7 then
-            evt.SummonItem(241, -15104, 19808, 3698, 1000, 1, true) -- Sealed Letter
+            evt.SummonItem(241, -15104, 19808, 3698, 1000, 1, true) -- Intellect Boost
         elseif randomStep == 9 then
-            evt.SummonItem(242, -15104, 19808, 3698, 1000, 1, true) -- Sealed Letter
+            evt.SummonItem(242, -15104, 19808, 3698, 1000, 1, true) -- Personality Boost
         elseif randomStep == 11 then
-            evt.SummonItem(243, -15104, 19808, 3698, 1000, 1, true) -- Sealed Letter
+            evt.SummonItem(243, -15104, 19808, 3698, 1000, 1, true) -- Endurance Boost
         elseif randomStep == 13 then
-            evt.SummonItem(244, -15104, 19808, 3698, 1000, 1, true) -- Sealed Letter
+            evt.SummonItem(244, -15104, 19808, 3698, 1000, 1, true) -- Speed Boost
         elseif randomStep == 15 then
-            evt.SummonItem(245, -15104, 19808, 3698, 1000, 1, true) -- Lich Jar
+            evt.SummonItem(245, -15104, 19808, 3698, 1000, 1, true) -- Accuracy Boost
         end
         SetQBit(QBit(275)) -- Reagant spout area 3
         return

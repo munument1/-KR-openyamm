@@ -56,6 +56,7 @@ public:
 
     bool noteMovementInput(GameplayInputFrame &input);
     float movementDeltaSecondsForFrame(float fallbackDeltaSeconds) const;
+    float consumePendingGameTimeAdvanceMinutes();
     void clearMovementInput(GameplayInputFrame &input) const;
     bool finishMovementPhase();
 
@@ -95,6 +96,7 @@ private:
     bool m_movementFinished = false;
     bool m_movementStepThisFrame = false;
     bool m_waitingForActorActionResolution = false;
+    float m_pendingGameTimeAdvanceMinutes = 0.0f;
     bool m_forwardLatch = false;
     bool m_backwardLatch = false;
     bool m_strafeLeftLatch = false;

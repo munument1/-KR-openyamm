@@ -80,6 +80,39 @@ const std::optional<ScriptedEventProgram> &emptyScriptedEventProgram()
     return EmptyProgram;
 }
 
+bool indoorMapActorCorpseWasConsumed(
+    const std::vector<std::optional<GameplayCorpseViewState>> &corpseViews,
+    size_t actorIndex)
+{
+    return actorIndex < corpseViews.size() && isConsumedCorpseView(corpseViews[actorIndex]);
+}
+
+void restoreConsumedIndoorCorpseMarkers(
+    const MapDeltaData *pMapDeltaData,
+    std::vector<std::optional<GameplayCorpseViewState>> &corpseViews)
+{
+    if (pMapDeltaData == nullptr)
+    {
+        return;
+    }
+
+    corpseViews.resize(std::max(corpseViews.size(), pMapDeltaData->actors.size()));
+    const uint32_t invisibleMask = static_cast<uint32_t>(EvtActorAttribute::Invisible);
+
+    for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
+    {
+        const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
+
+        // Older runtime snapshots represented a consumed corpse only through the actor's Invisible bit.
+        if (actor.hp <= 0 && (actor.attributes & invisibleMask) != 0 && !corpseViews[actorIndex].has_value())
+        {
+            GameplayCorpseViewState consumedCorpse = {};
+            consumedCorpse.sourceIndex = static_cast<uint32_t>(actorIndex);
+            corpseViews[actorIndex] = std::move(consumedCorpse);
+        }
+    }
+}
+
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float GameMinutesPerRealSecond = 0.5f;
 constexpr float CameraVerticalFovRadians = Pi / 3.0f;
@@ -4053,6 +4086,7 @@ void IndoorWorldRuntime::initialize(
     m_actorMovementController.reset();
     invalidateRuntimeGeometryCache();
     materializeInitialMonsterSpawns();
+    restoreConsumedIndoorCorpseMarkers(mapDeltaData(), m_mapActorCorpseViews);
     // On-load event group flags target generated spawn actors too.
     applyEventRuntimeState(true);
     syncMapActorAiStates();
@@ -4139,6 +4173,7 @@ void IndoorWorldRuntime::initialize(
     m_actorMovementController.reset();
     invalidateRuntimeGeometryCache();
     materializeInitialMonsterSpawns();
+    restoreConsumedIndoorCorpseMarkers(mapDeltaData(), m_mapActorCorpseViews);
     // On-load event group flags target generated spawn actors too.
     applyEventRuntimeState(true);
     syncMapActorAiStates();
@@ -15252,6 +15287,12 @@ bool IndoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
         m_mapActorCorpseViews.resize(actorIndex + 1);
     }
 
+    if (isConsumedCorpseView(m_mapActorCorpseViews[actorIndex]))
+    {
+        pMapDeltaData->actors[actorIndex].attributes |= static_cast<uint32_t>(EvtActorAttribute::Invisible);
+        return false;
+    }
+
     if (!m_mapActorCorpseViews[actorIndex].has_value())
     {
         const MonsterTable::MonsterStatsEntry *pStats = findIndoorActorStats(m_pMonsterTable, actor);
@@ -15314,8 +15355,10 @@ bool IndoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
 
         if (corpse.items.empty())
         {
+            corpse.fromSummonedMonster = false;
+            corpse.sourceIndex = static_cast<uint32_t>(actorIndex);
             pMapDeltaData->actors[actorIndex].attributes |= static_cast<uint32_t>(EvtActorAttribute::Invisible);
-            m_mapActorCorpseViews[actorIndex].reset();
+            m_mapActorCorpseViews[actorIndex] = std::move(corpse);
             return false;
         }
 
@@ -15396,14 +15439,18 @@ bool IndoorWorldRuntime::takeActiveCorpseItem(size_t itemIndex, ChestItemState &
 
     if (m_activeCorpseView->items.empty())
     {
-        if (m_activeCorpseView->sourceIndex < m_mapActorCorpseViews.size())
+        const uint32_t sourceIndex = m_activeCorpseView->sourceIndex;
+
+        if (sourceIndex < m_mapActorCorpseViews.size())
         {
-            m_mapActorCorpseViews[m_activeCorpseView->sourceIndex].reset();
+            CorpseViewState consumedCorpse = {};
+            consumedCorpse.sourceIndex = sourceIndex;
+            m_mapActorCorpseViews[sourceIndex] = std::move(consumedCorpse);
         }
 
-        if (m_activeCorpseView->sourceIndex < pMapDeltaData->actors.size())
+        if (sourceIndex < pMapDeltaData->actors.size())
         {
-            pMapDeltaData->actors[m_activeCorpseView->sourceIndex].attributes
+            pMapDeltaData->actors[sourceIndex].attributes
                 |= static_cast<uint32_t>(EvtActorAttribute::Invisible);
         }
 
@@ -15503,7 +15550,34 @@ bool IndoorWorldRuntime::summonEventItem(
     bool randomRotate
 )
 {
-    if (m_pObjectTable == nullptr || count == 0 || itemId == 0)
+    return summonEventPayload(itemId, false, x, y, z, speed, count, randomRotate);
+}
+
+bool IndoorWorldRuntime::summonEventObject(
+    uint32_t objectId,
+    int32_t x,
+    int32_t y,
+    int32_t z,
+    int32_t speed,
+    uint32_t count,
+    bool randomRotate
+)
+{
+    return summonEventPayload(objectId, true, x, y, z, speed, count, randomRotate);
+}
+
+bool IndoorWorldRuntime::summonEventPayload(
+    uint32_t payloadId,
+    bool payloadIsObjectId,
+    int32_t x,
+    int32_t y,
+    int32_t z,
+    int32_t speed,
+    uint32_t count,
+    bool randomRotate
+)
+{
+    if (m_pObjectTable == nullptr || count == 0 || payloadId == 0)
     {
         return false;
     }
@@ -15515,17 +15589,28 @@ bool IndoorWorldRuntime::summonEventItem(
         return false;
     }
 
-    const ItemDefinition *pItemDefinition = m_pItemTable != nullptr ? m_pItemTable->get(itemId) : nullptr;
-    std::optional<uint16_t> objectDescriptionId =
-        m_pObjectTable->findDescriptionIdByObjectId(static_cast<int16_t>(itemId));
+    const ItemDefinition *pItemDefinition = nullptr;
+    std::optional<uint16_t> objectDescriptionId;
 
-    if (!objectDescriptionId && pItemDefinition != nullptr)
+    if (payloadIsObjectId)
     {
-        objectDescriptionId =
-            m_pObjectTable->findDescriptionIdByObjectId(static_cast<int16_t>(pItemDefinition->spriteIndex));
+        objectDescriptionId = m_pObjectTable->findDescriptionIdByObjectId(static_cast<int16_t>(payloadId));
+        pItemDefinition = m_pItemTable != nullptr
+            ? m_pItemTable->findBySpriteIndex(static_cast<uint16_t>(payloadId))
+            : nullptr;
+    }
+    else if (m_pItemTable != nullptr)
+    {
+        pItemDefinition = m_pItemTable->get(payloadId);
+
+        if (pItemDefinition != nullptr)
+        {
+            objectDescriptionId =
+                m_pObjectTable->findDescriptionIdByObjectId(static_cast<int16_t>(pItemDefinition->spriteIndex));
+        }
     }
 
-    if (!objectDescriptionId)
+    if (!objectDescriptionId || (!payloadIsObjectId && pItemDefinition == nullptr))
     {
         return false;
     }
@@ -15537,7 +15622,7 @@ bool IndoorWorldRuntime::summonEventItem(
         return false;
     }
 
-    std::mt19937 rng(itemId * 2654435761u + count * 977u);
+    std::mt19937 rng(payloadId * 2654435761u + count * 977u);
     bool spawnedAny = false;
 
     for (uint32_t itemIndex = 0; itemIndex < count; ++itemIndex)
@@ -15731,7 +15816,12 @@ void IndoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMask
     {
         if (actorId < pMapDeltaData->actors.size())
         {
-            pMapDeltaData->actors[actorId].attributes &= ~clearMask;
+            uint32_t applicableClearMask = clearMask;
+            if (indoorMapActorCorpseWasConsumed(m_mapActorCorpseViews, actorId))
+            {
+                applicableClearMask &= ~static_cast<uint32_t>(EvtActorAttribute::Invisible);
+            }
+            pMapDeltaData->actors[actorId].attributes &= ~applicableClearMask;
             if ((clearMask & static_cast<uint32_t>(EvtActorAttribute::HasItem)) != 0)
             {
                 pMapDeltaData->actors[actorId].carriedItemId = 0;
@@ -15799,7 +15889,12 @@ void IndoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMask
 
             if (actor.group == groupId)
             {
-                actor.attributes &= ~clearMask;
+                uint32_t applicableClearMask = clearMask;
+                if (indoorMapActorCorpseWasConsumed(m_mapActorCorpseViews, actorIndex))
+                {
+                    applicableClearMask &= ~static_cast<uint32_t>(EvtActorAttribute::Invisible);
+                }
+                actor.attributes &= ~applicableClearMask;
                 if ((clearMask & hostileMask) != 0)
                 {
                     persistentHostilityMaskTouched[actorIndex] = true;
@@ -16639,6 +16734,7 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_materializedChestViews = snapshot.materializedChestViews;
     m_activeChestView = snapshot.activeChestView;
     m_mapActorCorpseViews = snapshot.mapActorCorpseViews;
+    restoreConsumedIndoorCorpseMarkers(mapDeltaData(), m_mapActorCorpseViews);
     m_activeCorpseView = snapshot.activeCorpseView;
     m_mapActorAiStates = snapshot.mapActorAiStates;
     m_activatedIndoorSectorMask = snapshot.activatedIndoorSectorMask;

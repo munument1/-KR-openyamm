@@ -382,6 +382,11 @@ GameplayCorpseViewState buildMonsterCorpseView(
     return view;
 }
 
+bool isConsumedCorpseView(const std::optional<GameplayCorpseViewState> &corpseView)
+{
+    return corpseView.has_value() && corpseView->items.empty();
+}
+
 GameplayCorpseAutoLootResult autoLootActiveCorpseView(
     IGameplayWorldRuntime &worldRuntime,
     Party &party,

@@ -2,6 +2,7 @@
 
 #include "engine/AssetFileSystem.h"
 #include "game/arcomage/ArcomageTypes.h"
+#include "game/tables/AwardTable.h"
 #include "game/tables/ChestTable.h"
 #include "game/tables/CharacterInspectTable.h"
 #include "game/tables/CharacterDollTable.h"
@@ -95,6 +96,7 @@ public:
     const SpecialItemEnchantTable &getSpecialItemEnchantTable() const;
     const ChestTable &getChestTable() const;
     const HouseTable &getHouseTable() const;
+    const AwardTable &getAwardTable() const;
     const JournalQuestTable &getJournalQuestTable() const;
     const JournalHistoryTable &getJournalHistoryTable() const;
     const JournalAutonoteTable &getJournalAutonoteTable() const;
@@ -180,6 +182,7 @@ private:
     bool loadItemEnchantTables(const Engine::AssetFileSystem &assetFileSystem);
     bool loadChestTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadHouseTable(const Engine::AssetFileSystem &assetFileSystem);
+    bool loadAwardTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadJournalTables(const Engine::AssetFileSystem &assetFileSystem);
     bool loadClassMultiplierTable(const Engine::AssetFileSystem &assetFileSystem);
     bool loadClassSkillTable(const Engine::AssetFileSystem &assetFileSystem);
@@ -237,6 +240,7 @@ private:
     SpecialItemEnchantTable m_specialItemEnchantTable;
     ChestTable m_chestTable;
     HouseTable m_houseTable;
+    AwardTable m_awardTable;
     JournalQuestTable m_journalQuestTable;
     JournalHistoryTable m_journalHistoryTable;
     JournalAutonoteTable m_journalAutonoteTable;

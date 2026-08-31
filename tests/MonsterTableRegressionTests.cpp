@@ -1,7 +1,12 @@
 #include "doctest/doctest.h"
 
+#include "engine/AssetFileSystem.h"
+#include "game/maps/MapAssetLoader.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/MonsterTable.h"
+
+#include <array>
+#include <filesystem>
 
 namespace
 {
@@ -39,6 +44,23 @@ std::vector<std::string> makeMonsterStatsRow(
     row[23] = attack2Missile;
     row[24] = std::to_string(spell1Chance);
     row[25] = spell1Descriptor;
+    return row;
+}
+
+std::vector<std::string> makeMonsterPresentationRow(
+    int id,
+    const std::string &internalName,
+    const std::array<std::string, 8> &spriteNames)
+{
+    std::vector<std::string> row(19, "0");
+    row[0] = std::to_string(id);
+    row[1] = internalName;
+
+    for (size_t spriteIndex = 0; spriteIndex < spriteNames.size(); ++spriteIndex)
+    {
+        row[11 + spriteIndex] = spriteNames[spriteIndex];
+    }
+
     return row;
 }
 }
@@ -234,4 +256,44 @@ TEST_CASE("monster death drop parser maps multiple drops to monster id")
     CHECK_EQ(drops[1].itemId, 633u);
     CHECK_EQ(drops[1].chancePercent, 35);
     CHECK(disabledDrops.empty());
+}
+
+TEST_CASE("dynamic bounty monsters load their sprite frame families")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    REQUIRE(assetFileSystem.initialize(
+        sourceRoot,
+        sourceRoot / "assets_dev",
+        OpenYAMM::Engine::AssetScaleTier::X1));
+
+    OpenYAMM::Game::MonsterTable monsterTable;
+    REQUIRE(monsterTable.loadEntriesFromRows({
+        makeMonsterPresentationRow(
+            233,
+            "Elemental Air B",
+            {"m196s", "m196w", "m196a", "m196a", "m196n", "m196d", "null", "m196f"}),
+        makeMonsterPresentationRow(
+            253,
+            "Fighter Chain A",
+            {"m223s", "m223w", "m223a", "m223a", "m223n", "m223d", "m223x", "m223f"})
+    }));
+    OpenYAMM::Game::SpriteFrameTable spriteFrameTable;
+    CHECK_FALSE(spriteFrameTable.findFrameIndexBySpriteName("m223s").has_value());
+    CHECK_FALSE(spriteFrameTable.findFrameIndexBySpriteName("m196s").has_value());
+
+    REQUIRE(OpenYAMM::Game::ensureMonsterSpriteFramesLoaded(
+        assetFileSystem,
+        monsterTable,
+        253,
+        spriteFrameTable));
+    CHECK(spriteFrameTable.findFrameIndexBySpriteName("m223s").has_value());
+
+    REQUIRE(OpenYAMM::Game::ensureMonsterSpriteFramesLoaded(
+        assetFileSystem,
+        monsterTable,
+        233,
+        spriteFrameTable));
+    CHECK(spriteFrameTable.findFrameIndexBySpriteName("m223s").has_value());
+    CHECK(spriteFrameTable.findFrameIndexBySpriteName("m196s").has_value());
 }

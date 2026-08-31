@@ -122,6 +122,82 @@ TEST_CASE("dark magic dragon breath spell uses fire damage so monster fire immun
         == OpenYAMM::Game::CombatDamageType::Fire);
 }
 
+TEST_CASE("Mistform is a personal buff that permits spellcasting and expires cleanly")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.bindParty(&party);
+    const size_t targetActorIndex = seedDefaultSpellTarget(worldRuntime);
+
+    OpenYAMM::Game::Character *pCaster = party.member(0);
+    REQUIRE(pCaster != nullptr);
+    const OpenYAMM::Game::CharacterAttackProfile normalAttackProfile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            *pCaster,
+            &gameData.itemTable,
+            &gameData.spellTable);
+    CHECK(normalAttackProfile.canMelee);
+
+    pCaster->skills["VampireAbility"] = {
+        "VampireAbility",
+        5,
+        OpenYAMM::Game::SkillMastery::Grandmaster};
+
+    OpenYAMM::Game::PartySpellCastRequest mistformRequest = {};
+    mistformRequest.casterMemberIndex = 0;
+    mistformRequest.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Mistform);
+    mistformRequest.spendMana = false;
+    mistformRequest.applyRecovery = false;
+
+    const OpenYAMM::Game::PartySpellCastResult mistformResult =
+        OpenYAMM::Game::PartySpellSystem::castSpell(
+            party,
+            worldRuntime,
+            gameData.spellTable,
+            mistformRequest);
+
+    REQUIRE(mistformResult.succeeded());
+    CHECK(mistformResult.targetKind == OpenYAMM::Game::PartySpellCastTargetKind::None);
+    CHECK(party.hasCharacterBuff(0, OpenYAMM::Game::CharacterBuffId::Mistform));
+    CHECK_FALSE(party.hasCharacterBuff(1, OpenYAMM::Game::CharacterBuffId::Mistform));
+    CHECK(pCaster->physicalAttackDisabled);
+    CHECK(pCaster->physicalDamageImmune);
+    const OpenYAMM::Game::CharacterAttackProfile mistformAttackProfile =
+        OpenYAMM::Game::GameMechanics::buildCharacterAttackProfile(
+            *pCaster,
+            &gameData.itemTable,
+            &gameData.spellTable);
+    CHECK_FALSE(mistformAttackProfile.canMelee);
+
+    const OpenYAMM::Game::CharacterBuffState *pMistformBuff =
+        party.characterBuff(0, OpenYAMM::Game::CharacterBuffId::Mistform);
+    REQUIRE(pMistformBuff != nullptr);
+    CHECK(pMistformBuff->remainingSeconds == doctest::Approx(5.0f * 60.0f * 60.0f));
+
+    pCaster->skills["FireMagic"] = {"FireMagic", 5, OpenYAMM::Game::SkillMastery::Normal};
+    OpenYAMM::Game::PartySpellCastRequest fireBoltRequest = {};
+    fireBoltRequest.casterMemberIndex = 0;
+    fireBoltRequest.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::FireBolt);
+    fireBoltRequest.targetActorIndex = targetActorIndex;
+    fireBoltRequest.spendMana = false;
+    fireBoltRequest.applyRecovery = false;
+
+    const OpenYAMM::Game::PartySpellCastResult fireBoltResult = OpenYAMM::Game::PartySpellSystem::castSpell(
+        party,
+        worldRuntime,
+        gameData.spellTable,
+        fireBoltRequest);
+
+    REQUIRE(fireBoltResult.succeeded());
+    REQUIRE_EQ(worldRuntime.projectileRequests().size(), 1u);
+
+    party.advanceTimedStates(5.0f * 60.0f * 60.0f + 1.0f);
+    CHECK_FALSE(party.hasCharacterBuff(0, OpenYAMM::Game::CharacterBuffId::Mistform));
+    CHECK_FALSE(pCaster->physicalAttackDisabled);
+    CHECK_FALSE(pCaster->physicalDamageImmune);
+}
+
 TEST_CASE("shared actor mind spell effects are rejected by mind immunity")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

@@ -1590,6 +1590,11 @@ bool GameDataLoader::loadInternal(
         return false;
     }
 
+    if (!loadAwardTable(assetFileSystem))
+    {
+        return false;
+    }
+
     if (!loadJournalTables(assetFileSystem))
     {
         return false;
@@ -1906,6 +1911,11 @@ const ChestTable &GameDataLoader::getChestTable() const
 const HouseTable &GameDataLoader::getHouseTable() const
 {
     return m_houseTable;
+}
+
+const AwardTable &GameDataLoader::getAwardTable() const
+{
+    return m_awardTable;
 }
 
 const JournalQuestTable &GameDataLoader::getJournalQuestTable() const
@@ -3003,6 +3013,35 @@ bool GameDataLoader::loadMm9TeacherScheduleTable(const Engine::AssetFileSystem &
         }
         return false;
     }
+    return true;
+}
+
+bool GameDataLoader::loadAwardTable(const Engine::AssetFileSystem &assetFileSystem)
+{
+    std::vector<std::vector<std::string>> awardRows;
+    std::vector<std::vector<std::string>> aliasRows;
+
+    if (!loadFirstTextTableRows(assetFileSystem, {engineEnglishDataTablePath("awards.txt")}, awardRows))
+    {
+        std::cerr << "Failed to read award table\n";
+        return false;
+    }
+
+    if (!loadFirstTextTableRows(
+            assetFileSystem,
+            {engineEnglishDataTablePath("award_display_aliases.txt")},
+            aliasRows))
+    {
+        std::cerr << "Failed to read award display alias table\n";
+        return false;
+    }
+
+    if (!m_awardTable.loadFromRows(awardRows, aliasRows))
+    {
+        std::cerr << "Failed to parse award tables\n";
+        return false;
+    }
+
     return true;
 }
 

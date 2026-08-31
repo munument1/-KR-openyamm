@@ -8788,6 +8788,14 @@ void GameApplication::renderFrame(int width, int height, float mouseWheelDelta, 
     {
         const uint64_t gameplayUpdateBeginTickCount = collectFrameDiagnostics ? SDL_GetTicksNS() : 0;
         m_gameSession.updateGameplay(m_gameInputSystem.frame(), scaledGameplayDeltaSeconds, collectFrameDiagnostics);
+        const float turnBasedGameMinutes =
+            m_gameSession.turnBasedCombatRuntime().consumePendingGameTimeAdvanceMinutes();
+
+        if (turnBasedGameMinutes > 0.0f)
+        {
+            m_gameplayController.advanceTurnBasedGameMinutes(turnBasedGameMinutes);
+        }
+
         recordFrameDiagnostics(m_framePerformanceDiagnostics.gameplayUpdateNanoseconds, gameplayUpdateBeginTickCount);
     }
 

@@ -1,12 +1,25 @@
 -- MMMerge map supplement: Haunted Mansion portrait pickup persistence.
 
+local function applyPortraitTakenState()
+    evt.SetTexture(15, "t2bs")
+    evt.SetMapVar("PortraitTaken", 1)
+end
+
 ReplaceMapEvent(376, "Portrait", function()
-    if evt.GetMapVar("PortraitTaken", 0) ~= 0 then
+    if IsQBitSet(QBit(778)) then -- Took Angel Painting
         return
     end
 
-    evt.SetTexture(15, "t2bs")
-    AddValue(InventoryItem(1423), 1423) -- Angel Statue Painting
+    if not HasItemAnywhere(1423) then -- Angel Statue Painting
+        AddValue(InventoryItem(1423), 1423)
+    end
+
     SetQBit(QBit(778)) -- Took Angel Painting
-    evt.SetMapVar("PortraitTaken", 1)
+    applyPortraitTakenState()
 end, "Portrait")
+
+RegisterMapOnLoadEvent(65037, "Restore Haunted Mansion portrait state", function()
+    if IsQBitSet(QBit(778)) then -- Took Angel Painting
+        applyPortraitTakenState()
+    end
+end)

@@ -1050,23 +1050,84 @@ TEST_CASE("member experience mutation clamps like OE")
     CHECK_EQ(party.addExperienceToMember(0, -5000000000ll), 0u);
 }
 
-TEST_CASE("dragon ability mastery grants innate dragon spells")
+TEST_CASE("innate racial ability mastery grants its spells")
 {
-    OpenYAMM::Game::Character dragon = makeRegressionPartyMember("Duroth", "Dragon", "PC13-01", 13);
-    dragon.skills["DragonAbility"] = {"DragonAbility", 10, OpenYAMM::Game::SkillMastery::Normal};
+    SUBCASE("Dark Elf")
+    {
+        OpenYAMM::Game::Character darkElf = makeRegressionPartyMember("Elsbeth", "DarkElf", "PC12-01", 12);
+        darkElf.skills["DarkElfAbility"] = {"DarkElfAbility", 1, OpenYAMM::Game::SkillMastery::Normal};
+        darkElf.synchronizeInnateAbilitySpells();
 
-    CHECK(dragon.setSkillMastery("DragonAbility", OpenYAMM::Game::SkillMastery::Expert));
-    CHECK(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Fear)));
-    CHECK(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::FlameBlast)));
-    CHECK_FALSE(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Flight)));
-    CHECK_FALSE(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::WingBuffet)));
+        CHECK(darkElf.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Glamour)));
+        CHECK_FALSE(darkElf.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::TravelersBoon)));
+        CHECK(darkElf.setSkillMastery("DarkElfAbility", OpenYAMM::Game::SkillMastery::Expert));
+        CHECK(darkElf.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::TravelersBoon)));
+        CHECK_FALSE(darkElf.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Blind)));
+        CHECK(darkElf.setSkillMastery("DarkElfAbility", OpenYAMM::Game::SkillMastery::Master));
+        CHECK(darkElf.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Blind)));
+        CHECK_FALSE(darkElf.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::DarkfireBolt)));
+        CHECK(darkElf.setSkillMastery("DarkElfAbility", OpenYAMM::Game::SkillMastery::Grandmaster));
+        CHECK(darkElf.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::DarkfireBolt)));
+    }
 
-    CHECK(dragon.setSkillMastery("DragonAbility", OpenYAMM::Game::SkillMastery::Master));
-    CHECK(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Flight)));
-    CHECK_FALSE(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::WingBuffet)));
+    SUBCASE("Vampire")
+    {
+        OpenYAMM::Game::Character vampire = makeRegressionPartyMember("Vampira", "Vampire", "PC10-01", 10);
+        vampire.skills["VampireAbility"] = {"VampireAbility", 1, OpenYAMM::Game::SkillMastery::Normal};
+        vampire.synchronizeInnateAbilitySpells();
 
-    CHECK(dragon.setSkillMastery("DragonAbility", OpenYAMM::Game::SkillMastery::Grandmaster));
-    CHECK(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::WingBuffet)));
+        CHECK(vampire.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Lifedrain)));
+        CHECK_FALSE(vampire.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Levitate)));
+        CHECK(vampire.setSkillMastery("VampireAbility", OpenYAMM::Game::SkillMastery::Expert));
+        CHECK(vampire.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Levitate)));
+    }
+
+    SUBCASE("Dragon")
+    {
+        OpenYAMM::Game::Character dragon = makeRegressionPartyMember("Duroth", "Dragon", "PC13-01", 13);
+        dragon.skills["DragonAbility"] = {"DragonAbility", 10, OpenYAMM::Game::SkillMastery::Normal};
+
+        CHECK(dragon.setSkillMastery("DragonAbility", OpenYAMM::Game::SkillMastery::Expert));
+        CHECK(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Fear)));
+        CHECK(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::FlameBlast)));
+        CHECK_FALSE(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Flight)));
+        CHECK_FALSE(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::WingBuffet)));
+
+        CHECK(dragon.setSkillMastery("DragonAbility", OpenYAMM::Game::SkillMastery::Master));
+        CHECK(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Flight)));
+        CHECK_FALSE(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::WingBuffet)));
+
+        CHECK(dragon.setSkillMastery("DragonAbility", OpenYAMM::Game::SkillMastery::Grandmaster));
+        CHECK(dragon.knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::WingBuffet)));
+    }
+}
+
+TEST_CASE("new and restored Dark Elves repair innate spell ownership")
+{
+    OpenYAMM::Game::Character darkElf = makeRegressionPartyMember("Elspeth", "DarkElf", "PC12-01", 12);
+    darkElf.raceId = 2;
+    darkElf.skills["DarkElfAbility"] = {"DarkElfAbility", 1, OpenYAMM::Game::SkillMastery::Normal};
+
+    OpenYAMM::Game::PartySeed seed = {};
+    seed.members.push_back(darkElf);
+    OpenYAMM::Game::Party party = {};
+    party.seed(seed);
+
+    OpenYAMM::Game::Character *pCreatedDarkElf = party.member(0);
+    REQUIRE(pCreatedDarkElf != nullptr);
+    CHECK(pCreatedDarkElf->knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Glamour)));
+
+    pCreatedDarkElf->knownSpellIds.clear();
+    pCreatedDarkElf->skills["DarkElfAbility"].mastery = OpenYAMM::Game::SkillMastery::Expert;
+    const OpenYAMM::Game::Party::Snapshot oldSaveSnapshot = party.snapshot();
+
+    OpenYAMM::Game::Party restoredParty = {};
+    restoredParty.restoreSnapshot(oldSaveSnapshot);
+    const OpenYAMM::Game::Character *pRestoredDarkElf = restoredParty.member(0);
+    REQUIRE(pRestoredDarkElf != nullptr);
+    CHECK(pRestoredDarkElf->knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Glamour)));
+    CHECK(pRestoredDarkElf->knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::TravelersBoon)));
+    CHECK_FALSE(pRestoredDarkElf->knowsSpell(OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Blind)));
 }
 
 TEST_CASE("default party seed grants first member full spell access and preserves inventory")
@@ -1419,4 +1480,40 @@ TEST_CASE("MM9 temporary primary stat reward survives save round trip")
         CHECK_EQ(member.magicalBonuses.speed, 1);
         CHECK_EQ(member.timedPrimaryStatBonuses[4].remainingSeconds, doctest::Approx(3000.0f));
     }
+}
+
+TEST_CASE("temporary event bonuses survive save round trip and remain rest-cleared")
+{
+    OpenYAMM::Game::Party party = makeInventoryParty();
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    pMember->temporaryEventBonuses.intellect = 15;
+    pMember->temporaryEventBonuses.resistances.fire = 25;
+    party.rebuildMagicalBonusesFromBuffs();
+
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.mapFileName = "temporary_event_bonus_roundtrip.odm";
+    saveData.party = party.snapshot();
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_temporary_event_bonus_roundtrip.oysav";
+    std::string error;
+    REQUIRE(OpenYAMM::Game::saveGameDataToPath(savePath, saveData, error));
+
+    const std::optional<OpenYAMM::Game::GameSaveData> loaded =
+        OpenYAMM::Game::loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+    REQUIRE(loaded.has_value());
+
+    OpenYAMM::Game::Party restoredParty = makeInventoryParty();
+    restoredParty.restoreSnapshot(loaded->party);
+    const OpenYAMM::Game::Character *pRestoredMember = restoredParty.member(0);
+    REQUIRE(pRestoredMember != nullptr);
+    CHECK_EQ(pRestoredMember->temporaryEventBonuses.intellect, 15);
+    CHECK_EQ(pRestoredMember->magicalBonuses.intellect, 15);
+    CHECK_EQ(pRestoredMember->magicalBonuses.resistances.fire, 25);
+
+    restoredParty.restAndHealAll();
+    CHECK_EQ(pRestoredMember->temporaryEventBonuses.intellect, 0);
+    CHECK_EQ(pRestoredMember->magicalBonuses.intellect, 0);
+    CHECK_EQ(pRestoredMember->magicalBonuses.resistances.fire, 0);
 }

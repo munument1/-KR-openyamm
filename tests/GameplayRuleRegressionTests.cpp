@@ -2860,6 +2860,56 @@ TEST_CASE("monster hour of power resistance bonus only affects OE elemental dama
     CHECK_FALSE(sawPhysicalReduced);
 }
 
+TEST_CASE("Mistform blocks physical monster damage but not magical damage")
+{
+    constexpr uint32_t ActorId = 76;
+    constexpr int Damage = 12;
+
+    OpenYAMM::Game::Party party = makeMonsterSpecialAttackTestParty();
+    party.applyCharacterBuff(
+        0,
+        OpenYAMM::Game::CharacterBuffId::Mistform,
+        60.0f,
+        1,
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Mistform),
+        1,
+        OpenYAMM::Game::SkillMastery::Grandmaster,
+        0);
+
+    MonsterSpecialAttackTestWorldRuntime world = {};
+    world.actorInfo = OpenYAMM::Game::GameplayCombatActorInfo{
+        .actorId = ActorId,
+        .monsterLevel = 1,
+        .attackBonus = 1000,
+        .displayName = "Mistform Test Striker",
+    };
+
+    OpenYAMM::Game::GameplayCombatController controller = {};
+    controller.recordMonsterMeleeImpact(
+        ActorId,
+        Damage,
+        1000,
+        OpenYAMM::Game::CombatDamageType::Physical,
+        OpenYAMM::Game::GameplayActorAttackAbility::Attack1);
+
+    OpenYAMM::Game::GameplayCombatController::PendingCombatEventContext context{party, &world, nullptr};
+    controller.handleAndClearPendingCombatEvents(context);
+
+    OpenYAMM::Game::Character *pMember = party.member(0);
+    REQUIRE(pMember != nullptr);
+    CHECK_EQ(pMember->health, 100);
+
+    controller.recordMonsterMeleeImpact(
+        ActorId,
+        Damage,
+        1000,
+        OpenYAMM::Game::CombatDamageType::Irresistible,
+        OpenYAMM::Game::GameplayActorAttackAbility::Spell1);
+    controller.handleAndClearPendingCombatEvents(context);
+
+    CHECK_EQ(pMember->health, 100 - Damage);
+}
+
 TEST_CASE("monster Attack1 projectile applies special attack condition")
 {
     constexpr uint32_t ActorId = 77;

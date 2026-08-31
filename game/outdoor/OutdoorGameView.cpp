@@ -3646,6 +3646,33 @@ bool OutdoorGameView::executeEventHooks(EventRuntimeHookKind kind)
         && m_pOutdoorSceneRuntime->executeEventHooks(kind);
 }
 
+bool OutdoorGameView::ensureMonsterVisualResources(int16_t monsterId)
+{
+    if (m_pAssetFileSystem == nullptr || monsterId <= 0)
+    {
+        return false;
+    }
+
+    if (!m_outdoorActorPreviewBillboardSet)
+    {
+        m_outdoorActorPreviewBillboardSet.emplace();
+    }
+
+    const MonsterTable &monsterTable = m_gameSession.data().monsterTable();
+    return ensureMonsterSpriteFramesLoaded(
+        *m_pAssetFileSystem,
+        monsterTable,
+        monsterId,
+        m_outdoorActorPreviewBillboardSet->spriteFrameTable);
+}
+
+const SpriteFrameTable *OutdoorGameView::actorSpriteFrameTable() const
+{
+    return m_outdoorActorPreviewBillboardSet
+        ? &m_outdoorActorPreviewBillboardSet->spriteFrameTable
+        : nullptr;
+}
+
 GameplayWorldUiRenderState OutdoorGameView::gameplayUiRenderState(int width, int height) const
 {
     return GameplayWorldUiRenderState{

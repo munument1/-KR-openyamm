@@ -3,7 +3,7 @@
 local WereratsMad = "WereratsMad"
 local WereratsMadUntil = "WereratsMadUntil"
 
-ReplaceMapEvent(1, "MMMerge were-rat state", function()
+ReplaceMapEvent(1, nil, function()
     if MM8.GetMapFlag(WereratsMad) and CurrentGameMinutes() >= MM8.GetMapVar(WereratsMadUntil, 0) then
         MM8.SetMapFlag(WereratsMad, false)
     end

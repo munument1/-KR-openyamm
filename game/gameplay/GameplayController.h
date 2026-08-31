@@ -22,6 +22,7 @@ public:
 
     void synchronizeSessionFromRuntime();
     bool advanceGameMinutes(float minutes);
+    bool advanceTurnBasedGameMinutes(float minutes);
     std::optional<EventRuntimeState::PendingMapMove> consumePendingMapMove();
     std::optional<EventRuntimeState::PendingArcomageGame> consumePendingArcomageGame();
 

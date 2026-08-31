@@ -1,6 +1,7 @@
 #include "game/ui/GameplayPartyOverlayRenderer.h"
 
 #include "game/gameplay/GameMechanics.h"
+#include "game/gameplay/AwardRuntime.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/gameplay/JournalQuestRuntime.h"
 #include "game/events/EvtEnums.h"
@@ -20,7 +21,6 @@
 #include "game/ui/SpellbookUiLayout.h"
 #include "game/StringUtils.h"
 #include "game/ui/KeyboardScreenLayout.h"
-#include "engine/TextTable.h"
 
 #include <SDL3/SDL.h>
 #include <bx/math.h>
@@ -81,20 +81,6 @@ struct PointerRenderInput
     bool isLeftMousePressed = false;
 };
 
-struct CharacterAwardDefinition
-{
-    uint32_t id = 0;
-    std::string text;
-    int priority = 0;
-};
-
-struct CharacterAwardRenderLine
-{
-    uint32_t id = 0;
-    std::string text;
-    int priority = 0;
-};
-
 constexpr std::array<uint32_t, 6> CharacterAwardColorsAbgr = {{
     0xffa06cf8u, // Magenta, #F86CA0
     0xfff8dc70u, // Malibu, #70DCF8
@@ -118,200 +104,6 @@ PointerRenderInput pointerRenderInput(const GameplayScreenRuntime &context)
     input.mouseY = pInputFrame->pointerY;
     input.isLeftMousePressed = pInputFrame->leftMouseButton.held;
     return input;
-}
-
-std::optional<uint32_t> parseUnsignedCell(const std::string &value)
-{
-    char *pEnd = nullptr;
-    const unsigned long parsed = std::strtoul(value.c_str(), &pEnd, 10);
-
-    if (pEnd == value.c_str() || *pEnd != '\0' || parsed > std::numeric_limits<uint32_t>::max())
-    {
-        return std::nullopt;
-    }
-
-    return static_cast<uint32_t>(parsed);
-}
-
-std::optional<int> parseIntCell(const std::string &value)
-{
-    char *pEnd = nullptr;
-    const long parsed = std::strtol(value.c_str(), &pEnd, 10);
-
-    if (pEnd == value.c_str() || *pEnd != '\0' || parsed < std::numeric_limits<int>::min()
-        || parsed > std::numeric_limits<int>::max())
-    {
-        return std::nullopt;
-    }
-
-    return static_cast<int>(parsed);
-}
-
-const std::vector<CharacterAwardDefinition> &loadCharacterAwardDefinitions(
-    const Engine::AssetFileSystem *pAssetFileSystem)
-{
-    static const Engine::AssetFileSystem *pCachedAssetFileSystem = nullptr;
-    static std::vector<CharacterAwardDefinition> cachedDefinitions;
-
-    if (pCachedAssetFileSystem == pAssetFileSystem)
-    {
-        return cachedDefinitions;
-    }
-
-    pCachedAssetFileSystem = pAssetFileSystem;
-    cachedDefinitions.clear();
-
-    if (pAssetFileSystem == nullptr)
-    {
-        return cachedDefinitions;
-    }
-
-    const std::optional<std::string> contents =
-        pAssetFileSystem->readTextFile("engine/data_tables/english/awards.txt");
-
-    if (!contents)
-    {
-        return cachedDefinitions;
-    }
-
-    const std::optional<Engine::TextTable> table = Engine::TextTable::parseTabSeparated(*contents);
-
-    if (!table)
-    {
-        return cachedDefinitions;
-    }
-
-    for (size_t rowIndex = 0; rowIndex < table->getRowCount(); ++rowIndex)
-    {
-        const std::vector<std::string> &row = table->getRow(rowIndex);
-
-        if (row.size() < 3 || row[0] == "A Bit")
-        {
-            continue;
-        }
-
-        const std::optional<uint32_t> id = parseUnsignedCell(row[0]);
-
-        if (!id || *id == 0 || row[1].empty())
-        {
-            continue;
-        }
-
-        CharacterAwardDefinition definition = {};
-        definition.id = *id;
-        definition.text = row[1];
-        definition.priority = parseIntCell(row[2]).value_or(0);
-        cachedDefinitions.push_back(std::move(definition));
-    }
-
-    return cachedDefinitions;
-}
-
-std::string replaceFirstPrintfUnsigned(std::string text, uint32_t value)
-{
-    size_t position = text.find("%lu");
-    size_t markerLength = 3;
-
-    if (position == std::string::npos)
-    {
-        position = text.find("%u");
-        markerLength = 2;
-    }
-
-    if (position != std::string::npos)
-    {
-        text.replace(position, markerLength, std::to_string(value));
-    }
-
-    return text;
-}
-
-uint32_t awardCounterValue(uint32_t awardId, const Party *pParty)
-{
-    if (pParty == nullptr)
-    {
-        return 0;
-    }
-
-    switch (awardId)
-    {
-        case 36:
-            return pParty->arcomageWinCount();
-        case 37:
-            return pParty->arcomageLossCount();
-        case 43:
-            return static_cast<uint32_t>(std::max<int32_t>(
-                0,
-                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::NumDeaths))));
-        case 44:
-            return static_cast<uint32_t>(std::max<int32_t>(
-                0,
-                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::NumBounties))));
-        case 45:
-            return static_cast<uint32_t>(std::max<int32_t>(
-                0,
-                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::PrisonTerms))));
-        case 46:
-            return static_cast<uint32_t>(std::max<int32_t>(
-                0,
-                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::ArenaWinsPage))));
-        case 47:
-            return static_cast<uint32_t>(std::max<int32_t>(
-                0,
-                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::ArenaWinsSquire))));
-        case 48:
-            return static_cast<uint32_t>(std::max<int32_t>(
-                0,
-                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::ArenaWinsKnight))));
-        case 49:
-            return static_cast<uint32_t>(std::max<int32_t>(
-                0,
-                pParty->eventVariableValue(static_cast<uint16_t>(EvtVariable::ArenaWinsLord))));
-        default:
-            return 0;
-    }
-}
-
-std::vector<CharacterAwardRenderLine> buildCharacterAwardLines(
-    const Character *pCharacter,
-    const Party *pParty,
-    const Engine::AssetFileSystem *pAssetFileSystem)
-{
-    std::vector<CharacterAwardRenderLine> lines;
-
-    if (pCharacter == nullptr)
-    {
-        return lines;
-    }
-
-    const std::vector<CharacterAwardDefinition> &definitions =
-        loadCharacterAwardDefinitions(pAssetFileSystem);
-
-    for (const CharacterAwardDefinition &definition : definitions)
-    {
-        if (!pCharacter->awards.contains(definition.id))
-        {
-            continue;
-        }
-
-        CharacterAwardRenderLine line = {};
-        line.id = definition.id;
-        line.text = definition.text.find('%') != std::string::npos
-            ? replaceFirstPrintfUnsigned(definition.text, awardCounterValue(definition.id, pParty))
-            : definition.text;
-        line.priority = definition.priority;
-        lines.push_back(std::move(line));
-    }
-
-    std::stable_sort(
-        lines.begin(),
-        lines.end(),
-        [](const CharacterAwardRenderLine &left, const CharacterAwardRenderLine &right)
-        {
-            return left.priority < right.priority;
-        });
-
-    return lines;
 }
 
 uint32_t currentAnimationTicks()
@@ -1388,8 +1180,21 @@ void renderCharacterAwardsList(
         fontScale = std::max(0.5f, fontScale);
     }
 
-    const std::vector<CharacterAwardRenderLine> awards =
-        buildCharacterAwardLines(pCharacter, pParty, context.gameplayUiRuntime().assetFileSystem());
+    std::vector<VisibleAward> awards;
+    const AwardTable *pAwardTable = context.awardTable();
+
+    if (pAwardTable != nullptr && pCharacter != nullptr && pParty != nullptr)
+    {
+        awards = buildVisibleAwards(
+            *pAwardTable,
+            *pCharacter,
+            *pParty,
+            [&context](uint32_t autonoteId)
+            {
+                return context.isAutonoteUnlocked(autonoteId);
+            });
+    }
+
     const float lineHeight = static_cast<float>(font->fontHeight) * fontScale;
     const float awardGap = 8.0f * listRect->scale;
     const float wrapWidth = std::max(1.0f, listRect->width - pListLayout->textPadX * listRect->scale);
@@ -1398,7 +1203,7 @@ void renderCharacterAwardsList(
     wrappedAwardLines.reserve(awards.size());
     awardHeights.reserve(awards.size());
 
-    for (const CharacterAwardRenderLine &award : awards)
+    for (const VisibleAward &award : awards)
     {
         std::vector<std::string> wrappedLines = context.wrapHudTextToWidth(*font, award.text, wrapWidth / fontScale);
 
@@ -8449,7 +8254,18 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
         earthResistanceValue = formatSheetValue(summary.earthResistance);
         mindResistanceValue = formatSheetValue(summary.mindResistance);
         bodyResistanceValue = formatSheetValue(summary.bodyResistance);
-        awards = "Awards earned: " + std::to_string(pCharacter->awards.size());
+        const AwardTable *pAwardTable = context.awardTable();
+        const size_t awardCount = pAwardTable != nullptr
+            ? visibleAwardCount(
+                  *pAwardTable,
+                  *pCharacter,
+                  party,
+                  [&context](uint32_t autonoteId)
+                  {
+                      return context.isAutonoteUnlocked(autonoteId);
+                  })
+            : pCharacter->awards.size();
+        awards = "Awards earned: " + std::to_string(awardCount);
 
         if (context.rosterTable() != nullptr && pCharacter->rosterId != 0)
         {

@@ -209,6 +209,25 @@ public:
         return false;
     }
 
+    bool summonEventObject(
+        uint32_t objectId,
+        int32_t x,
+        int32_t y,
+        int32_t z,
+        int32_t speed,
+        uint32_t count,
+        bool randomRotate) override
+    {
+        (void)objectId;
+        (void)x;
+        (void)y;
+        (void)z;
+        (void)speed;
+        (void)count;
+        (void)randomRotate;
+        return false;
+    }
+
     bool checkMonstersKilled(uint32_t checkType, uint32_t id, uint32_t count, bool invisibleAsDead) const override
     {
         (void)checkType;
@@ -2777,9 +2796,9 @@ TEST_CASE("mm7 phase1 mmmerge map overlays compile and expose expected event ids
         {"7d29", "7d29_mmmerge", {376, 377, 65029, 65030}, {377}},
         {"7d30", "7d30_mmmerge", {416}, {}},
         {"d03", "d03_mmmerge", {5}, {}},
-        {"7d34", "7d34_mmmerge", {376, 377, 378, 379, 380, 381, 382}, {}},
+        {"7d34", "7d34_mmmerge", {376, 377, 378, 379, 380, 381, 382, 65034}, {65034}},
         {"7d36", "7d36_mmmerge", {501}, {}},
-        {"7d37", "7d37_mmmerge", {376}, {}},
+        {"7d37", "7d37_mmmerge", {376, 65037}, {65037}},
         {"out11", "out11_mmmerge", {501}, {}},
         {"out12", "out12_mmmerge", {65012}, {65012}},
         {"out09", "out09_mmmerge", {6, 65009, 65010}, {65009}},
@@ -2836,7 +2855,7 @@ TEST_CASE("mm8 mmmerge map overlays compile and expose expected event ids")
     const std::array<Case, 14> Cases = {{
         {"d06", "d06_mmmerge", {451}, {}},
         {"d07", "d07_mmmerge", {1, 901}, {}},
-        {"d19", "d19_mmmerge", {15, 131}, {}},
+        {"d19", "d19_mmmerge", {15, 131, 901}, {901}},
         {"d24", "d24_mmmerge", {901}, {901}},
         {"d34", "d34_mmmerge", {451}, {}},
         {"d38", "d38_mmmerge", {901}, {901}},
@@ -3154,6 +3173,8 @@ TEST_CASE("mm8 mmmerge d19 dyson and skeleton transformer branches apply")
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
         loadMm8MapOverlayProgram(OPENYAMM_SOURCE_DIR, "d19", "d19_mmmerge", error);
     REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+    CHECK_FALSE(localEventProgram->getHint(131).has_value());
+    CHECK_FALSE(localEventProgram->summarizeEvent(131).has_value());
 
     OpenYAMM::Game::EventRuntime eventRuntime = {};
 
@@ -3200,6 +3221,24 @@ TEST_CASE("mm8 mmmerge d19 dyson and skeleton transformer branches apply")
         static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible));
     CHECK_EQ(
         transformerState.facetSetMasks[30] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable),
+        static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable));
+
+    OpenYAMM::Game::Party restoredTransformerParty = makeScriptedRegressionParty();
+    restoredTransformerParty.setQuestBit(27, true);
+    OpenYAMM::Game::EventRuntimeState restoredTransformerState = {};
+    REQUIRE(eventRuntime.buildOnLoadState(
+        localEventProgram,
+        std::nullopt,
+        std::nullopt,
+        restoredTransformerState,
+        &restoredTransformerParty));
+    CHECK_EQ(
+        restoredTransformerState.facetSetMasks[30]
+            & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible),
+        static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible));
+    CHECK_EQ(
+        restoredTransformerState.facetSetMasks[30]
+            & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable),
         static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable));
 }
 
@@ -3564,6 +3603,8 @@ TEST_CASE("mm8 mmmerge on-load and kill-tracker overlays apply runtime state")
         const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
             loadMm8MapOverlayProgram(OPENYAMM_SOURCE_DIR, "d07", "d07_mmmerge", error);
         REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+        CHECK_FALSE(localEventProgram->getHint(1).has_value());
+        CHECK_FALSE(localEventProgram->summarizeEvent(1).has_value());
 
         OpenYAMM::Game::Party firstVisitParty = makeScriptedRegressionParty();
         OpenYAMM::Game::EventRuntime eventRuntime = {};
@@ -5356,6 +5397,94 @@ TEST_CASE("mm7 stone city mmmerge throne room and dwarf king cleanup")
     CHECK_FALSE(cleanupParty.hasQuestBit(658));
 }
 
+TEST_CASE("mm7 colony zod releases Roland and restores the open pathway")
+{
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        loadMm7MapOverlayProgram(OPENYAMM_SOURCE_DIR, "7d27", "7d27_mmmerge", error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+    CHECK_FALSE(localEventProgram->summarizeEvent(376).has_value());
+    CHECK_FALSE(localEventProgram->getHint(376).has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+
+    OpenYAMM::Game::Party freshParty = makeScriptedRegressionParty();
+    OpenYAMM::Game::EventRuntimeState freshState = {};
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 376, freshState, &freshParty));
+    REQUIRE_EQ(freshState.grantedItems.size(), 1u);
+    CHECK_EQ(freshState.grantedItems.front().objectDescriptionId, 1463u);
+    CHECK(freshParty.hasQuestBit(752));
+    CHECK_EQ(freshState.spriteOverrides[20].textureName, "0");
+    CHECK_EQ(
+        freshState.facetSetMasks[1] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible),
+        static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible));
+    CHECK_EQ(
+        freshState.facetSetMasks[1] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable),
+        static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable));
+
+    OpenYAMM::Game::Party inventoryKeyParty = makeScriptedRegressionParty();
+    REQUIRE(inventoryKeyParty.member(0) != nullptr);
+    inventoryKeyParty.member(0)->inventory.push_back(makeScriptedInventoryItem(1463));
+    OpenYAMM::Game::EventRuntimeState inventoryKeyState = {};
+    REQUIRE(eventRuntime.executeEventById(
+        localEventProgram,
+        std::nullopt,
+        376,
+        inventoryKeyState,
+        &inventoryKeyParty));
+    CHECK(inventoryKeyState.grantedItems.empty());
+    CHECK(inventoryKeyParty.hasQuestBit(752));
+    CHECK_EQ(inventoryKeyState.spriteOverrides[20].textureName, "0");
+    CHECK_EQ(
+        inventoryKeyState.facetSetMasks[1] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible),
+        static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible));
+    CHECK_EQ(
+        inventoryKeyState.facetSetMasks[1] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable),
+        static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable));
+
+    OpenYAMM::Game::Party heldKeyParty = makeScriptedRegressionParty();
+    heldKeyParty.setHeldItemForQueries(makeScriptedInventoryItem(1463));
+    OpenYAMM::Game::EventRuntimeState heldKeyState = {};
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 376, heldKeyState, &heldKeyParty));
+    CHECK(heldKeyState.grantedItems.empty());
+    CHECK(heldKeyParty.hasQuestBit(752));
+    CHECK_EQ(heldKeyState.spriteOverrides[20].textureName, "0");
+    CHECK_EQ(
+        heldKeyState.facetSetMasks[1] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible),
+        static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible));
+    CHECK_EQ(
+        heldKeyState.facetSetMasks[1] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable),
+        static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable));
+
+    OpenYAMM::Game::Party unreleasedParty = makeScriptedRegressionParty();
+    OpenYAMM::Game::EventRuntimeState unreleasedState = {};
+    REQUIRE(eventRuntime.buildOnLoadState(
+        localEventProgram,
+        std::nullopt,
+        std::nullopt,
+        unreleasedState,
+        &unreleasedParty));
+    CHECK(unreleasedState.spriteOverrides.find(20) == unreleasedState.spriteOverrides.end());
+    CHECK(unreleasedState.facetSetMasks.find(1) == unreleasedState.facetSetMasks.end());
+
+    OpenYAMM::Game::Party releasedParty = makeScriptedRegressionParty();
+    releasedParty.setQuestBit(752, true);
+    OpenYAMM::Game::EventRuntimeState releasedState = {};
+    REQUIRE(eventRuntime.buildOnLoadState(
+        localEventProgram,
+        std::nullopt,
+        std::nullopt,
+        releasedState,
+        &releasedParty));
+    CHECK_EQ(releasedState.spriteOverrides[20].textureName, "0");
+    CHECK_EQ(
+        releasedState.facetSetMasks[1] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible),
+        static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible));
+    CHECK_EQ(
+        releasedState.facetSetMasks[1] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable),
+        static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable));
+}
+
 TEST_CASE("mm7 phase1 mmmerge map overlays apply runtime state changes")
 {
     {
@@ -5430,6 +5559,9 @@ TEST_CASE("mm7 phase1 mmmerge map overlays apply runtime state changes")
         CHECK_EQ(
             runtimeState.facetSetMasks[1] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible),
             static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Invisible));
+        CHECK_EQ(
+            runtimeState.facetSetMasks[1] & static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable),
+            static_cast<uint32_t>(OpenYAMM::Game::FaceAttribute::Untouchable));
     }
 
     {
@@ -5507,6 +5639,87 @@ TEST_CASE("mm7 phase1 mmmerge map overlays apply runtime state changes")
         REQUIRE_EQ(runtimeState.grantedItemIds.size(), 1u);
         CHECK_EQ(runtimeState.grantedItemIds.front(), 1423u);
         CHECK_EQ(runtimeState.textureOverrides[15], "t2bs");
+    }
+}
+
+TEST_CASE("mm7 rescued dwarf and Haunted Mansion portrait states survive map reloads")
+{
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm7MapOverlayProgram(OPENYAMM_SOURCE_DIR, "7d34", "7d34_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        party.grantItem(1431);
+        party.setQuestBit(1689, true);
+
+        OpenYAMM::Game::EventRuntimeState interactionState = {};
+        REQUIRE(eventRuntime.executeEventById(
+            localEventProgram,
+            std::nullopt,
+            376,
+            interactionState,
+            &party));
+        CHECK(interactionState.hiredNpcFollowers.empty());
+        CHECK_FALSE(interactionState.pendingDialogueContext.has_value());
+
+        OpenYAMM::Game::EventRuntimeState restoredState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(
+            localEventProgram,
+            std::nullopt,
+            std::nullopt,
+            restoredState,
+            &party));
+        const std::unordered_map<uint32_t, OpenYAMM::Game::EventRuntimeState::SpriteOverride>::const_iterator
+            restoredSprite = restoredState.spriteOverrides.find(1u);
+        REQUIRE(restoredSprite != restoredState.spriteOverrides.end());
+        CHECK(restoredSprite->second.hidden);
+        REQUIRE(restoredSprite->second.textureName.has_value());
+        CHECK_EQ(*restoredSprite->second.textureName, "0");
+    }
+
+    {
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            loadMm7MapOverlayProgram(OPENYAMM_SOURCE_DIR, "7d37", "7d37_mmmerge", error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        OpenYAMM::Game::Party restoredParty = makeScriptedRegressionParty();
+        restoredParty.setQuestBit(778, true);
+        OpenYAMM::Game::EventRuntimeState restoredState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(
+            localEventProgram,
+            std::nullopt,
+            std::nullopt,
+            restoredState,
+            &restoredParty));
+        CHECK_EQ(restoredState.namedMapVars["PortraitTaken"], 1);
+        CHECK_EQ(restoredState.textureOverrides[15], "t2bs");
+
+        REQUIRE(eventRuntime.executeEventById(
+            localEventProgram,
+            std::nullopt,
+            376,
+            restoredState,
+            &restoredParty));
+        CHECK(restoredState.grantedItemIds.empty());
+
+        OpenYAMM::Game::Party paintingParty = makeScriptedRegressionParty();
+        paintingParty.grantItem(1423);
+        OpenYAMM::Game::EventRuntimeState paintingState = {};
+        REQUIRE(eventRuntime.executeEventById(
+            localEventProgram,
+            std::nullopt,
+            376,
+            paintingState,
+            &paintingParty));
+        CHECK(paintingParty.hasQuestBit(778));
+        CHECK(paintingState.grantedItemIds.empty());
+        CHECK_EQ(paintingState.namedMapVars["PortraitTaken"], 1);
+        CHECK_EQ(paintingState.textureOverrides[15], "t2bs");
     }
 }
 
@@ -6807,9 +7020,14 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
         keyParty.grantItem(2107);
         OpenYAMM::Game::EventRuntimeState keyState = {};
         REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 16, keyState, &keyParty));
-        CHECK_FALSE(keyParty.hasQuestBit(1035));
+        CHECK_EQ(keyState.mapVars[4], 1u);
+        CHECK(keyParty.hasQuestBit(1035));
+        CHECK(keyParty.hasQuestBit(1223));
         REQUIRE_FALSE(keyState.openedChestIds.empty());
         CHECK_EQ(keyState.openedChestIds.back(), 6u);
+
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 16, keyState, &keyParty));
+        CHECK_EQ(keyState.openedChestIds.back(), 1u);
     }
 
     {

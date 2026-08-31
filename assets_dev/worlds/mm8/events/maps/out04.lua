@@ -357,15 +357,15 @@ RegisterEvent(494, "Cactus", function()
     elseif IsAtLeast(DisarmTrapSkill, 3) then
         local randomStep = PickRandomOption(494, 4, {5, 7, 9, 11, 13})
         if randomStep == 5 then
-            evt.SummonItem(200, -7616, -4160, 504, 1000, 1, true) -- Fae dust
+            evt.SummonItem(200, -7616, -4160, 504, 1000, 1, true) -- Widowsweep Berries
         elseif randomStep == 7 then
-            evt.SummonItem(205, -7616, -4160, 504, 1000, 1, true) -- Vial of Ooze endoplasm
+            evt.SummonItem(205, -7616, -4160, 504, 1000, 1, true) -- Phima Root
         elseif randomStep == 9 then
-            evt.SummonItem(210, -7616, -4160, 504, 1000, 1, true) -- Yellow Potion
+            evt.SummonItem(210, -7616, -4160, 504, 1000, 1, true) -- Poppy Pod
         elseif randomStep == 11 then
-            evt.SummonItem(215, -7616, -4160, 504, 1000, 1, true) -- Green Potion
+            evt.SummonItem(215, -7616, -4160, 504, 1000, 1, true) -- Mushroom
         elseif randomStep == 13 then
-            evt.SummonItem(220, -7616, -4160, 504, 1000, 1, true) -- Blue and Orange Potion
+            evt.SummonItem(220, -7616, -4160, 504, 1000, 1, true) -- Potion Bottle
         end
         SetQBit(QBit(278)) -- Reagant spout area 4
         return

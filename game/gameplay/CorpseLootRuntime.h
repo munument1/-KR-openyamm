@@ -5,6 +5,7 @@
 #include "game/ui/GameplayUiController.h"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,9 @@ GameplayCorpseViewState buildMonsterCorpseView(
     const ItemTable *pItemTable,
     Party *pParty,
     const std::vector<uint32_t> &guaranteedItemIds = {});
+
+// A present view with no remaining items is the persistent equivalent of the legacy Removed actor state.
+bool isConsumedCorpseView(const std::optional<GameplayCorpseViewState> &corpseView);
 
 GameplayCorpseAutoLootResult autoLootActiveCorpseView(
     IGameplayWorldRuntime &worldRuntime,

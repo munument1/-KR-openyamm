@@ -958,7 +958,14 @@ std::optional<BackendSpellRule> resolveBackendSpellRule(uint32_t spellId, SkillM
         case SpellId::VampireCharm:
             return makeBackendSpellRule(spellId, PartySpellCastTargetKind::Actor, PartySpellCastEffectKind::ActorEffect, SkillMastery::Master, {20, 20, 20, 20}, {110, 110, 110, 110}, PartyBuffId::TorchLight);
         case SpellId::Mistform:
-            return makeBackendSpellRule(spellId, PartySpellCastTargetKind::Character, PartySpellCastEffectKind::CharacterBuff, SkillMastery::Grandmaster, {30, 30, 30, 30}, {110, 110, 110, 110}, PartyBuffId::TorchLight);
+            return makeBackendSpellRule(
+                spellId,
+                PartySpellCastTargetKind::None,
+                PartySpellCastEffectKind::CharacterBuff,
+                SkillMastery::Grandmaster,
+                {30, 30, 30, 30},
+                {110, 110, 110, 110},
+                PartyBuffId::TorchLight);
         case SpellId::Fear:
             return makeBackendSpellRule(
                 spellId,
@@ -1997,10 +2004,7 @@ PartySpellCastResult PartySpellSystem::castSpell(
         }
         else if (spellId == SpellId::Mistform)
         {
-            if (request.targetCharacterIndex)
-            {
-                applyBuffToMember(*request.targetCharacterIndex, CharacterBuffId::Mistform);
-            }
+            applyBuffToMember(request.casterMemberIndex, CharacterBuffId::Mistform);
         }
         else if (spellId == SpellId::Glamour)
         {

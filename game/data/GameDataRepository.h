@@ -10,6 +10,7 @@
 #include "game/mm9/Mm9TransportRoute.h"
 #include "game/tables/CharacterDollTable.h"
 #include "game/tables/CharacterInspectTable.h"
+#include "game/tables/AwardTable.h"
 #include "game/tables/ChestTable.h"
 #include "game/tables/ClassMultiplierTable.h"
 #include "game/tables/ClassSkillTable.h"
@@ -61,6 +62,7 @@ public:
     const SpecialItemEnchantTable &specialItemEnchantTable() const;
     const ChestTable &chestTable() const;
     const HouseTable &houseTable() const;
+    const AwardTable &awardTable() const;
     const JournalQuestTable &journalQuestTable() const;
     const JournalHistoryTable &journalHistoryTable() const;
     const JournalAutonoteTable &journalAutonoteTable() const;
@@ -116,6 +118,7 @@ private:
     const SpecialItemEnchantTable *m_pSpecialItemEnchantTable = nullptr;
     const ChestTable *m_pChestTable = nullptr;
     const HouseTable *m_pHouseTable = nullptr;
+    const AwardTable *m_pAwardTable = nullptr;
     const JournalQuestTable *m_pJournalQuestTable = nullptr;
     const JournalHistoryTable *m_pJournalHistoryTable = nullptr;
     const JournalAutonoteTable *m_pJournalAutonoteTable = nullptr;

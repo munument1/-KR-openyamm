@@ -168,6 +168,42 @@ TEST_CASE("legacy interval timer starts after its complete half-minute interval"
     CHECK_EQ(states[0].nextAlarmGameMinutes, doctest::Approx(613.0));
 }
 
+TEST_CASE("MM8 Abandoned Temple interval timer advances from OE combat turn ticks")
+{
+    OpenYAMM::Game::ScriptedEventTimerDefinition definition =
+        makeLegacyTimer(OpenYAMM::Game::ScriptedEventTimerScheduleKind::Interval);
+    definition.intervalHalfMinutes = 5;
+
+    std::vector<OpenYAMM::Game::ScriptedEventTimerState> states =
+        OpenYAMM::Game::reconcileScriptedEventTimers({}, {definition}, 100.0, 0, false);
+    REQUIRE_EQ(states.size(), 1u);
+
+    const double turnGameMinutes = OpenYAMM::Game::legacyTimerGameMinutesFromTicks(213);
+    int executionCount = 0;
+
+    for (int turn = 1; turn <= 3; ++turn)
+    {
+        CHECK_FALSE(OpenYAMM::Game::updateScriptedEventTimers(
+            states,
+            100.0 + static_cast<double>(turn) * turnGameMinutes,
+            [&executionCount](const OpenYAMM::Game::ScriptedEventTimerDefinition &)
+            {
+                ++executionCount;
+                return true;
+            }));
+    }
+
+    CHECK(OpenYAMM::Game::updateScriptedEventTimers(
+        states,
+        100.0 + 4.0 * turnGameMinutes,
+        [&executionCount](const OpenYAMM::Game::ScriptedEventTimerDefinition &)
+        {
+            ++executionCount;
+            return true;
+        }));
+    CHECK_EQ(executionCount, 1);
+}
+
 TEST_CASE("legacy calendar timer skips missed periods without a catch-up storm")
 {
     OpenYAMM::Game::ScriptedEventTimerDefinition definition =

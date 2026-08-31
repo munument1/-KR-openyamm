@@ -6,6 +6,7 @@
 #include "game/items/InventoryItemUseRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
 #include "game/items/ItemGenerator.h"
+#include "game/items/ItemRuntime.h"
 #include "game/party/Party.h"
 #include "game/party/SpellIds.h"
 
@@ -117,6 +118,25 @@ std::optional<uint16_t> findSpecialEnchantId(
     }
 
     return std::nullopt;
+}
+
+void applyMergedRareItemEffects(
+    const OpenYAMM::Tests::RegressionGameData &gameData,
+    uint32_t itemId,
+    OpenYAMM::Game::Character &character)
+{
+    const OpenYAMM::Game::ItemDefinition *pDefinition = gameData.itemTable.get(itemId);
+    REQUIRE(pDefinition != nullptr);
+
+    OpenYAMM::Game::EquippedItemRuntimeState runtimeState = {};
+    runtimeState.artifactId = static_cast<uint16_t>(itemId);
+    runtimeState.rarity = pDefinition->rarity;
+    OpenYAMM::Game::ItemEnchantRuntime::applyEquippedEnchantEffects(
+        *pDefinition,
+        runtimeState,
+        &gameData.standardItemEnchantTable,
+        &gameData.specialItemEnchantTable,
+        character);
 }
 }
 
@@ -1006,6 +1026,158 @@ TEST_CASE("rare and special slaying damage multipliers match the target family")
             &gameData.specialItemEnchantTable,
             OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Titan)),
         2);
+}
+
+TEST_CASE("merged MM7 artifacts and relics apply their MMerge passive effects")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    SUBCASE("Mind's Eye grants both casting stats and spell regeneration")
+    {
+        OpenYAMM::Game::Character character = {};
+        applyMergedRareItemEffects(gameData, 1334, character);
+        CHECK_EQ(character.magicalBonuses.intellect, 15);
+        CHECK_EQ(character.magicalBonuses.personality, 15);
+        CHECK_EQ(character.spellRegenPerSecond, doctest::Approx(1.0f));
+    }
+
+    SUBCASE("Scholar's Cap and Hands of the Master grant skill bonuses")
+    {
+        OpenYAMM::Game::Character character = {};
+        applyMergedRareItemEffects(gameData, 1324, character);
+        applyMergedRareItemEffects(gameData, 1313, character);
+        CHECK_EQ(character.magicalBonuses.endurance, -50);
+        CHECK_EQ(character.itemSkillBonuses["Learning"], 15);
+        CHECK_EQ(character.itemSkillBonuses["Unarmed"], 10);
+        CHECK_EQ(character.itemSkillBonuses["Dodging"], 10);
+    }
+
+    SUBCASE("Yoruba grants the MMerge condition immunity set")
+    {
+        OpenYAMM::Game::Character character = {};
+        applyMergedRareItemEffects(gameData, 1307, character);
+        CHECK_EQ(character.magicalBonuses.endurance, 25);
+        CHECK(character.magicalConditionImmunities.test(
+            static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Insane)));
+        CHECK(character.magicalConditionImmunities.test(
+            static_cast<size_t>(OpenYAMM::Game::CharacterCondition::PoisonSevere)));
+        CHECK(character.magicalConditionImmunities.test(
+            static_cast<size_t>(OpenYAMM::Game::CharacterCondition::DiseaseSevere)));
+        CHECK(character.magicalConditionImmunities.test(
+            static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Petrified)));
+    }
+
+    SUBCASE("Ethric's Staff drains living wielders but not liches")
+    {
+        OpenYAMM::Game::Character livingCharacter = {};
+        livingCharacter.className = "Sorcerer";
+        livingCharacter.skills["DarkMagic"] = {"DarkMagic", 8, OpenYAMM::Game::SkillMastery::Master};
+        applyMergedRareItemEffects(gameData, 1317, livingCharacter);
+        CHECK_EQ(livingCharacter.itemSkillBonuses["DarkMagic"], 4);
+        CHECK_EQ(livingCharacter.itemSkillBonuses["Meditation"], 15);
+        CHECK_EQ(livingCharacter.healthRegenPerSecond, doctest::Approx(-1.0f));
+
+        OpenYAMM::Game::Character lich = livingCharacter;
+        lich.className = "Lich";
+        lich.itemSkillBonuses.clear();
+        lich.healthRegenPerSecond = 0.0f;
+        applyMergedRareItemEffects(gameData, 1317, lich);
+        CHECK_EQ(lich.healthRegenPerSecond, doctest::Approx(0.0f));
+    }
+}
+
+TEST_CASE("merged MM6 artifacts and relics apply their MMerge passive effects")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    SUBCASE("Arthur grants all primary stats and spell points")
+    {
+        OpenYAMM::Game::Character character = {};
+        applyMergedRareItemEffects(gameData, 2029, character);
+        CHECK_EQ(character.magicalBonuses.might, 10);
+        CHECK_EQ(character.magicalBonuses.intellect, 10);
+        CHECK_EQ(character.magicalBonuses.personality, 10);
+        CHECK_EQ(character.magicalBonuses.endurance, 10);
+        CHECK_EQ(character.magicalBonuses.speed, 10);
+        CHECK_EQ(character.magicalBonuses.accuracy, 10);
+        CHECK_EQ(character.magicalBonuses.luck, 10);
+        CHECK_EQ(character.magicalBonuses.maxSpellPoints, 25);
+    }
+
+    SUBCASE("Aegis grants shielding, luck, petrification immunity, and its speed penalty")
+    {
+        OpenYAMM::Game::Character character = {};
+        applyMergedRareItemEffects(gameData, 2043, character);
+        CHECK(character.halfMissileDamage);
+        CHECK_EQ(character.magicalBonuses.luck, 20);
+        CHECK_EQ(character.magicalBonuses.speed, -20);
+        CHECK(character.magicalConditionImmunities.test(
+            static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Petrified)));
+    }
+
+    SUBCASE("Hades grants poison damage, disarm, luck, and negative regeneration")
+    {
+        OpenYAMM::Game::Party party = makeRegressionParty(gameData);
+        OpenYAMM::Game::Character *pCharacter = party.member(0);
+        REQUIRE(pCharacter != nullptr);
+        applyMergedRareItemEffects(gameData, 2035, *pCharacter);
+        CHECK_EQ(pCharacter->magicalBonuses.luck, 20);
+        CHECK_EQ(pCharacter->itemSkillBonuses["DisarmTraps"], 10);
+        CHECK_EQ(pCharacter->weaponEnchantmentDamageBonus, 20);
+        CHECK_EQ(pCharacter->healthRegenPerSecond, doctest::Approx(-1.0f));
+        CHECK(pCharacter->equippedItemEffectFlags.contains("PoisonWeaponDamage"));
+
+        pCharacter->health = 20;
+        party.updateRecovery(2.0f);
+        CHECK_EQ(pCharacter->health, 18);
+    }
+}
+
+TEST_CASE("merged rare slaying recognizes MMerge demon and elf families")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Character character = {};
+    character.equipment.mainHand = 1310;
+    character.equipmentRuntime.mainHand.artifactId = 1310;
+    character.equipmentRuntime.mainHand.rarity = OpenYAMM::Game::ItemRarity::Artifact;
+
+    CHECK_EQ(
+        OpenYAMM::Game::ItemEnchantRuntime::characterAttackDamageMultiplierAgainstMonster(
+            character,
+            OpenYAMM::Game::CharacterAttackMode::Melee,
+            &gameData.itemTable,
+            &gameData.specialItemEnchantTable,
+            OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Demon)),
+        2);
+
+    character.equipment.mainHand = 1333;
+    character.equipmentRuntime.mainHand.artifactId = 1333;
+    CHECK_EQ(
+        OpenYAMM::Game::ItemEnchantRuntime::characterAttackDamageMultiplierAgainstMonster(
+            character,
+            OpenYAMM::Game::CharacterAttackMode::Melee,
+            &gameData.itemTable,
+            &gameData.specialItemEnchantTable,
+            OpenYAMM::Game::monsterKindFlag(OpenYAMM::Game::MonsterKind::Elf)),
+        2);
+}
+
+TEST_CASE("MMerge gender-restricted artifacts enforce their wearer sex")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    const OpenYAMM::Game::ItemDefinition *pHeroBelt = gameData.itemTable.get(1337);
+    const OpenYAMM::Game::ItemDefinition *pLadyEscort = gameData.itemTable.get(1338);
+    REQUIRE(pHeroBelt != nullptr);
+    REQUIRE(pLadyEscort != nullptr);
+
+    OpenYAMM::Game::Character character = {};
+    character.sexId = 0;
+    CHECK(OpenYAMM::Game::ItemRuntime::characterMeetsRaceRestriction(character, *pHeroBelt));
+    CHECK_FALSE(OpenYAMM::Game::ItemRuntime::characterMeetsRaceRestriction(character, *pLadyEscort));
+
+    character.sexId = 1;
+    CHECK_FALSE(OpenYAMM::Game::ItemRuntime::characterMeetsRaceRestriction(character, *pHeroBelt));
+    CHECK(OpenYAMM::Game::ItemRuntime::characterMeetsRaceRestriction(character, *pLadyEscort));
 }
 
 TEST_CASE("ring auto equip uses the first free slot then replaces the first ring")

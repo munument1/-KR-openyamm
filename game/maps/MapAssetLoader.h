@@ -255,6 +255,11 @@ struct MapAssetInfo
 
 size_t mapRenderSourcePixelBytes(const MapAssetInfo &mapAssetInfo);
 void clearMapRenderSourcePixels(MapAssetInfo &mapAssetInfo);
+bool ensureMonsterSpriteFramesLoaded(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const MonsterTable &monsterTable,
+    int16_t monsterId,
+    SpriteFrameTable &spriteFrameTable);
 
 enum class MapLoadPurpose
 {

@@ -9,6 +9,7 @@
 #include "game/gameplay/HouseServiceRuntime.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
 #include "game/gameplay/NpcFollowerRuntime.h"
+#include "game/gameplay/TravelRuntime.h"
 #include "game/items/ItemRuntime.h"
 #include "game/items/PriceCalculator.h"
 #include "game/maps/SaveGame.h"
@@ -153,6 +154,25 @@ public:
         bool randomRotate) override
     {
         (void)itemId;
+        (void)x;
+        (void)y;
+        (void)z;
+        (void)speed;
+        (void)count;
+        (void)randomRotate;
+        return false;
+    }
+
+    bool summonEventObject(
+        uint32_t objectId,
+        int32_t x,
+        int32_t y,
+        int32_t z,
+        int32_t speed,
+        uint32_t count,
+        bool randomRotate) override
+    {
+        (void)objectId;
         (void)x;
         (void)y;
         (void)z;
@@ -3764,6 +3784,84 @@ TEST_CASE("dwi training service stays open after success")
         OpenYAMM::Game::GameMechanics::calculateEffectiveCharacterMaxSpellPoints(*pOtherMember));
 }
 
+TEST_CASE("dwi training service uses OE parallel training rounds per house visit")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    OpenYAMM::Game::Character *pFirstMember = harness.party().activeMember();
+    OpenYAMM::Game::Character *pSecondMember = harness.party().member(1);
+    REQUIRE(pFirstMember != nullptr);
+    REQUIRE(pSecondMember != nullptr);
+    pFirstMember->experience = 50000;
+    pSecondMember->experience = 50000;
+    harness.party().addGold(100000);
+
+    const float initialGameMinutes = harness.worldRuntime().gameMinutes();
+    const int initialMinuteOfDay = static_cast<int>(initialGameMinutes) % (24 * 60);
+    int minutesUntilDawn = 5 * 60 - initialMinuteOfDay;
+    if (minutesUntilDawn <= 0)
+    {
+        minutesUntilDawn += 24 * 60;
+    }
+    const float firstTrainingRoundMinutes = 7.0f * 24.0f * 60.0f
+        + static_cast<float>(minutesUntilDawn)
+        + 4.0f * 60.0f;
+
+    const OpenYAMM::Game::EventDialogContent &firstDialog = harness.openHouseDialog(TrainingHallHouseId);
+    const std::optional<size_t> firstTrainIndex = findActionIndexByLabelPrefix(firstDialog, "Train to level ");
+    REQUIRE(firstTrainIndex.has_value());
+    harness.executeAndPresent(*firstTrainIndex);
+
+    const float afterFirstTrainingRound = initialGameMinutes + firstTrainingRoundMinutes;
+    CHECK_EQ(harness.worldRuntime().gameMinutes(), doctest::Approx(afterFirstTrainingRound));
+
+    pFirstMember->health = 1;
+    pFirstMember->spellPoints = 0;
+    REQUIRE(harness.party().setActiveMemberIndex(1));
+
+    const OpenYAMM::Game::EventDialogContent &secondMemberDialog = harness.refreshCurrentHouseDialog();
+    const std::optional<size_t> secondMemberTrainIndex =
+        findActionIndexByLabelPrefix(secondMemberDialog, "Train to level ");
+    REQUIRE(secondMemberTrainIndex.has_value());
+    const OpenYAMM::Game::EventDialogContent &secondMemberResult =
+        harness.executeAndPresent(*secondMemberTrainIndex);
+
+    CHECK_EQ(harness.worldRuntime().gameMinutes(), doctest::Approx(afterFirstTrainingRound));
+    CHECK_EQ(pFirstMember->health, 1);
+    CHECK_EQ(pFirstMember->spellPoints, 0);
+
+    const std::optional<size_t> secondLevelTrainIndex =
+        findActionIndexByLabelPrefix(secondMemberResult, "Train to level ");
+    REQUIRE(secondLevelTrainIndex.has_value());
+    harness.executeAndPresent(*secondLevelTrainIndex);
+
+    constexpr float SubsequentTrainingRoundMinutes = 8.0f * 24.0f * 60.0f;
+    const float afterSecondTrainingRound = afterFirstTrainingRound + SubsequentTrainingRoundMinutes;
+    CHECK_EQ(harness.worldRuntime().gameMinutes(), doctest::Approx(afterSecondTrainingRound));
+    CHECK_EQ(
+        pFirstMember->health,
+        OpenYAMM::Game::GameMechanics::calculateEffectiveCharacterMaxHealth(*pFirstMember));
+    CHECK_EQ(
+        pFirstMember->spellPoints,
+        OpenYAMM::Game::GameMechanics::calculateEffectiveCharacterMaxSpellPoints(*pFirstMember));
+
+    const OpenYAMM::Game::EventDialogContent &closedDialog = harness.closeAndPresent();
+    CHECK_FALSE(closedDialog.isActive);
+    CHECK(harness.eventRuntimeState().dialogueState.trainingLevelsByMember.empty());
+
+    REQUIRE(harness.party().setActiveMemberIndex(0));
+    const OpenYAMM::Game::EventDialogContent &reenteredDialog = harness.openHouseDialog(TrainingHallHouseId);
+    const std::optional<size_t> reenteredTrainIndex =
+        findActionIndexByLabelPrefix(reenteredDialog, "Train to level ");
+    REQUIRE(reenteredTrainIndex.has_value());
+    harness.executeAndPresent(*reenteredTrainIndex);
+
+    CHECK_EQ(
+        harness.worldRuntime().gameMinutes(),
+        doctest::Approx(afterSecondTrainingRound + SubsequentTrainingRoundMinutes));
+}
+
 TEST_CASE("dwi tavern arcomage submenu")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -6301,6 +6399,53 @@ TEST_CASE("event fountain heal and refresh status work")
     REQUIRE(harness.executeOut01LocalEvent(104));
     REQUIRE_FALSE(harness.eventRuntimeState().statusMessages.empty());
     CHECK_EQ(harness.eventRuntimeState().statusMessages.back(), "Refreshing");
+}
+
+TEST_CASE("MM8 temporary well stat bonuses expire during travel")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    SUBCASE("Dagger Wound Intellect")
+    {
+        OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+        OpenYAMM::Game::Character *pMember = harness.party().activeMember();
+        REQUIRE(pMember != nullptr);
+        pMember->permanentBonuses.intellect = 3;
+
+        REQUIRE(harness.executeOut01LocalEvent(101));
+        CHECK_EQ(pMember->temporaryEventBonuses.intellect, 15);
+        CHECK_EQ(pMember->magicalBonuses.intellect, 15);
+        CHECK_EQ(pMember->permanentBonuses.intellect, 3);
+
+        OpenYAMM::Game::applyTravelDaysSideEffects(harness.party(), &harness.worldRuntime(), 4, 0);
+        CHECK_EQ(pMember->temporaryEventBonuses.intellect, 0);
+        CHECK_EQ(pMember->magicalBonuses.intellect, 0);
+        CHECK_EQ(pMember->permanentBonuses.intellect, 3);
+
+        REQUIRE(harness.executeOut01LocalEvent(101));
+        CHECK_EQ(pMember->temporaryEventBonuses.intellect, 15);
+    }
+
+    SUBCASE("Ravenshore Might")
+    {
+        OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+        OpenYAMM::Game::Character *pMember = harness.party().activeMember();
+        REQUIRE(pMember != nullptr);
+        pMember->permanentBonuses.might = 2;
+
+        REQUIRE(harness.executeOut02LocalEvent(101));
+        CHECK_EQ(pMember->temporaryEventBonuses.might, 25);
+        CHECK_EQ(pMember->magicalBonuses.might, 25);
+        CHECK_EQ(pMember->permanentBonuses.might, 2);
+
+        OpenYAMM::Game::applyTravelDaysSideEffects(harness.party(), &harness.worldRuntime(), 1, 0);
+        CHECK_EQ(pMember->temporaryEventBonuses.might, 0);
+        CHECK_EQ(pMember->magicalBonuses.might, 0);
+        CHECK_EQ(pMember->permanentBonuses.might, 2);
+
+        REQUIRE(harness.executeOut02LocalEvent(101));
+        CHECK_EQ(pMember->temporaryEventBonuses.might, 25);
+    }
 }
 
 TEST_CASE("event luck fountain grants permanent bonus once")

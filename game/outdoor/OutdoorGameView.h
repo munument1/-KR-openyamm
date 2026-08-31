@@ -123,6 +123,8 @@ public:
     bool requestTravelAutosave();
     void setSettingsSnapshot(const GameSettings &settings);
     bool executeEventHooks(EventRuntimeHookKind kind);
+    bool ensureMonsterVisualResources(int16_t monsterId);
+    const SpriteFrameTable *actorSpriteFrameTable() const;
 
 private:
     friend struct GameApplicationTestAccess;

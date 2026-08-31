@@ -14,6 +14,8 @@ add_executable(openyamm_unit_tests
     GameplayBolsterRuntimeTests.cpp
     GameplaySaveLoadUiSupportTests.cpp
     GameplayRuleRegressionTests.cpp
+    GameInputSystemTests.cpp
+    AwardRuntimeTests.cpp
     GameplayProjectileServiceTests.cpp
     ImageAssetLoaderTests.cpp
     IndoorCollisionPrimitivesTests.cpp
@@ -64,6 +66,7 @@ add_executable(openyamm_unit_tests
     UiLayoutManagerTests.cpp
     GameplayScreenRuntimeTestStubs.cpp
     ../game/app/GameSettings.cpp
+    ../game/app/GameInputSystem.cpp
     ../game/app/KeyboardBindings.cpp
     ../game/app/ScreenManager.cpp
     ../engine/AudioSystem.cpp
@@ -100,6 +103,7 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/GameplayWorldItemInteraction.cpp
     ../game/gameplay/InteractiveDecorationRules.cpp
     ../game/gameplay/BountyHuntRuntime.cpp
+    ../game/gameplay/AwardRuntime.cpp
     ../game/gameplay/MonsterSpellSupport.cpp
     ../game/gameplay/MercenaryRecruitmentRuntime.cpp
     ../game/gameplay/GameMechanics.cpp
@@ -153,6 +157,7 @@ add_executable(openyamm_unit_tests
     ../game/party/SkillData.cpp
     ../game/party/SpellSchool.cpp
     ../game/tables/ChestTable.cpp
+    ../game/tables/AwardTable.cpp
     ../game/tables/CharacterDollTable.cpp
     ../game/tables/CharacterInspectTable.cpp
     ../game/tables/ClassMultiplierTable.cpp

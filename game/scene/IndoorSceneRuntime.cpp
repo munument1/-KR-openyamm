@@ -620,6 +620,21 @@ void IndoorSceneRuntime::advanceGameMinutes(float minutes)
     m_worldRuntime.advanceGameMinutes(minutes);
 }
 
+void IndoorSceneRuntime::advanceTurnBasedGameMinutes(float minutes)
+{
+    if (minutes <= 0.0f)
+    {
+        return;
+    }
+
+    m_worldRuntime.advanceGameMinutes(minutes);
+    updateTimers(minutes);
+    applyMm9TeacherScheduleActivations(
+        m_mm9TeacherScheduleRuntime.update(m_worldRuntime.gameMinutes()),
+        m_worldRuntime,
+        m_worldRuntime);
+}
+
 const std::optional<MapDeltaData> &IndoorSceneRuntime::mapDeltaData() const
 {
     return m_mapDeltaData;

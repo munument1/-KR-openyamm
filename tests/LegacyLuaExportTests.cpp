@@ -759,6 +759,38 @@ TEST_CASE("legacy lua exporter preserves mm8 reagent item ranges")
     CHECK(pureSpeedLua.find("DecorVar(") == std::string::npos);
 }
 
+TEST_CASE("legacy lua exporter labels mm8 summon item payloads as item ids")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::vector<uint8_t> evtBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm8/_legacy/events/Out01.EVT");
+    const std::vector<uint8_t> strBytes =
+        readBinaryFixture(sourceRoot / "assets_dev/worlds/mm8/_legacy/events/OUT01.STR");
+
+    OpenYAMM::Game::EvtProgram evtProgram = {};
+    REQUIRE(evtProgram.loadFromBytes(evtBytes));
+
+    OpenYAMM::Game::StrTable strTable = {};
+    REQUIRE(strTable.loadFromBytes(strBytes));
+
+    OpenYAMM::Game::LegacyLuaExportLookups lookups = {};
+    lookups.itemNames[200] = "Widowsweep Berries";
+    lookups.objectPayloadNames[200] = "Fae dust";
+
+    const std::string lua = OpenYAMM::Game::generateLegacyEventLuaChunk(
+        evtProgram,
+        strTable,
+        lookups,
+        OpenYAMM::Game::LegacyLuaExportScope::Map,
+        OpenYAMM::Game::LegacyEventVersion::Mm8);
+
+    const std::string palmTreeLua = extractLuaEvent(lua, "RegisterEvent(494");
+    INFO(palmTreeLua);
+    CHECK(palmTreeLua.find("evt.SummonItem(200, 3896, 8080, 544, 1000, 1, true) -- Widowsweep Berries")
+        != std::string::npos);
+    CHECK(palmTreeLua.find("-- Fae dust") == std::string::npos);
+}
+
 TEST_CASE("legacy lua exporter preserves mm8 indoor light group ids")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;

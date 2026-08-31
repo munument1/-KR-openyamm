@@ -965,6 +965,15 @@ public:
         uint32_t count,
         bool randomRotate
     ) override;
+    bool summonEventObject(
+        uint32_t objectId,
+        int32_t x,
+        int32_t y,
+        int32_t z,
+        int32_t speed,
+        uint32_t count,
+        bool randomRotate
+    ) override;
     bool summonFriendlyMonsterById(
         int16_t monsterId,
         uint32_t count,
@@ -1076,6 +1085,16 @@ public:
     uint64_t bloodSplatRevision() const;
 
 private:
+    bool summonEventPayload(
+        uint32_t payloadId,
+        bool payloadIsObjectId,
+        int32_t x,
+        int32_t y,
+        int32_t z,
+        int32_t speed,
+        uint32_t count,
+        bool randomRotate
+    );
 
     bool applyMonsterActorMeleeAttackToMapActor(
         size_t actorIndex,

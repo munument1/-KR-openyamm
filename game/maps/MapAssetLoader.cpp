@@ -1117,21 +1117,13 @@ std::optional<SpriteFrameTable> loadCommonSpriteFrameTable(
     return spriteFrameTable;
 }
 
-std::optional<SpriteFrameTable> loadSpriteFrameTable(
+bool appendMonsterSpriteFrameFamilies(
     const Engine::AssetFileSystem &assetFileSystem,
-    const std::unordered_set<std::string> &monsterFamilies = {},
-    const std::unordered_set<std::string> &worldPrefixedMonsterSpriteNames = {},
-    MapAssetLoadSharedCache *pSharedCache = nullptr)
+    const std::unordered_set<std::string> &monsterFamilies,
+    const std::unordered_set<std::string> &worldPrefixedMonsterSpriteNames,
+    SpriteFrameTable &spriteFrameTable,
+    MapAssetLoadSharedCache *pSharedCache)
 {
-    const std::optional<SpriteFrameTable> commonSpriteFrameTable =
-        loadCommonSpriteFrameTable(assetFileSystem, pSharedCache);
-
-    if (!commonSpriteFrameTable)
-    {
-        return std::nullopt;
-    }
-
-    SpriteFrameTable spriteFrameTable = *commonSpriteFrameTable;
     std::string errorMessage;
 
     std::vector<std::string> sortedFamilies(monsterFamilies.begin(), monsterFamilies.end());
@@ -1145,14 +1137,14 @@ std::optional<SpriteFrameTable> loadSpriteFrameTable(
         if (!familyContents)
         {
             std::cerr << "Failed to load monster sprite frame family: " << familyRoot << '\n';
-            return std::nullopt;
+            return false;
         }
 
         if (!spriteFrameTable.loadFromYaml(*familyContents, errorMessage, true))
         {
             std::cerr << "Failed to load monster sprite frame family " << familyRoot
                       << ": " << errorMessage << '\n';
-            return std::nullopt;
+            return false;
         }
     }
 
@@ -1224,7 +1216,7 @@ std::optional<SpriteFrameTable> loadSpriteFrameTable(
         {
             std::cerr << "Failed to load monster sprite frame family " << familyRoot
                       << ": " << errorMessage << '\n';
-            return std::nullopt;
+            return false;
         }
 
         for (const std::string &spriteName : resolvedSpritesInFamily)
@@ -1236,6 +1228,35 @@ std::optional<SpriteFrameTable> loadSpriteFrameTable(
     for (const std::string &spriteName : unresolvedWorldPrefixedSprites)
     {
         std::cerr << "Failed to resolve world-prefixed monster sprite frame: " << spriteName << '\n';
+    }
+
+    return true;
+}
+
+std::optional<SpriteFrameTable> loadSpriteFrameTable(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const std::unordered_set<std::string> &monsterFamilies = {},
+    const std::unordered_set<std::string> &worldPrefixedMonsterSpriteNames = {},
+    MapAssetLoadSharedCache *pSharedCache = nullptr)
+{
+    const std::optional<SpriteFrameTable> commonSpriteFrameTable =
+        loadCommonSpriteFrameTable(assetFileSystem, pSharedCache);
+
+    if (!commonSpriteFrameTable)
+    {
+        return std::nullopt;
+    }
+
+    SpriteFrameTable spriteFrameTable = *commonSpriteFrameTable;
+
+    if (!appendMonsterSpriteFrameFamilies(
+            assetFileSystem,
+            monsterFamilies,
+            worldPrefixedMonsterSpriteNames,
+            spriteFrameTable,
+            pSharedCache))
+    {
+        return std::nullopt;
     }
 
     return spriteFrameTable;
@@ -3983,6 +4004,57 @@ std::vector<std::string> buildSceneOverlayPathCandidates(
     });
     return candidates;
 }
+}
+
+bool ensureMonsterSpriteFramesLoaded(
+    const Engine::AssetFileSystem &assetFileSystem,
+    const MonsterTable &monsterTable,
+    int16_t monsterId,
+    SpriteFrameTable &spriteFrameTable)
+{
+    const MonsterEntry *pMonsterEntry = monsterTable.findById(monsterId);
+
+    if (pMonsterEntry == nullptr)
+    {
+        return false;
+    }
+
+    for (const std::string &spriteName : pMonsterEntry->spriteNames)
+    {
+        if (!spriteName.empty() && spriteFrameTable.findFrameIndexBySpriteName(spriteName))
+        {
+            return true;
+        }
+    }
+
+    std::unordered_set<std::string> monsterFamilies;
+    std::unordered_set<std::string> worldPrefixedMonsterSpriteNames;
+    appendMonsterSpriteFamilies(monsterFamilies, worldPrefixedMonsterSpriteNames, pMonsterEntry);
+
+    if (monsterFamilies.empty() && worldPrefixedMonsterSpriteNames.empty())
+    {
+        return false;
+    }
+
+    if (!appendMonsterSpriteFrameFamilies(
+            assetFileSystem,
+            monsterFamilies,
+            worldPrefixedMonsterSpriteNames,
+            spriteFrameTable,
+            nullptr))
+    {
+        return false;
+    }
+
+    for (const std::string &spriteName : pMonsterEntry->spriteNames)
+    {
+        if (!spriteName.empty() && spriteFrameTable.findFrameIndexBySpriteName(spriteName))
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 namespace

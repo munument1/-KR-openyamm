@@ -100,6 +100,7 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
         assetFileSystem.readTextFile("Data/scripts/common/event_support.lua");
     const std::optional<std::string> globalScriptText = assetFileSystem.readTextFile("Data/scripts/Global.lua");
     const std::optional<std::string> out01ScriptText = assetFileSystem.readTextFile("Data/scripts/maps/out01.lua");
+    const std::optional<std::string> out02ScriptText = assetFileSystem.readTextFile("Data/scripts/maps/out02.lua");
 
     if (!globalScriptText.has_value())
     {
@@ -136,6 +137,25 @@ bool loadRegressionGameData(RegressionGameData &data, std::string &failure)
     if (!data.out01LocalEventProgram.has_value())
     {
         failure = "could not load out01 local event script for regression tests: " + out01ScriptError;
+        return false;
+    }
+
+    if (!out02ScriptText.has_value())
+    {
+        failure = "could not read out02 local event script for regression tests";
+        return false;
+    }
+
+    std::string out02ScriptError;
+    data.out02LocalEventProgram = Game::ScriptedEventProgram::loadFromLuaText(
+        prependLuaSupport(supportScriptText, out02ScriptText),
+        "@Data/scripts/maps/out02.lua",
+        Game::ScriptedEventScope::Map,
+        out02ScriptError);
+
+    if (!data.out02LocalEventProgram.has_value())
+    {
+        failure = "could not load out02 local event script for regression tests: " + out02ScriptError;
         return false;
     }
 

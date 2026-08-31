@@ -61,3 +61,33 @@ TEST_CASE("mobile gameplay layout overrides preserve follower child draw order")
         CHECK_EQ(pButton->parentId, "OutdoorGoldBar");
     }
 }
+
+TEST_CASE("character doll boots render above armor")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+    REQUIRE(assetFileSystem.initialize(
+        sourceRoot,
+        sourceRoot / "assets_dev",
+        OpenYAMM::Engine::AssetScaleTier::X1));
+
+    OpenYAMM::Game::UiLayoutManager layoutManager;
+    REQUIRE(layoutManager.loadLayoutFile(assetFileSystem, "Data/ui/gameplay/character.yml"));
+
+    const OpenYAMM::Game::UiLayoutManager::LayoutElement *pArmor =
+        layoutManager.findElement("CharacterDollArmorSlot");
+    const OpenYAMM::Game::UiLayoutManager::LayoutElement *pBoots =
+        layoutManager.findElement("CharacterDollBootsSlot");
+    REQUIRE(pArmor != nullptr);
+    REQUIRE(pBoots != nullptr);
+    CHECK_GT(pBoots->zIndex, pArmor->zIndex);
+
+    const std::vector<std::string> layoutIds = layoutManager.sortedLayoutIdsForScreen("Character");
+    const std::vector<std::string>::const_iterator armorIterator =
+        std::find(layoutIds.begin(), layoutIds.end(), "CharacterDollArmorSlot");
+    const std::vector<std::string>::const_iterator bootsIterator =
+        std::find(layoutIds.begin(), layoutIds.end(), "CharacterDollBootsSlot");
+    REQUIRE(armorIterator != layoutIds.end());
+    REQUIRE(bootsIterator != layoutIds.end());
+    CHECK(armorIterator < bootsIterator);
+}

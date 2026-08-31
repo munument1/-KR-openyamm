@@ -954,6 +954,53 @@ const GameplayUiController::QuickReferenceScreenState &GameplayScreenRuntime::qu
     return m_session.gameplayScreenState().quickReferenceScreen();
 }
 
+const AwardTable *GameplayScreenRuntime::awardTable() const
+{
+    return &m_session.data().awardTable();
+}
+
+bool GameplayScreenRuntime::isAutonoteUnlocked(uint32_t autonoteId) const
+{
+    constexpr uint32_t AutonoteVariableTag = 0x00E1u;
+    const uint32_t variable = (autonoteId << 16) | AutonoteVariableTag;
+    const auto stateHasAutonote = [variable](const EventRuntimeState *pEventRuntimeState)
+    {
+        if (pEventRuntimeState == nullptr)
+        {
+            return false;
+        }
+
+        const std::unordered_map<uint32_t, int32_t>::const_iterator iterator =
+            pEventRuntimeState->variables.find(variable);
+        return iterator != pEventRuntimeState->variables.end() && iterator->second != 0;
+    };
+
+    if (stateHasAutonote(worldRuntime() != nullptr ? worldRuntime()->eventRuntimeState() : nullptr))
+    {
+        return true;
+    }
+
+    for (const auto &[mapName, snapshot] : m_session.outdoorWorldStates())
+    {
+        (void)mapName;
+        if (snapshot.eventRuntimeState && stateHasAutonote(&*snapshot.eventRuntimeState))
+        {
+            return true;
+        }
+    }
+
+    for (const auto &[mapName, snapshot] : m_session.indoorSceneStates())
+    {
+        (void)mapName;
+        if (snapshot.eventRuntimeState && stateHasAutonote(&*snapshot.eventRuntimeState))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 const JournalQuestTable *GameplayScreenRuntime::journalQuestTable() const
 {
     return &m_session.data().journalQuestTable();
@@ -3985,6 +4032,10 @@ std::string GameplayScreenRuntime::resolveEquippedItemHudTextureName(
         candidateSuffixes = hasRightHandWeapon
             ? std::vector<std::string>{primarySuffix, alternateSuffix}
             : std::vector<std::string>{alternateSuffix, primarySuffix};
+    }
+    else if (slot == EquipmentSlot::Cloak)
+    {
+        candidateSuffixes = {primarySuffix + "a"};
     }
     else
     {

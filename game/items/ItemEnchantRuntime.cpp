@@ -1,6 +1,7 @@
 #include "game/items/ItemEnchantRuntime.h"
 
 #include "game/gameplay/GameMechanics.h"
+#include "game/party/SkillData.h"
 #include "game/tables/ItemTable.h"
 #include "game/tables/MonsterTable.h"
 
@@ -164,6 +165,30 @@ int rareItemDamageMultiplierAgainstMonster(uint32_t itemId, uint32_t monsterKind
 
         case 538:
             return monsterHasKind(monsterKindFlags, MonsterKind::Elemental) ? 2 : 1;
+
+        case 1309:
+        case 1329:
+            return monsterHasKind(monsterKindFlags, MonsterKind::Undead) ? 2 : 1;
+
+        case 1310:
+            return monsterHasKind(monsterKindFlags, MonsterKind::Undead)
+                    || monsterHasKind(monsterKindFlags, MonsterKind::Dragon)
+                    || monsterHasKind(monsterKindFlags, MonsterKind::Demon)
+                ? 2
+                : 1;
+
+        case 1319:
+        case 1333:
+            return monsterHasKind(monsterKindFlags, MonsterKind::Elf) ? 2 : 1;
+
+        case 2022:
+            return monsterHasKind(monsterKindFlags, MonsterKind::Dragon)
+                    || monsterHasKind(monsterKindFlags, MonsterKind::Demon)
+                ? 2
+                : 1;
+
+        case 2023:
+            return monsterHasKind(monsterKindFlags, MonsterKind::Dragon) ? 2 : 1;
 
         default:
             return 1;
@@ -700,6 +725,64 @@ void addAllMagicResistances(Character &member, int amount, bool includeSpirit = 
     }
 }
 
+void addAllElementalResistances(Character &member, int amount)
+{
+    member.magicalBonuses.resistances.fire += amount;
+    member.magicalBonuses.resistances.air += amount;
+    member.magicalBonuses.resistances.water += amount;
+    member.magicalBonuses.resistances.earth += amount;
+}
+
+void addMmergeFullConditionImmunity(Character &member)
+{
+    addDiseaseImmunity(member);
+    addPoisonImmunity(member);
+    addConditionImmunity(member, CharacterCondition::Insane);
+    addConditionImmunity(member, CharacterCondition::Paralyzed);
+    addConditionImmunity(member, CharacterCondition::Petrified);
+    addConditionImmunity(member, CharacterCondition::Asleep);
+}
+
+int mmergeItemBuffPower(const Character &member, const std::string &skillName)
+{
+    const CharacterSkill *pSkill = member.findSkill(skillName);
+
+    if (pSkill == nullptr || pSkill->mastery == SkillMastery::None)
+    {
+        return 3;
+    }
+
+    int masteryRank = 1;
+
+    switch (pSkill->mastery)
+    {
+        case SkillMastery::Expert:
+            masteryRank = 2;
+            break;
+
+        case SkillMastery::Master:
+            masteryRank = 3;
+            break;
+
+        case SkillMastery::Grandmaster:
+            masteryRank = 4;
+            break;
+
+        case SkillMastery::Normal:
+        case SkillMastery::None:
+        default:
+            break;
+    }
+
+    return std::max(3, static_cast<int>(pSkill->level) * masteryRank / 2);
+}
+
+bool isLich(const Character &member)
+{
+    const std::string &className = member.className.empty() ? member.role : member.className;
+    return canonicalClassName(className).find("Lich") != std::string::npos;
+}
+
 void applyRareItemBonus(Character &member, uint32_t itemId)
 {
     switch (itemId)
@@ -929,6 +1012,400 @@ void applyRareItemBonus(Character &member, uint32_t itemId)
 
         case 541:
             member.weaponEnchantmentDamageBonus += 12;
+            break;
+
+        case 1302:
+            member.magicalBonuses.speed += 40;
+            member.attackRecoveryReductionTicks += 20;
+            break;
+
+        case 1303:
+            member.magicalBonuses.might += 40;
+            member.weaponEnchantmentDamageBonus += 15;
+            break;
+
+        case 1304:
+            member.magicalBonuses.personality += 40;
+            addSkillBonus(member, "Armsmaster", 10);
+            break;
+
+        case 1305:
+            member.magicalBonuses.luck += 40;
+            addSkillBonus(member, "DisarmTraps", 10);
+            break;
+
+        case 1306:
+            addAllPrimaryStats(member, 10);
+            member.halfMissileDamage = true;
+            break;
+
+        case 1307:
+            member.magicalBonuses.endurance += 25;
+            addMmergeFullConditionImmunity(member);
+            break;
+
+        case 1308:
+            member.magicalBonuses.resistances.fire += 65000;
+            member.weaponEnchantmentDamageBonus += 10;
+            break;
+
+        case 1309:
+            member.weaponEnchantmentDamageBonus += 15;
+            addConditionImmunity(member, CharacterCondition::Paralyzed);
+            break;
+
+        case 1310:
+        case 1311:
+            break;
+
+        case 1312:
+            member.magicalBonuses.accuracy += 50;
+            member.weaponEnchantmentDamageBonus += 15;
+            break;
+
+        case 1313:
+            addSkillBonus(member, "Unarmed", 10);
+            addSkillBonus(member, "Dodging", 10);
+            break;
+
+        case 1314:
+            member.magicalBonuses.speed += 40;
+            addHalfLearnedSkillBonus(member, "WaterMagic");
+            break;
+
+        case 1315:
+            addHalfLearnedSkillBonus(member, "MindMagic");
+            addHalfLearnedSkillBonus(member, "DarkMagic");
+            break;
+
+        case 1316:
+            member.magicalBonuses.might += 150;
+            member.magicalBonuses.intellect -= 40;
+            member.magicalBonuses.personality -= 40;
+            member.magicalBonuses.speed -= 40;
+            break;
+
+        case 1317:
+            addSkillBonus(member, "Meditation", 15);
+            addHalfLearnedSkillBonus(member, "DarkMagic");
+
+            if (!isLich(member))
+            {
+                member.healthRegenPerSecond -= 1.0f;
+            }
+            break;
+
+        case 1318:
+            member.magicalBonuses.luck += 50;
+            addAllMagicResistances(member, -10);
+            addSkillBonus(member, "DisarmTraps", 5);
+            addSkillBonus(member, "Unarmed", 5);
+            member.waterWalking = true;
+            break;
+
+        case 1319:
+            addSkillBonus(member, "DisarmTraps", 5);
+            member.weaponEnchantmentDamageBonus += 8;
+            break;
+
+        case 1320:
+            member.magicalBonuses.might += 100;
+            member.magicalBonuses.endurance += 100;
+            member.magicalBonuses.armorClass -= 15;
+            break;
+
+        case 1321:
+            addHalfLearnedSkillBonus(member, "SpiritMagic");
+            addSkillBonus(member, "Shield", 5);
+            member.magicalBonuses.resistances.body -= 10;
+            member.magicalBonuses.resistances.mind -= 10;
+            break;
+
+        case 1322:
+            member.magicalBonuses.endurance += 50;
+            member.magicalBonuses.resistances.earth -= 30;
+            member.halfMissileDamage = true;
+            addConditionImmunity(member, CharacterCondition::Petrified);
+            break;
+
+        case 1323:
+            member.magicalBonuses.might += 15;
+            member.magicalBonuses.personality += 15;
+            member.magicalBonuses.luck -= 40;
+            addHalfLearnedSkillBonus(member, "LightMagic");
+            break;
+
+        case 1324:
+            member.magicalBonuses.endurance -= 50;
+            addSkillBonus(member, "Learning", 15);
+            break;
+
+        case 1325:
+            member.magicalBonuses.personality += 30;
+            member.magicalBonuses.armorClass -= 20;
+            member.magicalBonuses.resistances.water += 50;
+            addHalfLearnedSkillBonus(member, "FireMagic");
+            break;
+
+        case 1326:
+            member.magicalBonuses.might += 75;
+            member.magicalBonuses.speed -= 40;
+            break;
+
+        case 1327:
+            member.magicalBonuses.speed += 50;
+            member.magicalBonuses.luck += 50;
+            addAllMagicResistances(member, -15);
+            break;
+
+        case 1328:
+            member.magicalBonuses.accuracy += 150;
+            member.magicalBonuses.armorClass -= 25;
+            addSkillBonus(member, "Bow", 5);
+            break;
+
+        case 1329:
+            member.magicalBonuses.speed -= 40;
+            addHalfLearnedSkillBonus(member, "MindMagic");
+            addHalfLearnedSkillBonus(member, "BodyMagic");
+            break;
+
+        case 1330:
+            member.magicalBonuses.might += 75;
+            member.magicalBonuses.resistances.air -= 50;
+            addHalfLearnedSkillBonus(member, "SpiritMagic");
+            break;
+
+        case 1331:
+            member.magicalBonuses.speed += 100;
+            member.magicalBonuses.accuracy += 50;
+            member.magicalBonuses.resistances.air += 50;
+            member.healthRegenPerSecond += 1.0f;
+            member.spellRegenPerSecond += 1.0f;
+            member.featherFalling = true;
+            break;
+
+        case 1332:
+            member.magicalBonuses.intellect -= 20;
+            member.magicalBonuses.personality -= 20;
+            addMmergeFullConditionImmunity(member);
+            break;
+
+        case 1333:
+            member.halfMissileDamage = true;
+            break;
+
+        case 1334:
+            member.magicalBonuses.intellect += 15;
+            member.magicalBonuses.personality += 15;
+            member.spellRegenPerSecond += 1.0f;
+            break;
+
+        case 1335:
+            member.magicalBonuses.speed += 15;
+            member.magicalBonuses.accuracy += 15;
+            member.healthRegenPerSecond += 1.0f;
+            break;
+
+        case 1336:
+            member.magicalBonuses.might += 15;
+            member.magicalBonuses.endurance += 15;
+            member.magicalBonuses.resistances.fire += 30;
+            break;
+
+        case 1337:
+            member.magicalBonuses.might += 15;
+            addSkillBonus(member, "Armsmaster", 5);
+            member.healthRegenPerSecond += 1.0f;
+            break;
+
+        case 1338:
+            addAllMagicResistances(member, 10);
+            member.waterWalking = true;
+            member.featherFalling = true;
+            break;
+
+        case 2020:
+            member.vampiricHealFraction = std::max(member.vampiricHealFraction, 0.2f);
+            break;
+
+        case 2021:
+            member.magicalBonuses.might += 75;
+            member.weaponEnchantmentDamageBonus += 10;
+            member.equippedItemEffectFlags.insert("ReelOnHit");
+            break;
+
+        case 2022:
+            member.magicalBonuses.might += 75;
+            member.weaponEnchantmentDamageBonus += 10;
+            break;
+
+        case 2023:
+        {
+            member.magicalBonuses.might += 30;
+            member.weaponEnchantmentDamageBonus += 10;
+            const int blessPower = mmergeItemBuffPower(member, "Sword");
+            member.magicalBonuses.meleeAttack += blessPower;
+            member.magicalBonuses.rangedAttack += blessPower;
+            break;
+        }
+
+        case 2024:
+            member.magicalBonuses.maxSpellPoints += 40;
+            member.spellRegenPerSecond += 1.0f;
+            member.attackRecoveryReductionTicks += 20;
+            break;
+
+        case 2025:
+            member.magicalBonuses.speed += 40;
+            member.attackRecoveryReductionTicks += 20;
+            member.weaponEnchantmentDamageBonus += 20;
+            break;
+
+        case 2026:
+            member.magicalBonuses.maxHealth += 25;
+            member.magicalBonuses.armorClass += 20;
+            member.halfMissileDamage = true;
+            break;
+
+        case 2027:
+            member.magicalBonuses.endurance += 30;
+            member.magicalBonuses.armorClass += 20;
+            member.healthRegenPerSecond += 1.0f;
+            break;
+
+        case 2028:
+            member.magicalBonuses.accuracy += 30;
+            member.halfMissileDamage = true;
+            break;
+
+        case 2029:
+            addAllPrimaryStats(member, 10);
+            member.magicalBonuses.maxSpellPoints += 25;
+            break;
+
+        case 2030:
+            member.magicalBonuses.luck += 30;
+            addSkillBonus(member, "Stealing", 10);
+            addSkillBonus(member, "DisarmTraps", 10);
+            addPoisonImmunity(member);
+            break;
+
+        case 2031:
+            member.magicalBonuses.speed += 30;
+            break;
+
+        case 2032:
+            member.magicalBonuses.maxSpellPoints += 30;
+            addHalfLearnedSkillBonus(member, "LightMagic");
+            addHalfLearnedSkillBonus(member, "DarkMagic");
+            member.spellRegenPerSecond += 1.0f;
+            break;
+
+        case 2033:
+            member.magicalBonuses.maxSpellPoints += 25;
+            addHalfLearnedSkillBonus(member, "SpiritMagic");
+            addHalfLearnedSkillBonus(member, "MindMagic");
+            addHalfLearnedSkillBonus(member, "BodyMagic");
+            member.spellRegenPerSecond += 1.0f;
+            break;
+
+        case 2034:
+            member.magicalBonuses.maxSpellPoints += 20;
+            addHalfLearnedSkillBonus(member, "FireMagic");
+            addHalfLearnedSkillBonus(member, "AirMagic");
+            addHalfLearnedSkillBonus(member, "WaterMagic");
+            addHalfLearnedSkillBonus(member, "EarthMagic");
+            member.spellRegenPerSecond += 1.0f;
+            break;
+
+        case 2035:
+            member.magicalBonuses.luck += 20;
+            addSkillBonus(member, "DisarmTraps", 10);
+            member.weaponEnchantmentDamageBonus += 20;
+            member.healthRegenPerSecond -= 1.0f;
+            member.equippedItemEffectFlags.insert("PoisonWeaponDamage");
+            break;
+
+        case 2036:
+            member.magicalBonuses.resistances.fire += 25;
+            member.weaponEnchantmentDamageBonus += 30;
+            break;
+
+        case 2037:
+            member.magicalBonuses.might += 20;
+            member.magicalBonuses.endurance += 20;
+            member.magicalBonuses.accuracy += 20;
+            member.magicalBonuses.speed -= 10;
+            member.magicalBonuses.armorClass -= 10;
+            break;
+
+        case 2038:
+            member.magicalBonuses.maxHealth += 100;
+            member.magicalBonuses.luck -= 50;
+            break;
+
+        case 2039:
+            member.magicalBonuses.might += 50;
+            member.magicalBonuses.endurance += 20;
+            member.magicalBonuses.intellect -= 30;
+            break;
+
+        case 2040:
+            addAllElementalResistances(member, -10);
+            member.weaponEnchantmentDamageBonus += 20;
+            break;
+
+        case 2041:
+            member.magicalBonuses.endurance -= 30;
+            member.magicalBonuses.luck += 20;
+            addAllMagicResistances(member, 20);
+            break;
+
+        case 2042:
+            member.magicalBonuses.maxHealth += 50;
+            member.magicalBonuses.maxSpellPoints += 50;
+            member.magicalBonuses.luck += 50;
+            member.magicalBonuses.intellect -= 50;
+            break;
+
+        case 2043:
+            member.magicalBonuses.speed -= 20;
+            member.magicalBonuses.luck += 20;
+            member.halfMissileDamage = true;
+            addConditionImmunity(member, CharacterCondition::Petrified);
+            break;
+
+        case 2044:
+            member.magicalBonuses.speed -= 40;
+            addAllElementalResistances(member, 50);
+            break;
+
+        case 2045:
+            member.magicalBonuses.might += 100;
+            member.magicalBonuses.speed -= 40;
+            break;
+
+        case 2046:
+            member.magicalBonuses.speed += 100;
+            member.magicalBonuses.accuracy -= 40;
+            break;
+
+        case 2047:
+            member.magicalBonuses.personality += 100;
+            member.magicalBonuses.luck -= 40;
+            break;
+
+        case 2048:
+            member.magicalBonuses.intellect += 100;
+            member.magicalBonuses.might -= 40;
+            break;
+
+        case 2049:
+            member.magicalBonuses.maxHealth += 50;
+            member.magicalBonuses.maxSpellPoints += 50;
+            member.magicalBonuses.luck += 50;
+            member.magicalBonuses.personality -= 50;
             break;
 
         case 542:

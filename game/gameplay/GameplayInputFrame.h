@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 
 #include <array>
+#include <cstdint>
 #include <string>
 
 namespace OpenYAMM::Game
@@ -43,6 +44,7 @@ struct GameplayInputFrame
     GameplayButtonInputState rightMouseButton = {};
     GameplayButtonInputState middleMouseButton = {};
     std::array<bool, SDL_SCANCODE_COUNT> keyboardHeld = {};
+    std::array<uint16_t, SDL_SCANCODE_COUNT> keyboardPressCounts = {};
     std::array<GameplayButtonInputState, KeyboardActionCount> actions = {};
 
     const bool *keyboardState() const
@@ -55,6 +57,13 @@ struct GameplayInputFrame
         return scancode > SDL_SCANCODE_UNKNOWN
             && scancode < SDL_SCANCODE_COUNT
             && keyboardHeld[scancode];
+    }
+
+    uint16_t scancodePressCount(SDL_Scancode scancode) const
+    {
+        return scancode > SDL_SCANCODE_UNKNOWN && scancode < SDL_SCANCODE_COUNT
+            ? keyboardPressCounts[scancode]
+            : 0;
     }
 
     const GameplayButtonInputState &action(KeyboardAction keyboardAction) const

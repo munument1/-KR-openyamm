@@ -6,6 +6,7 @@
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/gameplay/GameplayItemService.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
+#include "game/gameplay/AwardRuntime.h"
 #include "game/app/KeyboardBindings.h"
 #include "game/items/InventoryItemUseRuntime.h"
 #include "game/party/LloydsBeaconRuntime.h"
@@ -2635,8 +2636,18 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
 
             if (target.type == GameplayCharacterPointerTargetType::AwardScrollDownButton && pActiveCharacter != nullptr)
             {
-                const size_t maximumScrollOffset =
-                    pActiveCharacter->awards.empty() ? 0 : pActiveCharacter->awards.size() - 1;
+                const AwardTable *pAwardTable = context.awardTable();
+                const size_t awardCount = pAwardTable != nullptr && pParty != nullptr
+                    ? visibleAwardCount(
+                          *pAwardTable,
+                          *pActiveCharacter,
+                          *pParty,
+                          [&context](uint32_t autonoteId)
+                          {
+                              return context.isAutonoteUnlocked(autonoteId);
+                          })
+                    : pActiveCharacter->awards.size();
+                const size_t maximumScrollOffset = awardCount > 0 ? awardCount - 1 : 0;
 
                 if (context.characterScreenReadOnly().awardScrollOffset < maximumScrollOffset)
                 {
@@ -2648,8 +2659,18 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
 
             if (target.type == GameplayCharacterPointerTargetType::AwardScrollTrack && pActiveCharacter != nullptr)
             {
-                const size_t maximumScrollOffset =
-                    pActiveCharacter->awards.empty() ? 0 : pActiveCharacter->awards.size() - 1;
+                const AwardTable *pAwardTable = context.awardTable();
+                const size_t awardCount = pAwardTable != nullptr && pParty != nullptr
+                    ? visibleAwardCount(
+                          *pAwardTable,
+                          *pActiveCharacter,
+                          *pParty,
+                          [&context](uint32_t autonoteId)
+                          {
+                              return context.isAutonoteUnlocked(autonoteId);
+                          })
+                    : pActiveCharacter->awards.size();
+                const size_t maximumScrollOffset = awardCount > 0 ? awardCount - 1 : 0;
                 context.characterScreen().awardScrollOffset = static_cast<size_t>(
                     std::round(target.scrollFraction * static_cast<float>(maximumScrollOffset)));
                 return;

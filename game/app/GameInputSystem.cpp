@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <utility>
 
 namespace OpenYAMM::Game
@@ -84,6 +85,19 @@ void GameInputSystem::handleSdlEvent(const SDL_Event &event)
         }
 
         return;
+    }
+
+    if (event.type == SDL_EVENT_KEY_DOWN
+        && !event.key.repeat
+        && event.key.scancode > SDL_SCANCODE_UNKNOWN
+        && event.key.scancode < SDL_SCANCODE_COUNT)
+    {
+        uint16_t &pressCount = m_pendingKeyboardPressCounts[event.key.scancode];
+
+        if (pressCount < std::numeric_limits<uint16_t>::max())
+        {
+            ++pressCount;
+        }
     }
 
 #if defined(__ANDROID__)
@@ -262,6 +276,13 @@ void GameInputSystem::updateFromEngineInput(
     m_frame.mouseWheelDelta = blockGameplayInput ? 0.0f : mouseWheelDelta;
     m_frame.textInput = blockGameplayInput ? std::string() : std::move(m_pendingTextInput);
     m_pendingTextInput.clear();
+
+    if (!blockGameplayInput)
+    {
+        m_frame.keyboardPressCounts = m_pendingKeyboardPressCounts;
+    }
+
+    m_pendingKeyboardPressCounts.fill(0);
 
     int keyboardStateCount = 0;
     const bool *pKeyboardState = SDL_GetKeyboardState(&keyboardStateCount);

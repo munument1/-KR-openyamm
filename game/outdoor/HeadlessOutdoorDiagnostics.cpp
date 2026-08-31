@@ -9910,6 +9910,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 syntheticActor.hp = 25;
                 syntheticActor.monsterInfoId = int16_t(pLootStats->id);
                 syntheticActor.monsterId = int16_t(pLootStats->id);
+                syntheticActor.group = 8;
                 scenario.mapDeltaData->actors.push_back(syntheticActor);
 
                 const size_t actorIndex = scenario.mapDeltaData->actors.size() - 1;
@@ -9952,6 +9953,12 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
 
                 while (const IndoorWorldRuntime::CorpseViewState *pActiveCorpseView = scenario.world.activeCorpseView())
                 {
+                    if (pActiveCorpseView->sourceIndex != actorIndex)
+                    {
+                        failure = "indoor corpse view retained the wrong source actor";
+                        return false;
+                    }
+
                     if (pActiveCorpseView->items.empty())
                     {
                         break;
@@ -9977,6 +9984,43 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 if ((actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) == 0)
                 {
                     failure = "fully looted indoor corpse actor should become invisible";
+                    return false;
+                }
+
+                const IndoorWorldRuntime::Snapshot corpseSnapshot = scenario.world.snapshot();
+
+                if (actorIndex >= corpseSnapshot.mapActorCorpseViews.size()
+                    || !corpseSnapshot.mapActorCorpseViews[actorIndex].has_value()
+                    || !corpseSnapshot.mapActorCorpseViews[actorIndex]->items.empty())
+                {
+                    const bool hasView = actorIndex < corpseSnapshot.mapActorCorpseViews.size()
+                        && corpseSnapshot.mapActorCorpseViews[actorIndex].has_value();
+                    failure = "fully looted indoor corpse did not retain its consumed marker"
+                        " actor=" + std::to_string(actorIndex)
+                        + " views=" + std::to_string(corpseSnapshot.mapActorCorpseViews.size())
+                        + " has_view=" + std::to_string(hasView ? 1 : 0)
+                        + " items=" + std::to_string(
+                            hasView ? corpseSnapshot.mapActorCorpseViews[actorIndex]->items.size() : 0);
+                    return false;
+                }
+
+                scenario.eventRuntimeState->actorGroupClearMasks[8]
+                    |= static_cast<uint32_t>(EvtActorAttribute::Invisible);
+                scenario.world.applyEventRuntimeState();
+
+                if ((actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) == 0)
+                {
+                    failure = "indoor group visibility event should not reveal a consumed corpse";
+                    return false;
+                }
+
+                IndoorWorldRuntime::Snapshot legacyCorpseSnapshot = scenario.world.snapshot();
+                legacyCorpseSnapshot.mapActorCorpseViews[actorIndex].reset();
+                scenario.world.restoreSnapshot(legacyCorpseSnapshot);
+
+                if ((actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) == 0)
+                {
+                    failure = "legacy indoor corpse state was revived during snapshot migration";
                     return false;
                 }
 
@@ -11698,7 +11742,66 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
     );
 
     runCase(
-        "event_summon_item_supports_item_and_object_payloads",
+        "dwi_palm_tree_event_spawns_valid_mm8_item",
+        [&](std::string &failure)
+        {
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(gameDataLoader, *selectedMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            Character *pMember = scenario.party.member(0);
+
+            if (pMember == nullptr)
+            {
+                failure = "party member missing";
+                return false;
+            }
+
+            pMember->skills["DisarmTraps"] = {"DisarmTraps", 3, SkillMastery::Normal};
+            scenario.party.setQuestBit(270, false);
+            const size_t initialCount = scenario.world.worldItemCount();
+
+            if (!executeLocalEventInScenario(gameDataLoader, *selectedMap, scenario, 494))
+            {
+                failure = "palm tree event 494 did not execute";
+                return false;
+            }
+
+            if (scenario.world.worldItemCount() != initialCount + 1)
+            {
+                failure = "palm tree event did not spawn exactly one item";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::WorldItemState *pWorldItem = scenario.world.worldItemState(initialCount);
+            static constexpr std::array<uint32_t, 5> ExpectedItemIds = {{200, 205, 210, 215, 220}};
+
+            if (pWorldItem == nullptr
+                || std::find(
+                    ExpectedItemIds.begin(),
+                    ExpectedItemIds.end(),
+                    pWorldItem->item.objectDescriptionId) == ExpectedItemIds.end())
+            {
+                failure = "palm tree event spawned an invalid MM8 item";
+                return false;
+            }
+
+            if (!scenario.party.hasQuestBit(270))
+            {
+                failure = "palm tree event did not set its one-shot quest bit";
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    runCase(
+        "event_summon_item_and_object_preserve_distinct_payload_semantics",
         [&](std::string &failure)
         {
             RegressionScenario scenario = {};
@@ -11731,7 +11834,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
-            if (!scenario.world.summonEventItem(35, 100, 200, 300, 1000, 1, true))
+            if (!scenario.world.summonEventObject(35, 100, 200, 300, 1000, 1, true))
             {
                 failure = "object payload 35 did not spawn";
                 return false;
@@ -11752,15 +11855,24 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
-            if (scenario.world.summonEventItem(2138, 100, 200, 300, 1000, 1, true))
+            if (!scenario.world.summonEventItem(2138, 100, 200, 300, 1000, 1, true))
             {
-                failure = "unresolved payload 2138 unexpectedly spawned";
+                failure = "high merged item payload 2138 did not spawn";
                 return false;
             }
 
-            if (scenario.world.worldItemCount() != initialCount + 2)
+            const OutdoorWorldRuntime::WorldItemState *pHighItem =
+                scenario.world.worldItemState(initialCount + 2);
+
+            if (pHighItem == nullptr || pHighItem->item.objectDescriptionId != 2138)
             {
-                failure = "world item count changed unexpectedly after unresolved payload";
+                failure = "high merged item payload did not preserve item id 2138";
+                return false;
+            }
+
+            if (scenario.world.worldItemCount() != initialCount + 3)
+            {
+                failure = "world item count changed unexpectedly after summon payloads";
                 return false;
             }
 
@@ -17881,6 +17993,28 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             if (pActor == nullptr || !pActor->isInvisible)
             {
                 failure = "looted corpse actor should disappear";
+                return false;
+            }
+
+            scenario.pEventRuntimeState->actorGroupClearMasks[pActor->group]
+                |= static_cast<uint32_t>(EvtActorAttribute::Invisible);
+            scenario.world.applyEventRuntimeState();
+            pActor = scenario.world.mapActorState(5);
+
+            if (pActor == nullptr || !pActor->isInvisible)
+            {
+                failure = "group visibility event should not reveal a consumed corpse";
+                return false;
+            }
+
+            OutdoorWorldRuntime::Snapshot legacyCorpseSnapshot = scenario.world.snapshot();
+            legacyCorpseSnapshot.mapActorCorpseViews[5].reset();
+            scenario.world.restoreSnapshot(legacyCorpseSnapshot);
+            pActor = scenario.world.mapActorState(5);
+
+            if (pActor == nullptr || !pActor->isInvisible)
+            {
+                failure = "legacy outdoor corpse state was revived during snapshot migration";
                 return false;
             }
 

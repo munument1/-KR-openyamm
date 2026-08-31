@@ -1,13 +1,23 @@
--- MMMerge map supplement: Colony Zod key pickup repair.
+-- MMMerge map supplement: Colony Zod key pickup and Roland release state.
 
-ReplaceMapEvent(376, "Colony Zod Key", function()
-    if not HasItemAnywhere(1463) and evt.GetHeldItemId() ~= 1463 then
+local function ApplyRolandReleasedState()
+    evt.SetSprite(20, 1, "0")
+    evt.SetFacetBit(1, FacetBits.Untouchable, true)
+    evt.SetFacetBit(1, FacetBits.Invisible, true)
+end
+
+ReplaceMapEvent(376, nil, function()
+    if not HasItemAnywhere(1463) then
         GiveItem(1463) -- Colony Zod Key
-        evt.SetSprite(20, 1, "0")
-        SetQBit(QBit(752)) -- Talked to Roland
-        evt.SetFacetBit(1, FacetBits.Untouchable, true)
-        evt.SetFacetBit(1, FacetBits.Invisible, true)
     end
 
+    SetQBit(QBit(752)) -- Talked to Roland
+    ApplyRolandReleasedState()
     evt.SpeakNPC(626)
+end)
+
+RegisterMapOnLoadEvent(65027, "Restore Roland release state", function()
+    if IsQBitSet(QBit(752)) then
+        ApplyRolandReleasedState()
+    end
 end)

@@ -1352,7 +1352,7 @@ elements:
             offset_y: 0
             width: 0
             height: 0
-            z_index: 64
+            z_index: 67
             notes: Boots slot
 
           - id: CharacterDollHelmetSlot

@@ -19,7 +19,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 82;
+constexpr uint32_t SaveVersion = 83;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -84,6 +84,7 @@ constexpr uint32_t SaveVersionSuspendedMm9RudeVendor = 80;
 constexpr uint32_t SaveVersionVendorStockGeneration = 80;
 constexpr uint32_t SaveVersionOutdoorDestructibles = 81;
 constexpr uint32_t SaveVersionMm9Barrels = 82;
+constexpr uint32_t SaveVersionTemporaryEventBonuses = 83;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -822,6 +823,7 @@ void writeValue(BinaryWriter &writer, const Character &value)
     writeValue(writer, value.knownSpellIds);
     writeValue(writer, value.baseResistances);
     writeValue(writer, value.permanentBonuses);
+    writeValue(writer, value.temporaryEventBonuses);
     writeValue(writer, value.magicalBonuses);
     writeValue(writer, value.permanentImmunities);
     writeValue(writer, value.magicalImmunities);
@@ -884,6 +886,8 @@ bool readValue(BinaryReader &reader, Character &value)
         && readValue(reader, value.knownSpellIds)
         && readValue(reader, value.baseResistances)
         && readValue(reader, value.permanentBonuses)
+        && (reader.version() < SaveVersionTemporaryEventBonuses
+            || readValue(reader, value.temporaryEventBonuses))
         && readValue(reader, value.magicalBonuses)
         && readValue(reader, value.permanentImmunities)
         && readValue(reader, value.magicalImmunities)

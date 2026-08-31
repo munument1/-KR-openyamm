@@ -110,6 +110,7 @@ public:
     ISceneEventContext *sceneEventContext() override;
     std::optional<EventRuntimeState::PendingMapMove> consumePendingMapMove() override;
     void advanceGameMinutes(float minutes) override;
+    void advanceTurnBasedGameMinutes(float minutes) override;
 
     const std::optional<MapDeltaData> &mapDeltaData() const;
     const std::optional<EventRuntimeState> &eventRuntimeStateStorage() const;

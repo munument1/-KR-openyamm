@@ -52,6 +52,8 @@ enum class MonsterKind : uint32_t
     Elemental = 1u << 7,
     Titan = 1u << 8,
     NoCorpse = 1u << 9,
+    Demon = 1u << 10,
+    Elf = 1u << 11,
 };
 
 uint32_t monsterKindFlag(MonsterKind kind);

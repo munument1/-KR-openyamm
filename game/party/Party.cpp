@@ -199,6 +199,7 @@ bool characterNeedsTempleHealing(const Character &member)
 
 void clearTemporaryEventBonuses(Character &member)
 {
+    member.temporaryEventBonuses = {};
     member.armorClassModifier = 0;
     member.levelModifier = 0;
     member.ageModifier = 0;
@@ -625,6 +626,7 @@ Character buildCharacterFromRosterEntry(
     member.baseResistances = rosterEntry.baseResistances;
     member.skills = rosterEntry.skills;
     applyRosterSpellKnowledge(member, rosterEntry);
+    member.synchronizeInnateAbilitySpells();
 
     GameMechanics::refreshCharacterBaseResources(member, true, pClassMultiplierTable);
     return member;
@@ -1971,29 +1973,46 @@ bool Character::setSkillMastery(const std::string &skillName, SkillMastery maste
     }
 
     pSkill->mastery = mastery;
-
-    if (canonicalSkillName(skillName) == "DragonAbility")
-    {
-        learnSpell(spellIdValue(SpellId::Fear));
-
-        if (mastery >= SkillMastery::Expert)
-        {
-            learnSpell(spellIdValue(SpellId::FlameBlast));
-        }
-
-        if (mastery >= SkillMastery::Master)
-        {
-            learnSpell(spellIdValue(SpellId::Flight));
-        }
-
-        if (mastery >= SkillMastery::Grandmaster)
-        {
-            learnSpell(spellIdValue(SpellId::WingBuffet));
-        }
-    }
+    synchronizeInnateAbilitySpells();
 
     GameMechanics::refreshCharacterBaseResources(*this);
     return true;
+}
+
+void Character::synchronizeInnateAbilitySpells()
+{
+    static constexpr std::array<const char *, 3> InnateAbilitySkillNames = {
+        "DarkElfAbility",
+        "VampireAbility",
+        "DragonAbility",
+    };
+
+    for (const char *pSkillName : InnateAbilitySkillNames)
+    {
+        const CharacterSkill *pSkill = findSkillByCanonicalName(pSkillName);
+
+        if (pSkill == nullptr || pSkill->level == 0 || pSkill->mastery == SkillMastery::None)
+        {
+            continue;
+        }
+
+        const std::optional<std::pair<uint32_t, uint32_t>> spellRange = spellIdRangeForMagicSkill(pSkillName);
+
+        if (!spellRange)
+        {
+            continue;
+        }
+
+        const uint32_t spellCount = spellRange->second - spellRange->first + 1;
+        const uint32_t grantedSpellCount = std::min<uint32_t>(
+            spellCount,
+            static_cast<uint32_t>(pSkill->mastery));
+
+        for (uint32_t spellOffset = 0; spellOffset < grantedSpellCount; ++spellOffset)
+        {
+            learnSpell(spellRange->first + spellOffset);
+        }
+    }
 }
 
 bool Character::knowsSpell(uint32_t spellId) const
@@ -2314,6 +2333,8 @@ void Party::setClassSkillTable(const ClassSkillTable *pClassSkillTable)
             applyDefaultStartingSkills(member);
         }
 
+        member.synchronizeInnateAbilitySpells();
+
         if (m_pClassMultiplierTable != nullptr)
         {
             GameMechanics::refreshCharacterBaseResources(member, false, m_pClassMultiplierTable);
@@ -2332,6 +2353,8 @@ void Party::setClassSkillTable(const ClassSkillTable *pClassSkillTable)
         {
             applyDefaultStartingSkills(member.character);
         }
+
+        member.character.synchronizeInnateAbilitySpells();
 
         initializePortraitRuntimeState(member.character);
         member.portraitPictureId = resolveAdventurersInnPortraitPictureId(member.character, member.portraitPictureId);
@@ -2448,12 +2471,14 @@ void Party::restoreSnapshot(const Snapshot &snapshot)
     for (Character &member : m_members)
     {
         applyCharacterIdentityFromDollTable(member, m_pCharacterDollTable);
+        member.synchronizeInnateAbilitySpells();
         initializePortraitRuntimeState(member);
     }
 
     for (AdventurersInnMember &member : m_adventurersInnMembers)
     {
         applyCharacterIdentityFromDollTable(member.character, m_pCharacterDollTable);
+        member.character.synchronizeInnateAbilitySpells();
         initializePortraitRuntimeState(member.character);
         member.portraitPictureId = resolveAdventurersInnPortraitPictureId(member.character, member.portraitPictureId);
     }
@@ -2562,6 +2587,8 @@ void Party::seed(const PartySeed &seed)
         {
             applyDefaultStartingSkills(member);
         }
+
+        member.synchronizeInnateAbilitySpells();
 
         for (EquipmentSlot slot : {
                  EquipmentSlot::OffHand,
@@ -3365,13 +3392,17 @@ void Party::restoreAll()
 
 void Party::reviveAndRestoreAll()
 {
+    for (Character &member : m_members)
+    {
+        clearTemporaryEventBonuses(member);
+    }
+
     m_partyBuffs = {};
     m_characterBuffs = {};
     rebuildMagicalBonusesFromBuffs();
 
     for (Character &member : m_members)
     {
-        clearTemporaryEventBonuses(member);
         member.conditions.reset();
         member.conditionStartGameMinutes.fill(0.0f);
         member.recoverySecondsRemaining = 0.0f;
@@ -3390,14 +3421,17 @@ void Party::reviveAndRestoreAll()
 
 void Party::restAndHealAll()
 {
+    for (Character &member : m_members)
+    {
+        clearTemporaryEventBonuses(member);
+    }
+
     m_partyBuffs = {};
     m_characterBuffs = {};
     rebuildMagicalBonusesFromBuffs();
 
     for (Character &member : m_members)
     {
-        clearTemporaryEventBonuses(member);
-
         if (member.conditions.test(static_cast<size_t>(CharacterCondition::Dead))
             || member.conditions.test(static_cast<size_t>(CharacterCondition::Petrified))
             || member.conditions.test(static_cast<size_t>(CharacterCondition::Eradicated)))
@@ -3561,6 +3595,7 @@ bool Party::learnMemberSkill(size_t memberIndex, const std::string &skillName)
     skill.level = 1;
     skill.mastery = SkillMastery::Normal;
     pMember->skills[skill.name] = skill;
+    pMember->synchronizeInnateAbilitySpells();
     GameMechanics::refreshCharacterBaseResources(*pMember, false, m_pClassMultiplierTable);
     return true;
 }
@@ -3704,6 +3739,8 @@ bool Party::recruitCharacter(const Character &character)
         applyDefaultStartingSkills(m_members.back());
     }
 
+    m_members.back().synchronizeInnateAbilitySpells();
+
     GameMechanics::refreshCharacterBaseResources(m_members.back(), true, m_pClassMultiplierTable);
     initializePortraitRuntimeState(m_members.back());
     m_lastStatus = "party member recruited";
@@ -3736,6 +3773,8 @@ bool Party::addAdventurersInnMember(const Character &character, uint32_t portrai
     {
         applyDefaultStartingSkills(member.character);
     }
+
+    member.character.synchronizeInnateAbilitySpells();
 
     initializePortraitRuntimeState(member.character);
     member.portraitPictureId = resolveAdventurersInnPortraitPictureId(member.character, portraitPictureId);
@@ -5846,33 +5885,44 @@ void Party::updateRecovery(float deltaSeconds, float progressScale)
 
     const float clampedProgressScale = std::max(0.0f, progressScale);
 
-    for (Character &member : m_members)
+    for (size_t memberIndex = 0; memberIndex < m_members.size(); ++memberIndex)
     {
+        Character &member = m_members[memberIndex];
         const float recoveryDelta =
             deltaSeconds * clampedProgressScale * std::max(0.0f, member.recoveryProgressMultiplier);
         member.recoverySecondsRemaining = std::max(0.0f, member.recoverySecondsRemaining - recoveryDelta);
 
-        if (member.healthRegenPerSecond > 0.0f)
+        if (member.healthRegenPerSecond != 0.0f)
         {
             member.healthRegenAccumulator += member.healthRegenPerSecond * deltaSeconds;
-            const int healAmount = std::max(0, static_cast<int>(member.healthRegenAccumulator));
+            const int healthAmount = static_cast<int>(member.healthRegenAccumulator);
 
-            if (healAmount > 0)
+            if (healthAmount > 0)
             {
-                member.healthRegenAccumulator -= static_cast<float>(healAmount);
-                member.health = std::min(currentMaximumHealth(member), member.health + healAmount);
+                member.healthRegenAccumulator -= static_cast<float>(healthAmount);
+                member.health = std::min(currentMaximumHealth(member), member.health + healthAmount);
+            }
+            else if (healthAmount < 0)
+            {
+                member.healthRegenAccumulator -= static_cast<float>(healthAmount);
+                applyDamageToMember(memberIndex, -healthAmount, "");
             }
         }
 
-        if (member.spellRegenPerSecond > 0.0f)
+        if (member.spellRegenPerSecond != 0.0f)
         {
             member.spellRegenAccumulator += member.spellRegenPerSecond * deltaSeconds;
-            const int spellAmount = std::max(0, static_cast<int>(member.spellRegenAccumulator));
+            const int spellAmount = static_cast<int>(member.spellRegenAccumulator);
 
             if (spellAmount > 0)
             {
                 member.spellRegenAccumulator -= static_cast<float>(spellAmount);
                 member.spellPoints = std::min(currentMaximumSpellPoints(member), member.spellPoints + spellAmount);
+            }
+            else if (spellAmount < 0)
+            {
+                member.spellRegenAccumulator -= static_cast<float>(spellAmount);
+                member.spellPoints = std::max(0, member.spellPoints + spellAmount);
             }
         }
     }
@@ -6598,7 +6648,7 @@ void Party::rebuildMagicalBonusesFromBuffs()
 {
     for (Character &member : m_members)
     {
-        member.magicalBonuses = {};
+        member.magicalBonuses = member.temporaryEventBonuses;
         member.magicalImmunities = {};
         member.magicalConditionImmunities = {};
         member.merchantBonus = 0;
@@ -6933,6 +6983,8 @@ void Party::applyDefaultStartingSkills(Character &member) const
     {
         member.skills[skill.name] = skill;
     }
+
+    member.synchronizeInnateAbilitySpells();
 }
 
 void Party::markArtifactItemFoundIfRelevant(const InventoryItem &item)

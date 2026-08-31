@@ -105,6 +105,34 @@ float oeTrainingDurationMinutes(const HouseEntry &houseEntry, float currentGameM
     return durationMinutes;
 }
 
+bool recordOeTrainingLevel(
+    EventRuntimeState::DialogueRuntimeState &dialogueState,
+    uint32_t houseId,
+    size_t activeMemberIndex,
+    size_t memberCount)
+{
+    if (dialogueState.trainingHouseId != houseId)
+    {
+        dialogueState.trainingHouseId = houseId;
+        dialogueState.trainingLevelsByMember.assign(memberCount, 0);
+    }
+    else if (dialogueState.trainingLevelsByMember.size() != memberCount)
+    {
+        dialogueState.trainingLevelsByMember.resize(memberCount, 0);
+    }
+
+    const uint32_t maximumBefore = dialogueState.trainingLevelsByMember.empty()
+        ? 0
+        : *std::max_element(
+            dialogueState.trainingLevelsByMember.begin(),
+            dialogueState.trainingLevelsByMember.end());
+    ++dialogueState.trainingLevelsByMember[activeMemberIndex];
+    const uint32_t maximumAfter = *std::max_element(
+        dialogueState.trainingLevelsByMember.begin(),
+        dialogueState.trainingLevelsByMember.end());
+    return maximumAfter > maximumBefore;
+}
+
 int dayOfWeekFromGameMinutes(float currentGameMinutes)
 {
     int day = static_cast<int>(std::floor(currentGameMinutes / static_cast<float>(MinutesPerDay)));
@@ -1990,13 +2018,32 @@ HouseActionResult performHouseAction(
             }
 
             party.addGold(-price);
-            party.restAndHealAll();
+            bool trainingRoundAdvanced = true;
 
             if (pWorldRuntime != nullptr)
             {
-                const float trainingMinutes = oeTrainingDurationMinutes(houseEntry, pWorldRuntime->gameMinutes());
-                pWorldRuntime->advanceGameMinutes(trainingMinutes);
-                party.advanceTimedStates(trainingMinutes * 60.0f);
+                EventRuntimeState *pEventRuntimeState = pWorldRuntime->eventRuntimeState();
+
+                if (pEventRuntimeState != nullptr)
+                {
+                    trainingRoundAdvanced = recordOeTrainingLevel(
+                        pEventRuntimeState->dialogueState,
+                        houseEntry.id,
+                        party.activeMemberIndex(),
+                        party.memberCount());
+                }
+            }
+
+            if (trainingRoundAdvanced)
+            {
+                party.restAndHealAll();
+
+                if (pWorldRuntime != nullptr)
+                {
+                    const float trainingMinutes = oeTrainingDurationMinutes(houseEntry, pWorldRuntime->gameMinutes());
+                    pWorldRuntime->advanceGameMinutes(trainingMinutes);
+                    party.advanceTimedStates(trainingMinutes * 60.0f);
+                }
             }
 
             result.messages.push_back(

@@ -111,6 +111,7 @@ struct Character
     std::unordered_set<uint32_t> knownSpellIds;
     CharacterResistanceSet baseResistances = {};
     CharacterStatBonuses permanentBonuses = {};
+    CharacterStatBonuses temporaryEventBonuses = {};
     CharacterStatBonuses magicalBonuses = {};
     CharacterResistanceImmunitySet permanentImmunities = {};
     CharacterResistanceImmunitySet magicalImmunities = {};
@@ -173,6 +174,7 @@ struct Character
     CharacterSkill *findSkill(const std::string &skillName);
     CharacterSkill *findSkillByCanonicalName(const std::string &canonicalSkillName);
     bool setSkillMastery(const std::string &skillName, SkillMastery mastery);
+    void synchronizeInnateAbilitySpells();
     bool knowsSpell(uint32_t spellId) const;
     bool learnSpell(uint32_t spellId);
     bool forgetSpell(uint32_t spellId);
@@ -618,6 +620,7 @@ public:
     const std::string &lastStatus() const;
     const std::vector<PendingAudioRequest> &pendingAudioRequests() const;
     void clearPendingAudioRequests();
+    void rebuildMagicalBonusesFromBuffs();
 
 private:
     static constexpr size_t MaxMembers = 5;
@@ -625,7 +628,6 @@ private:
     uint8_t resolveInventoryWidth(uint32_t objectDescriptionId) const;
     uint8_t resolveInventoryHeight(uint32_t objectDescriptionId) const;
     void applyDefaultStartingSkills(Character &member) const;
-    void rebuildMagicalBonusesFromBuffs();
     void markArtifactItemFoundIfRelevant(const InventoryItem &item);
     void recordEverOwnedItemIfRelevant(const InventoryItem &item);
     void recordEverOwnedItemsFromCurrentState();

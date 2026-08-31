@@ -11,6 +11,8 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr float GameMinutesPerRealSecond = 0.5f;
+
 std::vector<OutdoorActorCollision> buildRuntimeActorColliders(const OutdoorWorldRuntime &worldRuntime)
 {
     std::vector<OutdoorActorCollision> colliders;
@@ -228,6 +230,32 @@ std::optional<EventRuntimeState::PendingMapMove> OutdoorSceneRuntime::consumePen
 void OutdoorSceneRuntime::advanceGameMinutes(float minutes)
 {
     m_pWorldRuntime->advanceGameMinutes(minutes);
+}
+
+void OutdoorSceneRuntime::advanceTurnBasedGameMinutes(float minutes)
+{
+    if (minutes <= 0.0f)
+    {
+        return;
+    }
+
+    const float equivalentRealSeconds = minutes / GameMinutesPerRealSecond;
+    const bool timerExecuted = m_pWorldRuntime->updateTimers(
+        equivalentRealSeconds,
+        m_eventRuntime,
+        m_localEventProgram,
+        m_globalEventProgram,
+        nullptr);
+
+    applyMm9TeacherScheduleActivations(
+        m_mm9TeacherScheduleRuntime.update(m_pWorldRuntime->gameMinutes()),
+        *m_pWorldRuntime,
+        *m_pWorldRuntime);
+
+    if (timerExecuted && m_pWorldRuntime->eventRuntimeState() != nullptr)
+    {
+        m_pPartyRuntime->applyEventRuntimeState(*m_pWorldRuntime->eventRuntimeState(), false);
+    }
 }
 
 OutdoorPartyRuntime &OutdoorSceneRuntime::partyRuntime()

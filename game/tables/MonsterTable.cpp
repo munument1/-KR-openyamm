@@ -179,6 +179,16 @@ std::optional<MonsterKind> parseMonsterKindToken(const std::string &value)
         return MonsterKind::NoCorpse;
     }
 
+    if (token == "demon")
+    {
+        return MonsterKind::Demon;
+    }
+
+    if (token == "elf")
+    {
+        return MonsterKind::Elf;
+    }
+
     return std::nullopt;
 }
 

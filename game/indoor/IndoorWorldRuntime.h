@@ -531,6 +531,15 @@ public:
         uint32_t count,
         bool randomRotate
     ) override;
+    bool summonEventObject(
+        uint32_t objectId,
+        int32_t x,
+        int32_t y,
+        int32_t z,
+        int32_t speed,
+        uint32_t count,
+        bool randomRotate
+    ) override;
     bool checkMonstersKilled(
         uint32_t checkType,
         uint32_t id,
@@ -559,6 +568,17 @@ public:
     std::vector<IndoorCylinderCollision> spriteObjectMovementColliders() const;
 
 private:
+    bool summonEventPayload(
+        uint32_t payloadId,
+        bool payloadIsObjectId,
+        int32_t x,
+        int32_t y,
+        int32_t z,
+        int32_t speed,
+        uint32_t count,
+        bool randomRotate
+    );
+
     struct RuntimeGeometryCache
     {
         bool valid = false;

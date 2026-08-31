@@ -1,5 +1,10 @@
 -- MMMerge supplement: Dyson checks are relaxed for invisibility and transformer completion.
 
+local function applySkeletonTransformerDestroyedState()
+    evt.SetFacetBit(30, FacetBits.Untouchable, 1)
+    evt.SetFacetBit(30, FacetBits.Invisible, 1)
+end
+
 ReplaceMapEvent(15, "Door", function()
     if IsQBitSet(QBit(20)) -- Allied with Temple of the Sun. Destroy the Skeleton Transformer done.
         or IsQBitSet(QBit(19)) -- Allied with Necromancers Guild. Steal Nightshade Brazier done.
@@ -17,7 +22,7 @@ ReplaceMapEvent(15, "Door", function()
     evt.SpeakNPC(45)
 end, "Door")
 
-ReplaceMapEvent(131, "MMMerge Skeleton Transformer", function()
+ReplaceMapEvent(131, nil, function()
     if IsQBitSet(QBit(27)) -- Skeleton Transformer Destroyed.
         or not IsQBitSet(QBit(26)) -- Destroy the skeleton transformer and return to Oskar Tyre.
         or not IsAtLeast(MapVar(21), 15) then
@@ -26,6 +31,11 @@ ReplaceMapEvent(131, "MMMerge Skeleton Transformer", function()
 
     SetQBit(QBit(27)) -- Skeleton Transformer Destroyed.
     evt.ShowMovie("skeltrans", true)
-    evt.SetFacetBit(30, FacetBits.Untouchable, 1)
-    evt.SetFacetBit(30, FacetBits.Invisible, 1)
+    applySkeletonTransformerDestroyedState()
+end)
+
+RegisterMapOnLoadEvent(901, "Restore skeleton transformer state", function()
+    if IsQBitSet(QBit(27)) then -- Skeleton Transformer Destroyed.
+        applySkeletonTransformerDestroyedState()
+    end
 end)

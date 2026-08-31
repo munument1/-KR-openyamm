@@ -1,0 +1,32 @@
+Key	State	State Id	Text	Sort	Notes
+mm8.award.2	party_autonote	492	Brought Power Stone to Fredrick Talimere.	3	MM8 award 2 remapped by MMMerge
+mm8.award.3	party_autonote	493	Blackmailed the Wererat Smugglers.	1	MM8 award 3 remapped by MMMerge
+mm8.award.4	party_autonote	494	Delivered Dadeross' Letter to Elgar Fellmoon.	1	MM8 award 4 remapped by MMMerge
+mm8.award.6	party_autonote	495	Placed Vilebite's ashes in the Troll Tomb.	3	MM8 award 6 remapped by MMMerge
+mm8.award.38	party_autonote	496	Have earned status of Novice Bounty Hunter.	5	MM8 award 38 remapped by MMMerge
+mm8.award.39	party_autonote	497	Have earned status of Journeyman Bounty Hunter.	5	MM8 award 39 remapped by MMMerge
+mm8.award.40	party_autonote	498	Have earned status of Master Bounty Hunter.	5	MM8 award 40 remapped by MMMerge
+mm8.award.52	party_autonote	499	Brought Potions of Fire Resistance to the southern houses of Rust.	3	MM8 award 52 remapped by MMMerge
+mm8.award.53	party_autonote	500	Killed all of the Ogres in the Alvar region.	3	MM8 award 53 remapped by MMMerge
+mm8.award.57	party_autonote	501	Found the Dragonbane flower for Calindril in the Garrote Gorge Dragon Hunter's Fort.	3	MM8 award 57 remapped by MMMerge
+mm8.award.58	party_autonote	502	Found the Dragonbane flower for Balion Tearwing in Garrote Gorge.	3	MM8 award 58 remapped by MMMerge
+mm8.award.62	party_autonote	503	Killed all of the Dragons in the Garrote Gorge area for Avalon in the Garrote Gorge Dragon Hunter's Fort.	3	MM8 award 62 remapped by MMMerge
+mm8.award.63	party_autonote	504	Killed all of the Dragon Hunters in the Garrote Gorge are for Jerin Flame-eye in the Dragon Cave of Garrote Gorge.	3	MM8 award 63 remapped by MMMerge
+mm8.award.19	party_qbit	1537	Promoted to Elf Patriarch.	2	MM8 award 19 remapped by MMMerge
+mm8.award.21	party_qbit	1538	Promoted to War Troll.	2	MM8 award 21 remapped by MMMerge
+mm8.award.22	party_qbit	1539	Found Troll Homeland.	2	MM8 award 22 remapped by MMMerge
+mm8.award.23	party_qbit	1540	Promoted to Champion.	2	MM8 award 23 remapped by MMMerge
+mm8.award.24	party_qbit	1541	Returned Ebonest to Charles Quixote.	2	MM8 award 24 remapped by MMMerge
+mm8.award.25	party_qbit	1542	Rescued Blazen Stormlance.	2	MM8 award 25 remapped by MMMerge
+mm8.award.26	party_qbit	1543	Promoted to Great Wyrm.	2	MM8 award 26 remapped by MMMerge
+mm8.award.27	party_qbit	1544	Gave the Sword of Whistlebone the Slayer to the Deftclaw Redreaver.	2	MM8 award 27 remapped by MMMerge
+mm8.award.28	party_qbit	1545	Promoted to Minotaur Lord.	2	MM8 award 28 remapped by MMMerge
+mm8.award.30	party_qbit	1546	Promoted to Cleric of the Sun.	2	MM8 award 30 remapped by MMMerge
+mm8.award.32	party_qbit	1547	Promoted to Nosferatu.	2	MM8 award 32 remapped by MMMerge
+mm8.award.34	party_qbit	1548	Promoted to Lich.	2	MM8 award 34 remapped by MMMerge
+mm8.award.51	party_qbit	1549	Recovered Idol of the Snake for Hiss of Blood Drop village.	3	MM8 award 51 remapped by MMMerge
+mm8.award.55	party_qbit	1550	Found the shield Eclipse.	3	MM8 award 55 remapped by MMMerge
+mm8.award.56	party_qbit	1551	Rescued Irabelle Hunter from the Ogre Fortress in Alvar.	3	MM8 award 56 remapped by MMMerge
+mm8.award.59	party_qbit	1552	Brought the Annointed Herb Potion to Languid on the Dagger Wound Islands.	3	MM8 award 59 remapped by MMMerge
+mm8.award.60	party_qbit	1553	Killed all of the Dire Wolves in the Ravenshore area.	3	MM8 award 60 remapped by MMMerge
+mm8.award.61	party_qbit	1554	Delivered False Report to the Dread Pirate Stanley for Arion Hunter.	3	MM8 award 61 remapped by MMMerge

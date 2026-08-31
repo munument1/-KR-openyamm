@@ -747,6 +747,8 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
         monsterTable.findStatsById(142);
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm7Devil =
         monsterTable.findStatsById(220);
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm7Elf =
+        monsterTable.findStatsById(247);
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm6DemonFly =
         monsterTable.findStatsById(499);
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pMm6Demon =
@@ -774,6 +776,7 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
     REQUIRE(pDragonTurtle != nullptr);
     REQUIRE(pBoulder != nullptr);
     REQUIRE(pMm7Devil != nullptr);
+    REQUIRE(pMm7Elf != nullptr);
     REQUIRE(pMm6DemonFly != nullptr);
     REQUIRE(pMm6Demon != nullptr);
     REQUIRE(pMm6MerchantPeasant != nullptr);
@@ -800,6 +803,8 @@ TEST_CASE("runtime monster table carries promoted MMerge monster kind flags")
     CHECK(pBoulder->hasKind(OpenYAMM::Game::MonsterKind::Immobile));
     CHECK(pBoulder->hasKind(OpenYAMM::Game::MonsterKind::NoArena));
     CHECK_FALSE(pMm7Devil->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
+    CHECK(pMm7Devil->hasKind(OpenYAMM::Game::MonsterKind::Demon));
+    CHECK(pMm7Elf->hasKind(OpenYAMM::Game::MonsterKind::Elf));
     CHECK(pMm6DemonFly->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
     CHECK(pMm6Demon->hasKind(OpenYAMM::Game::MonsterKind::NoCorpse));
     CHECK(pMm6MerchantPeasant->hasKind(OpenYAMM::Game::MonsterKind::Peasant));

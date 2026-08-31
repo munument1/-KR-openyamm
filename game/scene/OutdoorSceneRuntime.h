@@ -50,6 +50,7 @@ public:
     ISceneEventContext *sceneEventContext() override;
     std::optional<EventRuntimeState::PendingMapMove> consumePendingMapMove() override;
     void advanceGameMinutes(float minutes) override;
+    void advanceTurnBasedGameMinutes(float minutes) override;
     OutdoorPartyRuntime &partyRuntime();
     const OutdoorPartyRuntime &partyRuntime() const;
     OutdoorWorldRuntime &worldRuntime();

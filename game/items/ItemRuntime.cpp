@@ -179,6 +179,12 @@ std::optional<std::string> ItemRuntime::raceRestriction(const ItemDefinition &it
         case 1336:
             return "Dwarf";
 
+        case 1337:
+            return "Male";
+
+        case 1338:
+            return "Female";
+
         default:
             return std::nullopt;
     }
@@ -242,6 +248,12 @@ bool ItemRuntime::characterMeetsRaceRestriction(const Character &character, cons
 
         case 1336:
             return character.raceId == 9;
+
+        case 1337:
+            return character.sexId == 0;
+
+        case 1338:
+            return character.sexId == 1;
 
         default:
             return true;

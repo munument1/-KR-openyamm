@@ -160,6 +160,38 @@ constexpr float HostilityLongRange = GameplayActorService::MaximumPartyEngagemen
 constexpr float OutdoorActorAiTraceIntervalSeconds = 0.5f;
 constexpr size_t OutdoorActorAiTraceDefaultActorLimit = 16;
 
+bool outdoorMapActorCorpseWasConsumed(
+    const std::vector<std::optional<GameplayCorpseViewState>> &corpseViews,
+    size_t actorIndex)
+{
+    return actorIndex < corpseViews.size() && isConsumedCorpseView(corpseViews[actorIndex]);
+}
+
+void restoreConsumedOutdoorCorpseMarkers(
+    const std::vector<OutdoorWorldRuntime::MapActorState> &actors,
+    std::vector<std::optional<GameplayCorpseViewState>> &corpseViews)
+{
+    corpseViews.resize(std::max(corpseViews.size(), actors.size()));
+
+    for (size_t actorIndex = 0; actorIndex < actors.size(); ++actorIndex)
+    {
+        const OutdoorWorldRuntime::MapActorState &actor = actors[actorIndex];
+
+        // Older runtime snapshots represented a consumed corpse only through the actor's Invisible state.
+        const bool terminalCorpse = actor.isDead
+            || actor.currentHp <= 0
+            || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dying
+            || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dead;
+
+        if (terminalCorpse && actor.isInvisible && !corpseViews[actorIndex].has_value())
+        {
+            GameplayCorpseViewState consumedCorpse = {};
+            consumedCorpse.sourceIndex = static_cast<uint32_t>(actorIndex);
+            corpseViews[actorIndex] = std::move(consumedCorpse);
+        }
+    }
+}
+
 bool environmentFlagEnabled(const char *pName)
 {
     const char *pValue = std::getenv(pName);
@@ -5468,6 +5500,7 @@ void OutdoorWorldRuntime::initialize(
         }
     }
 
+    restoreConsumedOutdoorCorpseMarkers(m_mapActors, m_mapActorCorpseViews);
     applyEventRuntimeState(true);
     applyOutdoorDestructibleStates(false);
     groundMm9LoadedPlacements(true, true);
@@ -6658,6 +6691,7 @@ void OutdoorWorldRuntime::setPartyCollisionDimensions(float radius, float height
 void OutdoorWorldRuntime::bindInteractionView(OutdoorGameView *pView)
 {
     m_pInteractionView = pView;
+    m_pActorSpriteFrameTable = pView != nullptr ? pView->actorSpriteFrameTable() : nullptr;
 }
 
 void OutdoorWorldRuntime::bindGlobalEventProgram(const std::optional<ScriptedEventProgram> *pGlobalEventProgram)
@@ -7423,6 +7457,7 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_sessionChestSeed = snapshot.sessionChestSeed;
     m_nextActorId = snapshot.nextActorId;
     m_mapActorCorpseViews = snapshot.mapActorCorpseViews;
+    restoreConsumedOutdoorCorpseMarkers(m_mapActors, m_mapActorCorpseViews);
     m_activeCorpseView = snapshot.activeCorpseView;
     m_worldItems = snapshot.worldItems;
     m_nextWorldItemId = snapshot.nextWorldItemId;
@@ -13664,7 +13699,9 @@ void OutdoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMas
 
     for (auto &[actorId, clearMask] : m_eventRuntimeState->actorClearMasks)
     {
-        if (actorId < m_mapActors.size() && (clearMask & ActorInvisibleBit) != 0)
+        if (actorId < m_mapActors.size()
+            && (clearMask & ActorInvisibleBit) != 0
+            && !outdoorMapActorCorpseWasConsumed(m_mapActorCorpseViews, actorId))
         {
             m_mapActors[actorId].isInvisible = false;
         }
@@ -13753,7 +13790,10 @@ void OutdoorWorldRuntime::applyEventRuntimeState(bool syncPersistentHostilityMas
             {
                 if ((clearMask & ActorInvisibleBit) != 0)
                 {
-                    actor.isInvisible = false;
+                    if (!outdoorMapActorCorpseWasConsumed(m_mapActorCorpseViews, actorIndex))
+                    {
+                        actor.isInvisible = false;
+                    }
                 }
 
                 if ((clearMask & ActorHostileBit) != 0)
@@ -17227,6 +17267,12 @@ bool OutdoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
         m_mapActorCorpseViews.resize(actorIndex + 1);
     }
 
+    if (isConsumedCorpseView(m_mapActorCorpseViews[actorIndex]))
+    {
+        m_mapActors[actorIndex].isInvisible = true;
+        return false;
+    }
+
     if (!m_mapActorCorpseViews[actorIndex].has_value())
     {
         if (m_pMonsterTable == nullptr)
@@ -17291,8 +17337,10 @@ bool OutdoorWorldRuntime::openMapActorCorpseView(size_t actorIndex)
 
         if (corpse.items.empty())
         {
+            corpse.fromSummonedMonster = false;
+            corpse.sourceIndex = static_cast<uint32_t>(actorIndex);
             m_mapActors[actorIndex].isInvisible = true;
-            m_mapActorCorpseViews[actorIndex].reset();
+            m_mapActorCorpseViews[actorIndex] = std::move(corpse);
             return false;
         }
 
@@ -17317,14 +17365,18 @@ bool OutdoorWorldRuntime::takeActiveCorpseItem(size_t itemIndex, ChestItemState 
 
     if (m_activeCorpseView->items.empty())
     {
-        if (m_activeCorpseView->sourceIndex < m_mapActorCorpseViews.size())
+        const uint32_t sourceIndex = m_activeCorpseView->sourceIndex;
+
+        if (sourceIndex < m_mapActorCorpseViews.size())
         {
-            m_mapActorCorpseViews[m_activeCorpseView->sourceIndex].reset();
+            CorpseViewState consumedCorpse = {};
+            consumedCorpse.sourceIndex = sourceIndex;
+            m_mapActorCorpseViews[sourceIndex] = std::move(consumedCorpse);
         }
 
-        if (m_activeCorpseView->sourceIndex < m_mapActors.size())
+        if (sourceIndex < m_mapActors.size())
         {
-            m_mapActors[m_activeCorpseView->sourceIndex].isInvisible = true;
+            m_mapActors[sourceIndex].isInvisible = true;
         }
 
         m_activeCorpseView.reset();
@@ -17990,7 +18042,34 @@ bool OutdoorWorldRuntime::summonEventItem(
     bool randomRotate
 )
 {
-    if (m_pObjectTable == nullptr || itemId == 0 || count == 0)
+    return summonEventPayload(itemId, false, x, y, z, speed, count, randomRotate);
+}
+
+bool OutdoorWorldRuntime::summonEventObject(
+    uint32_t objectId,
+    int32_t x,
+    int32_t y,
+    int32_t z,
+    int32_t speed,
+    uint32_t count,
+    bool randomRotate
+)
+{
+    return summonEventPayload(objectId, true, x, y, z, speed, count, randomRotate);
+}
+
+bool OutdoorWorldRuntime::summonEventPayload(
+    uint32_t payloadId,
+    bool payloadIsObjectId,
+    int32_t x,
+    int32_t y,
+    int32_t z,
+    int32_t speed,
+    uint32_t count,
+    bool randomRotate
+)
+{
+    if (m_pObjectTable == nullptr || payloadId == 0 || count == 0)
     {
         return false;
     }
@@ -18007,12 +18086,11 @@ bool OutdoorWorldRuntime::summonEventItem(
     const ItemDefinition *pItemDefinition = nullptr;
     bool payloadResolved = false;
 
-    const std::optional<uint16_t> descriptionId =
-        m_pObjectTable->findDescriptionIdByObjectId(static_cast<int16_t>(itemId));
-
-    if (descriptionId)
+    if (payloadIsObjectId)
     {
-        const ObjectEntry *pObjectEntry = m_pObjectTable->get(*descriptionId);
+        const std::optional<uint16_t> descriptionId =
+            m_pObjectTable->findDescriptionIdByObjectId(static_cast<int16_t>(payloadId));
+        const ObjectEntry *pObjectEntry = descriptionId ? m_pObjectTable->get(*descriptionId) : nullptr;
 
         if (pObjectEntry != nullptr && (pObjectEntry->flags & ObjectDescNoSprite) == 0 && pObjectEntry->spriteId != 0)
         {
@@ -18032,19 +18110,19 @@ bool OutdoorWorldRuntime::summonEventItem(
 
             if (m_pItemTable != nullptr)
             {
-                pItemDefinition = m_pItemTable->findBySpriteIndex(static_cast<uint16_t>(itemId));
+                pItemDefinition = m_pItemTable->findBySpriteIndex(static_cast<uint16_t>(payloadId));
             }
         }
     }
 
-    if (!payloadResolved && m_pItemTable != nullptr)
+    if (!payloadIsObjectId && m_pItemTable != nullptr)
     {
-        pItemDefinition = m_pItemTable->get(itemId);
+        pItemDefinition = m_pItemTable->get(payloadId);
 
         if (pItemDefinition != nullptr)
         {
             if (resolveWorldItemVisual(
-                    itemId,
+                    payloadId,
                     objectDescriptionId,
                     objectSpriteId,
                     objectSpriteFrameIndex,
@@ -18065,7 +18143,7 @@ bool OutdoorWorldRuntime::summonEventItem(
 
     if (!payloadResolved)
     {
-        std::cout << "Event summon unresolved payload=" << itemId << '\n';
+        std::cout << "Event summon unresolved payload=" << payloadId << '\n';
         return false;
     }
 
@@ -18118,7 +18196,7 @@ bool OutdoorWorldRuntime::summonEventItem(
         if (speed > 0)
         {
             const float angleRadians = randomRotate
-                ? (Pi * 2.0f * static_cast<float>((itemId + itemIndex * 37u) % 2048u) / 2048.0f)
+                ? (Pi * 2.0f * static_cast<float>((payloadId + itemIndex * 37u) % 2048u) / 2048.0f)
                 : 0.0f;
             worldItem.velocityX = std::cos(angleRadians) * speed;
             worldItem.velocityY = std::sin(angleRadians) * speed;
@@ -18150,6 +18228,12 @@ bool OutdoorWorldRuntime::summonFriendlyMonsterById(
     if (pStats == nullptr)
     {
         return false;
+    }
+
+    if (m_pInteractionView != nullptr)
+    {
+        m_pInteractionView->ensureMonsterVisualResources(monsterId);
+        m_pActorSpriteFrameTable = m_pInteractionView->actorSpriteFrameTable();
     }
 
     bool spawnedAny = false;
@@ -18235,6 +18319,12 @@ bool OutdoorWorldRuntime::summonHostileMonsterById(
     if (pStats == nullptr)
     {
         return false;
+    }
+
+    if (m_pInteractionView != nullptr)
+    {
+        m_pInteractionView->ensureMonsterVisualResources(monsterId);
+        m_pActorSpriteFrameTable = m_pInteractionView->actorSpriteFrameTable();
     }
 
     bool spawnedAny = false;

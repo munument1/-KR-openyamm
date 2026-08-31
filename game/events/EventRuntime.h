@@ -248,6 +248,8 @@ struct EventRuntimeState
         std::vector<DialogueMenuId> menuStack;
         std::optional<DialogueOfferState> currentOffer;
         std::array<uint8_t, 4> templeDonationCounters = {};
+        uint32_t trainingHouseId = 0;
+        std::vector<uint32_t> trainingLevelsByMember;
         std::optional<SuspendedMm9RudeDialogue> suspendedMm9RudeDialogue;
     };
 

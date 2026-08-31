@@ -113,6 +113,18 @@ bool GameplayController::advanceGameMinutes(float minutes)
     return true;
 }
 
+bool GameplayController::advanceTurnBasedGameMinutes(float minutes)
+{
+    if (m_pRuntime == nullptr || minutes <= 0.0f)
+    {
+        return false;
+    }
+
+    m_pRuntime->advanceTurnBasedGameMinutes(minutes);
+    m_pRuntime->party().advanceTimedStates(minutes * 60.0f);
+    return true;
+}
+
 std::optional<EventRuntimeState::PendingMapMove> GameplayController::consumePendingMapMove()
 {
     if (m_pSession != nullptr)

@@ -1615,31 +1615,31 @@ int32_t readCharacterVariableValue(const Character &member, uint32_t rawId)
     {
         case EvtVariable::MightBonus:
         case EvtVariable::ActualMight:
-            return member.permanentBonuses.might;
+            return member.temporaryEventBonuses.might;
 
         case EvtVariable::IntellectBonus:
         case EvtVariable::ActualIntellect:
-            return member.permanentBonuses.intellect;
+            return member.temporaryEventBonuses.intellect;
 
         case EvtVariable::PersonalityBonus:
         case EvtVariable::ActualPersonality:
-            return member.permanentBonuses.personality;
+            return member.temporaryEventBonuses.personality;
 
         case EvtVariable::EnduranceBonus:
         case EvtVariable::ActualEndurance:
-            return member.permanentBonuses.endurance;
+            return member.temporaryEventBonuses.endurance;
 
         case EvtVariable::SpeedBonus:
         case EvtVariable::ActualSpeed:
-            return member.permanentBonuses.speed;
+            return member.temporaryEventBonuses.speed;
 
         case EvtVariable::AccuracyBonus:
         case EvtVariable::ActualAccuracy:
-            return member.permanentBonuses.accuracy;
+            return member.temporaryEventBonuses.accuracy;
 
         case EvtVariable::LuckBonus:
         case EvtVariable::ActualLuck:
-            return member.permanentBonuses.luck;
+            return member.temporaryEventBonuses.luck;
 
         case EvtVariable::BaseMight:
             return static_cast<int32_t>(member.might);
@@ -1696,37 +1696,37 @@ int32_t readCharacterVariableValue(const Character &member, uint32_t rawId)
             return member.baseResistances.magic;
 
         case EvtVariable::FireResistanceBonus:
-            return member.permanentBonuses.resistances.fire;
+            return member.temporaryEventBonuses.resistances.fire;
 
         case EvtVariable::AirResistanceBonus:
-            return member.permanentBonuses.resistances.air;
+            return member.temporaryEventBonuses.resistances.air;
 
         case EvtVariable::WaterResistanceBonus:
-            return member.permanentBonuses.resistances.water;
+            return member.temporaryEventBonuses.resistances.water;
 
         case EvtVariable::EarthResistanceBonus:
-            return member.permanentBonuses.resistances.earth;
+            return member.temporaryEventBonuses.resistances.earth;
 
         case EvtVariable::SpiritResistanceBonus:
-            return member.permanentBonuses.resistances.spirit;
+            return member.temporaryEventBonuses.resistances.spirit;
 
         case EvtVariable::MindResistanceBonus:
-            return member.permanentBonuses.resistances.mind;
+            return member.temporaryEventBonuses.resistances.mind;
 
         case EvtVariable::BodyResistanceBonus:
-            return member.permanentBonuses.resistances.body;
+            return member.temporaryEventBonuses.resistances.body;
 
         case EvtVariable::LightResistanceBonus:
-            return member.permanentBonuses.resistances.light;
+            return member.temporaryEventBonuses.resistances.light;
 
         case EvtVariable::DarkResistanceBonus:
-            return member.permanentBonuses.resistances.dark;
+            return member.temporaryEventBonuses.resistances.dark;
 
         case EvtVariable::PhysicalResistanceBonus:
-            return member.permanentBonuses.resistances.physical;
+            return member.temporaryEventBonuses.resistances.physical;
 
         case EvtVariable::MagicResistanceBonus:
-            return member.permanentBonuses.resistances.magic;
+            return member.temporaryEventBonuses.resistances.magic;
 
         default: break;
     }
@@ -1752,37 +1752,37 @@ void writeCharacterVariableValue(Character &member, uint32_t rawId, int32_t valu
     {
         case EvtVariable::MightBonus:
         case EvtVariable::ActualMight:
-            member.permanentBonuses.might = clampedValue;
+            member.temporaryEventBonuses.might = clampedValue;
             return;
 
         case EvtVariable::IntellectBonus:
         case EvtVariable::ActualIntellect:
-            member.permanentBonuses.intellect = clampedValue;
+            member.temporaryEventBonuses.intellect = clampedValue;
             return;
 
         case EvtVariable::PersonalityBonus:
         case EvtVariable::ActualPersonality:
-            member.permanentBonuses.personality = clampedValue;
+            member.temporaryEventBonuses.personality = clampedValue;
             return;
 
         case EvtVariable::EnduranceBonus:
         case EvtVariable::ActualEndurance:
-            member.permanentBonuses.endurance = clampedValue;
+            member.temporaryEventBonuses.endurance = clampedValue;
             return;
 
         case EvtVariable::SpeedBonus:
         case EvtVariable::ActualSpeed:
-            member.permanentBonuses.speed = clampedValue;
+            member.temporaryEventBonuses.speed = clampedValue;
             return;
 
         case EvtVariable::AccuracyBonus:
         case EvtVariable::ActualAccuracy:
-            member.permanentBonuses.accuracy = clampedValue;
+            member.temporaryEventBonuses.accuracy = clampedValue;
             return;
 
         case EvtVariable::LuckBonus:
         case EvtVariable::ActualLuck:
-            member.permanentBonuses.luck = clampedValue;
+            member.temporaryEventBonuses.luck = clampedValue;
             return;
 
         case EvtVariable::BaseMight:
@@ -1858,47 +1858,47 @@ void writeCharacterVariableValue(Character &member, uint32_t rawId, int32_t valu
             return;
 
         case EvtVariable::FireResistanceBonus:
-            member.permanentBonuses.resistances.fire = clampedValue;
+            member.temporaryEventBonuses.resistances.fire = clampedValue;
             return;
 
         case EvtVariable::AirResistanceBonus:
-            member.permanentBonuses.resistances.air = clampedValue;
+            member.temporaryEventBonuses.resistances.air = clampedValue;
             return;
 
         case EvtVariable::WaterResistanceBonus:
-            member.permanentBonuses.resistances.water = clampedValue;
+            member.temporaryEventBonuses.resistances.water = clampedValue;
             return;
 
         case EvtVariable::EarthResistanceBonus:
-            member.permanentBonuses.resistances.earth = clampedValue;
+            member.temporaryEventBonuses.resistances.earth = clampedValue;
             return;
 
         case EvtVariable::SpiritResistanceBonus:
-            member.permanentBonuses.resistances.spirit = clampedValue;
+            member.temporaryEventBonuses.resistances.spirit = clampedValue;
             return;
 
         case EvtVariable::MindResistanceBonus:
-            member.permanentBonuses.resistances.mind = clampedValue;
+            member.temporaryEventBonuses.resistances.mind = clampedValue;
             return;
 
         case EvtVariable::BodyResistanceBonus:
-            member.permanentBonuses.resistances.body = clampedValue;
+            member.temporaryEventBonuses.resistances.body = clampedValue;
             return;
 
         case EvtVariable::LightResistanceBonus:
-            member.permanentBonuses.resistances.light = clampedValue;
+            member.temporaryEventBonuses.resistances.light = clampedValue;
             return;
 
         case EvtVariable::DarkResistanceBonus:
-            member.permanentBonuses.resistances.dark = clampedValue;
+            member.temporaryEventBonuses.resistances.dark = clampedValue;
             return;
 
         case EvtVariable::PhysicalResistanceBonus:
-            member.permanentBonuses.resistances.physical = clampedValue;
+            member.temporaryEventBonuses.resistances.physical = clampedValue;
             return;
 
         case EvtVariable::MagicResistanceBonus:
-            member.permanentBonuses.resistances.magic = clampedValue;
+            member.temporaryEventBonuses.resistances.magic = clampedValue;
             return;
 
         default: break;
@@ -3105,6 +3105,13 @@ void EventRuntime::setVariableValue(
             writeCharacterVariableValue(*pMember, variable.rawId, value);
         }
 
+        if (variable.kind == VariableKind::ActualStat
+            || variable.kind == VariableKind::StatBonus
+            || variable.kind == VariableKind::ResistanceBonus)
+        {
+            pParty->rebuildMagicalBonusesFromBuffs();
+        }
+
         if (value > previousValue)
         {
             queuePortraitFxRequest(runtimeState, PortraitFxEventKind::StatIncrease, pParty, targetMemberIndices);
@@ -3817,6 +3824,13 @@ void EventRuntime::addVariableValue(
             writeCharacterVariableValue(*pMember, variable.rawId, currentValue + value);
         }
 
+        if (variable.kind == VariableKind::ActualStat
+            || variable.kind == VariableKind::StatBonus
+            || variable.kind == VariableKind::ResistanceBonus)
+        {
+            pParty->rebuildMagicalBonusesFromBuffs();
+        }
+
         if (value > 0)
         {
             queuePortraitFxRequest(runtimeState, PortraitFxEventKind::StatIncrease, pParty, targetMemberIndices);
@@ -4283,6 +4297,13 @@ void EventRuntime::subtractVariableValue(
 
             const int32_t currentValue = readCharacterVariableValue(*pMember, variable.rawId);
             writeCharacterVariableValue(*pMember, variable.rawId, currentValue - value);
+        }
+
+        if (variable.kind == VariableKind::ActualStat
+            || variable.kind == VariableKind::StatBonus
+            || variable.kind == VariableKind::ResistanceBonus)
+        {
+            pParty->rebuildMagicalBonusesFromBuffs();
         }
 
         if (value > 0)
@@ -6395,6 +6416,26 @@ int luaSummonItem(lua_State *pLuaState)
     return 0;
 }
 
+int luaSummonObject(lua_State *pLuaState)
+{
+    LuaExecutionContext *pExecutionContext = executionContextFromLua(pLuaState);
+
+    if (pExecutionContext == nullptr || pExecutionContext->pSceneEventContext == nullptr)
+    {
+        return 0;
+    }
+
+    pExecutionContext->pSceneEventContext->summonEventObject(
+        static_cast<uint32_t>(luaL_checkinteger(pLuaState, 1)),
+        static_cast<int32_t>(luaL_checkinteger(pLuaState, 2)),
+        static_cast<int32_t>(luaL_checkinteger(pLuaState, 3)),
+        static_cast<int32_t>(luaL_checkinteger(pLuaState, 4)),
+        static_cast<int32_t>(luaL_checkinteger(pLuaState, 5)),
+        static_cast<uint32_t>(luaL_optinteger(pLuaState, 6, 1)),
+        luaEventBoolean(pLuaState, 7));
+    return 0;
+}
+
 int luaSetMonsterGroup(lua_State *pLuaState)
 {
     EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
@@ -8250,7 +8291,7 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "SetLight", luaSetLight);
     registerLuaFunction(pLuaState, "SimpleMessage", luaSimpleMessage);
     registerLuaFunction(pLuaState, "SummonItem", luaSummonItem);
-    registerLuaFunction(pLuaState, "SummonObject", luaSummonItem);
+    registerLuaFunction(pLuaState, "SummonObject", luaSummonObject);
     registerLuaFunction(pLuaState, "SetNPCTopic", luaSetNpcTopic);
     registerLuaFunction(pLuaState, "MoveNPC", luaMoveNpc);
     registerLuaFunction(pLuaState, "GiveItem", luaGiveItem);

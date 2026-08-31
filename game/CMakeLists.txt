@@ -20,6 +20,7 @@ add_library(openyamm_game STATIC
     app/GameSession.cpp
     audio/GameAudioSystem.cpp
     tables/ChestTable.cpp
+    tables/AwardTable.cpp
     tables/JournalAutonoteTable.cpp
     tables/JournalHistoryTable.cpp
     tables/JournalQuestTable.cpp
@@ -48,6 +49,7 @@ add_library(openyamm_game STATIC
     gameplay/CorpseLootRuntime.cpp
     gameplay/ChestRuntime.cpp
     gameplay/BountyHuntRuntime.cpp
+    gameplay/AwardRuntime.cpp
     gameplay/GameplayBolsterRuntime.cpp
     gameplay/GameplayActorAiSystem.cpp
     gameplay/GameplayActorService.cpp

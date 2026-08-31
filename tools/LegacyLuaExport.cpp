@@ -2672,18 +2672,25 @@ void emitIndentedLineWithComment(
     stream << '\n';
 }
 
-std::optional<std::string> resolveSummonItemComment(uint32_t payload, const LegacyLuaExportLookups &lookups)
+std::optional<std::string> resolveSummonItemComment(
+    uint32_t payload,
+    const LegacyLuaExportLookups &lookups,
+    bool payloadIsItemId)
 {
     if (payload == 0)
     {
         return std::nullopt;
     }
 
-    std::optional<std::string> comment = lookupText(lookups.objectPayloadNames, payload);
+    std::optional<std::string> comment = payloadIsItemId
+        ? lookupText(lookups.itemNames, payload)
+        : lookupText(lookups.objectPayloadNames, payload);
 
     if (!comment)
     {
-        comment = lookupText(lookups.itemNames, payload);
+        comment = payloadIsItemId
+            ? lookupText(lookups.objectPayloadNames, payload)
+            : lookupText(lookups.itemNames, payload);
     }
 
     return comment;
@@ -3766,7 +3773,10 @@ bool emitReadableActionInstruction(
                     + std::to_string(static_cast<int32_t>(instruction.arguments[4])) + ", "
                     + std::to_string(instruction.arguments[5]) + ", "
                     + (instruction.arguments[6] != 0 ? std::string("true") : std::string("false")) + ")",
-                    resolveSummonItemComment(instruction.arguments[0], lookups),
+                    resolveSummonItemComment(
+                        instruction.arguments[0],
+                        lookups,
+                        instruction.operation == LegacyLuaOperation::SummonItem),
                     indentLevel);
                 return true;
             }
@@ -8637,7 +8647,10 @@ void emitNormalInstruction(
                     + std::to_string(static_cast<int32_t>(instruction.arguments[4])) + ", "
                     + std::to_string(instruction.arguments[5]) + ", "
                     + (instruction.arguments[6] != 0 ? "true" : "false") + ")",
-                    resolveSummonItemComment(instruction.arguments[0], lookups),
+                    resolveSummonItemComment(
+                        instruction.arguments[0],
+                        lookups,
+                        instruction.operation == LegacyLuaOperation::SummonItem),
                     2);
             }
             break;

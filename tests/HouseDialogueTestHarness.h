@@ -85,6 +85,11 @@ public:
         return executeEvent(m_gameData.out01LocalEventProgram, m_gameData.globalEventProgram, eventId);
     }
 
+    bool executeOut02LocalEvent(uint16_t eventId)
+    {
+        return executeEvent(m_gameData.out02LocalEventProgram, m_gameData.globalEventProgram, eventId);
+    }
+
     bool executeGlobalEvent(uint16_t eventId)
     {
         return executeEvent(std::nullopt, m_gameData.globalEventProgram, eventId);
@@ -156,6 +161,9 @@ public:
 
         if (result.shouldCloseActiveDialog)
         {
+            m_eventRuntimeState.pendingInputPrompt.reset();
+            m_eventRuntimeState.pendingDialogueContext.reset();
+            m_eventRuntimeState.dialogueState = {};
             m_uiController.clearEventDialog();
         }
 
@@ -175,6 +183,9 @@ public:
 
         if (result.shouldCloseActiveDialog)
         {
+            m_eventRuntimeState.pendingInputPrompt.reset();
+            m_eventRuntimeState.pendingDialogueContext.reset();
+            m_eventRuntimeState.dialogueState = {};
             m_uiController.clearEventDialog();
         }
 

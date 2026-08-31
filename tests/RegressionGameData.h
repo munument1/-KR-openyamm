@@ -28,6 +28,7 @@ struct RegressionGameData
     Game::ArcomageLibrary arcomageLibrary = {};
     std::optional<Game::ScriptedEventProgram> globalEventProgram = std::nullopt;
     std::optional<Game::ScriptedEventProgram> out01LocalEventProgram = std::nullopt;
+    std::optional<Game::ScriptedEventProgram> out02LocalEventProgram = std::nullopt;
     Game::ItemTable itemTable = {};
     Game::StandardItemEnchantTable standardItemEnchantTable = {};
     Game::SpecialItemEnchantTable specialItemEnchantTable = {};

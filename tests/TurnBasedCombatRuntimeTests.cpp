@@ -249,6 +249,29 @@ TEST_CASE("turn based runtime cycles party actions before OE movement phase")
     CHECK_EQ(runtime.movementActionPoints(), 130);
 }
 
+TEST_CASE("turn based runtime advances OE game time once when a combat turn reaches movement")
+{
+    constexpr float ExpectedTurnGameMinutes = 213.0f / 256.0f;
+
+    OpenYAMM::Game::Party party = makeTurnBasedParty(1);
+    OpenYAMM::Game::TurnBasedCombatRuntime runtime = {};
+
+    REQUIRE(runtime.begin(party, nullptr));
+    CHECK_EQ(runtime.consumePendingGameTimeAdvanceMinutes(), doctest::Approx(0.0f));
+
+    runtime.update(&party, nullptr, 0.6f);
+    REQUIRE(runtime.canBeginPlayerAction(party));
+    CHECK_EQ(runtime.consumePendingGameTimeAdvanceMinutes(), doctest::Approx(0.0f));
+
+    REQUIRE(runtime.applyPlayerAction(party, 0, 5.0f));
+    REQUIRE(runtime.stage() == OpenYAMM::Game::TurnBasedCombatStage::Movement);
+    CHECK_EQ(runtime.consumePendingGameTimeAdvanceMinutes(), doctest::Approx(ExpectedTurnGameMinutes));
+    CHECK_EQ(runtime.consumePendingGameTimeAdvanceMinutes(), doctest::Approx(0.0f));
+
+    runtime.update(&party, nullptr, 0.5f);
+    CHECK_EQ(runtime.consumePendingGameTimeAdvanceMinutes(), doctest::Approx(0.0f));
+}
+
 TEST_CASE("turn based runtime yields to movement when actors become ready before character recovery")
 {
     OpenYAMM::Game::Party party = makeTurnBasedParty(1);

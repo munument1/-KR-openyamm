@@ -34,6 +34,7 @@ class TurnBasedCombatRuntime;
 struct GameplayInputFrame;
 class GameplayItemService;
 class GameplaySpellService;
+class AwardTable;
 class ItemTable;
 class MergedComplexItemPictureTable;
 class MonsterTable;
@@ -150,6 +151,8 @@ public:
     const GameplayUiController::UtilitySpellOverlayState &utilitySpellOverlayReadOnly() const;
     const GameplayUiController::JournalScreenState &journalScreenStateReadOnly() const;
     const GameplayUiController::QuickReferenceScreenState &quickReferenceScreenStateReadOnly() const;
+    const AwardTable *awardTable() const;
+    bool isAutonoteUnlocked(uint32_t autonoteId) const;
     const JournalQuestTable *journalQuestTable() const;
     const JournalHistoryTable *journalHistoryTable() const;
     uint32_t activeHistoryContinentId() const;

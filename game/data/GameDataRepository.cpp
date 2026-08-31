@@ -28,6 +28,7 @@ void GameDataRepository::clear()
     m_pSpecialItemEnchantTable = nullptr;
     m_pChestTable = nullptr;
     m_pHouseTable = nullptr;
+    m_pAwardTable = nullptr;
     m_pJournalQuestTable = nullptr;
     m_pJournalHistoryTable = nullptr;
     m_pJournalAutonoteTable = nullptr;
@@ -84,6 +85,7 @@ void GameDataRepository::bind(const GameDataLoader &loader)
     m_pSpecialItemEnchantTable = &loader.getSpecialItemEnchantTable();
     m_pChestTable = &loader.getChestTable();
     m_pHouseTable = &loader.getHouseTable();
+    m_pAwardTable = &loader.getAwardTable();
     m_pJournalQuestTable = &loader.getJournalQuestTable();
     m_pJournalHistoryTable = &loader.getJournalHistoryTable();
     m_pJournalAutonoteTable = &loader.getJournalAutonoteTable();
@@ -187,6 +189,11 @@ const ChestTable &GameDataRepository::chestTable() const
 const HouseTable &GameDataRepository::houseTable() const
 {
     return requireBound(m_pHouseTable);
+}
+
+const AwardTable &GameDataRepository::awardTable() const
+{
+    return requireBound(m_pAwardTable);
 }
 
 const JournalQuestTable &GameDataRepository::journalQuestTable() const

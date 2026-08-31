@@ -21,6 +21,9 @@ constexpr float TurnTicksPerSecond = 128.0f;
 constexpr int TurnMovementStepActionPoints = 26;
 constexpr int TurnMovementActionPoints = 130;
 constexpr float TurnMovementStepSeconds = static_cast<float>(TurnMovementStepActionPoints) / TurnTicksPerSecond;
+constexpr float LegacyGameTicksPerMinute = 256.0f;
+constexpr float CompletedTurnGameTimeTicks = 213.0f;
+constexpr float CompletedTurnGameTimeMinutes = CompletedTurnGameTimeTicks / LegacyGameTicksPerMinute;
 constexpr float InitialWaitTicks = 64.0f;
 constexpr float ActorActionResolutionMaxTicks = 128.0f;
 constexpr float ActorNearbyDistance = 5120.0f;
@@ -192,6 +195,7 @@ bool TurnBasedCombatRuntime::begin(Party &party, const IGameplayWorldRuntime *pW
     m_actorActionTimerTicks = 0.0f;
     m_movementFinished = false;
     m_waitingForActorActionResolution = false;
+    m_pendingGameTimeAdvanceMinutes = 0.0f;
     clearMovementLatches();
     m_loggedReadyMemberIndex.reset();
 
@@ -254,6 +258,7 @@ void TurnBasedCombatRuntime::reset()
     m_actorActionTimerTicks = 0.0f;
     m_movementFinished = false;
     m_waitingForActorActionResolution = false;
+    m_pendingGameTimeAdvanceMinutes = 0.0f;
     clearMovementLatches();
     m_loggedReadyMemberIndex.reset();
 
@@ -493,6 +498,13 @@ float TurnBasedCombatRuntime::movementDeltaSecondsForFrame(float fallbackDeltaSe
     }
 
     return 0.0f;
+}
+
+float TurnBasedCombatRuntime::consumePendingGameTimeAdvanceMinutes()
+{
+    const float pendingMinutes = m_pendingGameTimeAdvanceMinutes;
+    m_pendingGameTimeAdvanceMinutes = 0.0f;
+    return pendingMinutes;
 }
 
 void TurnBasedCombatRuntime::clearMovementInput(GameplayInputFrame &input) const
@@ -986,6 +998,7 @@ void TurnBasedCombatRuntime::enterAttackStage(Party *pParty)
 void TurnBasedCombatRuntime::enterMovementStage()
 {
     m_stage = TurnBasedCombatStage::Movement;
+    m_pendingGameTimeAdvanceMinutes += CompletedTurnGameTimeMinutes;
     m_movementActionPoints = TurnMovementActionPoints;
     m_movementFinished = false;
     m_movementStepThisFrame = false;
