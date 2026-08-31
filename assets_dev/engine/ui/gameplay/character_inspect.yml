@@ -88,6 +88,19 @@ elements:
           align_x: left
           align_y: middle
 
+      - id: CharacterInspectSkillBonus
+        anchor: top_left
+        offset_x: 20
+        offset_y: 210
+        width: 385
+        height: 16
+        text:
+          value: "{skill_bonus}"
+          font: SMALLNUM
+          color: white
+          align_x: left
+          align_y: middle
+
       - id: CharacterInspectCorner_UR
         anchor: top_right
         offset_x: 7

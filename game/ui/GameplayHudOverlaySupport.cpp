@@ -809,6 +809,7 @@ void GameplayHudOverlaySupport::updateCharacterInspectOverlay(
                     row.canonicalName,
                     SkillMastery::Grandmaster);
                 overlay.grandmaster.visible = !grandmasterDescription.empty();
+                overlay.skillBonus = GameMechanics::resolveCharacterItemSkillBonus(*pCharacter, row.canonicalName);
                 overlay.sourceX = rowRect.x;
                 overlay.sourceY = rowRect.y;
                 overlay.sourceWidth = rowRect.width;

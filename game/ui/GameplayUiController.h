@@ -175,6 +175,7 @@ public:
         CharacterInspectMasteryLine expert = {};
         CharacterInspectMasteryLine master = {};
         CharacterInspectMasteryLine grandmaster = {};
+        int skillBonus = 0;
         float sourceX = 0.0f;
         float sourceY = 0.0f;
         float sourceWidth = 0.0f;

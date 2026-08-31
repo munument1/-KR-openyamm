@@ -185,6 +185,7 @@ const std::unordered_map<std::string, std::string> SkillAliases = {
     {"bodybuilding", "Bodybuilding"},
     {"meditate", "Meditation"},
     {"meditation", "Meditation"},
+    {"disarm", "DisarmTraps"},
     {"disarmtrap", "DisarmTraps"},
     {"disarmtraps", "DisarmTraps"},
     {"identmon", "IdentifyMonster"},

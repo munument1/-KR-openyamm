@@ -97,3 +97,18 @@ TEST_CASE("character doll boots render above armor")
     REQUIRE(bootsIterator != layoutIds.end());
     CHECK(armorIterator < bootsIterator);
 }
+
+TEST_CASE("character inspect layout provides a skill bonus row")
+{
+    const std::string inspectLayout = loadLayoutSource("assets_dev/engine/ui/gameplay/character_inspect.yml");
+    REQUIRE_FALSE(inspectLayout.empty());
+
+    OpenYAMM::Game::UiLayoutManager layoutManager;
+    REQUIRE(layoutManager.loadLayoutText("character_inspect.yml", inspectLayout));
+
+    const OpenYAMM::Game::UiLayoutManager::LayoutElement *pSkillBonus =
+        layoutManager.findElement("CharacterInspectSkillBonus");
+    REQUIRE(pSkillBonus != nullptr);
+    CHECK_EQ(pSkillBonus->parentId, "CharacterInspectRoot");
+    CHECK_EQ(pSkillBonus->fontName, "SMALLNUM");
+}

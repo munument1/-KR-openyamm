@@ -2123,6 +2123,22 @@ std::string GameMechanics::buildExperienceInspectSupplement(const Character &cha
         + ".";
 }
 
+int GameMechanics::resolveCharacterItemSkillBonus(const Character &character, const std::string &skillName)
+{
+    const std::string canonicalName = canonicalSkillName(skillName);
+    int totalBonus = 0;
+
+    for (const std::pair<const std::string, int> &bonus : character.itemSkillBonuses)
+    {
+        if (canonicalSkillName(bonus.first) == canonicalName)
+        {
+            totalBonus += bonus.second;
+        }
+    }
+
+    return totalBonus;
+}
+
 int GameMechanics::resolveCharacterDisplayedBasePrimaryStat(
     const Character &character,
     uint32_t rawStatId,

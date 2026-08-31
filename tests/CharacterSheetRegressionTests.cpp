@@ -148,6 +148,18 @@ TEST_CASE("base resource formulas include bodybuilding and meditation skill bonu
         &gameData.classMultiplierTable), 65);
 }
 
+TEST_CASE("character item skill bonus resolves canonical equipment bonus names")
+{
+    OpenYAMM::Game::Character character = {};
+    character.itemSkillBonuses["Learning"] = 15;
+    character.itemSkillBonuses["Disarm"] = 4;
+    character.itemSkillBonuses["DisarmTraps"] = 3;
+
+    CHECK_EQ(OpenYAMM::Game::GameMechanics::resolveCharacterItemSkillBonus(character, "Learning"), 15);
+    CHECK_EQ(OpenYAMM::Game::GameMechanics::resolveCharacterItemSkillBonus(character, "Disarm Traps"), 7);
+    CHECK_EQ(OpenYAMM::Game::GameMechanics::resolveCharacterItemSkillBonus(character, "Sword"), 0);
+}
+
 TEST_CASE("class multiplier table drives promoted class resource progression")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

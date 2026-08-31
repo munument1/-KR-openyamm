@@ -176,6 +176,7 @@ public:
         bool restoreCurrentToMaximum = false,
         const ClassMultiplierTable *pClassMultiplierTable = nullptr);
     static std::string buildExperienceInspectSupplement(const Character &character);
+    static int resolveCharacterItemSkillBonus(const Character &character, const std::string &skillName);
     static int resolveCharacterDisplayedBasePrimaryStat(
         const Character &character,
         uint32_t rawStatId,

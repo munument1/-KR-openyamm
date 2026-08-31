@@ -6450,6 +6450,8 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
     const GameplayScreenRuntime::HudLayoutElement *pMasterLayout = context.findHudLayoutElement("CharacterInspectMaster");
     const GameplayScreenRuntime::HudLayoutElement *pGrandmasterLayout =
         context.findHudLayoutElement("CharacterInspectGrandmaster");
+    const GameplayScreenRuntime::HudLayoutElement *pSkillBonusLayout =
+        context.findHudLayoutElement("CharacterInspectSkillBonus");
 
     if (pRootLayout == nullptr
         || pTitleLayout == nullptr
@@ -6457,7 +6459,8 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
         || pNormalLayout == nullptr
         || pExpertLayout == nullptr
         || pMasterLayout == nullptr
-        || pGrandmasterLayout == nullptr)
+        || pGrandmasterLayout == nullptr
+        || pSkillBonusLayout == nullptr)
     {
         return;
     }
@@ -6496,6 +6499,7 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
     const bool showExpert = overlay.expert.visible && !overlay.expert.text.empty();
     const bool showMaster = overlay.master.visible && !overlay.master.text.empty();
     const bool showGrandmaster = overlay.grandmaster.visible && !overlay.grandmaster.text.empty();
+    const bool showSkillBonus = overlay.skillBonus > 0;
     static constexpr float CharacterInspectBodyToRowsGap = 10.0f;
     static constexpr float CharacterInspectRowGap = 2.0f;
     static constexpr float CharacterInspectBottomPadding = 15.0f;
@@ -6534,7 +6538,12 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
     const std::vector<std::string> masterLines =
         showMaster ? resolveWrappedMasteryLines(*pMasterLayout, overlay.master.text) : std::vector<std::string>{};
     const std::vector<std::string> grandmasterLines =
-        showGrandmaster ? resolveWrappedMasteryLines(*pGrandmasterLayout, overlay.grandmaster.text) : std::vector<std::string>{};
+        showGrandmaster
+            ? resolveWrappedMasteryLines(*pGrandmasterLayout, overlay.grandmaster.text)
+            : std::vector<std::string>{};
+    const std::string skillBonusText = showSkillBonus ? "Skill bonus: +" + std::to_string(overlay.skillBonus) : "";
+    const std::vector<std::string> skillBonusLines =
+        showSkillBonus ? resolveWrappedMasteryLines(*pSkillBonusLayout, skillBonusText) : std::vector<std::string>{};
     float masteryHeight = 0.0f;
     bool hasAnyMasteryRows = false;
 
@@ -6546,7 +6555,9 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
              std::tuple<bool, const GameplayScreenRuntime::HudLayoutElement *, const std::vector<std::string> *>{
                  showMaster, pMasterLayout, &masterLines},
              std::tuple<bool, const GameplayScreenRuntime::HudLayoutElement *, const std::vector<std::string> *>{
-                 showGrandmaster, pGrandmasterLayout, &grandmasterLines}})
+                 showGrandmaster, pGrandmasterLayout, &grandmasterLines},
+             std::tuple<bool, const GameplayScreenRuntime::HudLayoutElement *, const std::vector<std::string> *>{
+                 showSkillBonus, pSkillBonusLayout, &skillBonusLines}})
     {
         if (!showRow)
         {
@@ -6768,7 +6779,8 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
                     return rowY;
                 }
 
-                const std::optional<GameplayScreenRuntime::HudFontHandle> font = context.findHudFont(baseLayout.fontName);
+                const std::optional<GameplayScreenRuntime::HudFontHandle> font =
+                    context.findHudFont(baseLayout.fontName);
                 const GameplayScreenRuntime::HudFontHandle *pFont = font ? &*font : nullptr;
 
                 if (pFont == nullptr)
@@ -6798,11 +6810,61 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
                 return rowY + lineHeight * static_cast<float>(std::max<size_t>(1, wrappedLines.size()));
             };
 
+        const auto renderSkillBonusRow =
+            [&context, popupScale](
+                const GameplayScreenRuntime::HudLayoutElement &baseLayout,
+                const GameplayScreenRuntime::ResolvedHudLayoutElement &baseResolved,
+                float rowY,
+                int skillBonus)
+            {
+                if (skillBonus <= 0)
+                {
+                    return;
+                }
+
+                const std::optional<GameplayScreenRuntime::HudFontHandle> font =
+                    context.findHudFont(baseLayout.fontName);
+                const GameplayScreenRuntime::HudFontHandle *pFont = font ? &*font : nullptr;
+
+                if (pFont == nullptr)
+                {
+                    return;
+                }
+
+                bgfx::TextureHandle labelTextureHandle =
+                    context.ensureHudFontMainTextureColor(*pFont, baseLayout.textColorAbgr);
+                bgfx::TextureHandle bonusTextureHandle =
+                    context.ensureHudFontMainTextureColor(*pFont, packHudColorAbgr(0, 255, 0));
+
+                if (!bgfx::isValid(labelTextureHandle))
+                {
+                    labelTextureHandle = pFont->mainTextureHandle;
+                }
+
+                if (!bgfx::isValid(bonusTextureHandle))
+                {
+                    bonusTextureHandle = pFont->mainTextureHandle;
+                }
+
+                const std::string label = "Skill bonus: ";
+                const std::string value = "+" + std::to_string(skillBonus);
+                const float labelX = std::round(baseResolved.x + baseLayout.textPadX * popupScale);
+                const float valueX = labelX + context.measureHudTextWidth(*pFont, label) * popupScale;
+                const float textY = std::round(rowY + baseLayout.textPadY * popupScale);
+
+                context.renderHudFontLayer(*pFont, pFont->shadowTextureHandle, label, labelX, textY, popupScale);
+                context.renderHudFontLayer(*pFont, labelTextureHandle, label, labelX, textY, popupScale);
+                context.renderHudFontLayer(*pFont, pFont->shadowTextureHandle, value, valueX, textY, popupScale);
+                context.renderHudFontLayer(*pFont, bonusTextureHandle, value, valueX, textY, popupScale);
+            };
+
         const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> normalRect = resolveLayout("CharacterInspectNormal");
         const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> expertRect = resolveLayout("CharacterInspectExpert");
         const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> masterRect = resolveLayout("CharacterInspectMaster");
         const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> grandmasterRect =
             resolveLayout("CharacterInspectGrandmaster");
+        const std::optional<GameplayScreenRuntime::ResolvedHudLayoutElement> skillBonusRect =
+            resolveLayout("CharacterInspectSkillBonus");
 
         if (normalRect)
         {
@@ -6851,12 +6913,22 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
 
         if (grandmasterRect)
         {
-            renderMasteryRow(
+            nextRowY = renderMasteryRow(
                 *pGrandmasterLayout,
                 *grandmasterRect,
                 nextRowY,
                 overlay.grandmaster,
                 grandmasterLines);
+
+            if (showGrandmaster && showSkillBonus)
+            {
+                nextRowY += CharacterInspectRowGap * popupScale;
+            }
+        }
+
+        if (skillBonusRect && showSkillBonus)
+        {
+            renderSkillBonusRow(*pSkillBonusLayout, *skillBonusRect, nextRowY, overlay.skillBonus);
         }
     }
 }
