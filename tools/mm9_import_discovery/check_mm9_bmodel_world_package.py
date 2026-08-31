@@ -15,13 +15,12 @@ ACTIVE_SLICE_EXPECTATIONS = {
     "bootcamp": {
         "geometry_file": "bootcamp.odm",
         "event_ids": {32000, 32001, 32002, 32003, 32004, 32010},
-        "on_load_event_ids": {32011},
         "replaced_event_ids": {30563, 30564},
         "interactive_event_ids": {32000, 32001, 32002, 32003, 32004},
         "entity_event_id": 32010,
-        "minimum_actors": 3,
+        "minimum_actors": 9,
         "minimum_chests": 5,
-        "npc_ids": {1224},
+        "mm9_dialogue_bindings": {207: 436, 209: 101, 210: 204, 211: 206},
     },
 }
 
@@ -70,12 +69,16 @@ def validate_active_slice(maps_root: Path, events_root: Path) -> list[str]:
 
     for map_stem, expectation in ACTIVE_SLICE_EXPECTATIONS.items():
         scene_path = maps_root / f"{map_stem}_authored.scene.yml"
+        base_scene_path = maps_root / f"{map_stem}.scene.yml"
         event_path = events_root / f"{map_stem}_authored.lua"
         geometry_path = maps_root / expectation["geometry_file"]
         lighting_path = maps_root / f"{map_stem}.lighting"
 
         if not scene_path.is_file():
             failures.append(f"active slice {map_stem}: missing authored scene {scene_path}")
+            continue
+        if not base_scene_path.is_file():
+            failures.append(f"active slice {map_stem}: missing generated scene {base_scene_path}")
             continue
 
         if not lighting_path.is_file():
@@ -111,11 +114,12 @@ def validate_active_slice(maps_root: Path, events_root: Path) -> list[str]:
                     failures.append(f"active slice {map_stem}: inconsistent binary lighting layout")
 
         scene = yaml.load(scene_path.read_text(encoding="utf-8"), Loader=YAML_LOADER)
+        base_scene = yaml.load(base_scene_path.read_text(encoding="utf-8"), Loader=YAML_LOADER)
         source = scene.get("source", {})
         runtime_restrictions = scene.get("runtime_restrictions", {})
         authored_content = scene.get("authored_content", {})
         interactive_faces = scene.get("bmodel_faces", {}).get("interactive_faces", [])
-        actors = authored_content.get("actors", [])
+        actors = base_scene.get("initial_state", {}).get("actors", []) + authored_content.get("actors", [])
         spawns = authored_content.get("spawns", [])
         entities = authored_content.get("entities", [])
         chests = authored_content.get("chests", [])
@@ -162,10 +166,25 @@ def validate_active_slice(maps_root: Path, events_root: Path) -> list[str]:
             if f"ReplaceMapEvent({event_id}," not in event_text:
                 failures.append(f"active slice {map_stem}: event {event_id} is not replaced")
 
-        actor_npc_ids = {actor.get("npc_id") for actor in actors}
-        for npc_id in expectation.get("npc_ids", set()):
-            if npc_id not in actor_npc_ids:
-                failures.append(f"active slice {map_stem}: authored NPC {npc_id} is missing")
+        dialogue_actors = {
+            actor.get("mm9_source_object_index"): actor
+            for actor in actors
+            if actor.get("mm9_rude_id") is not None
+        }
+        for source_object_index, rude_id in expectation.get("mm9_dialogue_bindings", {}).items():
+            actor = dialogue_actors.get(source_object_index)
+            if actor is None:
+                failures.append(
+                    f"active slice {map_stem}: MM9 dialogue object {source_object_index} is missing"
+                )
+            elif actor.get("mm9_rude_id") != rude_id:
+                failures.append(
+                    f"active slice {map_stem}: MM9 dialogue object {source_object_index} has wrong RUDE id"
+                )
+            elif actor.get("npc_id") != 0 or actor.get("immobile") is not True:
+                failures.append(
+                    f"active slice {map_stem}: MM9 dialogue object {source_object_index} is not a stationary placeholder"
+                )
 
     return failures
 

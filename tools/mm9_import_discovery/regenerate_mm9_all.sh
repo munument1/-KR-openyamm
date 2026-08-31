@@ -2,7 +2,10 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/../.." && pwd)"
+cd "${repo_root}"
 
+python_bin="${PYTHON:-python3}"
 extracted_root="${MM9_EXTRACTED_ROOT:-mm9/extracted}"
 world_root="${MM9_WORLD_ROOT:-assets_dev/worlds/mm9}"
 editor_world_root="${MM9_EDITOR_WORLD_ROOT:-assets_editor_dev/worlds/mm9}"
@@ -117,5 +120,21 @@ else
 fi
 
 "${script_dir}/regenerate_mm9_static_assets.sh" "${static_args[@]}"
+"${python_bin}" "${script_dir}/import_mm9_items.py" \
+    --source-root "${extracted_root}" \
+    --output-root "${world_root}"
+"${python_bin}" "${script_dir}/generate_mm9_vendors.py" \
+    --shops "${extracted_root}/DATA/DATA/MMIXSHOPS.txt" \
+    --concats "${extracted_root}/DATA/DATA/CONCAT.csv" \
+    --world-manifest "${world_root}/world.yml" \
+    --rude-directory "${world_root}/dialogue/rude" \
+    --mm9-items "${world_root}/data_tables/items.txt" \
+    --engine-items "assets_dev/engine/data_tables/items.txt" \
+    --special-enchants "assets_dev/engine/data_tables/special_item_enchants.txt" \
+    --output-directory "${world_root}/data_tables" \
+    --audit "${world_root}/state/vendor_stock_audit.yml"
 "${script_dir}/regenerate_mm9_maps.sh" "${map_args[@]}"
+"${python_bin}" "${script_dir}/generate_mm9_destructible_brush_inventory.py" \
+    --maps-directory "${world_root}/maps" \
+    --output "${repo_root}/MM9_DESTRUCTIBLE_BRUSH_INVENTORY.md"
 "${script_dir}/regenerate_mm9_models.sh" "${model_args[@]}"

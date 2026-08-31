@@ -1,0 +1,23 @@
+format_version: 1
+kind: mm9_armor_legacy_placeholders
+# Prototype selections combine normalized treasure tier, armor skill, source-world preference, and visual similarity.
+# The reference owns all fitted geometry and painted construction. MM9 art supplies only conservative color accents.
+items:
+  86:
+    item_id: 10086
+    name: Arming Doublet
+    normalized_tier: 1
+    armor_skill: Leather
+    reference_item_id: 84
+    reference_world: mm8
+    coverage_profile: hip_length
+    selection_reason: closest low-tier MM8 leather jacket; fitted geometry is preferable to full-body MM7 leather
+  225:
+    item_id: 10225
+    name: Broderick's Hauberk
+    normalized_tier: 7
+    armor_skill: Chain
+    reference_item_id: 1335
+    reference_world: mm7
+    coverage_profile: hip_length
+    selection_reason: artifact-tier silver chain silhouette is closer than MM8 Glomenmail's black spiked full suit

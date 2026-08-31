@@ -141,6 +141,13 @@ def current_export_kind(map_dir: Path, map_id: str) -> str:
 
 
 def classify_metrics(metrics: MapMetrics) -> tuple[str, str, str]:
+    if metrics.map_id.endswith("city"):
+        return (
+            "outdoor_like",
+            "high",
+            "MM9 city map; use exterior sky/daylight presentation while retaining its DAT portal visibility data",
+        )
+
     if metrics.map_id in KNOWN_OUTDOOR_DAT_MAPS:
         return (
             "outdoor_like",

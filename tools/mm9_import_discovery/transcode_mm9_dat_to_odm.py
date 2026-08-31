@@ -10,6 +10,7 @@ puts MM9-specific source metadata into sidecars.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 import os
@@ -20,7 +21,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from convert_abc_model import AbcModel, read_abc
+from mm9_item_sources import (
+    MM9_BARREL_LIQUID_TEXTURES,
+    Mm9ItemIdMap,
+    Mm9ItemSourceManifest,
+    build_mm9_item_source_manifest,
+)
 from mm9_units import MM9_TO_OPENYAMM_COORDINATE_SCALE
 
 
@@ -56,6 +65,9 @@ FACE_ATTRIBUTE_CLICKABLE = 0x02000000
 FACE_ATTRIBUTE_UNTOUCHABLE = 0x20000000
 ODM_FACE_RESERVED_NOT_A_STEP = 0x0001
 MM9_MECHANISM_EVENT_ID_BASE = 30000
+MM9_MONSTER_ID_BASE = 9000
+ACTOR_ATTRIBUTE_INVISIBLE = 0x00010000
+ACTOR_ATTRIBUTE_AGGRESSOR = 0x00080000
 MM9_SPR_HEADER_SIZE = 20
 OUTDOOR_NAVIGATION_MAGIC = b"OYMNAV1\0"
 OUTDOOR_NAVIGATION_VERSION = 1
@@ -88,6 +100,7 @@ OUTDOOR_LIGHTING_LIGHT_DIRECTIONAL = 1
 OUTDOOR_LIGHTING_LIGHT_OBJECTS = 0x01
 OUTDOOR_LIGHTING_LIGHT_FAST_OBJECTS = 0x02
 OUTDOOR_LIGHTING_LIGHT_STATIC_OBJECT_ELIGIBLE = 0x04
+OUTDOOR_LIGHTING_LIGHT_GLOBAL_OBJECT = 0x20
 LT_SURFACE_FLAG_INVISIBLE = 0x00000004
 LT_SURFACE_FLAG_TRANSPARENT = 0x00000008
 LT_SURFACE_FLAG_NOT_A_STEP = 0x00400000
@@ -107,6 +120,14 @@ MM9_INTERACTIVE_MECHANISM_KINDS = {
     "rotating_door",
     "rotating_switch",
     "rotating_brush",
+}
+MM9_DESTRUCTIBLE_CLASS_NAMES = {"DestructableBrush", "DestructibleBrush"}
+MM9_DESTRUCTIBLE_TRIGGER_MESSAGES = {
+    "damageon": "damage_on",
+    "damageoff": "damage_off",
+    "damage": "damage",
+    "destroy": "destroy",
+    "remove": "remove",
 }
 
 
@@ -328,6 +349,14 @@ class WorldObject:
     trailing_data: bytes = b""
 
 
+@dataclass(frozen=True)
+class Mm9AuthoredFogState:
+    enabled: bool
+    near_distance: int
+    far_distance: int
+    color: tuple[int, int, int]
+
+
 @dataclass
 class DatWorld:
     path: Path
@@ -377,6 +406,7 @@ class ExportedLight:
     light_objects: bool
     fast_light_objects: bool
     static_object_light_eligible: bool
+    global_object_light: bool
     light_group: str
     source_rotation_lt: tuple[float, float, float, float]
     fov_degrees: float
@@ -440,12 +470,14 @@ class OdmBModel:
     source_model_name: str = ""
     source_world_translation_lt: tuple[float, float, float] = (0.0, 0.0, 0.0)
     source_world_info_flags: int = 0
+    perception_difficulty: int | None = None
     vertices: list[OdmVertex] = field(default_factory=list)
     faces: list[OdmFace] = field(default_factory=list)
     source_poly_for_face: list[int] = field(default_factory=list)
     source_surface_for_face: list[int] = field(default_factory=list)
     source_surface_flags_for_face: list[int] = field(default_factory=list)
     source_texture_index_for_face: list[int] = field(default_factory=list)
+    source_barrel_liquid_for_face: list[bool] = field(default_factory=list)
     source_texture_flags_for_face: list[int] = field(default_factory=list)
     source_collision_role_for_face: list[str] = field(default_factory=list)
     source_render_role_for_face: list[str] = field(default_factory=list)
@@ -483,6 +515,7 @@ class BakedModelInstance:
     source_position_lt: list[float] = field(default_factory=list)
     bake_position_lt: list[float] = field(default_factory=list)
     visual_offset_lt: list[float] = field(default_factory=list)
+    variant_index: int = 0
 
 
 @dataclass(frozen=True)
@@ -490,6 +523,34 @@ class FaceRole:
     attributes: int
     collision_role: str
     render_role: str
+
+
+@dataclass(frozen=True)
+class Mm9NpcReplacement:
+    source_number: int
+    object_class: str
+    role: str
+    hit_points: int
+    legacy_actor_id: int
+    height: int
+    radius: int
+
+
+@dataclass(frozen=True)
+class Mm9MonsterReplacement:
+    source_number: int
+    object_class: str
+    source_model: str
+    source_skins: tuple[str, ...]
+    display_name: str
+    runtime_monster_id: int
+    hit_points: int
+    hostility: int
+    move_speed: int
+    height: int
+    radius: int
+    source_rank: str = ""
+    source_variant: str = ""
 
 
 @dataclass(frozen=True)
@@ -537,6 +598,7 @@ class BakedModelWorkItem:
     move_to_floor: bool
     solid: bool
     ray_hit: bool
+    variant_index: int = 0
 
 
 def read_world_tree_layout(reader: BinaryReader, current_byte: int, current_bit: int) -> tuple[int, int]:
@@ -899,6 +961,15 @@ def decode_property_value(raw_data: bytes, code: int) -> tuple[Any, bool, str]:
     return value, True, ""
 
 
+def normalize_mm9_property_value(name: str, code: int, raw_data: bytes, value: Any) -> Any:
+    """Decode shipped MM9 properties whose registered LithTech type disagrees with their authored bytes."""
+    if name.casefold() == "traveldays" and code == 6 and len(raw_data) == 4:
+        travel_days = struct.unpack("<f", raw_data)[0]
+        if math.isfinite(travel_days) and travel_days.is_integer():
+            return int(travel_days)
+    return value
+
+
 def read_world_objects(reader: BinaryReader) -> list[WorldObject]:
     objects = []
     count = reader.u32()
@@ -927,6 +998,8 @@ def read_world_objects(reader: BinaryReader) -> list[WorldObject]:
                 reader.seek(value_start)
                 reader.skip(available_length)
             raw_data = reader.data[value_start:reader.tell()]
+            if decoded:
+                value = normalize_mm9_property_value(prop_name, code, raw_data, value)
             properties.append(ObjectProperty(
                 name=prop_name,
                 code=code,
@@ -1823,8 +1896,15 @@ def classify_face_role(model_name: str, texture_name: str, surface_flags: int) -
         )
 
     if compact_model.startswith("perceptionbrush"):
+        if texture_stem in {"perception", "perception2"}:
+            return FaceRole(
+                FACE_ATTRIBUTE_SECRET | FACE_ATTRIBUTE_ANIMATED | FACE_ATTRIBUTE_UNTOUCHABLE,
+                "secret_perception",
+                "visible",
+            )
+
         return FaceRole(
-            FACE_ATTRIBUTE_SECRET | FACE_ATTRIBUTE_INVISIBLE,
+            FACE_ATTRIBUTE_SECRET | FACE_ATTRIBUTE_INVISIBLE | FACE_ATTRIBUTE_UNTOUCHABLE,
             "secret_perception",
             "hidden",
         )
@@ -2552,6 +2632,8 @@ def append_baked_model_face(
     vertices: list[OdmVertex],
     face_uvs: list[tuple[float, float]],
     face_role: FaceRole,
+    source_material_index: int,
+    barrel_liquid: bool,
 ) -> bool:
     base_index = len(bmodel.vertices)
     bmodel.vertices.extend(vertices)
@@ -2578,7 +2660,8 @@ def append_baked_model_face(
     bmodel.source_poly_for_face.append(source_poly_index)
     bmodel.source_surface_for_face.append(-1)
     bmodel.source_surface_flags_for_face.append(0)
-    bmodel.source_texture_index_for_face.append(-1)
+    bmodel.source_texture_index_for_face.append(source_material_index)
+    bmodel.source_barrel_liquid_for_face.append(barrel_liquid)
     bmodel.source_texture_flags_for_face.append(0)
     bmodel.source_collision_role_for_face.append(face_role.collision_role)
     bmodel.source_render_role_for_face.append(face_role.render_role)
@@ -2649,6 +2732,7 @@ def append_source_face(
     bmodel.source_surface_for_face.append(source_surface_index)
     bmodel.source_surface_flags_for_face.append(surface.flags)
     bmodel.source_texture_index_for_face.append(source_texture_index)
+    bmodel.source_barrel_liquid_for_face.append(False)
     bmodel.source_texture_flags_for_face.append(surface.texture_flags)
     bmodel.source_collision_role_for_face.append(face_role.collision_role)
     bmodel.source_render_role_for_face.append(face_role.render_role)
@@ -2713,7 +2797,13 @@ def bake_abc_model_instance(
     for piece in abc_model.pieces:
         if not piece.lods:
             continue
-        skin = source_skin_for_material(source_skin, piece.material_index)
+        is_barrel_liquid = (
+            source_class.lower() == "barrel"
+            and piece.material_index == 1
+            and piece.name.lower() == "liquid"
+        )
+        skin = MM9_BARREL_LIQUID_TEXTURES[-1] if is_barrel_liquid else source_skin_for_material(
+            source_skin, piece.material_index)
         if not skin:
             skin = f"Skins/{normalize_model_source_key(source_model)}"
             skin = str(Path(skin).with_suffix(".dtx")).replace("\\", "/")
@@ -2727,7 +2817,9 @@ def bake_abc_model_instance(
         texture_width = int(alias_metadata[texture_alias]["width"])
         texture_height = int(alias_metadata[texture_alias]["height"])
         face_role = classify_face_role(bmodel.name, skin, 0)
-        if face_role.collision_role == "world_geometry":
+        if is_barrel_liquid:
+            face_role = FaceRole(FACE_ATTRIBUTE_UNTOUCHABLE, "visual_non_collision", "visible")
+        elif face_role.collision_role == "world_geometry":
             face_role = FaceRole(0, "baked_model_instance", "visible")
         lod = piece.lods[0]
         for face in lod.faces:
@@ -2756,10 +2848,77 @@ def bake_abc_model_instance(
                 [vertices[0], vertices[2], vertices[1]],
                 [uvs[0], uvs[2], uvs[1]],
                 face_role,
+                piece.material_index,
+                is_barrel_liquid,
             )
             source_poly_index += 1
 
     return bmodel
+
+
+def bind_mm9_barrel_geometry(
+    manifest: Mm9ItemSourceManifest,
+    bmodels: list[OdmBModel],
+    baked_instances: list[BakedModelInstance],
+    alias_metadata: dict[str, dict[str, Any]],
+) -> None:
+    alias_by_source = {
+        str(metadata.get("source_texture", "")).replace("\\", "/").lower(): alias
+        for alias, metadata in alias_metadata.items()
+    }
+    liquid_aliases = tuple(alias_by_source[texture.lower()] for texture in MM9_BARREL_LIQUID_TEXTURES)
+    instances_by_source = {
+        instance.source_object_index: instance
+        for instance in baked_instances
+        if instance.variant_index == 0
+    }
+    for source in manifest.barrels:
+        source.liquid_texture_aliases = liquid_aliases
+        instance = instances_by_source.get(source.provenance.source_object_index)
+        if instance is None or instance.bmodel_index >= len(bmodels):
+            continue
+        source.bmodel_index = instance.bmodel_index
+        bmodel = bmodels[instance.bmodel_index]
+        source.liquid_faces = tuple(
+            face_index
+            for face_index, is_liquid in enumerate(bmodel.source_barrel_liquid_for_face)
+            if is_liquid
+        )
+
+
+def perception_difficulties_by_model_name(dat_world: DatWorld) -> dict[str, int]:
+    difficulties: dict[str, int] = {}
+
+    for world_object in dat_world.objects:
+        if world_object.name.lower() != "perceptionbrush":
+            continue
+
+        properties = {prop.name.lower(): prop for prop in world_object.properties}
+        name_property = properties.get("name")
+        value_property = properties.get("perceptionvalue")
+
+        if name_property is None or not isinstance(name_property.value, str) or value_property is None:
+            continue
+
+        # MM9 registers PerceptionValue as a LithTech PT_UINT, but the shipped DATs contain an IEEE-754 float
+        # bit pattern. The original object code compares those non-negative bit patterns directly, which preserves
+        # numeric ordering; values are authored as integral difficulties in the same 0-20 range as Perception.
+        if len(value_property.raw_data) != 4:
+            continue
+
+        difficulty = struct.unpack("<f", value_property.raw_data)[0]
+
+        if not math.isfinite(difficulty):
+            continue
+
+        rounded_difficulty = int(round(difficulty))
+
+        if abs(difficulty - rounded_difficulty) > 0.001 or rounded_difficulty < 0 or rounded_difficulty > 20:
+            continue
+
+        difficulties[name_property.value.lower()] = rounded_difficulty
+
+    return difficulties
 
 
 def transcode_geometry(
@@ -2768,6 +2927,8 @@ def transcode_geometry(
     texture_sizes: dict[str, tuple[int, int, Path]],
     extracted_root: Path | None = None,
     preserve_source_ngons: bool = True,
+    excluded_baked_object_indices: set[int] | None = None,
+    baked_model_variant_sources: dict[int, list[tuple[str, str]]] | None = None,
 ) -> tuple[list[OdmBModel], dict[str, dict[str, Any]], dict[str, Any], list[BakedModelInstance]]:
     sprite_index = build_sprite_animation_index(extracted_root)
     unique_textures: set[str] = set()
@@ -2787,6 +2948,8 @@ def transcode_geometry(
             if should_skip_face_role(face_role):
                 continue
             unique_textures.add(texture_name)
+    if any(world_object.name.lower() == "barrel" for world_object in dat_world.objects):
+        unique_textures.update(MM9_BARREL_LIQUID_TEXTURES)
     unique_textures = sorted(unique_textures)
     aliases = build_aliases(unique_textures)
     aliases_by_source = dict(aliases)
@@ -2838,6 +3001,7 @@ def transcode_geometry(
         alias_metadata[aliases[texture_name]] = metadata
 
     bmodels: list[OdmBModel] = []
+    perception_difficulties = perception_difficulties_by_model_name(dat_world)
     stats = {
         "source_models": len(dat_world.world_models),
         "source_polies": 0,
@@ -2877,6 +3041,7 @@ def transcode_geometry(
         "baked_model_destructible_props": 0,
         "baked_model_chests": 0,
         "baked_model_pickups": 0,
+        "baked_model_excluded_semantic_item_source": 0,
         "baked_model_move_to_floor_requested": 0,
         "baked_model_move_to_floor_snapped": 0,
         "baked_model_move_to_floor_already_supported": 0,
@@ -2916,6 +3081,7 @@ def transcode_geometry(
             source_model_name=model.name,
             source_world_translation_lt=model.world_translation,
             source_world_info_flags=model.counts.get("world_info_flags", 0),
+            perception_difficulty=perception_difficulties.get(model.name.lower()),
         )
         bmodel.vertices = [lt_to_odm(point, scale) for point in model.points]
 
@@ -3002,6 +3168,7 @@ def transcode_geometry(
 
     baked_model_instances: list[BakedModelInstance] = []
     if extracted_root is not None:
+        excluded_indices = excluded_baked_object_indices or set()
         model_index = build_case_insensitive_file_index(extracted_root / "MODELS" / "MODELS", ".abc")
         abc_cache: dict[Path, AbcModel] = {}
         floor_triangles = build_floor_support_triangles(dat_world)
@@ -3011,6 +3178,9 @@ def transcode_geometry(
         for object_index, world_object in enumerate(dat_world.objects):
             properties = object_property_map(world_object)
             properties_by_object_index[object_index] = properties
+            if object_index in excluded_indices:
+                stats["baked_model_excluded_semantic_item_source"] += 1
+                continue
             source_model = properties.get("filename")
             position = properties.get("pos")
             if not isinstance(source_model, str) or not source_model:
@@ -3161,6 +3331,40 @@ def transcode_geometry(
                 ray_hit=truthy_property(properties.get("rayhit"), False),
             ))
 
+            for variant_index, (variant_model, variant_skin) in enumerate(
+                (baked_model_variant_sources or {}).get(object_index, []),
+                start=1,
+            ):
+                normalized_variant_model = normalize_lithtech_virtual_path(variant_model)
+                variant_path = resolve_source_model_path(model_index, normalized_variant_model)
+                if variant_path is None:
+                    raise ValueError(
+                        f"MM9 object {object_index} persistent model variant is missing: {variant_model}")
+                variant_abc_model = abc_cache.get(variant_path)
+                if variant_abc_model is None:
+                    variant_abc_model = read_abc(variant_path)
+                    abc_cache[variant_path] = variant_abc_model
+                work_items.append(BakedModelWorkItem(
+                    object_index=object_index,
+                    source_class=source_class,
+                    source_name=source_name,
+                    source_model=normalized_variant_model,
+                    source_skin=normalize_lithtech_virtual_path_list(variant_skin),
+                    position_lt=list(bake_position),
+                    raw_position_lt=list(raw_position),
+                    rotation_lt=list(rotation),
+                    uniform_scale=float(uniform_scale),
+                    visual_offset_lt=tuple(visual_offset_lt),
+                    placement_kind="persistent_model_variant",
+                    abc_model=variant_abc_model,
+                    placement_info=abc_static_model_placement_info(variant_abc_model),
+                    plant_or_tree_source=False,
+                    move_to_floor=False,
+                    solid=truthy_property(properties.get("solid"), False),
+                    ray_hit=truthy_property(properties.get("rayhit"), False),
+                    variant_index=variant_index,
+                ))
+
         apply_model_support_floor_pass(work_items, properties_by_object_index, floor_triangles)
         apply_model_support_floor_pass(work_items, properties_by_object_index, floor_triangles)
 
@@ -3205,6 +3409,8 @@ def transcode_geometry(
                 source_model_index,
                 work_item.visual_offset_lt,
             )
+            if work_item.variant_index > 0:
+                bmodel.name += f"_variant_{work_item.variant_index}"
             if not bmodel.faces:
                 stats["baked_model_empty"] += 1
                 continue
@@ -3227,6 +3433,7 @@ def transcode_geometry(
                 source_position_lt=list(work_item.raw_position_lt),
                 bake_position_lt=list(work_item.position_lt),
                 visual_offset_lt=list(work_item.visual_offset_lt),
+                variant_index=work_item.variant_index,
             ))
             stats["baked_model_instances"] += 1
             stats["baked_model_faces"] += len(bmodel.faces)
@@ -3437,7 +3644,7 @@ def object_property_map(world_object: WorldObject) -> dict[str, Any]:
 
 
 def is_mm9_light_class(source_class: str) -> bool:
-    return source_class.lower() in {"light", "dirlight", "objectlight"}
+    return source_class.lower() in {"light", "dirlight", "objectlight", "staticsunlight"}
 
 
 def float_property(value: Any, default: float) -> float:
@@ -3464,6 +3671,68 @@ def color_tuple_property(value: Any, default: tuple[int, int, int]) -> tuple[int
         else:
             return default
     return (channels[0], channels[1], channels[2])
+
+
+def export_mm9_authored_fog(
+    dat_world: DatWorld,
+    coordinate_scale: float,
+) -> tuple[Mm9AuthoredFogState, Mm9AuthoredFogState] | None:
+    named_objects: dict[str, WorldObject] = {}
+    for world_object in dat_world.objects:
+        properties = object_property_map(world_object)
+        source_name = properties.get("name")
+        if isinstance(source_name, str) and source_name:
+            named_objects[source_name.lower()] = world_object
+
+    def fog_state(source_name: Any) -> Mm9AuthoredFogState | None:
+        if not isinstance(source_name, str) or not source_name:
+            return None
+        fog_object = named_objects.get(source_name.lower())
+        if fog_object is None or fog_object.name.lower() != "fog":
+            return None
+        properties = object_property_map(fog_object)
+        near_distance = max(
+            0,
+            int(round(float_property(properties.get("fognearz"), 0.0) * coordinate_scale)),
+        )
+        far_distance = max(
+            near_distance + 1,
+            int(round(float_property(properties.get("fogfarz"), 0.0) * coordinate_scale)),
+        )
+        return Mm9AuthoredFogState(
+            enabled=truthy_property(properties.get("fogenable"), False),
+            near_distance=near_distance,
+            far_distance=far_distance,
+            color=color_tuple_property(properties.get("fogcolor"), (0, 0, 0)),
+        )
+
+    for world_object in dat_world.objects:
+        if world_object.name.lower() != "weatherman":
+            continue
+        properties = object_property_map(world_object)
+        if not truthy_property(properties.get("starton"), False):
+            continue
+        fog_on = fog_state(properties.get("fogon"))
+        fog_off = fog_state(properties.get("fogoff"))
+        if fog_on is None:
+            continue
+        if truthy_property(properties.get("turnonatnight"), False):
+            return (fog_off or fog_on, fog_on)
+        if truthy_property(properties.get("turnoffatnight"), False):
+            return (fog_on, fog_off or fog_on)
+        return (fog_on, fog_on)
+
+    for world_object in dat_world.objects:
+        if world_object.name.lower() != "fog":
+            continue
+        properties = object_property_map(world_object)
+        if not truthy_property(properties.get("starton"), False):
+            continue
+        state = fog_state(properties.get("name"))
+        if state is not None:
+            return (state, state)
+
+    return None
 
 
 def scaled_color(color: tuple[int, int, int], scale: float) -> tuple[int, int, int]:
@@ -3625,15 +3894,18 @@ def export_mm9_lights(dat_world: DatWorld, scale: float) -> tuple[list[ExportedL
             source_name = f"{source_class}{object_index}"
 
         source_class_lower = source_class.lower()
-        default_light_objects = source_class_lower in {"light", "dirlight"}
-        default_fast_light_objects = source_class_lower in {"light", "dirlight", "objectlight"}
+        global_object_light = source_class_lower == "staticsunlight"
+        default_light_objects = source_class_lower in {"light", "dirlight", "staticsunlight"}
+        default_fast_light_objects = source_class_lower in {"light", "dirlight", "objectlight", "staticsunlight"}
         light_objects = truthy_property(properties.get("lightobjects"), default_light_objects)
         fast_light_objects = truthy_property(properties.get("fastlightobjects"), default_fast_light_objects)
-        static_object_light_eligible = light_objects and not fast_light_objects
+        static_object_light_eligible = light_objects and not fast_light_objects and not global_object_light
         if static_object_light_eligible:
             stats["light_static_object_eligible"] += 1
 
-        color_property_name = "innercolor" if source_class_lower == "dirlight" else "lightcolor"
+        color_property_name = (
+            "innercolor" if source_class_lower in {"dirlight", "staticsunlight"} else "lightcolor"
+        )
         color = color_tuple_property(properties.get(color_property_name), (255, 255, 255))
         brightness_scale = float_property(properties.get("brightscale"), 1.0)
         object_brightness_scale = float_property(properties.get("objectbrightscale"), 1.0)
@@ -3657,10 +3929,11 @@ def export_mm9_lights(dat_world: DatWorld, scale: float) -> tuple[list[ExportedL
             radius=radius,
             color=color,
             effective_color=effective_color,
-            light_type="directional" if source_class_lower == "dirlight" else "point",
+            light_type="directional" if source_class_lower in {"dirlight", "staticsunlight"} else "point",
             light_objects=light_objects,
             fast_light_objects=fast_light_objects,
             static_object_light_eligible=static_object_light_eligible,
+            global_object_light=global_object_light,
             light_group=light_group,
             source_rotation_lt=tuple(float(value) for value in rotation[:4]),
             fov_degrees=float_property(properties.get("fov"), 90.0),
@@ -3670,6 +3943,36 @@ def export_mm9_lights(dat_world: DatWorld, scale: float) -> tuple[list[ExportedL
             clip_light=truthy_property(properties.get("cliplight"), source_class_lower in {"light", "dirlight"}),
         ))
     return lights, stats
+
+
+def ensure_mm9_city_sunlight(map_name: str, lights: list[ExportedLight]) -> bool:
+    if not map_name.lower().endswith("city") or any(light.global_object_light for light in lights):
+        return False
+
+    lights.append(ExportedLight(
+        source_object_index=0xFFFFFFFF,
+        source_class="StaticSunLight",
+        source_name="OpenYAMMCitySunLight",
+        source_position_lt=(0.0, 0.0, 0.0),
+        position=(0, 0, 0),
+        source_radius_lt=0.0,
+        radius=0,
+        color=(255, 255, 255),
+        effective_color=(179, 179, 179),
+        light_type="directional",
+        light_objects=True,
+        fast_light_objects=True,
+        static_object_light_eligible=False,
+        global_object_light=True,
+        light_group="",
+        source_rotation_lt=(1.0471976, 1.0471976, 0.0, 0.0),
+        fov_degrees=90.0,
+        brightness_scale=0.7,
+        object_brightness_scale=1.0,
+        cast_shadows=False,
+        clip_light=False,
+    ))
+    return True
 
 
 def build_mm9_light_lines(lights: list[ExportedLight]) -> list[str]:
@@ -3700,6 +4003,7 @@ def build_mm9_light_lines(lights: list[ExportedLight]) -> list[str]:
             f"    light_objects: {yaml_scalar(light.light_objects)}",
             f"    fast_light_objects: {yaml_scalar(light.fast_light_objects)}",
             f"    static_object_light_eligible: {yaml_scalar(light.static_object_light_eligible)}",
+            f"    global_object_light: {yaml_scalar(light.global_object_light)}",
         ])
         if light.light_group:
             lines.append(f"    light_group: {yaml_scalar(light.light_group)}")
@@ -3932,6 +4236,10 @@ def static_object_light_color(
 ) -> int:
     color = [channel / 255.0 for channel in ambient]
     for light in lights:
+        if light.global_object_light:
+            for channel in range(3):
+                color[channel] += light.effective_color[channel] / 255.0 * 0.7
+            continue
         if not light.static_object_light_eligible or light.radius <= 0:
             continue
         dx = float(vertex.x - light.position[0])
@@ -4063,6 +4371,7 @@ def build_baked_model_instance_lines(baked_instances: list[BakedModelInstance]) 
             f"    bmodel_name: {yaml_scalar(instance.bmodel_name)}",
             f"    kind: {yaml_scalar(instance.kind)}",
             f"    destructible: {yaml_scalar(instance.destructible)}",
+            f"    persistent_variant_index: {instance.variant_index}",
         ])
         if instance.placement_kind:
             lines.append(f"    placement_kind: {yaml_scalar(instance.placement_kind)}")
@@ -4101,6 +4410,473 @@ def property_map_cased(world_object: WorldObject) -> dict[str, Any]:
         if prop.decoded:
             values[prop.name] = prop.value
     return values
+
+
+def mm9_npc_object_class(role: str, type_picture: str, named_actor: bool = False) -> str | None:
+    parts = type_picture.split()
+    if len(parts) < 4 or parts[0].lower() != "peasant":
+        if not named_actor:
+            return None
+        named_class = re.sub(r"[^A-Za-z0-9]", "", role)
+        return named_class or None
+
+    palette = parts[-1]
+    if palette not in {"A", "B", "C", "D"}:
+        return None
+
+    body = parts[1:-1]
+    body[-1] = re.sub(r"[A-D]$", "", body[-1])
+    return role + "".join(body) + palette
+
+
+def read_mm9_npc_replacements(
+    actor_table_path: Path,
+    replacement_table_path: Path,
+    monster_descriptor_path: Path,
+) -> dict[str, Mm9NpcReplacement]:
+    replacement_ids: dict[int, int] = {}
+    object_class_overrides: dict[int, str] = {}
+    with replacement_table_path.open(newline="", encoding="utf-8") as input_file:
+        for row in csv.DictReader(input_file, delimiter="\t"):
+            source_number = int(row["mm9_source_number"])
+            if source_number in replacement_ids:
+                raise ValueError(f"duplicate MM9 NPC replacement source number {source_number}")
+            replacement_ids[source_number] = int(row["legacy_actor_id"])
+            object_class_override = (row.get("object_class_override") or "").strip()
+            if object_class_override:
+                object_class_overrides[source_number] = object_class_override
+
+    descriptor_sizes: dict[int, tuple[int, int]] = {}
+    with monster_descriptor_path.open(newline="", encoding="utf-8") as input_file:
+        for row in csv.reader(input_file, delimiter="\t"):
+            if not row or not row[0].strip().isdigit() or len(row) < 4:
+                continue
+            descriptor_sizes[int(row[0])] = (int(row[2]), int(row[3]))
+
+    result: dict[str, Mm9NpcReplacement] = {}
+    with actor_table_path.open(newline="", encoding="cp1252") as input_file:
+        for row in csv.DictReader(input_file, delimiter="\t"):
+            source_number_text = (row.get("Number") or "").strip()
+            if not source_number_text.isdigit():
+                continue
+            source_number = int(source_number_text)
+            legacy_actor_id = replacement_ids.get(source_number)
+            if legacy_actor_id is None:
+                continue
+
+            role = (row.get("Monster Name") or "").strip()
+            object_class = object_class_overrides.get(source_number, "")
+            if not object_class:
+                object_class = mm9_npc_object_class(
+                    role,
+                    (row.get("Type/Picture") or "").strip(),
+                    named_actor=source_number >= 246,
+                )
+            if object_class is None:
+                continue
+
+            descriptor_size = descriptor_sizes.get(legacy_actor_id)
+            if descriptor_size is None:
+                raise ValueError(
+                    f"MM9 NPC replacement {source_number} references missing legacy actor {legacy_actor_id}")
+
+            replacement = Mm9NpcReplacement(
+                source_number=source_number,
+                object_class=object_class,
+                role=role,
+                hit_points=int((row.get("HP") or "0").strip() or "0"),
+                legacy_actor_id=legacy_actor_id,
+                height=descriptor_size[0],
+                radius=descriptor_size[1],
+            )
+            existing = result.get(object_class)
+            if existing is not None and existing != replacement:
+                raise ValueError(f"ambiguous MM9 NPC object class {object_class}")
+            result[object_class] = replacement
+
+    return result
+
+
+def read_mm9_npc_names(path: Path) -> dict[int, str]:
+    result: dict[int, str] = {}
+    with path.open(newline="", encoding="cp1252") as input_file:
+        for row in csv.reader(input_file):
+            if len(row) < 2 or not row[0].strip().isdigit():
+                continue
+            result[int(row[0])] = row[1].strip()
+    return result
+
+
+def resolve_mm9_npc_replacement(
+    world_object: WorldObject,
+    values: dict[str, Any],
+    replacements: dict[str, Mm9NpcReplacement],
+) -> Mm9NpcReplacement | None:
+    normalized_replacements: dict[str, Mm9NpcReplacement] = {}
+    for object_class, replacement in replacements.items():
+        normalized_class = normalized_binding_name(object_class)
+        normalized_replacements[normalized_class] = replacement
+        if "human1" in normalized_class:
+            normalized_replacements.setdefault(normalized_class.replace("human1", "human"), replacement)
+
+    replacement = normalized_replacements.get(normalized_binding_name(world_object.name))
+    if replacement is not None:
+        return replacement
+
+    source_name = values.get("Name")
+    if not isinstance(source_name, str) or not source_name:
+        return None
+
+    normalized_source_name = normalized_binding_name(source_name)
+    matches = [
+        replacement
+        for object_class, replacement in replacements.items()
+        if re.fullmatch(normalized_binding_name(object_class) + r"\d+", normalized_source_name)
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+def mm9_npc_rude_id(values: dict[str, Any]) -> int:
+    if not bool(values.get("DoRude", 0)):
+        return 0
+
+    script_name = values.get("ScriptName")
+    if isinstance(script_name, str):
+        match = re.search(r"(?:^|[/\\])NPC(\d+)\.scr$", script_name, re.IGNORECASE)
+        if match is not None:
+            return int(match.group(1))
+
+    greeting_sound = values.get("GreetingSound")
+    if isinstance(greeting_sound, str):
+        match = re.search(r"(?:^|[/\\])NPC_(\d+)\.wav$", greeting_sound, re.IGNORECASE)
+        if match is not None:
+            return int(match.group(1))
+
+    raw_npc_number = values.get("NPCNbr")
+    if isinstance(raw_npc_number, int) and 0 <= raw_npc_number <= 0xFFFFFFFF:
+        decoded = struct.unpack("<f", struct.pack("<I", raw_npc_number))[0]
+        if decoded.is_integer() and 0 < decoded < 10000:
+            return int(decoded)
+    if isinstance(raw_npc_number, (int, float)) and 0 < raw_npc_number < 10000:
+        return int(raw_npc_number)
+    return 0
+
+
+def build_mm9_npc_actor_lines(
+    dat_world: DatWorld,
+    scale: float,
+    replacements: dict[str, Mm9NpcReplacement],
+    npc_names: dict[int, str],
+    excluded_source_object_indices: set[int] | None = None,
+    emitted_source_object_indices: set[int] | None = None,
+) -> list[str]:
+    lines: list[str] = []
+    excluded_indices = excluded_source_object_indices or set()
+    for object_index, world_object in enumerate(dat_world.objects):
+        if object_index in excluded_indices:
+            continue
+        values = property_map_cased(world_object)
+        replacement = resolve_mm9_npc_replacement(world_object, values, replacements)
+        if replacement is None:
+            continue
+
+        position = values.get("Pos")
+        if not isinstance(position, list) or len(position) != 3:
+            continue
+        rotation = values.get("Rotation")
+        if not isinstance(rotation, list) or len(rotation) < 2:
+            rotation = [0.0, 0.0, 0.0, 0.0]
+
+        rude_id = mm9_npc_rude_id(values)
+        source_name = values.get("Name")
+        if not isinstance(source_name, str) or not source_name:
+            source_name = world_object.name
+        display_name = npc_names.get(rude_id, source_name)
+        x, y, z = lt_vec_to_odm_tuple(position, scale)
+        is_guard = replacement.role.lower() == "guard"
+        can_receive_damage = bool(values.get("CanDamage", 1))
+        if emitted_source_object_indices is not None:
+            emitted_source_object_indices.add(object_index)
+
+        lines.extend([
+            f"    - name: {yaml_scalar(display_name)}",
+            "      npc_id: 0",
+            f"      mm9_rude_id: {rude_id}",
+            f"      mm9_source_object_index: {object_index}",
+            f"      mm9_can_receive_damage: {yaml_scalar(can_receive_damage)}",
+            f"      mm9_civilian: {yaml_scalar(not is_guard)}",
+            f"      mm9_guard: {yaml_scalar(is_guard)}",
+            f"      initial_yaw_units: {lt_rotation_to_openyamm_yaw_units(rotation)}",
+            f"      immobile: {yaml_scalar(rude_id > 0)}",
+            "      attributes: 0",
+            f"      hp: {replacement.hit_points}",
+            "      hostility_type: 0",
+            "      monster_info_id: 0",
+            f"      monster_id: {replacement.legacy_actor_id}",
+            f"      radius: {replacement.radius}",
+            f"      height: {replacement.height}",
+            "      move_speed: 0",
+            f"      position: {{x: {x}, y: {y}, z: {z}}}",
+            "      sprite_ids: [0, 0, 0, 0]",
+            "      sector_id: 0",
+            "      current_action_animation: 0",
+            "      carried_item_id: 0",
+            "      group: 0",
+            "      ally: 0",
+            "      unique_name_index: 0",
+        ])
+    return lines
+
+
+def read_numeric_tsv_rows(path: Path) -> dict[int, list[str]]:
+    with path.open(newline="", encoding="utf-8") as input_file:
+        return {
+            int(row[0]): row
+            for row in csv.reader(input_file, delimiter="\t")
+            if row and row[0].strip().isdigit()
+        }
+
+
+def read_mm9_monster_replacements(
+    source_monster_table_path: Path,
+    actor_table_path: Path,
+    replacement_table_path: Path,
+    mm9_monster_data_path: Path,
+    mm9_monster_descriptor_path: Path,
+) -> dict[str, list[Mm9MonsterReplacement]]:
+    replacement_ids: dict[int, int] = {}
+    object_class_overrides: dict[int, str] = {}
+    with replacement_table_path.open(newline="", encoding="utf-8") as input_file:
+        for row in csv.DictReader(input_file, delimiter="\t"):
+            source_number = int(row["mm9_source_number"])
+            runtime_monster_id = MM9_MONSTER_ID_BASE + source_number
+            if source_number in replacement_ids:
+                raise ValueError(f"duplicate MM9 monster replacement source number {source_number}")
+            replacement_ids[source_number] = runtime_monster_id
+            object_class_override = (row.get("object_class_override") or "").strip()
+            if object_class_override:
+                object_class_overrides[source_number] = object_class_override
+
+    monster_data_rows = read_numeric_tsv_rows(mm9_monster_data_path)
+    descriptor_rows = read_numeric_tsv_rows(mm9_monster_descriptor_path)
+    result: dict[str, list[Mm9MonsterReplacement]] = {}
+    replacements_by_source: dict[int, Mm9MonsterReplacement] = {}
+
+    with source_monster_table_path.open(newline="", encoding="cp1252") as input_file:
+        for row in csv.DictReader(input_file, delimiter="\t"):
+            source_number_text = (row.get("Number") or "").strip()
+            if not source_number_text.isdigit():
+                continue
+
+            source_number = int(source_number_text)
+            runtime_monster_id = replacement_ids.get(source_number)
+            if runtime_monster_id is None:
+                continue
+
+            object_class = object_class_overrides.get(
+                source_number,
+                (row.get("Monster Name") or "").strip(),
+            )
+            monster_data = monster_data_rows.get(runtime_monster_id)
+            descriptor = descriptor_rows.get(runtime_monster_id)
+            if not object_class or monster_data is None or descriptor is None:
+                raise ValueError(
+                    f"MM9 monster {source_number} has no object class or generated runtime table row")
+            if len(monster_data) < 14 or len(descriptor) < 4:
+                raise ValueError(f"MM9 monster {source_number} has an incomplete runtime table row")
+
+            type_picture = (row.get("Type/Picture") or "").strip()
+            variant_match = re.search(r"(\d+)(?:\s+[ABC])?$", type_picture, re.IGNORECASE)
+            replacement = Mm9MonsterReplacement(
+                source_number=source_number,
+                object_class=object_class,
+                source_model=(row.get("ModelName") or "").strip(),
+                source_skins=tuple(
+                    value.strip()
+                    for value in (
+                        row.get("SkinName") or "",
+                        row.get("SkinName2") or "",
+                        row.get("SkinName3") or "",
+                    )
+                    if value.strip()
+                ),
+                display_name=monster_data[1].strip(),
+                runtime_monster_id=runtime_monster_id,
+                hit_points=int(monster_data[4]),
+                hostility=int(monster_data[12]),
+                move_speed=int(monster_data[13]),
+                height=int(descriptor[2]),
+                radius=int(descriptor[3]),
+                source_rank=(
+                    rank_match.group(1).upper()
+                    if (rank_match := re.search(r"(?:^|\s)([ABC])$", type_picture))
+                    else ""
+                ),
+                source_variant=variant_match.group(1) if variant_match is not None else "",
+            )
+            normalized_class = normalized_binding_name(object_class)
+            result.setdefault(normalized_class, []).append(replacement)
+            replacements_by_source[source_number] = replacement
+
+    with actor_table_path.open(newline="", encoding="cp1252") as input_file:
+        for row in csv.DictReader(input_file, delimiter="\t"):
+            source_number_text = (row.get("Number") or "").strip()
+            if not source_number_text.isdigit():
+                continue
+            replacement = replacements_by_source.get(int(source_number_text))
+            object_class = (row.get("Monster Name") or "").strip()
+            if replacement is None or not object_class:
+                continue
+            aliases = result.setdefault(normalized_binding_name(object_class), [])
+            if replacement not in aliases:
+                aliases.append(replacement)
+
+    for normalized_class, aliases in list(result.items()):
+        if len(aliases) <= 1:
+            continue
+        for replacement in aliases:
+            if replacement.source_rank in {"B", "C"}:
+                ranked_aliases = result.setdefault(
+                    f"{normalized_class}{replacement.source_rank.lower()}", [])
+                if replacement not in ranked_aliases:
+                    ranked_aliases.append(replacement)
+            if replacement.source_variant:
+                variant_aliases = result.setdefault(
+                    f"{normalized_class}{replacement.source_variant}", [])
+                if replacement not in variant_aliases:
+                    variant_aliases.append(replacement)
+
+    resolved_source_numbers = {
+        entry.source_number
+        for entry in replacements_by_source.values()
+    }
+    missing_source_numbers = sorted(set(replacement_ids) - resolved_source_numbers)
+    if missing_source_numbers:
+        raise ValueError(f"MM9 monster mappings have no source table rows: {missing_source_numbers}")
+    return result
+
+
+def resolve_mm9_monster_replacement(
+    world_object: WorldObject,
+    replacements: dict[str, list[Mm9MonsterReplacement]],
+) -> Mm9MonsterReplacement | None:
+    candidates = replacements.get(normalized_binding_name(world_object.name), [])
+    if len(candidates) <= 1:
+        return candidates[0] if candidates else None
+
+    values = property_map_cased(world_object)
+    source_model = str(values.get("Filename", "")).replace("\\", "/").rsplit("/", 1)[-1].lower()
+    source_skin = str(values.get("Skin", "")).replace("\\", "/").lower()
+    skin_matching = [
+        candidate
+        for candidate in candidates
+        if source_skin and any(skin.lower() in source_skin for skin in candidate.source_skins)
+    ]
+    model_matching = [
+        candidate
+        for candidate in candidates
+        if source_model and candidate.source_model.lower() == source_model
+    ]
+    matching = skin_matching or model_matching or candidates
+    if len(matching) == 1:
+        return matching[0]
+
+    unnumbered_candidates = [candidate for candidate in matching if not candidate.source_variant]
+    if len(unnumbered_candidates) == 1:
+        return unnumbered_candidates[0]
+
+    if all(
+        candidate.source_model.lower() == matching[0].source_model.lower()
+        and tuple(skin.lower() for skin in candidate.source_skins)
+            == tuple(skin.lower() for skin in matching[0].source_skins)
+        for candidate in matching[1:]
+    ):
+        return min(matching, key=lambda candidate: candidate.source_number)
+
+    rank_a_candidates = [candidate for candidate in matching if candidate.source_rank == "A"]
+    if len(rank_a_candidates) == 1:
+        return rank_a_candidates[0]
+    raise ValueError(
+        f"ambiguous MM9 monster object {world_object.name}: cannot select source row from "
+        f"{[candidate.source_number for candidate in candidates]}")
+
+
+def build_mm9_monster_actor_lines(
+    dat_world: DatWorld,
+    scale: float,
+    replacements: dict[str, list[Mm9MonsterReplacement]],
+    emitted_source_object_indices: set[int] | None = None,
+) -> list[str]:
+    lines: list[str] = []
+    for object_index, world_object in enumerate(dat_world.objects):
+        values = property_map_cased(world_object)
+        if bool(values.get("CacheOnly", 0)):
+            continue
+
+        replacement = resolve_mm9_monster_replacement(world_object, replacements)
+        if replacement is None:
+            continue
+
+        position = values.get("Pos")
+        if not isinstance(position, list) or len(position) != 3:
+            continue
+        rotation = values.get("Rotation")
+        if not isinstance(rotation, list) or len(rotation) < 2:
+            rotation = [0.0, 0.0, 0.0, 0.0]
+
+        attributes = ACTOR_ATTRIBUTE_AGGRESSOR
+        if not bool(values.get("Visible", 1)):
+            attributes |= ACTOR_ATTRIBUTE_INVISIBLE
+        x, y, z = lt_vec_to_odm_tuple(position, scale)
+        if emitted_source_object_indices is not None:
+            emitted_source_object_indices.add(object_index)
+
+        lines.extend([
+            f"    - name: {yaml_scalar(replacement.display_name)}",
+            "      npc_id: 0",
+            f"      mm9_source_object_index: {object_index}",
+            "      mm9_can_receive_damage: true",
+            "      mm9_civilian: false",
+            "      mm9_guard: false",
+            f"      initial_yaw_units: {lt_rotation_to_openyamm_yaw_units(rotation)}",
+            "      immobile: false",
+            f"      attributes: {attributes}",
+            f"      hp: {replacement.hit_points}",
+            f"      hostility_type: {replacement.hostility}",
+            f"      monster_info_id: {replacement.runtime_monster_id}",
+            f"      monster_id: {replacement.runtime_monster_id}",
+            f"      radius: {replacement.radius}",
+            f"      height: {replacement.height}",
+            f"      move_speed: {replacement.move_speed}",
+            f"      position: {{x: {x}, y: {y}, z: {z}}}",
+            "      sprite_ids: [0, 0, 0, 0]",
+            "      sector_id: 0",
+            "      current_action_animation: 0",
+            "      carried_item_id: 0",
+            "      group: 0",
+            "      ally: 0",
+            "      unique_name_index: 0",
+        ])
+    return lines
+
+
+def mm9_monster_actor_source_object_indices(
+    dat_world: DatWorld,
+    replacements: dict[str, list[Mm9MonsterReplacement]],
+) -> set[int]:
+    result: set[int] = set()
+    for object_index, world_object in enumerate(dat_world.objects):
+        values = property_map_cased(world_object)
+        if bool(values.get("CacheOnly", 0)):
+            continue
+        position = values.get("Pos")
+        if not isinstance(position, list) or len(position) != 3:
+            continue
+        if resolve_mm9_monster_replacement(world_object, replacements) is not None:
+            result.add(object_index)
+    return result
 
 
 def normalized_binding_name(value: str) -> str:
@@ -4169,6 +4945,40 @@ def append_optional_bool_line(lines: list[str], key: str, value: Any) -> None:
         lines.append(f"      {key}: {yaml_scalar(value)}")
     elif isinstance(value, int):
         lines.append(f"      {key}: {yaml_scalar(value != 0)}")
+
+
+def normalize_mm9_sound_name(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+
+    normalized = value.strip().replace("\\", "/")
+    while normalized.startswith("/"):
+        normalized = normalized[1:]
+
+    lower = normalized.lower()
+    for prefix in ("sounds/", "source/sounds/"):
+        if lower.startswith(prefix):
+            normalized = normalized[len(prefix):]
+            lower = normalized.lower()
+
+    return normalized
+
+
+def build_mm9_npc_greeting_lines(dat_world: DatWorld) -> list[str]:
+    lines: list[str] = []
+
+    for object_index, world_object in enumerate(dat_world.objects):
+        values = property_map_cased(world_object)
+        sound_name = normalize_mm9_sound_name(values.get("GreetingSound"))
+        if not sound_name:
+            continue
+
+        lines.extend([
+            f"  - source_object_index: {object_index}",
+            f"    sound: {yaml_scalar(sound_name)}",
+        ])
+
+    return lines
 
 
 def build_mechanism_lines(dat_world: DatWorld, bmodels: list[OdmBModel], scale: float) -> tuple[list[str], dict[str, Any]]:
@@ -4280,12 +5090,229 @@ def build_mechanism_lines(dat_world: DatWorld, bmodels: list[OdmBModel], scale: 
         append_optional_bool_line(lines, "locked", values.get("Locked"))
         append_optional_bool_line(lines, "open_away", values.get("OpenAway"))
 
+        sound_fields = (
+            ("open", "OpenSoundName"),
+            ("close", "CloseSoundName"),
+            ("open_start", "OpenStartSound"),
+            ("open_busy", "OpenBusySound"),
+            ("open_stop", "OpenStopSound"),
+            ("close_start", "CloseStartSound"),
+            ("close_busy", "CloseBusySound"),
+            ("close_stop", "CloseStopSound"),
+            ("jiggle", "JiggleSound"),
+        )
+        sounds = [
+            (phase, normalize_mm9_sound_name(values.get(property_name)))
+            for phase, property_name in sound_fields
+        ]
+        sounds = [(phase, sound_name) for phase, sound_name in sounds if sound_name]
+
+        if sounds:
+            sound_position = values.get("SoundPos")
+            if not isinstance(sound_position, list) or len(sound_position) < 3 or not any(sound_position):
+                sound_position = values.get("Pos")
+
+            lines.append("    sounds:")
+            if isinstance(sound_position, list) and len(sound_position) >= 3:
+                position = lt_vec_to_odm_tuple(sound_position, scale)
+                lines.append(
+                    f"      position: {{x: {position[0]}, y: {position[1]}, z: {position[2]}}}")
+            for phase, sound_name in sounds:
+                lines.append(f"      {phase}: {yaml_scalar(sound_name)}")
+
     return lines, stats
+
+
+def destructible_auxiliary_bmodel_indices(
+    destructible_bmodel_index: int,
+    bmodels: list[OdmBModel],
+) -> list[int]:
+    destructible = bmodels[destructible_bmodel_index]
+    destructible_translation = destructible.source_world_translation_lt
+    matches: list[int] = []
+    for candidate_index, candidate in enumerate(bmodels):
+        if not normalize_model_role_name(candidate.source_model_name).startswith("perceptionbrush"):
+            continue
+        if len(candidate.vertices) != len(destructible.vertices) or len(candidate.faces) != len(destructible.faces):
+            continue
+
+        candidate_translation = candidate.source_world_translation_lt
+        squared_distance = sum(
+            (candidate_translation[axis] - destructible_translation[axis]) ** 2
+            for axis in range(3)
+        )
+        if squared_distance <= 16.0:
+            matches.append(candidate_index)
+
+    return matches
+
+
+def build_destructible_and_trigger_lines(
+    dat_world: DatWorld,
+    bmodels: list[OdmBModel],
+    scale: float,
+) -> tuple[list[str], list[str], dict[str, int]]:
+    destructible_lines: list[str] = []
+    trigger_lines: list[str] = []
+    destructible_indices: set[int] = set()
+    source_index_by_name: dict[str, int] = {}
+    stats = {
+        "destructibles": 0,
+        "destructibles_bound": 0,
+        "destructibles_unbound": 0,
+        "destructible_trigger_volumes": 0,
+        "destructible_trigger_outputs": 0,
+    }
+
+    for object_index, world_object in enumerate(dat_world.objects):
+        values = property_map_cased(world_object)
+        source_name = values.get("Name")
+        if isinstance(source_name, str) and source_name:
+            source_index_by_name.setdefault(source_name.lower(), object_index)
+        if world_object.name in MM9_DESTRUCTIBLE_CLASS_NAMES:
+            destructible_indices.add(object_index)
+
+    for object_index in sorted(destructible_indices):
+        world_object = dat_world.objects[object_index]
+        values = property_map_cased(world_object)
+        source_name = values.get("Name")
+        if not isinstance(source_name, str) or not source_name:
+            source_name = f"{world_object.name}{object_index}"
+        binding = find_bmodel_binding_for_mechanism(values, bmodels)
+        stats["destructibles"] += 1
+        if binding is None:
+            stats["destructibles_unbound"] += 1
+            continue
+
+        bmodel_index, bmodel, _ = binding
+        auxiliary_bmodel_indices = destructible_auxiliary_bmodel_indices(bmodel_index, bmodels)
+        stats["destructibles_bound"] += 1
+        initial_hp = max(1, int(round(float(values.get("HitPoints", 1.0) or 1.0))))
+        destruction_sound = normalize_mm9_sound_name(values.get("CustomSound"))
+        death_target_name = values.get("DeathTriggerTarget")
+        death_target_index = (
+            source_index_by_name.get(death_target_name.lower(), 0)
+            if isinstance(death_target_name, str) and death_target_name
+            else 0
+        )
+        death_message = values.get("DeathTriggerMessage")
+        if not isinstance(death_message, str):
+            death_message = ""
+
+        destructible_lines.extend([
+            f"  - source_object_index: {object_index}",
+            f"    runtime_object_id: {mechanism_runtime_id(object_index)}",
+            f"    source_name: {yaml_scalar(source_name)}",
+            "    binding:",
+            '      target_kind: "odm_bmodel"',
+            f"      bmodel_index: {bmodel_index}",
+            f"      bmodel_name: {yaml_scalar(bmodel.name)}",
+            "      auxiliary_bmodel_indices: ["
+            + ", ".join(str(index) for index in auxiliary_bmodel_indices)
+            + "]",
+            f"    initial_hp: {initial_hp}",
+            f"    initially_damage_enabled: {yaml_scalar(bool(values.get('CanDamage', 0)))}",
+            f"    trigger_destroy_only: {yaml_scalar(bool(values.get('TriggerDestroyOnly', 0)))}",
+            f"    should_mini_save: {yaml_scalar(bool(values.get('ShouldMiniSave', 1)))}",
+            f"    destruction_sound: {yaml_scalar(destruction_sound)}",
+            f"    death_target_source_object_index: {death_target_index}",
+            f"    death_message: {yaml_scalar(death_message)}",
+        ])
+
+    for object_index, world_object in enumerate(dat_world.objects):
+        if world_object.name != "Trigger":
+            continue
+        values = property_map_cased(world_object)
+        position_lt = values.get("Pos")
+        dimensions_lt = values.get("Dims")
+        if not isinstance(position_lt, list) or len(position_lt) < 3:
+            continue
+        if not isinstance(dimensions_lt, list) or len(dimensions_lt) < 3:
+            continue
+
+        outputs: list[tuple[int, str]] = []
+        for slot in range(1, 11):
+            target_name = values.get(f"TargetName{slot}")
+            message_name = values.get(f"MessageName{slot}")
+            if not isinstance(target_name, str) or not isinstance(message_name, str):
+                continue
+            target_index = source_index_by_name.get(target_name.lower())
+            action = MM9_DESTRUCTIBLE_TRIGGER_MESSAGES.get(message_name.lower())
+            if target_index not in destructible_indices or action is None:
+                continue
+            outputs.append((target_index, action))
+
+        if not outputs:
+            continue
+
+        position = lt_vec_to_odm_tuple(position_lt, scale)
+        half_extents = lt_vec_to_odm_tuple(dimensions_lt, scale)
+        source_name = values.get("Name")
+        if not isinstance(source_name, str) or not source_name:
+            source_name = f"Trigger{object_index}"
+        trigger_lines.extend([
+            f"  - source_object_index: {object_index}",
+            f"    source_name: {yaml_scalar(source_name)}",
+            f"    position: {{x: {position[0]}, y: {position[1]}, z: {position[2]}}}",
+            "    half_extents: {"
+            f"x: {abs(half_extents[0])}, y: {abs(half_extents[1])}, z: {abs(half_extents[2])}}}",
+            f"    start_on: {yaml_scalar(bool(values.get('StartOn', 1)))}",
+            "    outputs:",
+        ])
+        for target_index, action in outputs:
+            trigger_lines.extend([
+                f"      - target_source_object_index: {target_index}",
+                f"        action: {yaml_scalar(action)}",
+            ])
+        stats["destructible_trigger_volumes"] += 1
+        stats["destructible_trigger_outputs"] += len(outputs)
+
+    return destructible_lines, trigger_lines, stats
+
+
+def build_destructible_receiver_lines(dat_world: DatWorld) -> list[str]:
+    lines: list[str] = []
+    for object_index, world_object in enumerate(dat_world.objects):
+        if world_object.name != "ScriptObject":
+            continue
+
+        values = property_map_cased(world_object)
+        script_name = values.get("ScriptName")
+        script_params = values.get("ScriptParams")
+        if not isinstance(script_name, str) or script_name.lower() != "tm_hardrock.scr":
+            continue
+        if not isinstance(script_params, str):
+            continue
+
+        parts = script_params.split()
+        if len(parts) != 3:
+            continue
+        try:
+            required_count, raw_quest_key, reward_experience = (int(part) for part in parts)
+        except ValueError:
+            continue
+        if required_count <= 0 or raw_quest_key <= 0 or reward_experience < 0:
+            continue
+
+        source_name = values.get("Name")
+        if not isinstance(source_name, str) or not source_name:
+            source_name = f"ScriptObject{object_index}"
+        lines.extend([
+            f"  - source_object_index: {object_index}",
+            f"    source_name: {yaml_scalar(source_name)}",
+            f"    required_destruction_count: {required_count}",
+            f"    reward_raw_quest_key: {raw_quest_key}",
+            f"    reward_experience: {reward_experience}",
+        ])
+
+    return lines
 
 
 def build_outdoor_mechanism_interactive_face_lines(
     dat_world: DatWorld,
     bmodels: list[OdmBModel],
+    item_source_manifest: Mm9ItemSourceManifest | None = None,
+    baked_instances: list[BakedModelInstance] | None = None,
 ) -> tuple[list[str], dict[str, int]]:
     lines: list[str] = []
     stats = {
@@ -4294,17 +5321,53 @@ def build_outdoor_mechanism_interactive_face_lines(
         "mechanism_event_face_unbound": 0,
     }
     seen_faces: set[tuple[int, int]] = set()
+    semantic_source_indices = set()
+    if item_source_manifest is not None:
+        semantic_source_indices.update(
+            source.provenance.source_object_index
+            for source in item_source_manifest.loot_containers
+            if source.kind == "chest"
+        )
+        semantic_source_indices.update(
+            source.provenance.source_object_index
+            for source in item_source_manifest.searchable_loot_props
+        )
+        semantic_source_indices.update(
+            source.provenance.source_object_index
+            for source in item_source_manifest.spawned_loot_containers
+        )
+        semantic_source_indices.update(
+            source.provenance.source_object_index
+            for source in item_source_manifest.persistent_item_mechanisms
+        )
+        semantic_source_indices.update(
+            source.provenance.source_object_index
+            for source in getattr(item_source_manifest, "barrels", [])
+        )
 
     for object_index, world_object in enumerate(dat_world.objects):
         mechanism_kind = MM9_MECHANISM_CLASS_KINDS.get(world_object.name)
-        if mechanism_kind not in MM9_INTERACTIVE_MECHANISM_KINDS:
+        if mechanism_kind not in MM9_INTERACTIVE_MECHANISM_KINDS and object_index not in semantic_source_indices:
             continue
 
         event_id = mechanism_event_id(object_index)
         if event_id <= 0 or event_id > 0xffff:
             continue
 
-        binding = find_bmodel_binding_for_mechanism(property_map_cased(world_object), bmodels)
+        binding = None
+        if object_index in semantic_source_indices and baked_instances is not None:
+            instance = next(
+                (
+                    candidate
+                    for candidate in baked_instances
+                    if candidate.source_object_index == object_index and candidate.variant_index == 0
+                ),
+                None,
+            )
+            if instance is not None and instance.bmodel_index < len(bmodels):
+                binding = (instance.bmodel_index, bmodels[instance.bmodel_index], 0.0)
+        if binding is None:
+            binding = find_bmodel_binding_for_mechanism(property_map_cased(world_object), bmodels)
         if binding is None:
             stats["mechanism_event_face_unbound"] += 1
             continue
@@ -4335,7 +5398,60 @@ def build_outdoor_mechanism_interactive_face_lines(
         if wrote_for_mechanism:
             stats["mechanism_event_face_mechanisms"] += 1
 
+    for instance in baked_instances or []:
+        if instance.variant_index <= 0 or instance.source_object_index not in semantic_source_indices:
+            continue
+        base_event_id = mechanism_event_id(instance.source_object_index)
+        state_cog_number = 60000 + instance.source_object_index + instance.variant_index - 1
+        if base_event_id <= 0 or base_event_id > 0xffff or state_cog_number > 0xffff:
+            continue
+        bmodel = bmodels[instance.bmodel_index]
+        wrote_for_variant = False
+        for face_index, face in enumerate(bmodel.faces):
+            key = (instance.bmodel_index, face_index)
+            if key in seen_faces:
+                continue
+            seen_faces.add(key)
+            legacy_attributes = (
+                face.attributes
+                | FACE_ATTRIBUTE_CLICKABLE
+                | FACE_ATTRIBUTE_INVISIBLE
+                | FACE_ATTRIBUTE_UNTOUCHABLE
+            ) & ~FACE_ATTRIBUTE_HAS_HINT
+            lines.extend([
+                f"  - bmodel_index: {instance.bmodel_index}",
+                f"    face_index: {face_index}",
+                f"    legacy_attributes: {legacy_attributes}",
+                f"    cog_number: {state_cog_number}",
+                f"    cog_triggered_number: {base_event_id}",
+                "    cog_trigger: 0",
+            ])
+            stats["mechanism_event_faces"] += 1
+            wrote_for_variant = True
+        if wrote_for_variant:
+            stats["mechanism_event_face_mechanisms"] += 1
+
     return lines, stats
+
+
+def build_perception_face_lines(bmodels: list[OdmBModel]) -> list[str]:
+    lines: list[str] = []
+
+    for bmodel_index, bmodel in enumerate(bmodels):
+        if bmodel.perception_difficulty is None:
+            continue
+
+        for face_index, face in enumerate(bmodel.faces):
+            if not face.texture_alias or (face.attributes & FACE_ATTRIBUTE_SECRET) == 0:
+                continue
+
+            lines.extend([
+                f"    - bmodel_index: {bmodel_index}",
+                f"      face_index: {face_index}",
+                f"      difficulty: {bmodel.perception_difficulty}",
+            ])
+
+    return lines
 
 
 def write_scene_yml(
@@ -4351,12 +5467,39 @@ def write_scene_yml(
     surface_animation_lines: list[str] | None = None,
     baked_model_instance_lines: list[str] | None = None,
     location_type: str = "exterior",
+    mm9_npc_greeting_lines: list[str] | None = None,
+    mm9_npc_actor_lines: list[str] | None = None,
+    mm9_monster_actor_lines: list[str] | None = None,
+    authored_fog: tuple[Mm9AuthoredFogState, Mm9AuthoredFogState] | None = None,
+    perception_face_lines: list[str] | None = None,
+    item_source_manifest: Mm9ItemSourceManifest | None = None,
+    destructible_lines: list[str] | None = None,
+    destructible_receiver_lines: list[str] | None = None,
+    trigger_volume_lines: list[str] | None = None,
 ) -> None:
+    map_name = Path(odm_name).stem.lower()
+    is_city = map_name.endswith("city")
+    effective_location_type = "exterior" if is_city else location_type
+    sky_texture = "plansky3" if is_city else ""
+    view_distance_scale = 0.4 if is_city or effective_location_type == "enclosed" else 1.0
+    if is_city:
+        authored_fog = None
     zeros_map = ", ".join(["0"] * 75)
     zeros_decor = ", ".join(["0"] * 125)
     model_instances = "\n".join(model_instance_lines) if model_instance_lines else "  []"
     mechanisms = "\n".join(mechanism_lines) if mechanism_lines else "  []"
+    destructibles = "\n".join(destructible_lines) if destructible_lines else "  []"
+    destructible_receivers = (
+        "\n".join(destructible_receiver_lines)
+        if destructible_receiver_lines
+        else "  []"
+    )
+    trigger_volumes = "\n".join(trigger_volume_lines) if trigger_volume_lines else "  []"
+    mm9_npc_greetings = "\n".join(mm9_npc_greeting_lines) if mm9_npc_greeting_lines else "  []"
+    mm9_actor_lines = (mm9_npc_actor_lines or []) + (mm9_monster_actor_lines or [])
+    mm9_actors = "\n".join(mm9_actor_lines) if mm9_actor_lines else "    []"
     interactive_faces = "\n".join(interactive_face_lines) if interactive_face_lines else "    []"
+    perception_faces = "\n".join(perception_face_lines) if perception_face_lines else "    []"
     lights = "\n".join(light_lines) if light_lines else "  []"
     party_start_points = "\n".join(party_start_point_lines) if party_start_point_lines else "  []"
     entities = "\n".join(entity_lines) if entity_lines else "  []"
@@ -4366,41 +5509,40 @@ def write_scene_yml(
         if baked_model_instance_lines
         else "  []"
     )
-    path.write_text(
-        f"""format_version: 1
-kind: "outdoor_scene"
-scene_profile: "bmodel_world"
-source:
-  geometry_file: "{odm_name}"
-  source_metadata_file: "{source_metadata_name}"
-runtime_restrictions:
-  allow_save_game: false
-  allow_lloyds_beacon: false
-  allow_rest: true
-  arena: false
-environment:
-  location_type: "{location_type}"
-  sky_texture: ""
-  ground_tileset_name: "planset"
-  master_tile: 0
-  tile_set_lookup_indices: [0, 0, 0, 0]
-  day_bits_raw: 0
-  map_extra_bits_raw: 8
-  flags:
-    foggy: false
-    raining: false
-    snowing: false
-    underwater: false
-    no_terrain: true
-    always_dark: false
-    always_light: false
-    always_foggy: false
-    red_fog: false
-  fog:
-    weak_distance: 8192
-    strong_distance: 16384
-  weather:
-    fog_mode: "static"
+    item_source_sections = yaml.safe_dump(
+        item_source_manifest.scene_data() if item_source_manifest is not None else {
+            "world_items": [],
+            "loot_containers": [],
+            "searchable_loot_props": [],
+            "actor_loot_overrides": [],
+            "spawned_loot_containers": [],
+            "persistent_item_mechanisms": [],
+        },
+        sort_keys=False,
+        width=120,
+    ).rstrip()
+    foggy = authored_fog is not None and authored_fog[0].enabled
+    fog_near_distance = authored_fog[0].near_distance if authored_fog is not None else 8192
+    fog_far_distance = authored_fog[0].far_distance if authored_fog is not None else 16384
+    if authored_fog is not None:
+        day_fog, night_fog = authored_fog
+        weather_block = "\n".join([
+            '    fog_mode: "authored_day_night"',
+            '    precipitation: "none"',
+            "    authored_fog:",
+            "      day:",
+            f"        enabled: {yaml_scalar(day_fog.enabled)}",
+            f"        near_distance: {day_fog.near_distance}",
+            f"        far_distance: {day_fog.far_distance}",
+            f"        color_rgb: [{day_fog.color[0]}, {day_fog.color[1]}, {day_fog.color[2]}]",
+            "      night:",
+            f"        enabled: {yaml_scalar(night_fog.enabled)}",
+            f"        near_distance: {night_fog.near_distance}",
+            f"        far_distance: {night_fog.far_distance}",
+            f"        color_rgb: [{night_fog.color[0]}, {night_fog.color[1]}, {night_fog.color[2]}]",
+        ])
+    else:
+        weather_block = """    fog_mode: "static"
     precipitation: "none"
     daily_fog:
       small_chance: 0
@@ -4414,7 +5556,46 @@ environment:
         strong_distance: 16384
       dense:
         weak_distance: 8192
-        strong_distance: 16384
+        strong_distance: 16384"""
+    path.write_text(
+        f"""format_version: 1
+kind: "outdoor_scene"
+scene_profile: "bmodel_world"
+source:
+  geometry_file: "{odm_name}"
+  source_metadata_file: "{source_metadata_name}"
+lighting:
+  lightmap_brightness_scale: 1.25
+rendering:
+  view_distance_scale: {view_distance_scale:.1f}
+runtime_restrictions:
+  allow_save_game: false
+  allow_lloyds_beacon: false
+  allow_rest: true
+  arena: false
+environment:
+  location_type: "{effective_location_type}"
+  sky_texture: "{sky_texture}"
+  ground_tileset_name: "planset"
+  master_tile: 0
+  tile_set_lookup_indices: [0, 0, 0, 0]
+  day_bits_raw: 0
+  map_extra_bits_raw: 8
+  flags:
+    foggy: {yaml_scalar(foggy)}
+    raining: false
+    snowing: false
+    underwater: false
+    no_terrain: true
+    always_dark: false
+    always_light: false
+    always_foggy: false
+    red_fog: false
+  fog:
+    weak_distance: {fog_near_distance}
+    strong_distance: {fog_far_distance}
+  weather:
+{weather_block}
   ceiling: 32767
 terrain:
   attribute_overrides: []
@@ -4424,8 +5605,18 @@ surface_animations:
 bmodel_faces:
   interactive_faces:
 {interactive_faces}
+  perception_faces:
+{perception_faces}
 mechanisms:
 {mechanisms}
+destructibles:
+{destructibles}
+destructible_receivers:
+{destructible_receivers}
+trigger_volumes:
+{trigger_volumes}
+mm9_npc_greetings:
+{mm9_npc_greetings}
 baked_model_instances:
 {baked_model_instances}
 entities:
@@ -4437,6 +5628,7 @@ party_start_points:
 {party_start_points}
 model_instances:
 {model_instances}
+{item_source_sections}
 initial_state:
   location:
     respawn_count: 0
@@ -4444,7 +5636,8 @@ initial_state:
     reputation: 0
     alert_status: 0
   face_attribute_overrides: []
-  actors: []
+  actors:
+{mm9_actors}
   sprite_objects: []
   chests: []
   variables:
@@ -4553,16 +5746,21 @@ def navigation_mechanisms_by_bmodel(dat_world: DatWorld, bmodels: list[OdmBModel
     result: dict[int, int] = {}
     for object_index, world_object in enumerate(dat_world.objects):
         mechanism_kind = MM9_MECHANISM_CLASS_KINDS.get(world_object.name)
-        if mechanism_kind is None:
+        is_destructible = world_object.name in MM9_DESTRUCTIBLE_CLASS_NAMES
+        if mechanism_kind is None and not is_destructible:
             continue
         values = property_map_cased(world_object)
-        if not any(mechanism_motion_support(mechanism_kind, values)):
+        if not is_destructible and not any(mechanism_motion_support(mechanism_kind, values)):
             continue
         binding = find_bmodel_binding_for_mechanism(values, bmodels)
         if binding is None:
             continue
         bmodel_index, _, _ = binding
-        result.setdefault(bmodel_index, mechanism_runtime_id(object_index))
+        runtime_id = mechanism_runtime_id(object_index)
+        result.setdefault(bmodel_index, runtime_id)
+        if is_destructible:
+            for auxiliary_bmodel_index in destructible_auxiliary_bmodel_indices(bmodel_index, bmodels):
+                result.setdefault(auxiliary_bmodel_index, runtime_id)
     return result
 
 
@@ -5095,6 +6293,8 @@ def build_outdoor_lighting_bytes(
             flags |= 0x08
         if light.clip_light:
             flags |= 0x10
+        if light.global_object_light:
+            flags |= OUTDOOR_LIGHTING_LIGHT_GLOBAL_OBJECT
         light_type = (
             OUTDOOR_LIGHTING_LIGHT_DIRECTIONAL
             if light.light_type == "directional"
@@ -5221,6 +6421,7 @@ def write_source_metadata(
             lines.append(f"      source_surface_index: {bmodel.source_surface_for_face[face_index]}")
             lines.append(f"      source_surface_flags: {bmodel.source_surface_flags_for_face[face_index]}")
             lines.append(f"      source_texture_index: {bmodel.source_texture_index_for_face[face_index]}")
+            lines.append(f"      barrel_liquid: {yaml_scalar(bmodel.source_barrel_liquid_for_face[face_index])}")
             lines.append(f"      source_texture_flags: {bmodel.source_texture_flags_for_face[face_index]}")
             lines.append(f"      texture_alias: {yaml_scalar(bmodel.faces[face_index].texture_alias)}")
             lines.append(f"      attributes: {bmodel.faces[face_index].attributes}")
@@ -5316,6 +6517,54 @@ def main() -> int:
         help="Root of extracted MM9 REZ files, used for DTX size lookup",
     )
     parser.add_argument(
+        "--actor-table",
+        default=Path("mm9/extracted/DATA/DATA/ACTOR.txt"),
+        type=Path,
+        help="MM9 actor archetype table",
+    )
+    parser.add_argument(
+        "--npc-replacements",
+        default=Path("tools/mm9_import_discovery/mm9_npc_legacy_replacements.tsv"),
+        type=Path,
+        help="Authoritative MM9 NPC to legacy actor mapping",
+    )
+    parser.add_argument(
+        "--npc-names",
+        default=Path("mm9/extracted/RUDE/RUDE/NPCNAME.rude"),
+        type=Path,
+        help="MM9 RUDE NPC name table",
+    )
+    parser.add_argument(
+        "--monster-replacements",
+        default=Path("tools/mm9_import_discovery/mm9_monster_legacy_replacements.tsv"),
+        type=Path,
+        help="Authoritative MM9 monster to legacy billboard-family mapping",
+    )
+    parser.add_argument(
+        "--source-monsters",
+        default=Path("mm9/extracted/DATA/DATA/MONSTERS.txt"),
+        type=Path,
+        help="Authoritative MM9 monster archetype table",
+    )
+    parser.add_argument(
+        "--mm9-monster-data",
+        default=Path("assets_dev/worlds/mm9/data_tables/monster_data.txt"),
+        type=Path,
+        help="World-owned MM9 monster gameplay table",
+    )
+    parser.add_argument(
+        "--mm9-monster-descriptors",
+        default=Path("assets_dev/worlds/mm9/data_tables/monster_descriptors.txt"),
+        type=Path,
+        help="World-owned MM9 monster billboard descriptor table",
+    )
+    parser.add_argument(
+        "--monster-descriptors",
+        default=Path("assets_dev/engine/data_tables/monster_descriptors.txt"),
+        type=Path,
+        help="Merged legacy actor descriptor table",
+    )
+    parser.add_argument(
         "--bitmap-dir",
         type=Path,
         help="Optional shared directory for emitted BMP aliases; defaults to a map-local .bitmaps directory",
@@ -5326,34 +6575,109 @@ def main() -> int:
         default="exterior",
         help="Gameplay environment semantics for the generated BModel world",
     )
+    parser.add_argument(
+        "--item-id-map",
+        default=Path("assets_dev/worlds/mm9/state/item_ids.yml"),
+        type=Path,
+        help="Canonical MM9 raw-to-runtime item id map",
+    )
     args = parser.parse_args()
 
     output_name = args.name or args.dat.stem.lower()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     dat_world = read_dat_world(args.dat)
+    item_source_manifest = build_mm9_item_source_manifest(
+        output_name,
+        dat_world.objects,
+        Mm9ItemIdMap.load(args.item_id_map),
+        args.scale,
+    )
+    item_source_manifest.require_resolved_item_references()
     texture_sizes = build_texture_size_index(args.extracted_root)
     bmodels, alias_metadata, stats, baked_instances = transcode_geometry(
         dat_world,
         args.scale,
         texture_sizes,
         args.extracted_root,
+        excluded_baked_object_indices=item_source_manifest.excluded_baked_object_indices(),
+        baked_model_variant_sources={
+            source.provenance.source_object_index: list(zip(source.model_variants, source.model_variant_skins))
+            for source in item_source_manifest.persistent_item_mechanisms
+            if source.model_variants
+        },
     )
+    bind_mm9_barrel_geometry(item_source_manifest, bmodels, baked_instances, alias_metadata)
     model_instance_lines: list[str] = []
     model_assets: list[dict[str, Any]] = []
     baked_model_instance_lines = build_baked_model_instance_lines(baked_instances)
     mechanism_lines, mechanism_stats = build_mechanism_lines(dat_world, bmodels, args.scale)
-    interactive_face_lines, interactive_face_stats = build_outdoor_mechanism_interactive_face_lines(dat_world, bmodels)
+    destructible_lines, trigger_volume_lines, destructible_stats = build_destructible_and_trigger_lines(
+        dat_world,
+        bmodels,
+        args.scale,
+    )
+    destructible_receiver_lines = build_destructible_receiver_lines(dat_world)
+    mm9_npc_greeting_lines = build_mm9_npc_greeting_lines(dat_world)
+    mm9_monster_replacements = read_mm9_monster_replacements(
+        args.source_monsters,
+        args.actor_table,
+        args.monster_replacements,
+        args.mm9_monster_data,
+        args.mm9_monster_descriptors,
+    )
+    mm9_monster_source_indices = mm9_monster_actor_source_object_indices(
+        dat_world,
+        mm9_monster_replacements,
+    )
+    mm9_npc_replacements = read_mm9_npc_replacements(
+        args.actor_table,
+        args.npc_replacements,
+        args.monster_descriptors,
+    )
+    emitted_actor_source_object_indices: set[int] = set()
+    mm9_npc_actor_lines = build_mm9_npc_actor_lines(
+        dat_world,
+        args.scale,
+        mm9_npc_replacements,
+        read_mm9_npc_names(args.npc_names),
+        mm9_monster_source_indices,
+        emitted_actor_source_object_indices,
+    )
+    mm9_monster_actor_lines = build_mm9_monster_actor_lines(
+        dat_world,
+        args.scale,
+        mm9_monster_replacements,
+        emitted_actor_source_object_indices,
+    )
+    item_source_manifest.actor_loot_overrides = [
+        source
+        for source in item_source_manifest.actor_loot_overrides
+        if source.source_object_index in emitted_actor_source_object_indices
+    ]
+    interactive_face_lines, interactive_face_stats = build_outdoor_mechanism_interactive_face_lines(
+        dat_world,
+        bmodels,
+        item_source_manifest,
+        baked_instances,
+    )
+    perception_face_lines = build_perception_face_lines(bmodels)
     lights, light_stats = export_mm9_lights(dat_world, args.scale)
+    light_stats["synthetic_city_sunlight"] = int(ensure_mm9_city_sunlight(output_name, lights))
     light_lines = build_mm9_light_lines(lights)
     party_start_points, party_start_stats = export_mm9_party_start_points(dat_world, args.scale)
     party_start_point_lines = build_mm9_party_start_point_lines(party_start_points)
     entities = build_classic_party_start_entities(party_start_points)
     entity_lines = build_odm_entity_lines(entities)
+    authored_fog = export_mm9_authored_fog(dat_world, args.scale)
     stats["model_instances"] = 0
     stats["unique_model_assets"] = 0
     stats["classic_party_start_entities"] = len(entities)
+    stats["mm9_npc_actors"] = sum(line.startswith("    - name:") for line in mm9_npc_actor_lines)
+    stats["mm9_monster_actors"] = sum(
+        line.startswith("    - name:") for line in mm9_monster_actor_lines)
     stats.update(mechanism_stats)
+    stats.update(destructible_stats)
     stats.update(interactive_face_stats)
     stats.update(light_stats)
     stats.update(party_start_stats)
@@ -5427,6 +6751,15 @@ def main() -> int:
         surface_animation_lines,
         baked_model_instance_lines,
         args.location_type,
+        mm9_npc_greeting_lines=mm9_npc_greeting_lines,
+        mm9_npc_actor_lines=mm9_npc_actor_lines,
+        mm9_monster_actor_lines=mm9_monster_actor_lines,
+        authored_fog=authored_fog,
+        perception_face_lines=perception_face_lines,
+        item_source_manifest=item_source_manifest,
+        destructible_lines=destructible_lines,
+        destructible_receiver_lines=destructible_receiver_lines,
+        trigger_volume_lines=trigger_volume_lines,
     )
     write_material_aliases(aliases_path, args.dat, alias_metadata, stats, bitmap_modes, bitmap_directory_name)
     write_source_metadata(

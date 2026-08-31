@@ -1,0 +1,135 @@
+mm9_source_number	legacy_actor_id	confidence	note	object_class_override
+75	226	high	Exact legacy Dragonfly A family and closest blue-violet palette
+76	227	high	Exact legacy Dragonfly B family and closest green palette
+77	228	high	Exact legacy Dragonfly C family and closest fire palette
+78	220	medium	Devil Worker is the closest small horned humanoid demon
+79	221	medium	Devil Warrior preserves the stronger horned humanoid rank
+80	222	medium	Devil Captain preserves the red senior demon rank
+81	634	medium	MM6 Spider A is the closest low ground-crawling insect body available for the beetle-like Nagate
+82	635	medium	MM6 Giant Spider preserves the middle ground-crawling insect rank
+83	636	medium	MM6 Huge Spider preserves the senior ground-crawling insect rank
+84	649	medium	MM6 Cactus A is the closest small hostile plant substitute for the weak Lobber Pod
+85	650	medium	MM6 Cactus B preserves the second hostile plant rank
+86	651	medium	MM6 Cactus C preserves the mature hostile plant rank without implying a high-tier nightmare
+87	205	medium	Giant Bat is the closest small airborne silhouette
+88	206	medium	Vampire Bat preserves the middle Flying Icky rank
+89	207	medium	Inferno Bat preserves the senior Flying Icky rank
+90	91	medium	Cyclops A is the closest primitive male humanoid combatant despite its single eye
+91	92	medium	Cyclops Hunter preserves the stronger primitive male rank
+92	93	medium	Cyclops Warrior preserves the senior primitive male rank
+93	391	medium	Roc is the closest existing black bird combat silhouette
+94	392	medium	Greater Roc preserves the middle Bird rank
+95	393	medium	Thunderbird preserves the senior Bird rank; MM9 drow.dtx is a broken crow binding
+96	412	high	Exact legacy Troglodyte A family
+97	413	high	Exact legacy Troglodyte B family
+98	414	high	Exact legacy Troglodyte C family
+99	256	high	Robber closely matches the lightly armored Cutpurse
+100	257	high	Raider closely matches the middle highwayman rank
+101	258	high	Bandit is an exact role and visual match
+102	538	medium	MM6 Thug is the closest male leather-armored militia or bandit substitute
+103	539	medium	MM6 Ruffian preserves the stronger male militia rank
+104	540	medium	MM6 Brigand preserves the senior male militia rank
+105	649	medium	MM6 Cactus A remains the closest small hostile plant for the ice Lobber Pod
+106	650	medium	MM6 Cactus B remains the closest hostile plant for the moving ice Lobber
+111	553	high	Exact legacy Guard A family
+112	554	high	Exact legacy Guard B family
+113	555	high	Exact legacy Guard C family
+114	85	high	Dire Wolf Yearling closely matches the grey Wolf A
+115	86	high	Dire Wolf preserves the stronger middle wolf rank
+116	87	high	Pack Leader closely matches the black senior wolf
+120	229	high	Dwarven Soldier closely matches the armored MM9 dwarf
+121	230	high	Dwarven Lieutenant preserves the middle dwarf rank
+122	231	high	Dwarven Commander preserves the senior dwarf rank
+123	583	high	Novice Monk closely matches the brown-robed Initiate
+124	584	high	Initiate Monk closely matches the grey-robed Monk
+125	585	high	Master Monk closely matches the blue-robed Reverend Monk
+129	535	high	MM6 Fighter is a male ringmail infantryman with sword and shield
+130	536	high	MM6 Soldier preserves the male sword-and-shield middle rank
+131	537	high	MM6 Veteran preserves the male sword-and-shield senior rank
+135	397	high	Exact legacy Skeleton Warrior A family
+136	398	high	Exact legacy Skeleton Warrior B family
+137	399	high	Exact legacy Skeleton Warrior C family
+138	268	high	Shade closely matches the pale MM9 Shadow
+139	269	high	Specter is an exact role and rank match
+140	270	high	Ghost C preserves the senior apparition rank
+144	421	medium	Wight A is the closest wrapped humanoid undead family
+145	422	medium	Wraith preserves the middle mummy rank
+146	423	medium	Barrow Wight preserves the senior mummy rank
+147	118	medium	Wasp Worker is the closest thin multi-limbed insectoid silhouette
+148	119	medium	Wasp Sentry preserves the middle insectoid Dagrell rank
+149	120	medium	Wasp Warrior preserves the senior insectoid Dagrell rank
+150	88	high	Exact legacy Basilisk A family
+151	89	high	Exact legacy Basilisk B family
+152	90	high	Exact legacy Basilisk C family
+153	586	high	Exact legacy Nobleman A family
+154	587	high	Exact legacy Nobleman B family
+155	588	high	Exact legacy Nobleman C family
+156	292	high	MM7 Sorcerer is the closest modern-era ornate robed apprentice
+157	293	high	MM7 Wizard preserves the ornate middle sorcerer rank
+158	294	high	MM7 Archmage preserves the senior sorcerer rank
+159	283	medium	Harpy is the closest existing winged humanoid silhouette
+160	284	medium	Harpy Hag preserves the middle winged mutant rank
+161	285	medium	Harpy Queen preserves the senior winged mutant rank
+162	268	medium	Shade is the closest pale floating undead silhouette
+163	269	medium	Specter preserves the stronger Banshee rank
+164	270	medium	Ghost C preserves the senior Banshee rank
+165	58	high	Troll Clubman closely matches the club-wielding Trellborg
+166	59	high	Troll Warrior preserves the middle Trellborg rank
+167	60	high	Troll Chieftain preserves the senior Trellborg rank
+168	211	medium	Floating Eye best preserves the hovering bulb and tentacles; Jellyspores are underwater-only and currently unused
+169	212	medium	Gazer preserves the middle Jellyspore rank; underwater gameplay is not currently implemented
+170	213	medium	Evil Eye preserves the senior Nettle Spore rank; underwater gameplay is not currently implemented
+171	301	high	Minotaur closely matches the large horned humanoid silhouette
+172	302	high	Minotaur Headsman preserves the middle Gezzampt rank
+173	303	high	Minotaur Lord preserves the senior Gezzampt rank
+174	454	high	Exact legacy Ghast family and rank
+175	455	high	Exact legacy Ghoul family and rank
+176	456	high	Exact legacy Revenant family and rank
+177	133	high	Triton closely matches the blue aquatic humanoid male
+178	134	high	Triton Warrior preserves the stronger aquatic humanoid rank
+180	427	high	Exact legacy Zombie A family
+181	428	high	Exact legacy Zombie B family
+182	429	high	Exact legacy Zombie C family
+183	628	high	MM6 Skeleton A closely matches the thin unarmored Skeletoid
+184	398	high	Skeleton Warrior B preserves the declared Bone Thrasher rank
+185	630	high	MM6 Skeleton C closely matches the thin red Skull Thrower	SkullThrowerSmall
+186	214	medium	Acolyte of the Moon is the closest white-robed religious combatant
+187	215	medium	Cleric of the Moon preserves the middle Honk worshipper rank
+188	216	medium	Priest of the Moon preserves the senior Honk seer rank
+189	4	high	Lizardman Soldier closely matches the armored Lizard-Orc
+190	5	high	Lizardman Sergeant preserves the warrior rank
+191	6	high	Lizardman Captain preserves the senior Lizard-Orc rank
+192	397	high	MM9 source duplicates the Skeleton Warrior A model and skin
+195	415	high	Minion Vampire closely matches the robed Nosferatu silhouette
+196	416	high	Vampire preserves the middle Nosferatu rank
+197	417	high	Elder Vampire preserves the senior Nosferatu rank
+198	643	medium	MM6 Wolfman is the closest upright fur-covered humanoid available for Bigfoot
+199	644	medium	MM6 Werewolf preserves the stronger upright furry Sasquatch rank
+200	645	medium	MM6 Greater Werewolf preserves the senior pale-furred Yeti rank
+204	409	high	Titan closely matches the human giant scale and silhouette
+205	410	high	Storm Titan preserves the middle giant rank
+206	411	high	Blood Titan preserves the senior Yanmir rank
+207	289	high	Exact legacy Lich A family
+208	290	high	Exact legacy Power Lich family
+209	291	high	Exact legacy Lich King family
+212	223	high	Green Dragon is the closest exact legacy color and species match
+216	215	medium	Cleric of the Moon is the closest male white-robed worshipper combatant
+217	214	medium	Acolyte of the Moon is the closest female-shaped pale worshipper substitute
+228	211	high	Exact legacy Beholder A family
+229	212	high	Exact legacy Beholder B family
+230	213	high	Exact legacy Beholder C family
+234	592	medium	Ogre is the closest broad heavy humanoid silhouette
+235	593	medium	Ogre Raider preserves the middle Colloidal rank
+236	594	medium	Ogre Chieftain preserves the senior Colloidal rank
+237	208	medium	Young Behemoth is the closest squat long-armed terror silhouette
+238	209	medium	Behemoth preserves the middle Tunnel Terror rank
+239	210	medium	Ancient Behemoth preserves the senior Tunnel Terror rank
+241	502	high	MM6 Demon A closely matches the lesser winged demon
+242	504	high	MM6 Demon C best matches the larger armored greater demon
+244	118	medium	Wasp Worker is the closest existing upright multi-limbed insect for the Magreeb baby
+261	587	medium	Nobleman B best matches Njam's human courtier silhouette
+276	118	medium	Wasp Worker is the closest existing upright insect for the Magreeb Spawn	Magreeb1
+277	119	medium	Wasp Sentry preserves the stronger mantis-like Magreeb rank	Magreeb2
+278	120	medium	Wasp Warrior preserves the armored senior Magreeb rank	Magreeb3
+301	285	medium	Harpy Queen is the closest existing female winged demon silhouette
+302	284	medium	Harpy Hag is the closest existing female winged Concubine silhouette

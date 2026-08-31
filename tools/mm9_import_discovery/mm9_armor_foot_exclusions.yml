@@ -1,0 +1,46 @@
+format_version: 1
+kind: mm9_armor_foot_exclusions
+coordinate_space: paperdoll_background_pixels_from_top_left
+# Body armor must never paint over the separate footwear/foot/hoof region. Human, troll, and dwarf masks come from
+# a native fitted boot set. Minotaurs cannot equip boots, so their shared lower-body geometry is clipped at the audited
+# global hoof boundary. The generator emits the resolved 175x378 masks for visual inspection and provenance.
+coverage_profiles:
+  short_torso:
+    max_global_y_exclusive: {0: 210, 1: 190, 2: 220, 3: 210, 4: 220}
+    review_status: reviewed
+  hip_length:
+    max_global_y_exclusive: {0: 260, 1: 220, 2: 270, 3: 270, 4: 270}
+    review_status: reviewed
+  thigh_length:
+    max_global_y_exclusive: {0: 285, 1: 260, 2: 300, 3: 300, 4: 300}
+    review_status: reviewed
+  full_harness:
+    max_global_y_exclusive: null
+    review_status: reviewed
+doll_types:
+  0:
+    method: fitted_item
+    source_item_id: 917
+    dilation: 1
+    review_status: reviewed
+  1:
+    method: fitted_item
+    source_item_id: 917
+    dilation: 1
+    review_status: reviewed
+  2:
+    method: body_lower_region
+    character_ids: [21, 22]
+    global_y_min: 307
+    dilation: 1
+    review_status: reviewed
+  3:
+    method: fitted_item
+    source_item_id: 917
+    dilation: 1
+    review_status: reviewed
+  4:
+    method: fitted_item
+    source_item_id: 917
+    dilation: 1
+    review_status: reviewed

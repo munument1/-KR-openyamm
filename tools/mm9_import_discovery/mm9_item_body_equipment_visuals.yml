@@ -1,0 +1,43 @@
+format_version: 1
+kind: mm9_item_body_equipment_visual_overlay
+coordinate_space: paperdoll_background_pixels_from_top_left
+# This authored overlay maps each MM9 armor design to an audited MM6-MM8 garment geometry. References were selected by
+# the visible MM9 garment length and construction, not by skill or rarity. The separate foot-exclusion overlay removes
+# footwear, feet, claws, and hooves even if a legacy reference contains integrated boots. Generated rows and PNGs are
+# outputs and must not be edited by hand.
+items:
+  86: {reference_item_id: 84, coverage_profile: hip_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  87: {reference_item_id: 91, coverage_profile: hip_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  88: {reference_item_id: 868, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  89: {reference_item_id: 869, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  90: {reference_item_id: 868, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  91: {reference_item_id: 872, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  92: {reference_item_id: 91, coverage_profile: hip_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  93: {reference_item_id: 88, coverage_profile: thigh_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  94: {reference_item_id: 88, coverage_profile: thigh_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  95: {reference_item_id: 876, coverage_profile: hip_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  96: {reference_item_id: 873, coverage_profile: thigh_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  97: {reference_item_id: 874, coverage_profile: thigh_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  98: {reference_item_id: 91, coverage_profile: thigh_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  99: {reference_item_id: 91, coverage_profile: thigh_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  100: {reference_item_id: 90, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  101: {reference_item_id: 92, coverage_profile: thigh_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  102: {reference_item_id: 876, coverage_profile: thigh_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  103: {reference_item_id: 877, coverage_profile: full_harness, method: fitted_mask_design_transfer, review_status: reviewed}
+  104: {reference_item_id: 1676, coverage_profile: thigh_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  105: {reference_item_id: 1677, coverage_profile: thigh_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  108: {reference_item_id: 94, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  109: {reference_item_id: 94, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  110: {reference_item_id: 878, coverage_profile: full_harness, method: fitted_mask_design_transfer, review_status: reviewed}
+  111: {reference_item_id: 880, coverage_profile: full_harness, method: fitted_mask_design_transfer, review_status: reviewed}
+  112: {reference_item_id: 879, coverage_profile: full_harness, method: fitted_mask_design_transfer, review_status: reviewed}
+  113: {reference_item_id: 880, coverage_profile: full_harness, method: fitted_mask_design_transfer, review_status: reviewed}
+  114: {reference_item_id: 880, coverage_profile: full_harness, method: fitted_mask_design_transfer, review_status: reviewed}
+  115: {reference_item_id: 879, coverage_profile: full_harness, method: fitted_mask_design_transfer, review_status: reviewed}
+  200: {reference_item_id: 872, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  201: {reference_item_id: 92, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  202: {reference_item_id: 880, coverage_profile: full_harness, method: fitted_mask_design_transfer, review_status: reviewed}
+  220: {reference_item_id: 95, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  225: {reference_item_id: 1335, coverage_profile: hip_length, method: fitted_mask_design_transfer, review_status: reviewed}
+  230: {reference_item_id: 1672, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}
+  367: {reference_item_id: 868, coverage_profile: short_torso, method: fitted_mask_design_transfer, review_status: reviewed}

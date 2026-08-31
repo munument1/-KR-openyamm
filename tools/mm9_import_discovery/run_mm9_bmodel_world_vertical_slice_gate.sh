@@ -26,7 +26,7 @@ require_output()
 }
 
 run_diagnostic mine_load --headless-profile-map-load-full thjoradmine.odm
-require_output mine_load 'outdoor actors: total=3 map_delta=2 spawn=1 textured=3 missing=0'
+require_output mine_load 'outdoor actors: total=73 map_delta=72 spawn=1 textured=73 missing=0'
 require_output mine_load 'Headless load profile complete: map="Thjorad Mine" file=thjoradmine.odm'
 
 run_diagnostic city_load --headless-profile-map-load-full thjorgard.odm
@@ -73,7 +73,7 @@ run_diagnostic city_save \
     --headless-verify-outdoor-save-roundtrip thjorgard.odm 32010 30391
 require_output city_save 'mechanism=900391 mechanism_open=yes geometry_restored=yes'
 
-run_diagnostic mine_actor --headless-simulate-actor thjoradmine.odm 0 120 0.05 -500
+run_diagnostic mine_actor --headless-simulate-actor thjoradmine.odm 13 120 0.05 -500
 require_output mine_actor 'saw_walking_anim=yes'
 require_output mine_actor 'saw_movement=yes'
 

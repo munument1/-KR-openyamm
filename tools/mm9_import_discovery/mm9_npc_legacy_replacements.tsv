@@ -1,0 +1,122 @@
+mm9_source_number	legacy_actor_id	confidence	note	object_class_override
+1	313	high	Matching dwarf woman A/A family
+2	314	high	Matching dwarf woman A/B family
+3	316	high	Matching dwarf woman B/A family
+4	317	high	Matching dwarf woman B/B family
+5	319	high	Matching dwarf woman C/A family
+6	320	high	Matching dwarf woman C/B family
+7	318	medium	Closest third dwarf-woman palette for prisoner D
+8	322	high	Matching dwarf man A/A family
+9	323	high	Matching dwarf man A/B family
+10	325	high	Matching dwarf man B/A family
+11	326	high	Matching dwarf man B/B family
+12	328	high	Matching dwarf man C/A family
+13	329	high	Matching dwarf man C/B family
+15	331	high	Matching elf woman A/A family
+16	332	high	Matching elf woman A/B family
+17	334	high	Matching elf woman B/A family
+18	335	high	Matching elf woman B/B family
+19	337	high	Matching elf woman C/A family
+20	338	high	Matching elf woman C/B family
+21	331	high	MM9 model and skin duplicate source 15
+22	340	high	Matching elf man A/A family
+23	341	high	Matching elf man A/B family
+24	343	high	Matching elf man B/A family
+25	344	high	Matching elf man B/B family
+26	346	high	Matching elf man C/A family
+27	347	high	Matching elf man C/B family
+28	342	medium	Closest third elf-man palette for prisoner D
+29	349	high	Matching human1 woman A/A family
+30	350	high	Matching human1 woman A/B family
+31	352	high	Matching human1 woman B/A family
+32	353	high	Matching human1 woman B/B family
+33	355	high	Matching human1 woman C/A family
+34	356	high	Matching human1 woman C/B family
+35	357	medium	Closest third human1-woman palette for prisoner D
+36	376	high	Matching human2 woman A/A family
+37	377	high	Matching human2 woman A/B family
+38	379	high	Matching human2 woman B/A family
+39	380	high	Matching human2 woman B/B family
+40	382	high	Matching human2 woman C/A family
+42	384	medium	Closest third human2-woman palette for prisoner D
+43	358	high	Matching human1 man A/A family
+44	359	high	Matching human1 man A/B family
+45	361	high	Matching human1 man B/A family
+46	362	high	Matching human1 man B/B family
+47	364	high	Matching human1 man C/A family
+48	365	high	Matching human1 man C/B family
+49	366	medium	Closest third human1-man palette for prisoner D
+50	367	high	Matching human2 man A/A family
+51	368	high	Matching human2 man A/B family
+52	370	high	Matching human2 man B/A family
+53	371	high	Matching human2 man B/B family
+54	373	high	Matching human2 man C/A family
+55	374	high	Matching human2 man C/B family
+56	375	medium	Closest third human2-man palette for prisoner D
+57	439	medium	Goblin peasant man A/A is the closest half-orc civilian
+58	442	medium	Goblin peasant man B/A is the closest half-orc civilian
+59	445	medium	Goblin peasant man C/A is the closest half-orc civilian
+60	447	low	Goblin peasant man C/C is the closest prisoner variant
+61	430	medium	Goblin peasant woman A/A is the closest half-orc civilian
+62	433	medium	Goblin peasant woman B/A is the closest half-orc civilian
+63	436	medium	Goblin peasant woman C/A is the closest half-orc civilian
+64	438	low	Goblin peasant woman C/C is the closest prisoner variant
+67	313	low	No legacy child family; dwarf civilian preserves race and short stature
+68	322	low	No legacy child family; dwarf civilian preserves race and short stature
+69	166	low	Bedraggled human is the least imposing human-boy substitute
+70	167	low	Bedraggled human is the least imposing human-boy substitute
+71	595	low	Smallest plain legacy human-woman civilian family
+72	596	low	Smallest plain legacy human-woman civilian family
+73	340	low	No legacy child family; elf civilian preserves race
+74	331	low	No legacy child family; elf civilian preserves race
+107	553	high	Matching Guard A family
+108	193	medium	Closest male militia fighter
+109	555	high	Matching Guard C family
+110	403	high	Closest ranked swordsman family	PoorTownGuard1
+123	583	high	Hooded Novice Monk closely matches MM9 Cleric A
+124	584	high	Hooded Initiate Monk closely matches MM9 Cleric B
+125	585	high	Hooded Master Monk closely matches MM9 Cleric C
+132	403	high	Swordsman A matches Clan Soldier A	ClanSoldier
+133	404	high	Swordsman B matches Clan Soldier B
+134	405	high	Swordsman C matches Clan Soldier C
+186	356	medium	White-dressed human woman best matches female Honk robes
+187	490	low	Closest available male religious robe
+188	215	medium	Blue Cleric of the Moon best matches the Honk seer
+216	491	low	Closest available male religious robe
+217	355	medium	Pale-dressed human woman best matches elder Honk robes	ElderHonkFemale
+227	178	high	Existing non-combatant fish family
+246	586	medium	Nobleman A best matches Bjarni's noble warrior silhouette
+247	403	medium	Swordsman A best matches Sigmund's chain-armored fighter role
+248	579	high	Merchant C closely matches Markel's build and red clothing
+249	520	medium	Dwarf A best preserves Sven's bearded Norse warrior silhouette
+250	607	medium	PeasantM1 A is the closest dark-haired tunic civilian
+251	255	high	Fighter Chain C closely matches Kira's plate armor
+252	586	medium	Nobleman A is the closest ornate male courtier	ForadDarreNPC
+254	307	low	Female necromancer is the closest pale dark-clothed woman
+255	565	low	Armored Death Knight is the closest available divine warrior
+256	352	high	Human1 FemaleB A closely matches Fre's red formal dress
+257	568	high	Lich A closely matches the hooded undead Skraelos
+260	555	low	Guard C is the closest gatekeeper substitute for Hanndl
+261	587	medium	Nobleman B best matches Njam's courtier silhouette
+262	468	medium	Chicken C is the closest existing Great Honk bird
+263	376	low	Green-robed human2 woman distinguishes the Young Fate
+264	380	low	Blue-robed human2 woman distinguishes the Middle Fate
+265	384	low	Red-robed human2 woman distinguishes the Old Fate
+266	451	medium	Treant A is the closest existing Green Man nature actor
+267	301	low	Minotaur A is the only existing bovine actor family
+268	302	low	Minotaur B is the closest horned goat substitute
+269	466	high	Existing Chicken A family
+270	468	high	Existing Chicken C family
+271	469	low	Dog A is the closest existing quadruped silhouette for a pig
+272	470	low	Dog B is the closest existing quadruped silhouette for a ewe
+273	303	low	Minotaur C is the closest strongly horned ram substitute
+274	292	high	Mage A closely matches the younger scholar
+275	294	high	Mage C closely matches the older master scholar
+292	405	medium	Swordsman C best matches Tamur's ranked armor
+293	467	medium	Chicken B is the closest existing goose substitute
+294	463	high	Existing Cat A family
+295	469	high	Existing Dog A family
+296	358	high	MM9 model and skin duplicate source 43
+297	302	low	Minotaur B is the only existing brown bovine actor family
+299	472	high	Existing Rat A family
+300	474	high	Existing Rat C family

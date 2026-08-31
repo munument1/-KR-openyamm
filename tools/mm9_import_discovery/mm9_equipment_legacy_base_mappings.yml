@@ -1,0 +1,670 @@
+format_version: 1
+kind: mm9_equipment_legacy_base_mappings
+source_table: assets_dev/worlds/mm9/data_tables/items.txt
+reference_table: assets_dev/engine/data_tables/items.txt
+
+# Authoritative inputs for the MM9 fitted-equipment placeholder generation pass. The MM9 inventory icon/PCX owns
+# identity, material, palette, and ornament. The MM7/MM8 item owns fitted pose, per-doll placement, and starting alpha
+# geometry. Prefer the same equipment type and normalized tier; silhouette/coverage may override tier when recorded.
+# These mappings are ready to feed generation, but remain pending until every generated doll composite is reviewed.
+items:
+  86:
+    item_id: 10086
+    name: Arming Doublet
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 1
+    reference: {world: mm8, item_id: 84, name: Leather Jerkin, normalized_tier: 1}
+    geometry_profile: hip_length
+    selection_basis: same_type_same_tier_wrap_tunic
+    transfer_focus: Brown wrap front, cloth sleeves, tied waist, plain leather edging.
+  87:
+    item_id: 10087
+    name: Padded Leather
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 1
+    reference: {world: mm8, item_id: 84, name: Leather Jerkin, normalized_tier: 1}
+    geometry_profile: hip_length
+    selection_basis: same_type_same_tier_long_tunic
+    transfer_focus: Orange padded coat, center opening, dark belt, long sleeves.
+  88:
+    item_id: 10088
+    name: Hardened Leather
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 2
+    reference: {world: mm8, item_id: 85, name: Hardened Leather Vest, normalized_tier: 2}
+    geometry_profile: short_torso
+    selection_basis: same_type_same_tier_fitted_vest
+    transfer_focus: Black hardened leather, diagonal overlap, sparse brass studs.
+  89:
+    item_id: 10089
+    name: Beldonian Hard Leather
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 2
+    reference: {world: mm8, item_id: 85, name: Hardened Leather Vest, normalized_tier: 2}
+    geometry_profile: short_torso
+    selection_basis: same_type_same_tier_fitted_vest
+    transfer_focus: Cobalt leather, asymmetric shoulder flap, silver studs and piping.
+  90:
+    item_id: 10090
+    name: Scaled Leather
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 3
+    reference: {world: mm7, item_id: 870, name: Officer's Leather, normalized_tier: 3}
+    geometry_profile: short_torso
+    selection_basis: same_type_same_tier_segmented_torso
+    transfer_focus: Large overlapping ochre scales, sleeveless round-neck vest.
+  91:
+    item_id: 10091
+    name: Imperial Scale
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 3
+    reference: {world: mm8, item_id: 86, name: Caravaner's Leather, normalized_tier: 3}
+    geometry_profile: hip_length
+    selection_basis: same_type_same_tier_shoulder_construction
+    transfer_focus: Small copper scales, white shoulder guards, restrained red accents.
+  92:
+    item_id: 10092
+    name: Brigandine
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 4
+    reference: {world: mm8, item_id: 87, name: Regnan Leather, normalized_tier: 4}
+    geometry_profile: hip_length
+    selection_basis: same_type_same_tier_long_fitted_leather
+    transfer_focus: Black-brown brigandine panels, dense rivets, short sleeves and skirt.
+  93:
+    item_id: 10093
+    name: Combat Brigandine
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 4
+    reference: {world: mm8, item_id: 88, name: Alvarian Leather, normalized_tier: 5}
+    geometry_profile: thigh_length
+    selection_basis: same_type_near_tier_long_coat_silhouette
+    transfer_focus: Brown articulated squares, long coat sleeves, split front skirt.
+  94:
+    item_id: 10094
+    name: Brigan der Combit
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 5
+    reference: {world: mm8, item_id: 88, name: Alvarian Leather, normalized_tier: 5}
+    geometry_profile: thigh_length
+    selection_basis: same_type_same_tier_long_coat
+    transfer_focus: Muted brown quilted coat, vertical front opening, minimal trim.
+  95:
+    item_id: 10095
+    name: Aklean Bouila
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 5
+    reference: {world: mm7, item_id: 872, name: Royal Leather, normalized_tier: 5}
+    geometry_profile: hip_length
+    selection_basis: same_type_same_tier_ornate_cuirass
+    transfer_focus: Green and pale-gold panels, small pauldrons, flared segmented hem.
+  96:
+    item_id: 10096
+    name: Butted Chain
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 3
+    reference: {world: mm7, item_id: 875, name: Fine Chain Mail, normalized_tier: 3}
+    geometry_profile: hip_length
+    selection_basis: same_type_same_tier_mail_skirt
+    transfer_focus: Coarse bronze-gray butted links, sleeveless ragged lower tabs.
+  97:
+    item_id: 10097
+    name: Rivited Chain
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 3
+    reference: {world: mm8, item_id: 91, name: Minotaur Chainmail, normalized_tier: 3}
+    geometry_profile: thigh_length
+    selection_basis: same_type_same_tier_long_mail
+    transfer_focus: Bright riveted silver links, sleeveless long shirt and divided hem.
+  98:
+    item_id: 10098
+    name: Iron Chain
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 3
+    reference: {world: mm8, item_id: 91, name: Minotaur Chainmail, normalized_tier: 3}
+    geometry_profile: thigh_length
+    selection_basis: same_type_same_tier_long_mail
+    transfer_focus: Dark iron links, short sleeves, broad split skirt.
+  99:
+    item_id: 10099
+    name: Steel Chain
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 3
+    reference: {world: mm8, item_id: 91, name: Minotaur Chainmail, normalized_tier: 3}
+    geometry_profile: thigh_length
+    selection_basis: same_type_same_tier_long_mail
+    transfer_focus: Clean silver steel links, short sleeves, divided lower mail.
+  100:
+    item_id: 10100
+    name: Chain Haubergeon
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 4
+    reference: {world: mm7, item_id: 876, name: Resplendent Chain Mail, normalized_tier: 4}
+    geometry_profile: short_torso
+    selection_basis: same_type_same_tier_cropped_mail
+    transfer_focus: Plain gray mail shirt, small reinforced shoulder panels; remove long reference skirt.
+  101:
+    item_id: 10101
+    name: Chain Hauberk
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 4
+    reference: {world: mm8, item_id: 92, name: Siertal Chainmail, normalized_tier: 4}
+    geometry_profile: thigh_length
+    selection_basis: same_type_same_tier_full_hauberk
+    transfer_focus: Cool gray-violet mail, long sleeves, simple split lower section.
+  102:
+    item_id: 10102
+    name: Chedian Chain
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 4
+    reference: {world: mm7, item_id: 876, name: Resplendent Chain Mail, normalized_tier: 4}
+    geometry_profile: thigh_length
+    selection_basis: same_type_same_tier_tabard_mail
+    transfer_focus: Silver mail with royal-blue and yellow V-shaped cloth trim.
+  103:
+    item_id: 10103
+    name: Chain Harness
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 5
+    reference: {world: mm8, item_id: 93, name: Erudine Chainmail, normalized_tier: 5}
+    geometry_profile: short_torso
+    selection_basis: same_type_same_tier_cropped_harness
+    transfer_focus: Compact dark-gray chain harness; remove skirt and keep only short torso coverage.
+  104:
+    item_id: 10104
+    name: Lachmon Hauberk
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 5
+    reference: {world: mm7, item_id: 877, name: Golden Chain Mail, normalized_tier: 5}
+    geometry_profile: thigh_length
+    selection_basis: same_type_same_tier_full_mail
+    transfer_focus: Muted green mail, full sleeves and legs, minimal dark edging.
+  105:
+    item_id: 10105
+    name: Trigvanian Mail
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 5
+    reference: {world: mm7, item_id: 877, name: Golden Chain Mail, normalized_tier: 5}
+    geometry_profile: thigh_length
+    selection_basis: same_type_same_tier_ornate_full_mail
+    transfer_focus: Green mail coat with darker circular Trigvanian ornaments.
+  108:
+    item_id: 10108
+    name: Ronenguard Plate
+    category: Armor
+    armor_skill: Plate
+    normalized_tier: 3
+    reference: {world: mm8, item_id: 96, name: Minotaur Plate, normalized_tier: 3}
+    geometry_profile: short_torso
+    selection_basis: same_type_same_tier_cropped_breastplate
+    transfer_focus: Plain worn iron cuirass, narrow silver edge; remove skirt and arm plates.
+  109:
+    item_id: 10109
+    name: Field Plate
+    category: Armor
+    armor_skill: Plate
+    normalized_tier: 3
+    reference: {world: mm8, item_id: 96, name: Minotaur Plate, normalized_tier: 3}
+    geometry_profile: short_torso
+    selection_basis: same_type_same_tier_cropped_breastplate
+    transfer_focus: Smooth dark-steel field cuirass; remove skirt and arm plates.
+  110:
+    item_id: 10110
+    name: Full Plate
+    category: Armor
+    armor_skill: Plate
+    normalized_tier: 3
+    reference: {world: mm7, item_id: 878, name: Plate Armor, normalized_tier: 3}
+    geometry_profile: full_harness
+    selection_basis: same_type_same_tier_full_harness
+    transfer_focus: Blue-gray articulated plate with simple round pauldrons and segmented skirt.
+  111:
+    item_id: 10111
+    name: Paladin's Plate
+    category: Armor
+    armor_skill: Plate
+    normalized_tier: 4
+    reference: {world: mm7, item_id: 879, name: Splendid Plate Armor, normalized_tier: 4}
+    geometry_profile: full_harness
+    selection_basis: same_type_same_tier_ornate_harness
+    transfer_focus: Bright silver plate, cobalt and gold holy ornaments, round pauldrons.
+  112:
+    item_id: 10112
+    name: Heavy Plate
+    category: Armor
+    armor_skill: Plate
+    normalized_tier: 4
+    reference: {world: mm7, item_id: 879, name: Splendid Plate Armor, normalized_tier: 4}
+    geometry_profile: full_harness
+    selection_basis: same_type_same_tier_heavy_harness
+    transfer_focus: Dark gunmetal plate, broad shoulders, long segmented fauld.
+  113:
+    item_id: 10113
+    name: Thjoradric Plate
+    category: Armor
+    armor_skill: Plate
+    normalized_tier: 4
+    reference: {world: mm7, item_id: 879, name: Splendid Plate Armor, normalized_tier: 4}
+    geometry_profile: full_harness
+    selection_basis: same_type_same_tier_heavy_harness
+    transfer_focus: Warm copper plate, ribbed arms, long plated skirt and restrained silver highlights.
+  114:
+    item_id: 10114
+    name: Imperial Harness
+    category: Armor
+    armor_skill: Plate
+    normalized_tier: 5
+    reference: {world: mm7, item_id: 880, name: Noble Plate Armor, normalized_tier: 5}
+    geometry_profile: full_harness
+    selection_basis: same_type_same_tier_ornate_harness
+    transfer_focus: Gold grid ornament over dark plate, fully articulated imperial silhouette.
+  115:
+    item_id: 10115
+    name: Dark Plate
+    category: Armor
+    armor_skill: Plate
+    normalized_tier: 5
+    reference: {world: mm7, item_id: 880, name: Noble Plate Armor, normalized_tier: 5}
+    geometry_profile: full_harness
+    selection_basis: same_type_same_tier_ornate_harness
+    transfer_focus: Near-black plate, bronze-gold ridges, aggressive angular pauldrons.
+  200:
+    item_id: 10200
+    name: Igdrasine
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 7
+    reference: {world: mm7, item_id: 870, name: Officer's Leather, normalized_tier: 3}
+    geometry_profile: hip_length
+    selection_basis: same_type_sleeveless_geometry_over_tier
+    transfer_focus: Sleeveless green tabard, blue side panel, gold tree emblem.
+  201:
+    item_id: 10201
+    name: Poltergeist
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 7
+    reference: {world: mm7, item_id: 1335, name: Elven Chainmail, normalized_tier: 7}
+    geometry_profile: short_torso
+    selection_basis: same_type_same_tier_unique_mail
+    transfer_focus: Pale spectral chain and plate bands; crop to compact torso coverage.
+  202:
+    item_id: 10202
+    name: Swordsbane
+    category: Armor
+    armor_skill: Plate
+    normalized_tier: 7
+    reference: {world: mm8, item_id: 515, name: Supreme Plate, normalized_tier: 7}
+    geometry_profile: full_harness
+    silhouette_adjustment: smooth_upper_protrusions
+    selection_basis: same_type_same_tier_unique_plate
+    transfer_focus: Bronze and ivory plate, burgundy cloth joints, circular chest setting; remove blue spikes.
+  220:
+    item_id: 10220
+    name: Prize Plate
+    category: Armor
+    armor_skill: Plate
+    normalized_tier: 7
+    reference: {world: mm8, item_id: 95, name: Banded Plate, normalized_tier: 2}
+    geometry_profile: short_torso
+    selection_basis: silhouette_override_unique_tier
+    transfer_focus: Bright sculpted silver torso, black-gold edging, small red shoulder feathers.
+  225:
+    item_id: 10225
+    name: Broderick's Hauberk
+    category: Armor
+    armor_skill: Chain
+    normalized_tier: 7
+    reference: {world: mm7, item_id: 1335, name: Elven Chainmail, normalized_tier: 7}
+    geometry_profile: hip_length
+    selection_basis: same_type_same_tier_unique_mail
+    transfer_focus: Silver chain, cobalt edging and cloth, restrained gold-brass fittings.
+  230:
+    item_id: 10230
+    name: Death Cuirass
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 7
+    reference: {world: mm7, item_id: 870, name: Officer's Leather, normalized_tier: 3}
+    geometry_profile: short_torso
+    selection_basis: same_type_sleeveless_geometry_over_tier
+    transfer_focus: Sleeveless black cuirass with flowing gold tracery and a clean compact hem.
+  367:
+    item_id: 10367
+    name: Quilted Armor
+    category: Armor
+    armor_skill: Leather
+    normalized_tier: 0
+    reference: {world: mm7, item_id: 868, name: Crude Leather Armor, normalized_tier: 1}
+    geometry_profile: short_torso
+    selection_basis: same_type_nearest_tier_plain_vest
+    transfer_focus: Plain warm golden-tan diamond-quilted shirt with pale gray rope loops and dark brown edging.
+
+  116:
+    item_id: 10116
+    name: Coif
+    category: Helm
+    normalized_tier: 1
+    reference: {world: mm7, item_id: 893, name: Elven Helm, normalized_tier: 3}
+    geometry_profile: chain_hood
+    selection_basis: coverage_override_chain_coif
+    transfer_focus: Remove metal cone; retain a soft silver chain hood framing face and neck.
+  117:
+    item_id: 10117
+    name: Plain Helm
+    category: Helm
+    normalized_tier: 2
+    reference: {world: mm8, item_id: 109, name: Helm, normalized_tier: 1}
+    geometry_profile: open_nasal_helm
+    selection_basis: silhouette_override_near_tier
+    transfer_focus: Plain brown-and-steel segmented nasal helmet with no fantasy ornament.
+  119:
+    item_id: 10119
+    name: Barbute Helm
+    category: Helm
+    normalized_tier: 2
+    reference: {world: mm8, item_id: 111, name: Full Helm, normalized_tier: 3}
+    geometry_profile: closed_face_helm
+    silhouette_adjustment: smooth_upper_protrusions
+    selection_basis: silhouette_override_near_tier
+    transfer_focus: Rounded steel barbute with dark T-shaped opening and small cheek guards.
+  120:
+    item_id: 10120
+    name: Loaf Helm
+    category: Helm
+    normalized_tier: 3
+    reference: {world: mm7, item_id: 893, name: Elven Helm, normalized_tier: 3}
+    geometry_profile: closed_conical_helm
+    selection_basis: same_type_same_tier_conical_helm
+    transfer_focus: Tall plain steel cone, narrow perforated face guard, no decorative crest.
+  121:
+    item_id: 10121
+    name: Bascinet
+    category: Helm
+    normalized_tier: 3
+    reference: {world: mm8, item_id: 111, name: Full Helm, normalized_tier: 3}
+    geometry_profile: closed_face_helm
+    silhouette_adjustment: smooth_upper_protrusions
+    selection_basis: same_type_same_tier_closed_helm
+    transfer_focus: Smooth silver bascinet, projecting visor ridge, narrow horizontal eye slit.
+  122:
+    item_id: 10122
+    name: Sallet
+    category: Helm
+    normalized_tier: 4
+    reference: {world: mm7, item_id: 892, name: Conscript's Helm, normalized_tier: 2}
+    geometry_profile: open_round_helm
+    silhouette_adjustment: smooth_upper_protrusions
+    selection_basis: silhouette_override_simple_sallet
+    transfer_focus: Smooth open steel bowl with low rear tail; remove spike and colored trim.
+  123:
+    item_id: 10123
+    name: Dragon Helm
+    category: Helm
+    normalized_tier: 4
+    reference: {world: mm8, item_id: 111, name: Full Helm, normalized_tier: 3}
+    geometry_profile: closed_face_helm
+    silhouette_adjustment: smooth_upper_protrusions
+    selection_basis: silhouette_override_near_tier
+    transfer_focus: Black closed helm with bold gold dragon-cross face framing.
+  124:
+    item_id: 10124
+    name: Imperial Helm
+    category: Helm
+    normalized_tier: 5
+    reference: {world: mm8, item_id: 111, name: Full Helm, normalized_tier: 3}
+    geometry_profile: closed_face_helm
+    silhouette_adjustment: smooth_upper_protrusions
+    selection_basis: silhouette_override_closed_helm
+    transfer_focus: Bright silver closed helm, gold vertical cross and cobalt side stripe.
+  125:
+    item_id: 10125
+    name: Jarl's Helm
+    category: Helm
+    normalized_tier: 5
+    reference: {world: mm7, item_id: 894, name: Phynaxian Helm, normalized_tier: 4}
+    geometry_profile: open_cheek_helm
+    silhouette_adjustment: smooth_upper_protrusions
+    selection_basis: silhouette_override_open_cheek_helm
+    transfer_focus: Rounded silver dome, riveted brow, circular cheek and jaw guard.
+  203:
+    item_id: 10203
+    name: Witchbane
+    category: Helm
+    normalized_tier: 7
+    reference: {world: mm8, item_id: 520, name: Drogg's Helm, normalized_tier: 7}
+    geometry_profile: unique_face_mask
+    selection_basis: same_type_same_tier_unique_mask
+    transfer_focus: Bone-white skull face and hood; remove horns and top spike from reference geometry.
+  204:
+    item_id: 10204
+    name: Brongnoker
+    category: Helm
+    normalized_tier: 7
+    reference: {world: mm8, item_id: 109, name: Helm, normalized_tier: 1}
+    geometry_profile: open_nasal_helm
+    selection_basis: exact_icon_silhouette_override_unique_tier
+    transfer_focus: Preserve the plain brown segmented nasal-helm identity; add only subtle unique-quality finish.
+  221:
+    item_id: 10221
+    name: Prize Skullcap
+    category: Helm
+    normalized_tier: 7
+    reference: {world: mm7, item_id: 893, name: Elven Helm, normalized_tier: 3}
+    geometry_profile: conical_helm
+    selection_basis: silhouette_override_unique_tier
+    transfer_focus: Tall polished white cone with sparse red studs; remove chain hood and nasal guard.
+  226:
+    item_id: 10226
+    name: Broderick's Helm
+    category: Helm
+    normalized_tier: 7
+    reference: {world: mm8, item_id: 111, name: Full Helm, normalized_tier: 3}
+    geometry_profile: closed_face_helm
+    silhouette_adjustment: smooth_upper_protrusions
+    selection_basis: silhouette_override_unique_tier
+    transfer_focus: Silver closed helm with blue-edged face opening and small gold cross detail.
+  231:
+    item_id: 10231
+    name: Death Cap
+    category: Helm
+    normalized_tier: 7
+    reference: {world: mm8, item_id: 520, name: Drogg's Helm, normalized_tier: 7}
+    geometry_profile: unique_face_mask
+    selection_basis: same_type_same_tier_unique_mask
+    transfer_focus: Polished black-silver skull mask; remove horns and top spike.
+  236:
+    item_id: 10236
+    name: Fre's Helm
+    category: Helm
+    normalized_tier: 7
+    reference: {world: mm7, item_id: 895, name: Mogred Helm, normalized_tier: 5}
+    geometry_profile: hornless_round_helm
+    selection_basis: silhouette_override_unique_tier
+    transfer_focus: Green domed helm, black brow band, gold open-face and nose framing; remove horns.
+  364:
+    item_id: 10364
+    name: Fur Cap
+    category: Helm
+    normalized_tier: 0
+    reference: {world: mm7, item_id: 898, name: Fancy Hat, normalized_tier: 3}
+    geometry_profile: soft_cap
+    selection_basis: same_type_best_silhouette_override_tier
+    transfer_focus: Rough tan round fur cap with striped hanging tail; remove the blue jewel and metal ornament.
+
+  126:
+    item_id: 10126
+    name: Leather Boots
+    category: Boots
+    normalized_tier: 1
+    reference: {world: mm7, item_id: 917, name: Leather Boots, normalized_tier: 1}
+    geometry_profile: low_ankle_boots
+    selection_basis: same_type_same_tier_plain_leather
+    transfer_focus: Warm brown low ankle boots, folded open tops, simple brass straps.
+  127:
+    item_id: 10127
+    name: Hardened Boots
+    category: Boots
+    normalized_tier: 1
+    reference: {world: mm8, item_id: 133, name: Hardened Leather Boots, normalized_tier: 2}
+    geometry_profile: ordinary_boots
+    selection_basis: same_type_near_tier_hardened_leather
+    transfer_focus: Dark-brown stiff leather shafts, plain cuffs and reinforced feet.
+  128:
+    item_id: 10128
+    name: Chain Boots
+    category: Boots
+    normalized_tier: 2
+    reference: {world: mm7, item_id: 917, name: Leather Boots, normalized_tier: 1}
+    geometry_profile: low_ankle_boots
+    selection_basis: silhouette_override_near_tier_low_chain_footwear
+    transfer_focus: Silver chain covering over dark leather, open brown cuffs.
+  129:
+    item_id: 10129
+    name: Ronenguard Boots
+    category: Boots
+    normalized_tier: 2
+    reference: {world: mm7, item_id: 918, name: Steel Plated Boots, normalized_tier: 2}
+    geometry_profile: plated_boots
+    selection_basis: same_type_same_tier_plated_boot
+    transfer_focus: Brown shafts with spaced gray steel bands and simple open cuffs.
+  130:
+    item_id: 10130
+    name: Steel Boots
+    category: Boots
+    normalized_tier: 3
+    reference: {world: mm7, item_id: 918, name: Steel Plated Boots, normalized_tier: 2}
+    geometry_profile: plated_boots
+    selection_basis: silhouette_override_near_tier
+    transfer_focus: Compact bright steel foot and ankle plates with brown inner cuffs.
+  131:
+    item_id: 10131
+    name: Sabaton
+    category: Boots
+    normalized_tier: 4
+    reference: {world: mm7, item_id: 920, name: Knight's Boots, normalized_tier: 4}
+    geometry_profile: tall_plated_boots
+    selection_basis: same_type_same_tier_segmented_plate
+    transfer_focus: Tall silver segmented sabatons with dark horizontal articulation.
+  132:
+    item_id: 10132
+    name: Prote der Fatta
+    category: Boots
+    normalized_tier: 5
+    reference: {world: mm7, item_id: 921, name: Paladin Boots, normalized_tier: 5}
+    geometry_profile: ornate_plated_boots
+    selection_basis: same_type_same_tier_ornate_plate
+    transfer_focus: White-silver plate, black inset panels and restrained gold scroll trim.
+  205:
+    item_id: 10205
+    name: Walking Boots
+    category: Boots
+    normalized_tier: 7
+    reference: {world: mm7, item_id: 1314, name: Seven League Boots, normalized_tier: 7}
+    geometry_profile: unique_leather_boots
+    selection_basis: same_type_same_tier_unique_leather
+    transfer_focus: Plain red-brown high-laced leather boots; remove oversized artifact ornament.
+  233:
+    item_id: 10233
+    name: Death Boots
+    category: Boots
+    normalized_tier: 7
+    reference: {world: mm7, item_id: 920, name: Knight's Boots, normalized_tier: 4}
+    geometry_profile: tall_plated_boots
+    selection_basis: silhouette_override_unique_tier
+    transfer_focus: Tall black-silver plated boots with sharp dark seams and no bright heraldry.
+  238:
+    item_id: 10238
+    name: Fre's Chain Boots
+    category: Boots
+    normalized_tier: 7
+    reference: {world: mm7, item_id: 921, name: Paladin Boots, normalized_tier: 5}
+    geometry_profile: ornate_mail_boots
+    selection_basis: silhouette_override_unique_tier
+    transfer_focus: Gold-bronze chain shafts, green cuff lining, simple silver toes.
+  366:
+    item_id: 10366
+    name: Fuzzy Slippers
+    category: Boots
+    normalized_tier: 0
+    reference: {world: mm7, item_id: 917, name: Leather Boots, normalized_tier: 1}
+    geometry_profile: ankle_only_footwear
+    selection_basis: coverage_override_nearest_plain_footwear
+    transfer_focus: Crop away boot shafts; retain only low beige fuzzy slippers with rounded toes.
+
+  150:
+    item_id: 10150
+    name: Peasant Belt
+    category: Belt
+    normalized_tier: 1
+    reference: {world: mm7, item_id: 902, name: Leather Belt, normalized_tier: 1}
+    geometry_profile: narrow_belt
+    selection_basis: same_type_same_tier_plain_belt
+    transfer_focus: Thin worn tan leather strap and tiny plain buckle.
+  151:
+    item_id: 10151
+    name: Fancy Belt
+    category: Belt
+    normalized_tier: 2
+    reference: {world: mm7, item_id: 903, name: Fine Belt, normalized_tier: 2}
+    geometry_profile: narrow_belt
+    selection_basis: same_type_same_tier_fine_belt
+    transfer_focus: Narrow red-brown leather, silver studs and small center ornament.
+  152:
+    item_id: 10152
+    name: Soldier's Belt
+    category: Belt
+    normalized_tier: 3
+    reference: {world: mm7, item_id: 904, name: Strong Belt, normalized_tier: 3}
+    geometry_profile: medium_belt
+    selection_basis: same_type_same_tier_reinforced_belt
+    transfer_focus: Segmented brown leather with square steel reinforcement and plain buckle.
+  153:
+    item_id: 10153
+    name: Regal Belt
+    category: Belt
+    normalized_tier: 4
+    reference: {world: mm7, item_id: 905, name: Silver Belt, normalized_tier: 4}
+    geometry_profile: jeweled_belt
+    selection_basis: same_type_same_tier_ornate_belt
+    transfer_focus: Fine gold chain, evenly spaced red gems, delicate clasp.
+  154:
+    item_id: 10154
+    name: Dragon Belt
+    category: Belt
+    normalized_tier: 5
+    reference: {world: mm7, item_id: 906, name: Gilded Belt, normalized_tier: 5}
+    geometry_profile: jeweled_belt
+    selection_basis: same_type_same_tier_ornate_belt
+    transfer_focus: Gold interlaced band, green center jewel and small red side stones.
+  208:
+    item_id: 10208
+    name: Hubris
+    category: Belt
+    normalized_tier: 7
+    reference: {world: mm7, item_id: 1337, name: Hero's Belt, normalized_tier: 7}
+    geometry_profile: unique_medallion_belt
+    selection_basis: same_type_same_tier_unique_belt
+    transfer_focus: Deep red leather with three round gold medallions and restrained dark edging.
+
+review_status: mapped_pending_generation

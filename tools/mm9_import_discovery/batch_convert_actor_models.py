@@ -40,6 +40,7 @@ class SourceRow:
     skins: list[str]
     base_name: str
     type_picture: str
+    is_monster: bool
 
 
 @dataclass
@@ -115,6 +116,7 @@ def read_actor_rows(table_path: Path, table_name: str) -> list[SourceRow]:
                     skins=skins,
                     base_name=clean_field(row.get("BaseName")),
                     type_picture=clean_field(row.get("Type/Picture")),
+                    is_monster=clean_field(row.get("IsMonster")) == "1",
                 )
             )
     return rows
@@ -342,6 +344,7 @@ def variant_report(variant: Variant) -> dict:
                 "name": row.name,
                 "baseName": row.base_name,
                 "typePicture": row.type_picture,
+                "isMonster": row.is_monster,
             }
             for row in variant.rows
         ],
@@ -461,12 +464,22 @@ def main() -> int:
         action="append",
         help="Optional model filename or stem filter. Can be passed multiple times.",
     )
+    parser.add_argument(
+        "--npc-only",
+        action="store_true",
+        help="Include only ACTOR rows whose IsMonster field is zero.",
+    )
     args = parser.parse_args()
 
-    tables = args.table or [Path("mm9/extracted/DATA/DATA/ACTOR.txt"), Path("mm9/extracted/DATA/DATA/MONSTERS.txt")]
+    default_tables = [Path("mm9/extracted/DATA/DATA/ACTOR.txt")]
+    if not args.npc_only:
+        default_tables.append(Path("mm9/extracted/DATA/DATA/MONSTERS.txt"))
+    tables = args.table or default_tables
     rows = []
     for table_path in tables:
         rows.extend(read_actor_rows(table_path, table_path.stem.upper()))
+    if args.npc_only:
+        rows = [row for row in rows if row.table_name == "ACTOR" and not row.is_monster]
     variants = build_variants(rows)
     if args.model:
         allowed = {value.lower() for value in args.model}

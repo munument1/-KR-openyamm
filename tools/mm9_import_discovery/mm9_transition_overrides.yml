@@ -1,0 +1,26 @@
+format_version: 1
+transitions:
+  - id: mm9:transition_override/arslegardcity/147
+    source_map: arslegardcity
+    source_object_index: 147
+    disposition: supported
+    resolved_start_point: StartPoint
+    review_state: reviewed
+    reason: >-
+      DARKPASSAGEWAY.dat contains one StartPoint object named StartPoint and no StartPoint0. This narrow correction
+      resolves the source name mismatch without runtime start-point fallback behavior.
+    evidence:
+      - mm9/extracted/WORLDS/WORLDS/ARSLEGARDCITY.dat ExitTrigger object 147
+      - mm9/extracted/WORLDS/WORLDS/DARKPASSAGEWAY.dat StartPoint object 334
+  - id: mm9:transition_override/arslegardcity/638
+    source_map: arslegardcity
+    source_object_index: 638
+    disposition: intentionally_unsupported
+    review_state: reviewed
+    reason: >-
+      ARSLEGARDCITY.dat requests Thjorgard SkyStart0, but no extracted MM9 DAT defines that start point and the local
+      scripts and data provide no authoritative replacement. Keep the invalid automatic exit out of runtime content
+      until executable-backed recovery establishes the intended arrival.
+    evidence:
+      - mm9/extracted/WORLDS/WORLDS/ARSLEGARDCITY.dat ExitTrigger object 638
+      - mm9/extracted/WORLDS/WORLDS/THJORGARD.dat contains no SkyStart0 object

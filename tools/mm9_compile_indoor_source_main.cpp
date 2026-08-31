@@ -8,6 +8,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace
@@ -131,14 +132,65 @@ bool writeGeneratedDoorsYaml(
 
     return stream.good();
 }
+
+bool writeGeneratedFaceGroupsYaml(
+    const std::filesystem::path &path,
+    const std::vector<OpenYAMM::Editor::IndoorSourceFaceGroup> &faceGroups)
+{
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream stream(path);
+    if (!stream)
+    {
+        return false;
+    }
+
+    if (faceGroups.empty())
+    {
+        stream << "[]\n";
+        return stream.good();
+    }
+
+    constexpr std::string_view InteractionPrefix = "INTERACT_";
+    constexpr std::string_view PersistentVariantPrefix = "IPVAR_";
+    constexpr std::string_view BarrelLiquidPrefix = "BARRELLIQUID_";
+    for (const OpenYAMM::Editor::IndoorSourceFaceGroup &faceGroup : faceGroups)
+    {
+        stream << "- source_node: \"" << faceGroup.sourceNodeName << "\"\n";
+        if (faceGroup.sourceNodeName.starts_with(InteractionPrefix))
+        {
+            stream << "  source_object_index: "
+                   << faceGroup.sourceNodeName.substr(InteractionPrefix.size()) << "\n";
+        }
+        else if (faceGroup.sourceNodeName.starts_with(PersistentVariantPrefix))
+        {
+            const std::string suffix = faceGroup.sourceNodeName.substr(PersistentVariantPrefix.size());
+            const size_t separator = suffix.rfind('_');
+            if (separator != std::string::npos)
+            {
+                stream << "  source_object_index: " << suffix.substr(0, separator) << "\n";
+                stream << "  variant_index: " << suffix.substr(separator + 1) << "\n";
+            }
+        }
+        else if (faceGroup.sourceNodeName.starts_with(BarrelLiquidPrefix))
+        {
+            stream << "  source_object_index: "
+                   << faceGroup.sourceNodeName.substr(BarrelLiquidPrefix.size()) << "\n";
+            stream << "  barrel_liquid: true\n";
+        }
+        stream << "  face_ids: ";
+        writeIntegerSequence(stream, faceGroup.faceIds);
+        stream << "\n";
+    }
+    return stream.good();
+}
 }
 
 int main(int argc, char **argv)
 {
-    if (argc != 4 && argc != 5)
+    if (argc < 4 || argc > 6)
     {
         std::cerr << "usage: mm9_compile_indoor_source <source.glb> <geometry.yml> <output.blv> "
-                  << "[generated_doors.yml]\n";
+                  << "[generated_doors.yml] [generated_face_groups.yml]\n";
         return 2;
     }
 
@@ -146,8 +198,12 @@ int main(int argc, char **argv)
     const std::filesystem::path metadataPath = argv[2];
     const std::filesystem::path outputPath = argv[3];
     const std::optional<std::filesystem::path> generatedDoorsPath =
-        argc == 5
+        argc >= 5
             ? std::optional<std::filesystem::path>(argv[4])
+            : std::nullopt;
+    const std::optional<std::filesystem::path> generatedFaceGroupsPath =
+        argc >= 6
+            ? std::optional<std::filesystem::path>(argv[5])
             : std::nullopt;
 
     std::string metadataText;
@@ -192,6 +248,13 @@ int main(int argc, char **argv)
     if (generatedDoorsPath.has_value() && !writeGeneratedDoorsYaml(*generatedDoorsPath, compileResult.generatedDoors))
     {
         std::cerr << "could not write generated indoor doors: " << *generatedDoorsPath << "\n";
+        return 1;
+    }
+
+    if (generatedFaceGroupsPath.has_value()
+        && !writeGeneratedFaceGroupsYaml(*generatedFaceGroupsPath, compileResult.generatedFaceGroups))
+    {
+        std::cerr << "could not write generated indoor face groups: " << *generatedFaceGroupsPath << "\n";
         return 1;
     }
 

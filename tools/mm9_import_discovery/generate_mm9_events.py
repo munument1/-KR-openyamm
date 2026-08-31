@@ -15,6 +15,8 @@ from typing import Any
 
 import yaml
 
+from mm9_scr_to_lua import CompiledRudeExit, ScrCompileError, compile_rude_exit
+
 
 YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 YAML_DUMPER = getattr(yaml, "CSafeDumper", yaml.SafeDumper)
@@ -268,6 +270,31 @@ def build_script_index(scripts_root: Path) -> dict[str, Path]:
     for path in sorted(scripts_root.iterdir()):
         if path.is_file() and path.suffix.lower() in {".scr", ".inc"}:
             result[path.name.lower()] = path
+    return result
+
+
+def collect_script_include_sources(script_path: Path, script_index: dict[str, Path]) -> list[tuple[str, str]]:
+    result: list[tuple[str, str]] = []
+    visited: set[str] = set()
+
+    def collect(path: Path) -> None:
+        source_text = path.read_text(encoding="latin-1")
+        for raw_line in source_text.splitlines():
+            code = strip_script_comment(raw_line)
+            include_match = re.match(r"^#include\s+(.+)$", code, re.IGNORECASE)
+            if include_match is None:
+                continue
+            include_id = normalized_script_name(include_match.group(1))
+            if include_id in visited:
+                continue
+            visited.add(include_id)
+            include_path = script_index.get(include_id)
+            if include_path is None:
+                continue
+            result.append((include_path.name, include_path.read_text(encoding="latin-1")))
+            collect(include_path)
+
+    collect(script_path)
     return result
 
 
@@ -550,6 +577,31 @@ def append_map_lua_start_points(lines: list[str], event_data: dict[str, Any]) ->
     lines.append("")
 
 
+def append_map_lua_actor_bindings(lines: list[str], event_data: dict[str, Any]) -> None:
+    lines.append("map.actor_bindings = {")
+    for actor in event_data.get("actor_bindings", []) or []:
+        if not isinstance(actor, dict):
+            continue
+        actor_index = actor.get("actor_index")
+        source_object_index = actor.get("source_object_index")
+        if not isinstance(actor_index, int) or not isinstance(source_object_index, int):
+            continue
+        lines.append("    {")
+        lines.append(f"        actor_index = {actor_index},")
+        lines.append(f"        source_object_index = {source_object_index},")
+        lines.append(f"        source_class = {lua_string(str(actor.get('source_class', '')))},")
+        lines.append(f"        source_name = {lua_string(str(actor.get('source_name', '')))},")
+        lines.append("    },")
+    lines.append("}")
+    lines.append("map.actor_by_source_name = {}")
+    lines.append("for _, actor in ipairs(map.actor_bindings) do")
+    lines.append("    if actor.source_name ~= nil and actor.source_name ~= \"\" then")
+    lines.append("        map.actor_by_source_name[actor.source_name] = actor")
+    lines.append("    end")
+    lines.append("end")
+    lines.append("")
+
+
 def map_lua_mechanism_entries(event_data: dict[str, Any]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for mechanism in event_data.get("mechanisms", []) or []:
@@ -669,24 +721,7 @@ def append_map_lua_mechanisms(lines: list[str], event_data: dict[str, Any]) -> N
     lines.append("    return nil")
     lines.append("end")
     lines.append("")
-    lines.append("function map.playMechanismSound(mechanism, action)")
-    lines.append("    if mechanism == nil or mechanism.sounds == nil or evt == nil or evt.PlaySoundName == nil then")
-    lines.append("        return")
-    lines.append("    end")
-    lines.append("    local sound = nil")
-    lines.append("    if action == 1 then")
-    lines.append("        sound = mechanism.sounds.close_start or mechanism.sounds.close")
-    lines.append("    else")
-    lines.append("        sound = mechanism.sounds.open_start or mechanism.sounds.open")
-    lines.append("    end")
-    lines.append("    if sound == nil or sound.name == nil or sound.name == \"\" then")
-    lines.append("        return")
-    lines.append("    end")
-    lines.append("    evt.PlaySoundName(sound.name, sound.x or 0, sound.y or 0, sound.z or 0)")
-    lines.append("end")
-    lines.append("")
     lines.append("function map.triggerResolvedMechanism(mechanism, resolved_action)")
-    lines.append("    map.playMechanismSound(mechanism, resolved_action)")
     lines.append("    if mechanism.classic_door_id ~= nil and evt ~= nil and evt.SetDoorState ~= nil then")
     lines.append("        evt.SetDoorState(mechanism.classic_door_id, resolved_action)")
     lines.append("        return true")
@@ -723,6 +758,30 @@ def append_map_lua_classic_event_handlers(lines: list[str], event_data: dict[str
         if mechanism["kind"] in MM9_INTERACTIVE_MECHANISM_KINDS
         and 0 < int(mechanism["event_id"]) <= 0xffff
     ]
+    pickup_callbacks = {
+        str(source.get("on_pickup_event", ""))
+        for source in event_data.get("world_items", []) or []
+        if isinstance(source, dict)
+    }
+    yanmir_locked_names = {
+        "DoorTeleportRight",
+        "DoorTeleportLeft",
+        "RotatingDoor61",
+        "RotatingDoor62",
+        "RotatingDoor63",
+        "RotatingDoor64",
+        "RotatingDoor65",
+        "RotatingDoor66",
+        "RotatingDoor67",
+    }
+
+    def required_qbit(mechanism: dict[str, Any]) -> int | None:
+        source_name = str(mechanism.get("source_name", ""))
+        if "yanmirs_key" in pickup_callbacks and source_name in yanmir_locked_names:
+            return 97001
+        if "golden_honk" in pickup_callbacks and source_name in {"DoubleDoorL13", "DoubleDoorR13"}:
+            return 90343
+        return None
 
     lines.append("SetMapMetadata({")
     lines.append("    onLoad = {},")
@@ -744,15 +803,504 @@ def append_map_lua_classic_event_handlers(lines: list[str], event_data: dict[str
 
     for mechanism in mechanisms:
         hint = mechanism["hint"]
+        gate_qbit = required_qbit(mechanism)
         lines.append(
             f"RegisterEvent({mechanism['event_id']}, {lua_string(hint)}, function()"
         )
+        if gate_qbit is not None:
+            lines.append(f"    if not IsQBitSet({gate_qbit}) then")
+            lines.append("        return")
+            lines.append("    end")
         lines.append(f"    map.triggerMechanism({mechanism['source_object_index']}, 2)")
         lines.append(f"end, {lua_string(hint)})")
         lines.append("")
 
+def append_map_lua_item_source_handlers(lines: list[str], event_data: dict[str, Any]) -> None:
+    for source in event_data.get("world_items", []) or []:
+        if not isinstance(source, dict):
+            continue
+        callback = source.get("on_pickup_event")
+        source_object_index = source.get("source_object_index")
+        source_id = source.get("source_id")
+        if not isinstance(callback, str) or not callback:
+            continue
+        if not isinstance(source_object_index, int) or not isinstance(source_id, str):
+            continue
+        event_id = mechanism_event_id(source_object_index)
+        if event_id <= 0 or event_id > 0xffff:
+            continue
+        append_map_lua_world_item_callback(lines, event_id, source, callback, event_data)
 
-def map_lua_text(map_id: str, script_irs: dict[str, ScriptIr], event_data: dict[str, Any] | None = None) -> str:
+    persistent_sources = [
+        source
+        for source in event_data.get("persistent_item_mechanisms", []) or []
+        if isinstance(source, dict)
+    ]
+    persistent_by_handler = {
+        str(source.get("handler", "")): source
+        for source in persistent_sources
+    }
+    tasar_books: dict[tuple[str, int], dict[str, Any]] = {}
+    for source in persistent_sources:
+        if source.get("handler") != "tasar_textbook":
+            continue
+        params = str(source.get("script_params", "")).split()
+        if len(params) == 2 and params[0].isdigit():
+            tasar_books[(params[1].lower(), int(params[0]))] = source
+
+    persistent_init_lines: list[str] = []
+    for source in persistent_sources:
+        if not isinstance(source, dict):
+            continue
+        handler = str(source.get("handler", ""))
+        source_object_index = source.get("source_object_index")
+        source_id = source.get("source_id")
+        if not isinstance(source_object_index, int) or not isinstance(source_id, str):
+            continue
+        event_id = mechanism_event_id(source_object_index)
+        if event_id <= 0 or event_id > 0xffff:
+            continue
+        required_items = source.get("required_items", []) or []
+        grant_items = source.get("grant_items", []) or []
+        if not all(isinstance(item_id, int) and item_id > 0 for item_id in required_items):
+            raise ValueError(f"persistent item mechanism {source_object_index} has invalid required items")
+        translated_grants = [
+            int(grant.get("item_id", 0))
+            for grant in grant_items
+            if isinstance(grant, dict)
+        ]
+        if any(item_id <= 0 for item_id in translated_grants):
+            raise ValueError(f"persistent item mechanism {source_object_index} has invalid grant items")
+        hint = str(source.get("source_name", "")) or "Use"
+
+        if handler in {"elixir_burner", "elixir_cookpot"}:
+            if not translated_grants:
+                raise ValueError(f"persistent item mechanism {source_object_index} has no grant item")
+            condition = " and ".join(f"HasItemAnywhere({item_id})" for item_id in required_items)
+            lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+            lines.append(f"    if {condition} then")
+            for item_id in required_items:
+                lines.append(f"        RemoveItem({item_id})")
+            for item_id in translated_grants:
+                lines.append(f"        GiveItem({item_id})")
+            lines.append("        evt.PlaySoundName(\"sounds/events/quest.wav\")")
+            lines.append("    end")
+            lines.append(f"end, {lua_string(hint)})")
+            lines.append("")
+        elif handler == "slag_extractor":
+            if len(translated_grants) != 1:
+                raise ValueError("slag extractor must grant exactly one broken machine item")
+            lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+            lines.append("    if not IsQBitSet(99512) then")
+            lines.append(f"        GiveItem({translated_grants[0]})")
+            lines.append("        SetQBit(99512)")
+            lines.append(
+                f"        evt.SetPersistentItemMechanismState({lua_string(source_id)}, false, false)")
+            lines.append("    end")
+            lines.append(f"end, {lua_string(hint)})")
+            lines.append("")
+            persistent_init_lines.extend([
+                "    if IsQBitSet(90037) then",
+                f"        evt.SetPersistentItemMechanismState({lua_string(source_id)}, true, true)",
+                f"        evt.SetPersistentItemMechanismVariant({lua_string(source_id)}, 1)",
+                "    elseif IsQBitSet(99512) then",
+                f"        evt.SetPersistentItemMechanismState({lua_string(source_id)}, false, false)",
+                "    else",
+                f"        evt.SetPersistentItemMechanismState({lua_string(source_id)}, true, true)",
+                "    end",
+            ])
+        elif handler == "slag_extractor_socket":
+            slag = persistent_by_handler.get("slag_extractor")
+            if slag is None or len(required_items) != 1:
+                raise ValueError("slag extractor socket is missing its retained target or repair item")
+            target_id = str(slag.get("source_id", ""))
+            lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+            lines.append(
+                f"    if IsQBitSet(99512) and not IsQBitSet(90037) "
+                f"and HasItemAnywhere({required_items[0]}) then")
+            lines.append("        AddValue(Experience, 5000)")
+            lines.append(f"        RemoveItem({required_items[0]})")
+            lines.append("        SetQBit(90037)")
+            lines.append("        evt.PlaySoundName(\"sounds/events/quest.wav\")")
+            lines.append(f"        evt.SetPersistentItemMechanismState({lua_string(target_id)}, true, true)")
+            lines.append(f"        evt.SetPersistentItemMechanismVariant({lua_string(target_id)}, 1)")
+            lines.append("    end")
+            lines.append(f"end, {lua_string(hint)})")
+            lines.append("")
+        elif handler == "capstone_socket":
+            persistent_init_lines.extend([
+                "    if IsQBitSet(90099) then",
+                f"        evt.SetPersistentItemMechanismState({lua_string(source_id)}, true, true)",
+                "    else",
+                f"        evt.SetPersistentItemMechanismState({lua_string(source_id)}, false, false)",
+                "    end",
+            ])
+        elif handler == "capstone_pedestal":
+            capstone = persistent_by_handler.get("capstone_socket")
+            if capstone is None or len(required_items) != 1:
+                raise ValueError("capstone pedestal is missing its retained target or capstone item")
+            target_id = str(capstone.get("source_id", ""))
+            lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+            lines.append(
+                f"    if IsQBitSet(90098) and not IsQBitSet(90099) "
+                f"and HasItemAnywhere({required_items[0]}) then")
+            lines.append("        SetQBit(90099)")
+            lines.append("        AddValue(Experience, 154000)")
+            lines.append("        evt.PlaySoundName(\"sounds/events/quest.wav\")")
+            lines.append(f"        RemoveItem({required_items[0]})")
+            lines.append(f"        evt.SetPersistentItemMechanismState({lua_string(target_id)}, true, true)")
+            lines.append("    end")
+            lines.append(f"end, {lua_string(hint)})")
+            lines.append("")
+        elif handler == "tasar_textbook_table":
+            location = str(source.get("script_params", "")).strip().lower()
+            stage = {
+                "offense": (0, 9501, 9517),
+                "strategy": (1, 9502, 9518),
+                "defense": (2, 9503, 9519),
+                "intelligence": (3, 9504, 9520),
+            }.get(location)
+            lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+            if stage is not None:
+                designated_item = required_items[stage[0]]
+                lines.append(f"    if HasItemAnywhere({designated_item}) then")
+                lines.append(f"        SetQBit({90000 + stage[1]})")
+                lines.append(f"        SetQBit({90000 + stage[2]})")
+                lines.append("    end")
+            for raw_item_id, item_id in zip((435, 436, 437, 438), required_items):
+                target = tasar_books.get((location, raw_item_id))
+                if target is None:
+                    continue
+                target_id = str(target.get("source_id", ""))
+                lines.append(f"    if HasItemAnywhere({item_id}) then")
+                lines.append(f"        RemoveItem({item_id})")
+                lines.append(
+                    f"        evt.SetPersistentItemMechanismState({lua_string(target_id)}, true, true)")
+                lines.append("    end")
+            lines.append(
+                "    if IsQBitSet(99501) and IsQBitSet(99502) "
+                "and IsQBitSet(99503) and IsQBitSet(99504) then")
+            lines.append("        SetQBit(99516)")
+            lines.append("        local libraryDoor = map.resolveMechanism(\"LibraryDoor\")")
+            lines.append("        if libraryDoor ~= nil then")
+            lines.append("            map.triggerResolvedMechanism(libraryDoor, \"open\")")
+            lines.append("        end")
+            lines.append("    end")
+            lines.append(f"end, {lua_string(hint)})")
+            lines.append("")
+        elif handler == "tasar_textbook":
+            params = str(source.get("script_params", "")).split()
+            if len(params) != 2 or not params[0].isdigit() or len(translated_grants) != 1:
+                raise ValueError(f"TaSar textbook {source_object_index} has invalid parameters")
+            raw_item_id = int(params[0])
+            location = params[1].lower()
+            own_key = {435: 9501, 436: 9502, 437: 9503, 438: 9504}.get(raw_item_id)
+            prerequisite = {435: None, 436: 9517, 437: 9518, 438: 9519}.get(raw_item_id)
+            if own_key is None:
+                raise ValueError(f"TaSar textbook {source_object_index} has invalid item {raw_item_id}")
+            condition = f"not IsQBitSet({90000 + own_key}) and not IsQBitSet(99516)"
+            if prerequisite is not None:
+                condition += f" and IsQBitSet({90000 + prerequisite})"
+            lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+            lines.append(f"    if {condition} then")
+            lines.append(f"        ClearQBit({90000 + own_key})")
+            lines.append(f"        GiveItem({translated_grants[0]})")
+            lines.append(
+                f"        evt.SetPersistentItemMechanismState({lua_string(source_id)}, false, false)")
+            lines.append("    end")
+            lines.append(f"end, {lua_string(hint)})")
+            lines.append("")
+
+            location_key = {"offense": 9517, "strategy": 9518, "defense": 9519, "intelligence": 9520}.get(
+                location)
+            if location == "start":
+                if raw_item_id == 435:
+                    visible_condition = f"not HasItemAnywhere({translated_grants[0]}) and not IsQBitSet(99501)"
+                else:
+                    visible_condition = "true"
+            elif location_key is not None:
+                visible_condition = f"IsQBitSet({90000 + location_key})"
+                expected_item = {"offense": 436, "strategy": 437, "defense": 438}.get(location)
+                if raw_item_id == expected_item:
+                    next_key = {436: 9502, 437: 9503, 438: 9504}[raw_item_id]
+                    visible_condition += (
+                        f" and not HasItemAnywhere({translated_grants[0]}) "
+                        f"and not IsQBitSet({90000 + next_key})")
+            else:
+                visible_condition = "false"
+            persistent_init_lines.extend([
+                f"    if {visible_condition} then",
+                f"        evt.SetPersistentItemMechanismState({lua_string(source_id)}, true, true)",
+                "    else",
+                f"        evt.SetPersistentItemMechanismState({lua_string(source_id)}, false, false)",
+                "    end",
+            ])
+        elif handler == "genie_lamp":
+            random_item_pool = source.get("random_item_pool", []) or []
+            if not random_item_pool or not all(isinstance(item_id, int) and item_id > 0 for item_id in random_item_pool):
+                raise ValueError("genie lamp random item pool is unresolved")
+            item_table = ", ".join(str(item_id) for item_id in random_item_pool)
+            lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+            lines.append("    local effect = evt.RandomBetween(0, 4, 1)")
+            lines.append("    if effect == 0 then")
+            lines.append("        AddValue(Gold, evt.RandomBetween(100, 1000, 2))")
+            lines.append("    elseif effect == 1 then")
+            lines.append("        AddValue(Experience, evt.RandomBetween(100, 1000, 3))")
+            lines.append("    elseif effect == 2 then")
+            lines.append(f"        local itemPool = {{{item_table}}}")
+            lines.append("        GiveItem(itemPool[evt.RandomBetween(1, #itemPool, 4)])")
+            lines.append("    elseif effect == 3 then")
+            lines.append("        AddValue(HP, evt.RandomBetween(100, 1000, 5))")
+            lines.append("    else")
+            lines.append("        evt.ApplyPartyPrimaryStatBuff(")
+            lines.append("            evt.RandomBetween(0, 5, 6), evt.RandomBetween(1, 2, 7), 3000)")
+            lines.append("    end")
+            lines.append(f"end, {lua_string(hint)})")
+            lines.append("")
+        else:
+            raise ValueError(f"persistent item mechanism {source_id} has unknown handler {handler}")
+
+    if persistent_init_lines:
+        lines.append('RegisterMapOnLoadEvent(65000, "MM9 item mechanism state", function()')
+        lines.extend(persistent_init_lines)
+        lines.append('end, "")')
+        lines.append("")
+
+    for container in event_data.get("loot_containers", []) or []:
+        if not isinstance(container, dict) or container.get("kind") != "chest":
+            continue
+        source_object_index = container.get("source_object_index")
+        container_id = container.get("container_id")
+        if not isinstance(source_object_index, int) or not isinstance(container_id, int):
+            continue
+        event_id = mechanism_event_id(source_object_index)
+        if event_id <= 0 or event_id > 0xffff:
+            continue
+        hint = str(container.get("source_name", "")) or "Chest"
+        lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+        lines.append(f"    evt.OpenChest({container_id})")
+        lines.append(f"end, {lua_string(hint)})")
+        lines.append("")
+
+    for source in event_data.get("spawned_loot_containers", []) or []:
+        if not isinstance(source, dict) or source.get("kind") != "treasure_bag":
+            continue
+        source_object_index = source.get("source_object_index")
+        source_id = source.get("source_id")
+        if not isinstance(source_object_index, int) or not isinstance(source_id, str):
+            continue
+        event_id = mechanism_event_id(source_object_index)
+        if event_id <= 0 or event_id > 0xffff:
+            continue
+        hint = str(source.get("source_name", "")) or "Break"
+        lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+        lines.append(f"    evt.SpawnLootContainer({lua_string(source_id)})")
+        lines.append(f"end, {lua_string(hint)})")
+        lines.append("")
+
+    for source in event_data.get("searchable_loot_props", []) or []:
+        if not isinstance(source, dict) or source.get("kind") != "bone_pile":
+            continue
+        source_object_index = source.get("source_object_index")
+        source_id = source.get("source_id")
+        if not isinstance(source_object_index, int) or not isinstance(source_id, str):
+            continue
+        event_id = mechanism_event_id(source_object_index)
+        if event_id <= 0 or event_id > 0xffff:
+            continue
+        hint = str(source.get("source_name", "")) or "Bone Pile"
+        lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+        lines.append(f"    evt.SearchLootProp({lua_string(source_id)})")
+        lines.append(f"end, {lua_string(hint)})")
+        lines.append("")
+
+
+def append_map_lua_world_item_callback(
+    lines: list[str],
+    event_id: int,
+    source: dict[str, Any],
+    callback: str,
+    event_data: dict[str, Any],
+) -> None:
+    source_id = str(source["source_id"])
+    hint = str(source.get("source_name", "")) or "Pick up"
+    grant_items = source.get("grant_items", []) or []
+    item_ids = [
+        int(grant.get("item_id", 0))
+        for grant in grant_items
+        if isinstance(grant, dict)
+    ]
+    if any(item_id <= 0 for item_id in item_ids):
+        raise ValueError(f"{source_id}: pickup callback has an unresolved item id")
+
+    def item(index: int) -> int:
+        if index >= len(item_ids):
+            raise ValueError(f"{source_id}: pickup callback {callback} is missing grant item {index}")
+        return item_ids[index]
+
+    def qbit(raw_qbit: int) -> int:
+        return 90000 + raw_qbit
+
+    def give_and_consume(item_id: int, indent: str = "    ") -> None:
+        lines.append(f"{indent}GiveItem({item_id})")
+        lines.append(f"{indent}evt.ConsumeWorldItem({lua_string(source_id)})")
+
+    actor_bindings = [
+        actor
+        for actor in event_data.get("actor_bindings", []) or []
+        if isinstance(actor, dict) and isinstance(actor.get("actor_index"), int)
+    ]
+
+    def actor_index_by_name(source_name: str) -> int | None:
+        for actor in actor_bindings:
+            if actor.get("source_name") == source_name:
+                return int(actor["actor_index"])
+        return None
+
+    def actor_indices_by_class_fragment(fragment: str) -> list[int]:
+        normalized_fragment = fragment.lower()
+        return [
+            int(actor["actor_index"])
+            for actor in actor_bindings
+            if normalized_fragment in str(actor.get("source_class", "")).lower()
+        ]
+
+    def make_honks_hostile(indent: str) -> None:
+        for actor_index in actor_indices_by_class_fragment("honk"):
+            lines.append(f"{indent}evt.SetActorBit({actor_index}, ActorAttribute.Hostile, 1)")
+
+    lines.append(f"RegisterEvent({event_id}, {lua_string(hint)}, function()")
+
+    if callback == "beethoven_manuscript":
+        lines.append(f"    if IsQBitSet({qbit(14)}) and not IsQBitSet({qbit(16)}) then")
+        lines.append(f"        SetQBit({qbit(16)})")
+        give_and_consume(item(0), "        ")
+        lines.append(f"    elseif not IsQBitSet({qbit(110)}) then")
+        lines.append(f"        SetQBit({qbit(110)})")
+        give_and_consume(item(0), "        ")
+        lines.append("    end")
+    elif callback == "crona_kiga":
+        petrified_mummy_index = actor_index_by_name("PetrifiedMummy16")
+        if petrified_mummy_index is not None:
+            lines.append(f"    evt.SetActorBit({petrified_mummy_index}, ActorAttribute.Active, 1)")
+        lines.append(f"    if IsQBitSet({qbit(46)}) and not IsQBitSet({qbit(48)}) then")
+        lines.append(f"        SetQBit({qbit(48)})")
+        lines.append(f"        GiveItem({item(0)})")
+        lines.append("        AddValue(Experience, 10000)")
+        lines.append(f"        evt.ConsumeWorldItem({lua_string(source_id)})")
+        lines.append(f"    elseif not IsQBitSet({qbit(169)}) then")
+        lines.append(f"        SetQBit({qbit(169)})")
+        lines.append(f"        GiveItem({item(0)})")
+        lines.append("        AddValue(Experience, 10000)")
+        lines.append(f"        evt.ConsumeWorldItem({lua_string(source_id)})")
+        lines.append("    end")
+    elif callback == "real_verhoffin_book":
+        required_items = source.get("required_items", []) or []
+        if len(required_items) != 1 or int(required_items[0]) <= 0:
+            raise ValueError(f"{source_id}: real book callback requires one translated prerequisite item")
+        prerequisite_item = int(required_items[0])
+        lines.append(
+            f"    if not IsQBitSet({qbit(283)}) and HasItemAnywhere({prerequisite_item}) then")
+        lines.append(f"        RemoveItem({prerequisite_item})")
+        lines.append(f"        GiveItem({item(0)})")
+        lines.append(f"        GiveItem({item(1)})")
+        lines.append(f"        SetQBit({qbit(283)})")
+        lines.append(f"        SetQBit({qbit(290)})")
+        lines.append(f"        evt.ConsumeWorldItem({lua_string(source_id)})")
+        lines.append("    end")
+    elif callback == "blackheart_alarm":
+        lines.append(f"    if not IsQBitSet({qbit(223)}) then")
+        lines.append(f"        SetQBit({qbit(223)})")
+        lines.append(f"        GiveItem({item(0)})")
+        lines.append("        evt.PlaySoundName(\"sounds/events/alarmbell.wav\")")
+        lines.append(f"        evt.ConsumeWorldItem({lua_string(source_id)})")
+        lines.append("    end")
+    elif callback == "thjorad":
+        monk_actor_indices = actor_indices_by_class_fragment("monk")
+        lines.append("    local monkHostile = false")
+        for actor_index in monk_actor_indices:
+            lines.append(
+                f"    monkHostile = monkHostile or evt.IsMapActorHostile({actor_index})")
+        lines.append(f"    if monkHostile and IsQBitSet({qbit(2)}) and not IsQBitSet({qbit(31)}) then")
+        lines.append(f"        SetQBit({qbit(31)})")
+        lines.append(f"        GiveItem({item(0)})")
+        lines.append("        AddValue(Experience, 1000)")
+        lines.append(f"        evt.ConsumeWorldItem({lua_string(source_id)})")
+        lines.append(f"    elseif monkHostile and not IsQBitSet({qbit(162)}) then")
+        lines.append(f"        SetQBit({qbit(162)})")
+        lines.append(f"        GiveItem({item(0)})")
+        lines.append("        AddValue(Experience, 1000)")
+        lines.append(f"        evt.ConsumeWorldItem({lua_string(source_id)})")
+        lines.append("    end")
+    elif callback == "book_of_rules":
+        lines.append(f"    if IsQBitSet({qbit(57)}) and not IsQBitSet({qbit(59)}) then")
+        lines.append(f"        SetQBit({qbit(59)})")
+        lines.append(f"        GiveItem({item(0)})")
+        lines.append("        AddValue(Experience, 5000)")
+        lines.append(f"        evt.ConsumeWorldItem({lua_string(source_id)})")
+        lines.append(f"    elseif not IsQBitSet({qbit(166)}) then")
+        lines.append(f"        SetQBit({qbit(166)})")
+        lines.append(f"        GiveItem({item(0)})")
+        lines.append("        AddValue(Experience, 5000)")
+        lines.append(f"        evt.ConsumeWorldItem({lua_string(source_id)})")
+        lines.append("    end")
+    elif callback == "accountant_key":
+        accountant_index = actor_index_by_name("Accountant")
+        lines.append(f"    if not IsQBitSet({qbit(7000)}) then")
+        lines.append(f"        SetQBit({qbit(7000)})")
+        give_and_consume(item(0), "        ")
+        if accountant_index is not None:
+            lines.append(
+                f"        if evt.IsMapActorWithinPartyDistance({accountant_index}, 512) then")
+            lines.append(
+                f"            evt.SetActorBit({accountant_index}, ActorAttribute.Hostile, 1)")
+            lines.append("        end")
+        lines.append("    end")
+    elif callback == "golden_honk":
+        lines.append(f"    if IsQBitSet({qbit(343)}) and not IsQBitSet({qbit(344)}) then")
+        lines.append(f"        SetQBit({qbit(344)})")
+        give_and_consume(item(0), "        ")
+        make_honks_hostile("        ")
+        lines.append(f"    elseif not IsQBitSet({qbit(345)}) then")
+        lines.append(f"        SetQBit({qbit(345)})")
+        give_and_consume(item(0), "        ")
+        make_honks_hostile("        ")
+        lines.append("    end")
+    elif callback == "great_book_key":
+        lines.append("    if HasItemAnywhere(10243) then")
+        lines.append(f"        GiveItem({item(0)})")
+        lines.append(f"        GiveItem({item(1)})")
+        lines.append(f"        GiveItem({item(2)})")
+        lines.append(f"        SetQBit({qbit(374)})")
+        lines.append(f"        evt.ConsumeWorldItem({lua_string(source_id)})")
+        lines.append("    else")
+        lines.append(f"        GiveItem({item(1)})")
+        lines.append("    end")
+    elif callback == "saints_relic":
+        lines.append(f"    if IsQBitSet({qbit(338)}) and not IsQBitSet({qbit(340)}) then")
+        lines.append(f"        SetQBit({qbit(340)})")
+        give_and_consume(item(0), "        ")
+        lines.append(f"    elseif not IsQBitSet({qbit(339)}) then")
+        lines.append(f"        SetQBit({qbit(339)})")
+        give_and_consume(item(0), "        ")
+        lines.append("    end")
+    elif callback == "yanmirs_key":
+        lines.append(f"    if not IsQBitSet({qbit(7001)}) then")
+        lines.append(f"        SetQBit({qbit(7001)})")
+        give_and_consume(item(0), "        ")
+        lines.append("    end")
+    else:
+        raise ValueError(f"{source_id}: unknown pickup callback {callback}")
+
+    lines.append(f"end, {lua_string(hint)})")
+    lines.append("")
+
+def map_lua_text(
+    map_id: str,
+    script_irs: dict[str, ScriptIr],
+    event_data: dict[str, Any] | None = None,
+    dialogue_callbacks: list[CompiledRudeExit] | None = None,
+) -> str:
     lines: list[str] = [
         "-- generated from MM9 event sidecars; do not edit by hand",
         "local map = {}",
@@ -761,8 +1309,15 @@ def map_lua_text(map_id: str, script_irs: dict[str, ScriptIr], event_data: dict[
         "",
     ]
     append_map_lua_start_points(lines, event_data or {})
+    append_map_lua_actor_bindings(lines, event_data or {})
     append_map_lua_mechanisms(lines, event_data or {})
     append_map_lua_classic_event_handlers(lines, event_data or {})
+    append_map_lua_item_source_handlers(lines, event_data or {})
+    callbacks = dialogue_callbacks or []
+    if callbacks:
+        for callback in callbacks:
+            lines.extend(callback.lua_lines)
+            lines.append("")
     for script_id, ir in sorted(script_irs.items()):
         lines.append(f"map.scripts[{lua_string(script_id)}] = {{")
         lines.append(f"    source = {lua_string(ir.source_path.name)},")
@@ -803,7 +1358,21 @@ def map_lua_text(map_id: str, script_irs: dict[str, ScriptIr], event_data: dict[
             "",
         ]
     )
-    return "\n".join(lines)
+    lua_text = "\n".join(lines)
+    registered_event_ids = [
+        int(match.group(1))
+        for match in re.finditer(r"(?m)^RegisterEvent\((\d+),", lua_text)
+    ]
+    duplicate_event_ids = sorted({
+        event_id
+        for event_id in registered_event_ids
+        if registered_event_ids.count(event_id) > 1
+    })
+    if duplicate_event_ids:
+        raise ValueError(
+            f"{map_id}: duplicate generated interaction event ids: {duplicate_event_ids}"
+        )
+    return lua_text
 
 
 def write_map_lua(
@@ -811,9 +1380,12 @@ def write_map_lua(
     map_id: str,
     script_irs: dict[str, ScriptIr],
     event_data: dict[str, Any] | None = None,
+    dialogue_callbacks: list[CompiledRudeExit] | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(map_lua_text(map_id, script_irs, event_data), encoding="utf-8")
+    path.write_text(
+        map_lua_text(map_id, script_irs, event_data, dialogue_callbacks),
+        encoding="utf-8")
 
 
 def map_script_ir_data(map_id: str, scripts_root: Path, script_irs: dict[str, ScriptIr]) -> dict[str, Any]:
@@ -1040,6 +1612,25 @@ def load_scene_classic_event_face_ids(scene_path: Path) -> set[int]:
                 event_ids.add(event_id)
 
     return event_ids
+
+
+def load_scene_mm9_actor_indices(scene_path: Path) -> dict[int, int]:
+    if not scene_path.exists():
+        return {}
+
+    scene = load_yaml(scene_path)
+    initial_state = scene.get("initial_state", {})
+    if not isinstance(initial_state, dict):
+        return {}
+
+    result: dict[int, int] = {}
+    for actor_index, actor in enumerate(initial_state.get("actors", []) or []):
+        if not isinstance(actor, dict):
+            continue
+        source_object_index = actor.get("mm9_source_object_index")
+        if isinstance(source_object_index, int):
+            result[source_object_index] = actor_index
+    return result
 
 
 def build_mm9_bmodel_bindings(metadata_path: Path) -> dict[str, list[dict[str, Any]]]:
@@ -1364,7 +1955,7 @@ def build_events_for_map(
     scene_path: Path | None = None,
     metadata_path: Path | None = None,
     dat_world_path: Path | None = None,
-) -> tuple[dict[str, Any], dict[str, ScriptIr]]:
+) -> tuple[dict[str, Any], dict[str, ScriptIr], list[CompiledRudeExit]]:
     raw = load_yaml(raw_objects_path)
     map_id = remove_suffix(raw_objects_path.name, ".raw_objects.yml")
     script_index = build_script_index(scripts_root)
@@ -1372,6 +1963,8 @@ def build_events_for_map(
     scene_bindings = build_scene_model_instance_bindings(resolved_scene_path)
     scene_indoor_door_ids = load_scene_indoor_door_ids(resolved_scene_path)
     scene_classic_event_face_ids = load_scene_classic_event_face_ids(resolved_scene_path)
+    actor_indices_by_source_object = load_scene_mm9_actor_indices(resolved_scene_path)
+    scene_data = load_yaml(resolved_scene_path) if resolved_scene_path.exists() else {}
     resolved_dat_world_path = dat_world_path or raw_objects_path.with_name(f"{map_id}.dat_world.yml")
     world_model_polygon_groups = load_world_model_polygon_groups(resolved_dat_world_path)
     bmodel_bindings = build_mm9_bmodel_bindings(metadata_path or raw_objects_path.with_name(f"{map_id}.mm9.yml"))
@@ -1380,6 +1973,25 @@ def build_events_for_map(
             attach_source_polygon_group(target, world_model_polygon_groups)
     movable_world_models = load_movable_world_models(resolved_dat_world_path)
     raw_objects = raw.get("objects", []) or []
+    actor_handles: dict[str, int] = {}
+    actor_bindings: list[dict[str, Any]] = []
+    for object_node in raw_objects:
+        if not isinstance(object_node, dict):
+            continue
+        object_index = int(object_node.get("object_index", -1))
+        actor_index = actor_indices_by_source_object.get(object_index)
+        if actor_index is None:
+            continue
+        values, _ = object_properties(object_node)
+        object_name = values.get("Name")
+        if isinstance(object_name, str) and object_name:
+            actor_handles[object_name] = actor_index
+        actor_bindings.append({
+            "actor_index": actor_index,
+            "source_object_index": object_index,
+            "source_class": str(object_node.get("name", "")),
+            "source_name": str(object_name or ""),
+        })
     exact_world_model_claims = collect_exact_world_model_claims(raw_objects, bmodel_bindings)
 
     object_names: set[str] = set()
@@ -1392,6 +2004,7 @@ def build_events_for_map(
     bindings: list[dict[str, Any]] = []
     unresolved: list[dict[str, Any]] = []
     referenced_scripts: dict[str, ScriptIr] = {}
+    dialogue_callbacks: list[CompiledRudeExit] = []
     class_counts: dict[str, int] = {}
 
     for object_node in raw_objects:
@@ -1423,6 +2036,32 @@ def build_events_for_map(
                         "severity": "warning",
                     }
                 )
+
+        if bool_property(values.get("DoRude"), False) and script_exists:
+            script_path = script_index[script_id]
+            try:
+                callback = compile_rude_exit(
+                    script_path.read_text(encoding="latin-1"),
+                    script_path.name,
+                    object_index,
+                    collect_script_include_sources(script_path, script_index),
+                    split_arguments(str(values.get("ScriptParams", "") or "")),
+                    actor_handles,
+                    actor_indices_by_source_object.get(object_index))
+            except ScrCompileError as exception:
+                unresolved.append(
+                    {
+                        "kind": "dialogue_scr_compile_error",
+                        "source_object_index": object_index,
+                        "source_name": object_name,
+                        "script_name": script_name,
+                        "error": str(exception),
+                        "severity": "error",
+                    }
+                )
+            else:
+                if callback is not None:
+                    dialogue_callbacks.append(callback)
 
         classifications: list[str] = []
         if object_class in MECHANISM_CLASS_KINDS:
@@ -1663,15 +2302,34 @@ def build_events_for_map(
             "script_ir": Path("..") / "events" / f"{map_id}.script_ir.yml",
         },
         "objects": object_entries,
+        "actor_bindings": actor_bindings,
         "start_points": start_points,
         "mechanisms": mechanisms,
         "triggers": triggers,
         "travel_triggers": travel_triggers,
         "interactions": interactions,
+        "world_items": scene_data.get("world_items", []) or [],
+        "loot_containers": scene_data.get("loot_containers", []) or [],
+        "searchable_loot_props": scene_data.get("searchable_loot_props", []) or [],
+        "actor_loot_overrides": scene_data.get("actor_loot_overrides", []) or [],
+        "spawned_loot_containers": scene_data.get("spawned_loot_containers", []) or [],
+        "persistent_item_mechanisms": scene_data.get("persistent_item_mechanisms", []) or [],
         "bindings": bindings,
         "scripts": [
             script_ir_to_yaml(ir, scripts_root)
             for _, ir in sorted(referenced_scripts.items())
+        ],
+        "dialogue_callbacks": [
+            {
+                "source_object_index": callback.source_object_index,
+                "script_name": callback.source_name,
+                "callback_routine": callback.callback_routine,
+                "event_id": callback.event_id,
+                "use_event_id": callback.use_event_id,
+                "found_player_event_id": callback.found_player_event_id,
+                "excluded_operations": callback.excluded_operations,
+            }
+            for callback in dialogue_callbacks
         ],
         "unresolved": unresolved,
         "validation": {
@@ -1689,7 +2347,7 @@ def build_events_for_map(
     }
     event_data["generated"]["lua"] = event_data["generated"]["lua"].as_posix()
     event_data["generated"]["script_ir"] = event_data["generated"]["script_ir"].as_posix()
-    return event_data, referenced_scripts
+    return event_data, referenced_scripts, dialogue_callbacks
 
 
 def validate_event_data(raw_objects_path: Path, event_data: dict[str, Any]) -> list[str]:
@@ -1713,6 +2371,11 @@ def validate_event_data(raw_objects_path: Path, event_data: dict[str, Any]) -> l
         event_property_refs = event_object.get("raw_properties", []) or []
         if len(event_property_refs) != raw_property_count:
             errors.append(f"{raw_objects_path.name}: property refs mismatch for raw object {raw_index}")
+    for unresolved in event_data.get("unresolved", []) or []:
+        if isinstance(unresolved, dict) and unresolved.get("severity") == "error":
+            errors.append(
+                f"{raw_objects_path.name}: object {unresolved.get('source_object_index', '?')}: "
+                f"{unresolved.get('error', unresolved.get('kind', 'unknown error'))}")
     return errors
 
 
@@ -1731,6 +2394,43 @@ def check_generated_text(path: Path, expected_text: str) -> str | None:
     if actual_text != expected_text:
         return f"{path}: generated file is stale"
     return None
+
+
+def load_mm9_item_id_map(path: Path) -> dict[int, int]:
+    if not path.exists():
+        raise ValueError(f"MM9 item id map is missing: {path}")
+
+    data = load_yaml(path)
+    mappings = data.get("mappings", []) or []
+    if not isinstance(mappings, list):
+        raise ValueError(f"MM9 item id map has invalid mappings: {path}")
+
+    result: dict[int, int] = {}
+    for index, mapping in enumerate(mappings):
+        if not isinstance(mapping, dict):
+            raise ValueError(f"MM9 item id map entry {index} is not a mapping: {path}")
+        raw_item_id = mapping.get("raw_mm9_id")
+        item_id = mapping.get("item_id")
+        if not isinstance(raw_item_id, int) or raw_item_id <= 0:
+            raise ValueError(f"MM9 item id map entry {index} has invalid raw_mm9_id: {path}")
+        if not isinstance(item_id, int) or item_id <= 0:
+            raise ValueError(f"MM9 item id map entry {index} has invalid item_id: {path}")
+        if raw_item_id in result:
+            raise ValueError(f"MM9 item id map contains duplicate raw id {raw_item_id}: {path}")
+        result[raw_item_id] = item_id
+    return result
+
+
+def mm9_world_common_lua_text(item_id_map: dict[int, int]) -> str:
+    lines = [
+        "-- generated from worlds/mm9/state/item_ids.yml; do not edit by hand",
+        "MM9 = MM9 or {}",
+        "MM9.ItemIds = {",
+    ]
+    for raw_item_id, item_id in sorted(item_id_map.items()):
+        lines.append(f"    [{raw_item_id}] = {item_id},")
+    lines.extend(["}", ""])
+    return "\n".join(lines)
 
 
 def build_source_sound_index(source_sounds_root: Path) -> dict[str, Path]:
@@ -1764,6 +2464,15 @@ def referenced_sound_names(event_data: dict[str, Any]) -> set[str]:
             sound_name = normalize_mm9_sound_name(sound.get("sound_name", ""))
             if sound_name:
                 names.add(sound_name)
+    for object_entry in event_data.get("objects", []) or []:
+        if not isinstance(object_entry, dict):
+            continue
+        properties = object_entry.get("normalized_properties", {}) or {}
+        if not isinstance(properties, dict):
+            continue
+        greeting_sound = normalize_mm9_sound_name(properties.get("GreetingSound", ""))
+        if greeting_sound:
+            names.add(greeting_sound)
     return names
 
 
@@ -1850,16 +2559,18 @@ def copy_referenced_sounds(
 
     for sound_name in sorted(referenced_sound_names(event_data)):
         key = sound_name.lower()
+        destination = audio_root / key
         source_path = find_source_sound_path(source_sound_index, sound_name)
         if source_path is None:
             source_bytes = synthetic_mm9_sound_bytes(sound_name)
             if source_bytes is None:
+                if destination.is_file():
+                    continue
                 missing += 1
                 continue
         else:
             source_bytes = source_path.read_bytes()
 
-        destination = audio_root / key
         destination.parent.mkdir(parents=True, exist_ok=True)
         if not destination.exists() or source_bytes != destination.read_bytes():
             destination.write_bytes(source_bytes)
@@ -1870,7 +2581,8 @@ def copy_referenced_sounds(
 
 def run_generation(args: argparse.Namespace) -> int:
     raw_paths = selected_raw_object_paths(args.maps_root, args.only_map)
-    if not raw_paths:
+    world_common_only = getattr(args, "world_common_only", False)
+    if not raw_paths and not world_common_only:
         print("no raw object sidecars selected", file=sys.stderr)
         return 1
 
@@ -1879,9 +2591,37 @@ def run_generation(args: argparse.Namespace) -> int:
     checked = 0
     sounds_copied = 0
     sounds_missing = 0
+    try:
+        item_id_map = load_mm9_item_id_map(args.item_id_map)
+    except ValueError as exception:
+        print(str(exception), file=sys.stderr)
+        return 1
+
+    world_common_lua_path = args.events_root.parent / "common" / "world_common.lua"
+    world_common_lua = mm9_world_common_lua_text(item_id_map)
+    if args.check_idempotent:
+        check_error = check_generated_text(world_common_lua_path, world_common_lua)
+        if check_error is not None:
+            all_errors.append(check_error)
+    elif not args.validate_only:
+        world_common_lua_path.parent.mkdir(parents=True, exist_ok=True)
+        world_common_lua_path.write_text(world_common_lua, encoding="utf-8")
+        print(f"wrote {world_common_lua_path}")
+
+    if world_common_only:
+        if all_errors:
+            for error in all_errors:
+                print(error, file=sys.stderr)
+            return 1
+        print("mm9 world common item mapping generated")
+        return 0
+
     source_sound_index = build_source_sound_index(args.source_sounds_root) if args.audio_root is not None else {}
     for raw_path in raw_paths:
-        event_data, script_irs = build_events_for_map(raw_path, args.scripts_root, args.events_root)
+        event_data, script_irs, dialogue_callbacks = build_events_for_map(
+            raw_path,
+            args.scripts_root,
+            args.events_root)
         errors = validate_event_data(raw_path, event_data)
         all_errors.extend(errors)
         if errors and (args.validate_only or args.check_idempotent):
@@ -1893,7 +2633,7 @@ def run_generation(args: argparse.Namespace) -> int:
         if args.check_idempotent:
             expected_files = [
                 (events_path, yaml_text(event_data)),
-                (lua_path, map_lua_text(map_id, script_irs, event_data)),
+                (lua_path, map_lua_text(map_id, script_irs, event_data, dialogue_callbacks)),
                 (script_ir_path, yaml_text(map_script_ir_data(map_id, args.scripts_root, script_irs))),
             ]
             for path, expected_text in expected_files:
@@ -1904,7 +2644,7 @@ def run_generation(args: argparse.Namespace) -> int:
         elif not args.validate_only:
             events_path = args.maps_root / f"{map_id}.events.yml"
             write_yaml(events_path, event_data)
-            write_map_lua(lua_path, map_id, script_irs, event_data)
+            write_map_lua(lua_path, map_id, script_irs, event_data, dialogue_callbacks)
             write_map_script_ir(
                 script_ir_path,
                 map_id,
@@ -1938,8 +2678,17 @@ def main() -> int:
     parser.add_argument("--scripts-root", type=Path, default=Path("mm9/extracted/SCRIPTS/SCRIPTS"))
     parser.add_argument("--events-root", type=Path, default=Path("assets_dev/worlds/mm9/events/maps"))
     parser.add_argument("--source-sounds-root", type=Path, default=Path("mm9/extracted/SOUNDS/SOUNDS"))
+    parser.add_argument(
+        "--item-id-map",
+        type=Path,
+        default=Path("assets_dev/worlds/mm9/state/item_ids.yml"))
     parser.add_argument("--audio-root", type=Path)
     parser.add_argument("--only-map", action="append", default=[])
+    parser.add_argument(
+        "--world-common-only",
+        action="store_true",
+        help="Regenerate only events/common/world_common.lua from the current item id map.",
+    )
     parser.add_argument("--validate-only", action="store_true")
     parser.add_argument(
         "--check-idempotent",

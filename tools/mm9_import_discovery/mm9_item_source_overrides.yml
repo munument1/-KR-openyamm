@@ -1,0 +1,26 @@
+format_version: 1
+kind: mm9_item_source_overrides
+items:
+  mm9:item_source_override/blade_skill_285:
+    review_state: reviewed
+    source_provenance: SCRIPTS/SCRIPTS/SKILLBOOK.scr lines 38 and 75-78
+    reason: >-
+      SKILLBOOK.scr establishes source item id 285 and the Blade Skill identity, while MASTERITEMLIST.csv omits the
+      row. The remaining item fields are a reviewed authored reconstruction matching the adjacent Normal-skill books;
+      the Blade operation maps atomically to Sword and Dagger through the shared LearnSkill item-use path.
+    cells:
+      - "285"
+      - Blade Skill
+      - Items_Skill
+      - "1"
+      - "0"
+      - "0"
+      - "0"
+      - Skill Book
+      - Allows character to learn Blade skill at Normal level
+      - SkillBook_Basic
+      - "50.00"
+      - Blade
+      - "45"
+      - "0"
+      - none

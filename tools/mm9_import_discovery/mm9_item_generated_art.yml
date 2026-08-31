@@ -1,0 +1,2003 @@
+format_version: 1
+kind: mm9_generated_inventory_art
+style_reference: assets_dev/engine/icons/item001.bmp
+source_design_policy: original_64x64_mm9_pcx_is_binding; mm6_mm7_mm8_assets_are_style_only
+equippable_orientation: upright_main_axis
+items:
+  2:
+    item_id: 10002
+    name: Poor Sword
+    asset: generated_item_art/mm9_item_10002.png
+    generation_tool: built-in image_gen
+    use_case: stylized-concept
+    source_reference: assets_dev/worlds/mm9/icons/mm9_item_10002.png
+    target_dimensions: [40, 160]
+    prompt: |-
+      Use case: stylized-concept
+      Asset type: low-resolution fantasy RPG inventory item sprite for OpenYAMM
+      Primary request: create a full-length inventory sprite of the MM9 Poor Sword shown in Image 1,
+        redesigned for the tall MM6-MM8 inventory presentation shown in Image 2.
+      Input images: Image 1 is the object-design reference; preserve its simple straight pale-steel blade,
+        short dark grip, small gold crossguard, and modest inexpensive character. Image 2 is only the style,
+        orientation, silhouette-scale, and late-1990s pre-rendered RPG reference.
+      Subject: exactly one complete one-handed short sword, point at the top and pommel at the bottom,
+        fully visible, centered, nearly vertical with only a very slight natural tilt.
+      Style/medium: grounded late-1990s fantasy RPG inventory sprite, hand-painted pre-rendered realism,
+        restrained detail, crisp readable silhouette, deliberately compatible with low-resolution downsampling;
+        humble iron weapon, not ornate.
+      Composition/framing: very tall narrow object with minimal empty margin; no border or icon frame.
+      Lighting/mood: soft neutral upper-left studio light, modest metal highlight, restrained contrast.
+      Constraints: genuinely transparent background and preserved alpha; exactly one sword; entire object visible;
+        no text; no glow; no drop shadow; no pedestal; no border; no frame; no scenery; no hands; no watermark.
+      Avoid: square icon composition, diagonal 45-degree pose, modern glossy mobile-game icon, exaggerated fantasy
+        ornament, gemstones, magical effects, cropped blade or pommel.
+    transparency_correction: |-
+      Use case: background-extraction
+      Primary request: remove the entire pale checkerboard background and replace it with genuine transparent alpha.
+      Constraints: change only the background; preserve the complete sword; no checkerboard, halo, shadow, border,
+        crop, new details, text, or watermark.
+    postprocess: trim alpha bounds; fit within 40x160; center on transparent 40x160 canvas; low-radius unsharp
+  5:
+    item_id: 10005
+    name: Shaba Couta
+    asset: generated_item_art/mm9_item_10005.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BLADESHABA.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully reconstruct the exact MM9 Shaba Couta from the isolated and mechanically rotated PCX references as
+      an MM6-MM8-style inventory sprite. Repaint the same object; do not redesign it or substitute a generic sword.
+      Preserve its broad, slightly leaf-shaped pale blade; short asymmetrical yellow-gold guard with one branch
+      curling upward and the other downward; short dark-brown grip; and small solid round yellow-gold pommel.
+      Preserve the relative sizes and colors. Render exactly one complete vertical sword in grounded late-1990s
+      pre-rendered RPG style, with restrained detail and neutral upper-left light. Use genuine transparent alpha.
+      No ring pommel, fuller, gemstones, extra guard branches, text, glow, shadow, frame, scenery, hands, or watermark.
+    transparency_correction: |-
+      Remove only the pale checkerboard background and replace it with genuine transparent alpha. Preserve the
+      complete Shaba Couta, including silhouette, asymmetrical guard, colors, lighting, and proportions.
+    postprocess: trim alpha bounds; compress to 36x156; center on transparent 40x160 canvas; low-radius unsharp
+  7:
+    item_id: 10007
+    name: Scramasax
+    asset: generated_item_art/mm9_item_10007.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BLADESCRAMASAX.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully reconstruct the exact MM9 Scramasax from the isolated and mechanically rotated PCX references as
+      an MM6-MM8-style inventory sprite. Repaint the same object; do not redesign it. Preserve the very narrow,
+      straight dark-gray single-edged blade and pale cutting edge, tiny flat yellow-brass guard, distinctive grip
+      made from alternating pale-silver and dark bands, and small reddish-copper faceted pommel. Keep its unusually
+      lean utilitarian silhouette. Render one complete vertical sword with restrained late-1990s pre-rendered realism
+      and genuine transparent alpha. No broad blade, leather grip, generic pommel, large guard, text, glow, shadow,
+      frame, scenery, hands, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful sword as RGBA
+    postprocess: trim alpha bounds; compress to 24x156; center on transparent 40x160 canvas; low-radius unsharp
+  9:
+    item_id: 10009
+    name: Imperial Sword
+    asset: generated_item_art/mm9_item_10009.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/LONGSWORD.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully reconstruct the exact MM9 Imperial Sword from the isolated and mechanically rotated PCX references
+      as an MM6-MM8-style inventory sprite. Repaint the same object; do not redesign it. Preserve its broad pale-steel
+      blade with gentle asymmetry and swept cutting edge, simple thin yellow-gold guard angled across the hilt, very
+      short dark grip, and compact dark-and-gold pommel. Render one complete vertical sword in restrained late-1990s
+      pre-rendered realism with genuine transparent alpha. No ornate symmetric guard, blade fuller, jewel pommel,
+      excessive gold, text, glow, shadow, frame, scenery, hands, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful sword as RGBA
+    postprocess: trim alpha bounds; compress to 36x156; center on transparent 40x160 canvas; low-radius unsharp
+  12:
+    item_id: 10012
+    name: Mercenary Sword
+    asset: generated_item_art/mm9_item_10012.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BLADEMERCENARY.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully reconstruct the exact MM9 Mercenary Sword from the isolated and mechanically rotated PCX references
+      as an MM6-MM8-style inventory sprite. Repaint the same object; do not redesign it. Preserve its narrow gently
+      curved pale-steel blade with dark outer edge, vivid orange-red forked guard with two swept branches, slim
+      reddish-brown grip, and tiny round orange-red pommel. The blade is one continuous unbroken piece of steel ending
+      in a conventional point; dark source pixels are shading, not a gap or notch. Render one complete vertical sword
+      in restrained late-1990s pre-rendered realism with genuine transparent alpha. No generic crossguard, malformed
+      tip, text, glow, shadow, frame, scenery, hands, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful sword as RGBA
+    postprocess: trim alpha bounds; compress to 36x156; center on transparent 40x160 canvas; low-radius unsharp
+  15:
+    item_id: 10015
+    name: Mortuary Sword
+    asset: generated_item_art/mm9_item_10015.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BLADEMORTUARY.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully repaint the exact isolated and mechanically rotated MM9 Mortuary Sword PCX as an MM6-MM8-style
+      inventory sprite without redesigning it. Preserve its very narrow straight pale-gray blade with dark spine,
+      tiny flat reddish-gold circular guard, compact segmented brown-and-gold grip, and small gold cap pommel. Keep its
+      austere funerary silhouette. Render one complete vertical sword with restrained late-1990s realism and genuine
+      transparent alpha. No curved blade, large guard, generic replacement, text, glow, shadow, frame, or watermark.
+    transparency_correction: extract the unchanged complete Mortuary Sword onto genuine transparent RGBA
+    postprocess: trim alpha bounds; compress to 28x156; center on transparent 40x160 canvas; low-radius unsharp
+  17:
+    item_id: 10017
+    name: Saber
+    asset: generated_item_art/mm9_item_10017.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BLADESABER.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully repaint the exact isolated and mechanically rotated MM9 Saber PCX as an MM6-MM8-style inventory
+      sprite without redesigning it. Preserve its slim strongly curved pale-steel blade, small orange-gold crossbar,
+      distinctive orange-gold D-shaped knuckle bow, short dark-brown grip, and pale pommel cap. Render one complete
+      vertical sword with restrained late-1990s realism and genuine transparent alpha. No straight blade, open generic
+      crossguard, generic replacement, text, glow, shadow, frame, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful Saber as RGBA
+    postprocess: trim alpha bounds; compress to 38x156; center on transparent 40x160 canvas; low-radius unsharp
+  18:
+    item_id: 10018
+    name: Scimitar
+    asset: generated_item_art/mm9_item_10018.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/SCIMITAR.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully repaint the exact isolated and mechanically rotated MM9 Scimitar PCX as an MM6-MM8-style inventory
+      sprite without redesigning it. Preserve its broad dramatically swept pale-steel blade and convex cutting edge,
+      muted brass guard with curled tips, short dark grip, and vivid green pommel cap. Render one complete vertical
+      sword with restrained late-1990s realism and genuine transparent alpha. No narrow straight blade, orange knuckle
+      bow, missing green accent, generic replacement, text, glow, shadow, frame, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful Scimitar as RGBA
+    postprocess: trim alpha bounds; compress to 40x156; center on transparent 40x160 canvas; low-radius unsharp
+  175:
+    item_id: 10175
+    name: Sing Sword
+    asset: generated_item_art/mm9_item_10175.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeSing.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully repaint the exact isolated and mechanically rotated MM9 Sing Sword PCX as an MM6-MM8-style
+      inventory sprite without redesigning it. Preserve its narrow pale-gold blade, ornate scalloped orange-gold
+      guard, segmented red-and-gold grip, and distinctive open ring pommel. Render one complete vertical sword with
+      restrained late-1990s pre-rendered realism and genuine transparent alpha. No generic replacement, closed
+      pommel, text, glow, shadow, frame, scenery, hands, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful Sing Sword as RGBA
+    postprocess: trim alpha bounds; compress to 40x156; center on transparent 40x160 canvas; low-radius unsharp
+  176:
+    item_id: 10176
+    name: Excala Banna
+    asset: generated_item_art/mm9_item_10176.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeExcala.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully repaint the exact isolated and mechanically rotated MM9 Excala Banna PCX as an MM6-MM8-style
+      inventory sprite without redesigning it. Preserve its yellow-gold blade, simple vivid yellow-green wing guard,
+      yellow grip, and unmistakable hollow ring pommel. Render one complete vertical sword with restrained
+      late-1990s pre-rendered realism and genuine transparent alpha. No generic replacement, solid pommel, ornate
+      guard, text, glow, shadow, frame, scenery, hands, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful Excala Banna as RGBA
+    postprocess: trim alpha bounds; compress to 38x156; center on transparent 40x160 canvas; low-radius unsharp
+  178:
+    item_id: 10178
+    name: Mevan Sword
+    asset: generated_item_art/mm9_item_10178.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeMevan.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully repaint the exact isolated and mechanically rotated MM9 Mevan Sword PCX as an MM6-MM8-style
+      inventory sprite without redesigning it. Preserve its plain gray blade, curved brown guard, alternating striped
+      grip, and small dark pommel. Keep the simple ominous silhouette. Render one complete vertical sword with
+      restrained late-1990s pre-rendered realism and genuine transparent alpha. No ornate generic replacement, text,
+      glow, shadow, frame, scenery, hands, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful Mevan Sword as RGBA
+    postprocess: trim alpha bounds; compress to 32x156; center on transparent 40x160 canvas; low-radius unsharp
+  179:
+    item_id: 10179
+    name: Jorhgamesh
+    asset: generated_item_art/mm9_item_10179.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeJorhgamesh.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully repaint the exact isolated and mechanically rotated MM9 Jorhgamesh PCX as an MM6-MM8-style
+      inventory sprite without redesigning it. Preserve its white flame-like notched scimitar blade, gold crescent
+      guard, blue hilt gem, striped grip, and compact pommel. Render one complete vertical sword with restrained
+      late-1990s pre-rendered realism and genuine transparent alpha. Do not smooth away the blade notches or replace
+      it with a generic scimitar. No text, glow, shadow, frame, scenery, hands, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful Jorhgamesh as RGBA
+    postprocess: trim alpha bounds; compress to 30x156; center on transparent 40x160 canvas; low-radius unsharp
+  219:
+    item_id: 10219
+    name: Prize Gladius
+    asset: generated_item_art/mm9_item_10219.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/PrizeGladius.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully repaint the exact isolated and mechanically rotated MM9 Prize Gladius PCX as an MM6-MM8-style
+      inventory sprite without redesigning it. Preserve its icy-blue broad curved blade, nearly guardless black-and-
+      gold hilt, red grip band, and distinctive looped hilt silhouette. Render one complete vertical sword with
+      restrained late-1990s pre-rendered realism and genuine transparent alpha. No generic Roman gladius, projecting
+      crossguard, text, glow, shadow, frame, scenery, hands, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful Prize Gladius as RGBA
+    postprocess: trim alpha bounds; compress to 15x156; center on transparent 40x160 canvas; low-radius unsharp
+  362:
+    item_id: 10362
+    name: Wooden Sword
+    asset: generated_item_art/mm9_item_10362.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/swordwooden.pcx
+    target_dimensions: [40, 160]
+    prompt: |-
+      Faithfully repaint the exact isolated and mechanically rotated MM9 Wooden Sword PCX as an MM6-MM8-style
+      inventory sprite without redesigning it. Preserve the entirely carved brown wood construction, blunt toy-like
+      blade, plain wooden guard, simple grip, visible grain, and small wooden pommel. Render one complete vertical
+      sword with restrained late-1990s pre-rendered realism and genuine transparent alpha. No metal, gems, sharp
+      steel edge, generic replacement, text, glow, shadow, frame, scenery, hands, or watermark.
+    transparency_correction: remove only the background; preserve the complete source-faithful Wooden Sword as RGBA
+    postprocess: trim alpha bounds; compress to 35x156; center on transparent 40x160 canvas; low-radius unsharp
+  21:
+    item_id: 10021
+    name: Flamberge
+    asset: generated_item_art/mm9_item_10021.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeFlamberge.pcx
+    target_dimensions: [44, 196]
+    prompt: |-
+      Faithfully repaint the isolated and mechanically rotated original MM9 PCX as an MM6-MM8-style inventory
+      sprite. Treat the MM9 PCX as binding for identity, silhouette, proportions, components, and colors. Preserve
+      the narrow flame-waved pale blade, upward-curving gold crescent guard, red center jewel, long reddish-brown
+      grip, and small pommel. Render one complete vertical two-handed sword on genuine transparent alpha. Do not
+      straighten the blade or substitute a generic sword. No text, glow, shadow, frame, scenery, or watermark.
+    transparency_correction: isolate the unchanged complete Flamberge on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 44x192; center on transparent 44x196 canvas
+  22:
+    item_id: 10022
+    name: The Chopper
+    asset: generated_item_art/mm9_item_10022.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeChopper.pcx
+    target_dimensions: [44, 196]
+    prompt: |-
+      Faithfully repaint the isolated and mechanically rotated original MM9 PCX as an MM6-MM8-style inventory
+      sprite. Treat the MM9 PCX as binding for identity, silhouette, proportions, components, and colors. Preserve
+      the two tall parallel gray blade prongs and their open central slot, uneven chopped tips, compact silver guard,
+      red center accent, blue-and-pale banded grip, and dark pommel. Render one complete vertical two-handed weapon on
+      genuine transparent alpha. Do not merge the prongs or substitute a generic sword. No text, glow, shadow, frame,
+      scenery, or watermark.
+    transparency_correction: isolate the unchanged complete Chopper on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 44x192; center on transparent 44x196 canvas
+  224:
+    item_id: 10224
+    name: Broderick's Two-handed Sword
+    asset: generated_item_art/mm9_item_10224.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BrodericksSword.pcx
+    target_dimensions: [44, 196]
+    prompt: |-
+      Faithfully repaint the isolated and mechanically rotated original MM9 PCX as an MM6-MM8-style inventory
+      sprite. Treat the MM9 PCX as binding for identity, silhouette, proportions, components, and colors. Preserve
+      the plain broad straight pale blade with shaded right edge and rounded point, short muted-gold guard, vivid blue
+      grip, and tiny blue-and-gold pommel. Render one complete vertical two-handed sword on genuine transparent alpha.
+      Do not add ornament or substitute a generic greatsword. No text, glow, shadow, frame, scenery, or watermark.
+    transparency_correction: isolate the unchanged complete Broderick sword on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 40x192; center on transparent 44x196 canvas
+  563:
+    item_id: 10563
+    name: Sven's Sword
+    asset: generated_item_art/mm9_item_10563.png
+    generation_tool: built-in image_gen
+    use_case: shared-identical-source
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/longsword.pcx
+    shared_generation: 9
+    target_dimensions: [40, 160]
+    prompt: identical MM9 longsword.pcx input; reuse the source-faithful Imperial Sword generation
+    transparency_correction: inherited from shared generation 9
+    postprocess: exact RGBA copy of shared generation 9
+  564:
+    item_id: 10564
+    name: Bjarni's Sword
+    asset: generated_item_art/mm9_item_10564.png
+    generation_tool: built-in image_gen
+    use_case: shared-identical-source
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/longsword.pcx
+    shared_generation: 9
+    target_dimensions: [40, 160]
+    prompt: identical MM9 longsword.pcx input; reuse the source-faithful Imperial Sword generation
+    transparency_correction: inherited from shared generation 9
+    postprocess: exact RGBA copy of shared generation 9
+  565:
+    item_id: 10565
+    name: Sigmund's Sword
+    asset: generated_item_art/mm9_item_10565.png
+    generation_tool: built-in image_gen
+    use_case: shared-identical-source
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/longsword.pcx
+    shared_generation: 9
+    target_dimensions: [40, 160]
+    prompt: identical MM9 longsword.pcx input; reuse the source-faithful Imperial Sword generation
+    transparency_correction: inherited from shared generation 9
+    postprocess: exact RGBA copy of shared generation 9
+  566:
+    item_id: 10566
+    name: Tryygva's Sword
+    asset: generated_item_art/mm9_item_10566.png
+    generation_tool: built-in image_gen
+    use_case: shared-identical-source
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/longsword.pcx
+    shared_generation: 9
+    target_dimensions: [40, 160]
+    prompt: identical MM9 longsword.pcx input; reuse the source-faithful Imperial Sword generation
+    transparency_correction: inherited from shared generation 9
+    postprocess: exact RGBA copy of shared generation 9
+  567:
+    item_id: 10567
+    name: Kira's Sword
+    asset: generated_item_art/mm9_item_10567.png
+    generation_tool: built-in image_gen
+    use_case: shared-identical-source
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/longsword.pcx
+    shared_generation: 9
+    target_dimensions: [40, 160]
+    prompt: identical MM9 longsword.pcx input; reuse the source-faithful Imperial Sword generation
+    transparency_correction: inherited from shared generation 9
+    postprocess: exact RGBA copy of shared generation 9
+  26:
+    item_id: 10026
+    name: Stiletto
+    asset: generated_item_art/mm9_item_10026.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeStiletto.pcx
+    target_dimensions: [36, 112]
+    prompt: |-
+      Faithfully repaint the original isolated and mechanically upright MM9 PCX, which is binding for the design.
+      Preserve the extremely narrow continuous needle-point steel blade, wide low gold oval guard, red/pale/gold
+      banded grip, and round gold pommel. Render one complete vertical Stiletto in restrained MM6-MM8 inventory style
+      on genuine transparent alpha. Do not blunt, break, broaden, or redesign the blade.
+    transparency_correction: isolate the unchanged complete Stiletto on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 32x108; center on transparent 36x112 canvas
+  29:
+    item_id: 10029
+    name: Elite Dagger
+    asset: generated_item_art/mm9_item_10029.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeElite.pcx
+    target_dimensions: [36, 112]
+    prompt: |-
+      Faithfully repaint the original isolated and mechanically upright MM9 PCX, which is binding for the design.
+      Preserve the narrow straight pale blade, ornate asymmetrical orange-gold curled guard, pale horizontally banded
+      grip, and wide pale cap pommel. Render one complete vertical Elite Dagger in restrained MM6-MM8 inventory style
+      on genuine transparent alpha. Do not replace it with a generic dagger.
+    transparency_correction: isolate the unchanged complete Elite Dagger on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 36x108; center on transparent 36x112 canvas
+  32:
+    item_id: 10032
+    name: Baselard
+    asset: generated_item_art/mm9_item_10032.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/dagger.pcx
+    target_dimensions: [36, 112]
+    prompt: |-
+      Faithfully repaint the original isolated and mechanically upright MM9 PCX, which is binding for the design.
+      Preserve the broad straight double-edged spear-point blade, thin muted-gold guard, compact dark-brown grip, and
+      small gold pommel. Render one complete vertical Baselard in restrained MM6-MM8 inventory style on genuine
+      transparent alpha. Do not redesign or embellish it.
+    transparency_correction: isolate the unchanged complete Baselard on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 34x108; center on transparent 36x112 canvas
+  33:
+    item_id: 10033
+    name: Chedian Dirk
+    asset: generated_item_art/mm9_item_10033.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/dirk.pcx
+    target_dimensions: [36, 112]
+    prompt: |-
+      Faithfully repaint the original isolated and mechanically upright MM9 PCX, which is binding for the design.
+      Preserve the strongly swept curved pale blade, reddish-brown guard, and short dark-brown grip whose pommel hooks
+      sharply backward. Render one complete vertical Chedian Dirk in restrained MM6-MM8 inventory style on genuine
+      transparent alpha. Do not straighten the blade or replace the hooked hilt.
+    transparency_correction: isolate the unchanged complete Chedian Dirk on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 36x108; center on transparent 36x112 canvas
+  34:
+    item_id: 10034
+    name: Throwing Dagger
+    asset: generated_item_art/mm9_item_10034.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/throwdagger.pcx
+    target_dimensions: [72, 112]
+    prompt: |-
+      Faithfully repaint the original MM9 PCX as an MM6-MM8-style inventory sprite. Treat its exact three-dagger
+      bundle as binding: three pale blades fanned upward, small gold guards, three gathered brown grips, and the red
+      base accent. Do not collapse the bundle into one dagger. Render the full bundle on genuine transparent alpha.
+    transparency_correction: isolate the unchanged complete three-dagger bundle on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 68x108; center on transparent 72x112 canvas
+  180:
+    item_id: 10180
+    name: Black's Heart
+    asset: generated_item_art/mm9_item_10180.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeBlacksheart.pcx
+    target_dimensions: [36, 112]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the extremely narrow
+      pale-bronze blade, upward-curling silver guard, black banded grip, and large vivid purple orb pommel. Render one
+      complete vertical Black's Heart on genuine transparent alpha without generic substitution or redesign.
+    transparency_correction: isolate the unchanged complete Black's Heart on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 36x108; center on transparent 36x112 canvas
+  181:
+    item_id: 10181
+    name: Integris
+    asset: generated_item_art/mm9_item_10181.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeIntegris.pcx
+    target_dimensions: [36, 112]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the long very narrow pale
+      blade and warm accents, simple pale-gold guard, slim gold/orange grip with red bands, and dark end cap. Render
+      one complete vertical Integris on genuine transparent alpha without generic substitution or redesign.
+    transparency_correction: isolate the unchanged complete Integris on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 34x108; center on transparent 36x112 canvas
+  185:
+    item_id: 10185
+    name: Trolleri
+    asset: generated_item_art/mm9_item_10185.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BladeTrolleri.pcx
+    target_dimensions: [36, 112]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the strongly curved pale
+      blade, gold-and-red jeweled guard, curved orange-gold handle, and blue jewel in the hooked round pommel. Render
+      one complete Trolleri on genuine transparent alpha without straightening or generic substitution.
+    transparency_correction: isolate the unchanged complete Trolleri on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 36x108; center on transparent 36x112 canvas
+  37:
+    item_id: 10037
+    name: Combat Axe
+    asset: generated_item_art/mm9_item_10037.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AxeCombat.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the broad pale-gray
+      single-bit head, rounded lower cutting edge, tall top spike, smaller rear spike, central socket, and plain brown
+      handle. Render one complete upright Combat Axe on genuine transparent alpha without redesign.
+    transparency_correction: isolate the unchanged complete Combat Axe on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 52x140; center on transparent 56x144 canvas
+  38:
+    item_id: 10038
+    name: Battle Witch
+    asset: generated_item_art/mm9_item_10038.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AxeBattleWitch.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the ornate silver
+      scalloped crescent blade, small angular rear blade, gold socket fittings, reddish-brown handle, and gold end cap.
+      Render one complete upright Battle Witch on genuine transparent alpha without generic substitution.
+    transparency_correction: isolate the unchanged complete Battle Witch axe on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 52x140; center on transparent 56x144 canvas
+  39:
+    item_id: 10039
+    name: Storm Axe
+    asset: generated_item_art/mm9_item_10039.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AxeStorm.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the compact engraved
+      gold-and-pale-metal head, square rune-marked face, top spike, rear blade, and black handle with bright blue and
+      gold bands. Render one complete upright Storm Axe on genuine transparent alpha without redesign.
+    transparency_correction: isolate the unchanged complete Storm Axe on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 52x140; center on transparent 56x144 canvas
+  40:
+    item_id: 10040
+    name: Throwing Axe
+    asset: generated_item_art/mm9_item_10040.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/throwaxe.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the broad bright-silver
+      crescent blade, small narrow upward rear pick, gold socket collar, and slim reddish-brown handle. Render one
+      complete upright Throwing Axe on genuine transparent alpha without generic substitution.
+    transparency_correction: isolate the unchanged complete Throwing Axe on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 52x140; center on transparent 56x144 canvas
+  41:
+    item_id: 10041
+    name: Student's Bow
+    asset: generated_item_art/mm9_item_10041.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/longbow1.pcx
+    target_dimensions: [56, 200]
+    prompt: preserve the slim brown limbs, dark string, hooked lower tip, warm-gold grip, and blue bands from the MM9 PCX
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: rotate main axis upright; fit within 52x196; center on transparent 56x200 canvas
+  42:
+    item_id: 10042
+    name: Cavalry Bow
+    asset: generated_item_art/mm9_item_10042.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/longbow2.pcx
+    target_dimensions: [56, 200]
+    prompt: preserve the plain angular reddish-brown limbs, long olive string, sharp lower bend, and pale center from the MM9 PCX
+    transparency_correction: threshold residual background alpha
+    postprocess: rotate main axis upright; fit within 52x196; center on transparent 56x200 canvas
+  43:
+    item_id: 10043
+    name: Coward's Bow
+    asset: generated_item_art/mm9_item_10043.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/longbow3.pcx
+    target_dimensions: [56, 200]
+    prompt: preserve the recurved red-orange limbs, pale string, black bands, gold-striped sections, and silver-blue grip
+    transparency_correction: threshold residual background alpha
+    postprocess: rotate main axis upright; fit within 52x196; center on transparent 56x200 canvas
+  48:
+    item_id: 10048
+    name: Composite Bow
+    asset: generated_item_art/mm9_item_10048.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BowComposite.pcx
+    target_dimensions: [56, 200]
+    prompt: preserve the ornate recurved orange limbs, dark-gold bands, pale string, silver-blue grip, and hooked tips
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: rotate main axis upright; fit within 52x196; center on transparent 56x200 canvas
+  50:
+    item_id: 10050
+    name: Dark Bow
+    asset: generated_item_art/mm9_item_10050.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BowDark.pcx
+    target_dimensions: [56, 200]
+    prompt: preserve the rounded rectangular outline, doubled dark string, green-white segmented limb, gold grip, and pale guard
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: rotate main axis upright; fit within 52x196; center on transparent 56x200 canvas
+  51:
+    item_id: 10051
+    name: Deadman's Crossbow
+    asset: generated_item_art/mm9_item_10051.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Xbowdeadmans.pcx
+    target_dimensions: [72, 144]
+    prompt: preserve the ivory recurved limbs, black string, long brown stock, cream mechanism, and pale rear hook
+    transparency_correction: threshold residual background alpha
+    postprocess: rotate stock upright with bow at top; fit within 68x140; center on transparent 72x144 canvas
+  55:
+    item_id: 10055
+    name: Thjoradric Arbalest
+    asset: generated_item_art/mm9_item_10055.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/XbowArbalest.pcx
+    target_dimensions: [72, 144]
+    prompt: preserve the pale horn limbs, gold string, orange stock, blue mechanism, and bundled lower rails from the MM9 PCX
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: rotate stock upright with bow at top; fit within 68x140; center on transparent 72x144 canvas
+  184:
+    item_id: 10184
+    name: Everstrike
+    asset: generated_item_art/mm9_item_10184.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BowEverstrike.pcx
+    target_dimensions: [56, 200]
+    prompt: preserve the asymmetrical orange limbs, pale string, banded grip, side stabilizers, and red-white circular nocks
+    transparency_correction: threshold residual background alpha
+    postprocess: rotate main axis upright; fit within 52x196; center on transparent 56x200 canvas
+  187:
+    item_id: 10187
+    name: Kraftig Bage
+    asset: generated_item_art/mm9_item_10187.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/XbowKraftigBage.pcx
+    target_dimensions: [72, 144]
+    prompt: preserve the white recurved limbs, black string, white stock, green gems, side lever, green knob, and pointed butt
+    transparency_correction: isolate pale, chromatic, and dark-contour pixels from checkerboard output
+    postprocess: generate stock perfectly upright with bow at top; fit within 68x140; center on transparent 72x144 canvas
+  188:
+    item_id: 10188
+    name: Blackpowder
+    asset: generated_item_art/mm9_item_10188.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Blackpowder.pcx
+    target_dimensions: [72, 144]
+    prompt: preserve the short open cannon barrel, copper breech, steel bands, long tapered wood stock, gold collar, and side lever
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: generate barrel and stock perfectly upright; fit within 68x140; center on transparent 72x144 canvas
+  65:
+    item_id: 10065
+    name: Laga Couta
+    asset: generated_item_art/mm9_item_10065.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AxeLagaCouta.pcx
+    target_dimensions: [72, 282]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the broad pale single
+      blade, elaborate thin rear hook-and-spike cluster, long reddish-brown shaft, gold bands, and pale end cap.
+      Render one complete upright Laga Couta on genuine transparent alpha without redesign or generic substitution.
+    transparency_correction: isolate the unchanged complete Laga Couta axe on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 68x278; center on transparent 72x282 canvas
+  182:
+    item_id: 10182
+    name: Bloodaxe
+    asset: generated_item_art/mm9_item_10182.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AxeBloodaxe.pcx
+    target_dimensions: [72, 260]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the small bright single
+      axe head, copper top cap, long narrow pale upper shaft, dark leather lower handle, and restrained metal bands.
+      Render one complete upright Bloodaxe on genuine transparent alpha without redesign or added ornament.
+    transparency_correction: isolate the unchanged complete Bloodaxe on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 68x256; center on transparent 72x260 canvas
+  183:
+    item_id: 10183
+    name: Sygnir
+    asset: generated_item_art/mm9_item_10183.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AxeSygnir.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the symmetrical double
+      silver crescent head, tall central spike, short brown grip with gold bands, and small pale pointed pommel.
+      Render one complete upright Sygnir on genuine transparent alpha without redesign or generic substitution.
+    transparency_correction: isolate the unchanged complete Sygnir double axe on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 52x140; center on transparent 56x144 canvas
+  186:
+    item_id: 10186
+    name: Tillhygge
+    asset: generated_item_art/mm9_item_10186.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AxeTillhygge.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the broad pale single
+      blade, exceptionally long narrow down-curved rear pick, compact steel socket, and short curved red-orange grip.
+      Render one complete upright Tillhygge on genuine transparent alpha without redesign or generic substitution.
+    transparency_correction: isolate the unchanged complete Tillhygge throwing axe on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 52x140; center on transparent 56x144 canvas
+  66:
+    item_id: 10066
+    name: Bone Club
+    asset: generated_item_art/mm9_item_10066.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ClubBone.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the pale animal-bone
+      shaft, angled knobby joint head, short dark lower wrap, and broad flared bone pommel. Render one complete upright
+      primitive Bone Club on genuine transparent alpha without redesign or generic substitution.
+    transparency_correction: preserve the complete Bone Club on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  67:
+    item_id: 10067
+    name: Crude Mace
+    asset: generated_item_art/mm9_item_10067.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/MaceCrude.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the very thin plain dark
+      shaft and elongated narrow hollow ribbed metal head with longitudinal bars, upper loop, and small base collar.
+      Render one complete upright Crude Mace on genuine transparent alpha without making it a round spiked mace.
+    transparency_correction: remove only the checkerboard and isolate the unchanged complete Crude Mace on RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  68:
+    item_id: 10068
+    name: Spiked Club
+    asset: generated_item_art/mm9_item_10068.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ClubSpiked.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the long slim brown club,
+      cylindrical upper striking section with many small pale spikes, silver cap, tightly wrapped lower grip, metal
+      bands, and small silver butt cap. Render one complete upright Spiked Club on genuine transparent alpha.
+    transparency_correction: preserve the unchanged complete Spiked Club on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  69:
+    item_id: 10069
+    name: Dragon Club
+    asset: generated_item_art/mm9_item_10069.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ClubDragon.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the pale organic dragon
+      bone, thick curved blunt upper end, natural pits and mottling, crooked tapered lower shaft, and narrow gold-dark
+      collar. Render one complete upright Dragon Club on genuine transparent alpha without generic substitution.
+    transparency_correction: preserve the unchanged complete Dragon Club and remove residual glow on RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  70:
+    item_id: 10070
+    name: Thjoradric Mace
+    asset: generated_item_art/mm9_item_10070.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/MaceThjoradric.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the long reddish-brown
+      shaft with pale bands and the complex bright-silver head: tall central point, symmetrical swept wing-blades,
+      small lower points, and copper-gold top accent. Render one complete upright mace on transparent RGBA.
+    transparency_correction: preserve the unchanged complete Thjoradric Mace on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  71:
+    item_id: 10071
+    name: Flail
+    asset: generated_item_art/mm9_item_10071.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Flail.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the long plain brown
+      handle with pale metal bands, compact top hinge and short link, and single narrow brown cylindrical hanging
+      beater with a pale end cap. Render one complete upright historical flail on transparent RGBA.
+    transparency_correction: preserve the unchanged complete Flail on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  72:
+    item_id: 10072
+    name: Horseman's Flail
+    asset: generated_item_art/mm9_item_10072.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FlailHorseman.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the slim dark handle with
+      orange-gold fittings, compact top attachment, exactly two long separate pale chains, and two distinct small
+      angular spiked silver weights. Render the complete two-tail silhouette on genuine transparent RGBA.
+    transparency_correction: preserve the unchanged complete Horseman's Flail on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  73:
+    item_id: 10073
+    name: Morning Star
+    asset: generated_item_art/mm9_item_10073.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Morningstar.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the long reddish-brown
+      shaft with pale bands and end cap, one curved pale chain, and exactly one compact angular star-shaped spiked
+      weight hanging close along the upper-right side. Render the complete weapon on genuine transparent RGBA.
+    transparency_correction: preserve the unchanged complete Morning Star on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  74:
+    item_id: 10074
+    name: War Star
+    asset: generated_item_art/mm9_item_10074.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FlailWarStar.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the short dark-brown
+      handle with repeated pale metal rings and wrapped lower grip, long curved chain, and compact asymmetrical jagged
+      silver bladed weight rather than a generic sphere. Render the complete War Star on transparent RGBA.
+    transparency_correction: remove the white field and preserve the unchanged complete War Star on transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  75:
+    item_id: 10075
+    name: Imperial Star
+    asset: generated_item_art/mm9_item_10075.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FlailImperial.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the short reddish handle,
+      silver cap, curved chain, and ornate bright weight built around a round central orb with opposing crescent-wing
+      blades and smaller points. Render one complete Imperial Star on genuine transparent RGBA.
+    transparency_correction: preserve the unchanged complete Imperial Star on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  76:
+    item_id: 10076
+    name: Wooden Staff
+    asset: generated_item_art/mm9_item_10076.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/StaffWooden.pcx
+    target_dimensions: [48, 282]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the extremely simple
+      full-length straight brown staff, subtly different upper and lower wood tones, narrow pale center collar, and
+      small faceted gold diamond caps at both ends. Render one complete staff on genuine transparent RGBA.
+    transparency_correction: preserve the unchanged complete Wooden Staff on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 44x278; center on transparent 48x282 canvas
+  77:
+    item_id: 10077
+    name: Tournament Staff
+    asset: generated_item_art/mm9_item_10077.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/StaffTournament.pcx
+    target_dimensions: [48, 282]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the full-length very slim
+      dark shaft, repeated diagonal orange-gold wrap, small gold diamond fittings, pale stud accents, silver-white top
+      cap, and tiny lower fitting. Render one complete Tournament Staff on genuine transparent RGBA.
+    transparency_correction: preserve the unchanged complete Tournament Staff on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 44x278; center on transparent 48x282 canvas
+  78:
+    item_id: 10078
+    name: Steel Staff
+    asset: generated_item_art/mm9_item_10078.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/StaffSteel.pcx
+    target_dimensions: [48, 282]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the extremely slim straight
+      pale-silver shaft, narrow brown-and-gold grip sections near both ends, small gold upper collar, and dark-silver
+      tip caps. Render one complete austere Steel Staff on genuine transparent RGBA.
+    transparency_correction: preserve the unchanged complete Steel Staff on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 44x278; center on transparent 48x282 canvas
+  79:
+    item_id: 10079
+    name: Monastic Staff
+    asset: generated_item_art/mm9_item_10079.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/StaffMonastic.pcx
+    target_dimensions: [48, 282]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the slender red-orange and
+      gold-banded shaft and compact red-metal open pronged crown cradling one bright cyan-blue faceted orb. Render one
+      complete Monastic Staff on transparent RGBA without an aura or generic redesign.
+    transparency_correction: preserve the unchanged complete Monastic Staff on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 44x278; center on transparent 48x282 canvas
+  80:
+    item_id: 10080
+    name: Truth Staff
+    asset: generated_item_art/mm9_item_10080.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/StaffTruth.pcx
+    target_dimensions: [48, 282]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the slim pale ivory-silver
+      shaft, sparse bronze-gold fittings, small lower cap, and open circular golden sun-wheel head with dark openings
+      and bright center. Render one complete Truth Staff on genuine transparent RGBA.
+    transparency_correction: preserve the unchanged complete Truth Staff on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 44x278; center on transparent 48x282 canvas
+  81:
+    item_id: 10081
+    name: Hammer
+    asset: generated_item_art/mm9_item_10081.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Hammer.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the long plain brown handle,
+      narrow pale neck, and small practical iron head with a long tapered beak, short blunt opposing face, and raised
+      central ridge. Render one complete upright Hammer on genuine transparent RGBA.
+    transparency_correction: preserve the unchanged complete Hammer on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  82:
+    item_id: 10082
+    name: Dwarven Hammer
+    asset: generated_item_art/mm9_item_10082.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HammerDwarven.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the ornate broad
+      symmetrical pale-silver head with stepped rectangular faces, gold details, round red center jewel, gold neck,
+      and short brown handle with diagonal gold wrap. Render the complete hammer on transparent RGBA.
+    transparency_correction: remove the checkerboard and residual glow while preserving the complete Dwarven Hammer
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  83:
+    item_id: 10083
+    name: Pondata
+    asset: generated_item_art/mm9_item_10083.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HammerPondata.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the long plain brown
+      handle with gold pommel, broad textured gold lattice collar, and compact silver double head with a blunt flared
+      face, angular tapered opposing face, top ridge, and tiny colored accents. Render on transparent RGBA.
+    transparency_correction: preserve the unchanged complete Pondata on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  84:
+    item_id: 10084
+    name: Dragon Hammer
+    asset: generated_item_art/mm9_item_10084.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HammerDragon.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the long banded dark shaft
+      and airy dragonfly-like cross head: square gold core, two swept pale wing-blades, thin upper spike, and paired
+      lower fins. Do not substitute a normal hammer. Render the complete weapon on transparent RGBA.
+    transparency_correction: remove only the checkerboard and preserve the complete Dragon Hammer on transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  85:
+    item_id: 10085
+    name: Trellborg Hammer
+    asset: generated_item_art/mm9_item_10085.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HammerTrellborg.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the exceptionally massive
+      bright-silver double rectangular block head with deep beveled geometric panels, thick socket, and very long thin
+      plain reddish-brown handle. Render one complete hammer on genuine transparent RGBA.
+    transparency_correction: remove only the checkerboard and preserve the complete Trellborg Hammer on transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  193:
+    item_id: 10193
+    name: Vanir's Hammer
+    asset: generated_item_art/mm9_item_10193.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HammerVanirs.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the long slim crimson-and-
+      pale spiral-banded shaft and small asymmetric gold head with a tall center spike, short down-curved pick, and
+      compact rectangular blunt block. Render one complete Vanir's Hammer on transparent RGBA.
+    transparency_correction: remove the checkerboard and residual glow while preserving the complete weapon
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  194:
+    item_id: 10194
+    name: Blutterbunger
+    asset: generated_item_art/mm9_item_10194.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FlailBlutterbunger.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the short copper-brown
+      handle with dark lower wrap, curved pale chain, and distinctive bronze multi-lobed cluster weight made of several
+      connected knobby spiked bulbs. Render the complete Blutterbunger on genuine transparent RGBA.
+    transparency_correction: preserve the unchanged complete Blutterbunger on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  195:
+    item_id: 10195
+    name: Manarus
+    asset: generated_item_art/mm9_item_10195.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FlailManarus.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the very long plain dark-
+      brown handle, small pale fittings, long chain of large links, and exactly one compact dull-silver rounded weight
+      with only a few subtle blunt spikes. Render the complete Manarus on transparent RGBA.
+    transparency_correction: preserve the unchanged complete Manarus on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  196:
+    item_id: 10196
+    name: Samarjit
+    asset: generated_item_art/mm9_item_10196.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/StaffSamarjit.pcx
+    target_dimensions: [48, 282]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the full-length slim
+      segmented gold-and-dark staff, purple central grip, small asymmetric crosspiece, and tall faceted gold flame-leaf
+      finial. Render one complete Samarjit on transparent RGBA without generic redesign.
+    transparency_correction: remove only the checkerboard and preserve the unchanged complete Samarjit
+    postprocess: threshold residual background alpha; trim; fit within 44x278; center on transparent 48x282 canvas
+  197:
+    item_id: 10197
+    name: Thjorad
+    asset: generated_item_art/mm9_item_10197.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HammerThjorad.pcx
+    target_dimensions: [64, 220]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the oversized broad pale-
+      silver double rectangular head with layered ridges and copper bands, thick socket, and very long narrow brown
+      two-handed shaft with pale lower grip. Render one complete full-length Thjorad on transparent RGBA.
+    transparency_correction: preserve the complete Thjorad and remove residual glow on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 60x216; center on transparent 64x220 canvas
+  198:
+    item_id: 10198
+    name: Spencer's Obedience
+    asset: generated_item_art/mm9_item_10198.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ClubSpencer.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the short thick tapered
+      reddish leather-wrapped body with gold bands, compact gold-copper crown, dark top nub, and several short black
+      spikes radiating around the crown. Render the complete peculiar club on transparent RGBA.
+    transparency_correction: remove the checkerboard and residual glow while preserving Spencer's Obedience
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  199:
+    item_id: 10199
+    name: Mjulnir
+    asset: generated_item_art/mm9_item_10199.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HammerMjulnir.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the enormous charcoal-black
+      double rectangular lattice head with intricate gridded faces and thick gold center band, narrow silver neck,
+      short brown grip, and pointed gold pommel. Render the complete Mjulnir on transparent RGBA.
+    transparency_correction: preserve the unchanged complete Mjulnir on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  229:
+    item_id: 10229
+    name: Death Hammer
+    asset: generated_item_art/mm9_item_10229.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/DeathHammer.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the extremely thin black
+      handle and compact asymmetrical gothic head with long up-curved horn, layered dark scrollwork around a bright
+      pale round orb/face, and short angular opposite projection. Render on transparent RGBA.
+    transparency_correction: remove the checkerboard and residual glow while preserving the complete Death Hammer
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  36:
+    item_id: 10036
+    name: Hatchet
+    asset: generated_item_art/mm9_item_10036.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/hatchet.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the short plain brown
+      handle protruding through the top eye, pale steel socket, and disproportionately broad single flared blade with
+      smooth convex edge. Render one complete practical Hatchet on genuine transparent RGBA without ornament.
+    transparency_correction: preserve the unchanged complete Hatchet on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  234:
+    item_id: 10234
+    name: Fre's Smooth Mace
+    asset: generated_item_art/mm9_item_10234.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FresMace.pcx
+    target_dimensions: [56, 144]
+    prompt: |-
+      Faithfully repaint the binding original MM9 PCX in MM6-MM8 inventory style. Preserve the segmented brown shaft
+      with vivid green sections and silver collars, small gold end cap, and compact faceted onion-diamond gold head
+      with broad side lobes, green band, and pointed top. Render on transparent RGBA.
+    transparency_correction: preserve the unchanged complete Fre's Smooth Mace on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 52x140; center on transparent 56x144 canvas
+  56:
+    item_id: 10056
+    name: Crude Spear
+    asset: generated_item_art/mm9_item_10056.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/SpearCrude.pcx
+    target_dimensions: [40, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Crude Spear in MM6-MM8 inventory style. Preserve the broad asymmetric
+      pale leaf/flame point, copper collar, long simple reddish-brown shaft, crossed upper bindings, and two loose
+      narrow leather tails. Render one full-length spear on transparent RGBA without added ornament.
+    transparency_correction: remove the checkerboard and residual glow while preserving the complete Crude Spear
+    postprocess: threshold residual background alpha; trim; fit within 36x278; center on transparent 40x282 canvas
+  57:
+    item_id: 10057
+    name: Sergeant's Spear
+    asset: generated_item_art/mm9_item_10057.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/SpearSargeants.pcx
+    target_dimensions: [40, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Sergeant's Spear in MM6-MM8 inventory style. Preserve the very long
+      narrow symmetric silver lance blade with center ridge, straight short silver crossbar, thin silver neck, and
+      plain warm-brown lower shaft. Render one full-length spear on genuine transparent RGBA.
+    transparency_correction: remove the checkerboard and residual glow while preserving the complete Sergeant's Spear
+    postprocess: threshold residual background alpha; trim; fit within 36x278; center on transparent 40x282 canvas
+  58:
+    item_id: 10058
+    name: Abli Duta
+    asset: generated_item_art/mm9_item_10058.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/SpearAbliDuta.pcx
+    target_dimensions: [40, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Abli Duta in MM6-MM8 inventory style. Preserve the warm-brown shaft with
+      gold bands, stacked pale-silver and rose-pink upper fittings, gold-red collar, and long faceted pink-white lance
+      blade with stepped side projections. Render one full-length polearm on transparent RGBA.
+    transparency_correction: remove only the checkerboard and preserve the complete Abli Duta on transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 36x278; center on transparent 40x282 canvas
+  59:
+    item_id: 10059
+    name: Pike
+    asset: generated_item_art/mm9_item_10059.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/SpearPike.pcx
+    target_dimensions: [40, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Pike in MM6-MM8 inventory style. Preserve the long plain reddish-brown
+      shaft with sparse pale bands, gold socket, small red-orange flared collar, and slender symmetric pale-silver leaf
+      point with central ridge. Render one practical full-length pike on transparent RGBA.
+    transparency_correction: preserve the unchanged complete Pike on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 36x278; center on transparent 40x282 canvas
+  60:
+    item_id: 10060
+    name: Imperial Spear
+    asset: generated_item_art/mm9_item_10060.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/SpearImperial.pcx
+    target_dimensions: [40, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Imperial Spear in MM6-MM8 inventory style. Preserve the slim orange-pale
+      lance point with paired swept barbs, bright green center gem, curved gold quillons, and very long ivory-orange-gold
+      spiral-wrapped lower shaft. Render one full-length spear on genuine transparent RGBA.
+    transparency_correction: remove only the checkerboard and preserve the complete extended Imperial Spear
+    postprocess: threshold residual background alpha; trim; fit within 36x278; center on transparent 40x282 canvas
+  61:
+    item_id: 10061
+    name: Halberd
+    asset: generated_item_art/mm9_item_10061.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Halberd.pcx
+    target_dimensions: [72, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Halberd in MM6-MM8 inventory style. Preserve the gray-steel three-part
+      head with long up-curved blade, rounded left crescent, larger swept batwing-like right/lower blade, small socket,
+      and very long plain brown shaft. Render the full polearm on transparent RGBA.
+    transparency_correction: remove the checkerboard and residual glow while preserving the complete Halberd
+    postprocess: threshold residual background alpha; trim; fit within 68x278; center on transparent 72x282 canvas
+  62:
+    item_id: 10062
+    name: Ronenguard Bill
+    asset: generated_item_art/mm9_item_10062.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HalberdRonenbill.pcx
+    target_dimensions: [72, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Ronenguard Bill in MM6-MM8 inventory style. Preserve the compact pale
+      hooked teardrop head, one long up-curved point, dark inset, plain orange-brown shaft, and only its simple dark
+      and gold bands. Render one full-length bill on transparent RGBA without invented studs or decoration.
+    transparency_correction: preserve the unchanged complete Ronenguard Bill on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 68x278; center on transparent 72x282 canvas
+  63:
+    item_id: 10063
+    name: Yagar Axe
+    asset: generated_item_art/mm9_item_10063.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HalberdYagar.pcx
+    target_dimensions: [72, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Yagar Axe in MM6-MM8 inventory style. Preserve the tall center spear
+      point, rounded left crescent, smaller angular swept right blade, long dark shaft, sparse pale bands, and metal
+      end cap. Render one complete upright poleaxe on genuine transparent RGBA without redesign.
+    transparency_correction: preserve the unchanged complete Yagar Axe on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 68x278; center on transparent 72x282 canvas
+  64:
+    item_id: 10064
+    name: Regimental Halberd
+    asset: generated_item_art/mm9_item_10064.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HalberdReg.pcx
+    target_dimensions: [72, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Regimental Halberd in MM6-MM8 inventory style. Preserve the opposing
+      pale swept crescent blades, narrow brown-gray center spear, pale-blue socket and very long pale-blue shaft with
+      restrained bands. Render one full-length halberd on genuine transparent RGBA.
+    transparency_correction: preserve the unchanged complete extended Regimental Halberd on transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 68x278; center on transparent 72x282 canvas
+  189:
+    item_id: 10189
+    name: Gungnir
+    asset: generated_item_art/mm9_item_10189.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/SpearGungnir.pcx
+    target_dimensions: [40, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Gungnir in MM6-MM8 inventory style. Preserve the gold central leaf
+      point with two backward barbs, vivid red shaft, sparse gold bands, and ornate gold butt. Render one complete
+      full-length spear on genuine transparent RGBA without redesign or generic substitution.
+    transparency_correction: preserve the unchanged complete Gungnir on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; fit within 36x278; center on transparent 40x282 canvas
+  190:
+    item_id: 10190
+    name: Formanir
+    asset: generated_item_art/mm9_item_10190.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/SpearFormanir.pcx
+    target_dimensions: [40, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Formanir in MM6-MM8 inventory style. Preserve the large golden-orange
+      leaf/flame point with cream center ridge, tiny blue-violet socket, orange-and-ivory wrapped upper shaft, sparse
+      gold collars, and long golden-brown lower shaft. Render one full-length spear without redesign.
+    transparency_correction: derive genuine alpha from saturation and dark contour after repeated checkerboard output
+    postprocess: crop only empty margins; downsample to 278 pixels tall; isolate chromatic/dark object pixels; center on 40x282
+  191:
+    item_id: 10191
+    name: Einherjar
+    asset: generated_item_art/mm9_item_10191.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/SpearEinherjar.pcx
+    target_dimensions: [72, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Einherjar in MM6-MM8 inventory style. Preserve its very long narrow
+      spear point and four visibly asymmetric scythe-like blades crossing around the orange-copper socket, dark
+      olive-brown shaft, blue-violet collar, sparse gold fittings, and metal butt. Do not simplify it to a trident.
+    transparency_correction: threshold residual background glow while preserving the corrected complete polearm
+    postprocess: threshold residual background alpha; trim; fit within 68x278; center on transparent 72x282 canvas
+  192:
+    item_id: 10192
+    name: Stouka Couta
+    asset: generated_item_art/mm9_item_10192.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HalberdStouka.pcx
+    target_dimensions: [72, 282]
+    prompt: |-
+      Faithfully extrapolate the complete MM9 Stouka Couta in MM6-MM8 inventory style. Preserve the broad tall gray
+      single blade left of a long narrow silver spear spike, small downward rear hook, pale-blue socket bands, dark
+      charcoal-blue shaft, and short copper-brown butt grip. Do not substitute a generic halberd.
+    transparency_correction: threshold residual background alpha while preserving the complete Stouka Couta
+    postprocess: threshold residual background alpha; trim; fit within 68x278; center on transparent 72x282 canvas
+  86:
+    item_id: 10086
+    name: Arming Doublet
+    asset: generated_item_art/mm9_item_10086.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ArmingDoublet.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the dark weathered leather, high collar, asymmetric crossed chest wrap, narrow waist, and split skirt
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  87:
+    item_id: 10087
+    name: Padded Leather
+    asset: generated_item_art/mm9_item_10087.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/PaddedLeather.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the plain orange-brown tunic, laced V neck, thin studded belt, long sleeves, and split flared skirt
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  88:
+    item_id: 10088
+    name: Hardened Leather
+    asset: generated_item_art/mm9_item_10088.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HardenedLeather.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the olive-brown sleeveless cuirass, dark arm opening, pale neck, diagonal chest panel, and gold rivets
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  89:
+    item_id: 10089
+    name: Beldonian Hard Leather
+    asset: generated_item_art/mm9_item_10089.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BeldHardLeather.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the blue cuirass, asymmetric pale-blue shoulder caps, dark neck, curved chest panel, and silver rivets
+    transparency_correction: threshold residual background alpha
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  90:
+    item_id: 10090
+    name: Scaled Leather
+    asset: generated_item_art/mm9_item_10090.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ScaledLeather.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the orange-brown sleeveless cuirass, large overlapping rectangular scales, pale openings, and fitted hem
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  91:
+    item_id: 10091
+    name: Imperial Scale
+    asset: generated_item_art/mm9_item_10091.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ImperialScale.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the orange-brown scales, pale shoulder caps and neck trim, horizontal chest straps, and fitted lower edge
+    transparency_correction: threshold residual background alpha
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  92:
+    item_id: 10092
+    name: Brigandine
+    asset: generated_item_art/mm9_item_10092.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Brigandine.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the charcoal short-sleeved coat, dense pale studs, round neck, dark belt, and short segmented skirt
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  93:
+    item_id: 10093
+    name: Combat Brigandine
+    asset: generated_item_art/mm9_item_10093.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/CombatBrigandine.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the brown long-sleeved coat, studded rectangular panels, round collar, dark belt, and split lower skirt
+    transparency_correction: threshold residual background alpha
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  94:
+    item_id: 10094
+    name: Brigan der Combit
+    asset: generated_item_art/mm9_item_10094.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Brigandercombit.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the brown long-sleeved coat, dense studded square panels, round collar, narrow belt, and split skirt
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  95:
+    item_id: 10095
+    name: Aklean Bouila
+    asset: generated_item_art/mm9_item_10095.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AkleanBouila.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the green cuirass, mint shoulder plates, gold collar, pale riveted chest panel, and split skirt tabs
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  200:
+    item_id: 10200
+    name: Igdrasine
+    asset: generated_item_art/mm9_item_10200.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Igdrasine.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the half-blue half-green cuirass, yellow-green trim, gold studs, and branching gold world-tree emblem
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  230:
+    item_id: 10230
+    name: Death Cuirass
+    asset: generated_item_art/mm9_item_10230.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/DeathCuirass.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the glossy black sleeveless cuirass, gold edges, paired gold chest scrolls, dark embossing, and gold hem
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  367:
+    item_id: 10367
+    name: Quilted Armor
+    asset: generated_item_art/mm9_item_10367.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/quiltedarmor.pcx
+    target_dimensions: [104, 112]
+    prompt: preserve the tan-gold cylindrical quilted torso, diamond stitching, two pale shoulder straps, and loose side tie
+    transparency_correction: isolate chromatic and dark-contour pixels from checkerboard output
+    postprocess: keep garment upright; fit within 100x108; center on transparent 104x112 canvas
+  96:
+    item_id: 10096
+    name: Butted Chain
+    asset: generated_item_art/mm9_item_10096.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ButtedChain.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the bronze sleeveless chain shirt, coarse square rings, narrow waist, and split mail skirt
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  97:
+    item_id: 10097
+    name: Rivited Chain
+    asset: generated_item_art/mm9_item_10097.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/RivitedChain.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the gray sleeveless chain shirt, dark openings, dense ring rows, narrow waist, and split skirt
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  98:
+    item_id: 10098
+    name: Iron Chain
+    asset: generated_item_art/mm9_item_10098.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/IronChain.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the dark short-sleeved chain hauberk, diagonal chest flap, fitted waist, and split mail skirt
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  99:
+    item_id: 10099
+    name: Steel Chain
+    asset: generated_item_art/mm9_item_10099.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/SteelChain.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the bright short-sleeved chain hauberk, round neck, curved chest drape, and split lower skirt
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  100:
+    item_id: 10100
+    name: Chain Haubergeon
+    asset: generated_item_art/mm9_item_10100.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Chainhaubergeon.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the gray short-sleeved shirt, dark neck, pale triangular chest reinforcement, and straight hem
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  101:
+    item_id: 10101
+    name: Chain Hauberk
+    asset: generated_item_art/mm9_item_10101.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ChainHauberk.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the pale silver long-sleeved hauberk, dark neck, uniform rings, and long split skirt
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  102:
+    item_id: 10102
+    name: Chedian Chain
+    asset: generated_item_art/mm9_item_10102.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ChehDianChain.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the silver hauberk, blue-gold diagonal chest panel, matching cuffs and hem, and split skirt
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  103:
+    item_id: 10103
+    name: Chain Harness
+    asset: generated_item_art/mm9_item_10103.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ChainHarness.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the silver mail shirt, sideways-extended sleeves, long narrow torso, and short split tails
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  104:
+    item_id: 10104
+    name: Lachmon Hauberk
+    asset: generated_item_art/mm9_item_10104.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/LachmonHauberk.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the muted green long-sleeved hauberk, dark neck, dense green rings, and long split skirt
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  105:
+    item_id: 10105
+    name: Trigvanian Mail
+    asset: generated_item_art/mm9_item_10105.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/TrigvanianMail.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the pale green-silver mail, long sleeves, two large green spiral roundels, and split hem
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  201:
+    item_id: 10201
+    name: Poltergeist
+    asset: generated_item_art/mm9_item_10201.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Poltergeist.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the green-silver sleeveless cuirass, dark openings, two dark chest bands, and rounded hem
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  225:
+    item_id: 10225
+    name: Broderick's Hauberk
+    asset: generated_item_art/mm9_item_10225.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BrodericksHauberk.pcx
+    target_dimensions: [104, 150]
+    prompt: preserve the bright silver mail, vivid blue trim, pale-blue belt with gold buckle, and blue-edged split skirt
+    postprocess: keep armor upright; fit within 100x146; center on transparent 104x150 canvas
+  108:
+    item_id: 10108
+    name: Ronenguard Plate
+    asset: generated_item_art/mm9_item_10108.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/RonenGuardPlate.pcx
+    target_dimensions: [120, 150]
+    prompt: preserve the dark-gray sleeveless breastplate, pale neck, riveted side plates, central highlight, and pointed hem
+    postprocess: keep armor upright; fit within 116x146; center on transparent 120x150 canvas
+  109:
+    item_id: 10109
+    name: Field Plate
+    asset: generated_item_art/mm9_item_10109.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FieldPlate.pcx
+    target_dimensions: [120, 150]
+    prompt: preserve the plain charcoal sleeveless breastplate, pale openings, smooth chest, narrow waist, and pointed front
+    postprocess: keep armor upright; fit within 116x146; center on transparent 120x150 canvas
+  110:
+    item_id: 10110
+    name: Full Plate
+    asset: generated_item_art/mm9_item_10110.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FullPlate.pcx
+    target_dimensions: [120, 150]
+    prompt: preserve the blue-gray full harness, rounded pauldrons, segmented arms, smooth breastplate, and steel tassets
+    postprocess: keep armor upright; fit within 116x146; center on transparent 120x150 canvas
+  111:
+    item_id: 10111
+    name: Paladin's Plate
+    asset: generated_item_art/mm9_item_10111.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/CrusadersPlate.pcx
+    target_dimensions: [120, 150]
+    prompt: preserve the bright silver plate, thin gold borders, circular gold chest ornament, segmented arms, and split skirt
+    postprocess: keep armor upright; fit within 116x146; center on transparent 120x150 canvas
+  112:
+    item_id: 10112
+    name: Heavy Plate
+    asset: generated_item_art/mm9_item_10112.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/HeavyPlate.pcx
+    target_dimensions: [120, 150]
+    prompt: preserve the dark blue-gray full plate, broad rounded shoulders, segmented arms, smooth chest, and long tassets
+    postprocess: keep armor upright; fit within 116x146; center on transparent 120x150 canvas
+  113:
+    item_id: 10113
+    name: Thjoradric Plate
+    asset: generated_item_art/mm9_item_10113.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ThjoradricPlate.pcx
+    target_dimensions: [120, 150]
+    prompt: preserve the warm copper full plate, rounded shoulders, segmented arms, smooth chest, and fluted split fauld
+    postprocess: keep armor upright; fit within 116x146; center on transparent 120x150 canvas
+  114:
+    item_id: 10114
+    name: Imperial Harness
+    asset: generated_item_art/mm9_item_10114.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Imperialharness.pcx
+    target_dimensions: [120, 150]
+    prompt: preserve the charcoal plate, dense gold grid, silver right forearm, flared gold-edged skirt, and pale sabatons
+    postprocess: keep armor upright; fit within 116x146; center on transparent 120x150 canvas
+  115:
+    item_id: 10115
+    name: Dark Plate
+    asset: generated_item_art/mm9_item_10115.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/DarkPlate.pcx
+    target_dimensions: [120, 150]
+    prompt: preserve the black-gold armor, beast-like shoulders and chest, violet gaps, segmented arms, and dark split tassets
+    postprocess: keep armor upright; fit within 116x146; center on transparent 120x150 canvas
+  202:
+    item_id: 10202
+    name: Swordsbane
+    asset: generated_item_art/mm9_item_10202.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Swordsbane.pcx
+    target_dimensions: [120, 150]
+    prompt: preserve the bronze full plate, rounded shoulders, red accents, pale red-edged front tasset, and copper fauld
+    postprocess: keep armor upright; fit within 116x146; center on transparent 120x150 canvas
+  220:
+    item_id: 10220
+    name: Prize Plate
+    asset: generated_item_art/mm9_item_10220.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/PrizePlate.pcx
+    target_dimensions: [120, 150]
+    prompt: preserve the silver breastplate, olive-gold shoulders, red feather tufts, angular chest panels, and gold hem
+    postprocess: keep armor upright; fit within 116x146; center on transparent 120x150 canvas
+  142:
+    item_id: 10142
+    name: Footman's Buckler
+    asset: generated_item_art/mm9_item_10142.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ShieldFootmans.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the upright oval wooden buckler, dark iron rim, and heavy iron grid of two rails and three ribs
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  143:
+    item_id: 10143
+    name: Small Shield
+    asset: generated_item_art/mm9_item_10143.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ShieldSmall.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the upright oval shield, diagonal reddish wooden planks, simple iron rim, and four sparse rivets
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  144:
+    item_id: 10144
+    name: Kite Shield
+    asset: generated_item_art/mm9_item_10144.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ShieldKite.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the unusually narrow upright pointed wood kite shield, dark rim, central plank, and gold side studs
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  145:
+    item_id: 10145
+    name: Heater
+    asset: generated_item_art/mm9_item_10145.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ShieldHeater.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the upright broad pointed heater silhouette, vertical golden-brown boards, and plain iron rim
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  146:
+    item_id: 10146
+    name: Pavise
+    asset: generated_item_art/mm9_item_10146.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Shieldpavise.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the tall upright rectangular pavise, quartered red-white field, dark rim, and blue armored fist emblem
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  147:
+    item_id: 10147
+    name: Ronenguard Shield
+    asset: generated_item_art/mm9_item_10147.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ShieldRonenguard.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the narrow upright silver shield and its symmetrical raised mask-and-sword relief
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  148:
+    item_id: 10148
+    name: Prote der Solle
+    asset: generated_item_art/mm9_item_10148.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ShieldProteDerSolle.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the upright dark-gold oval shield, pale rim, ornate border, and green-gold four-way swirling emblem
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  149:
+    item_id: 10149
+    name: Haklea Shovis
+    asset: generated_item_art/mm9_item_10149.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ShieldHakleaShovis.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the upright silver-rimmed heater shield and dense raised gold knotwork covering its dark face
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  207:
+    item_id: 10207
+    name: Arrowfoe
+    asset: generated_item_art/mm9_item_10207.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Arrowfoe.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the upright oval shield, alternating yellow-red curved quadrants, studded rim, and blue-gray boss
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  223:
+    item_id: 10223
+    name: Prize Shield
+    asset: generated_item_art/mm9_item_10223.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/PrizeShield.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the upright round pale-silver shield, thick red studded rim, and red-over-white central boss
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  363:
+    item_id: 10363
+    name: Wooden Shield
+    asset: generated_item_art/mm9_item_10363.png
+    generation_tool: built-in image_gen
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/shieldwooden.pcx
+    target_dimensions: [96, 128]
+    prompt: preserve the upright tan wooden heater shield, plain wood rim, and large blue heraldic lion
+    postprocess: keep shield upright; fit within 92x124; center on transparent 96x128 canvas
+  116: {name: Coif, asset: generated_item_art/mm9_item_10116.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Coif.pcx, target_dimensions: [64, 64], prompt: source-faithful upright helmet}
+  119: {name: Barbute Helm, asset: generated_item_art/mm9_item_10119.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Barbute.pcx, target_dimensions: [64, 64], prompt: source-faithful upright helmet}
+  120: {name: Loaf Helm, asset: generated_item_art/mm9_item_10120.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/LoafHelm.pcx, target_dimensions: [64, 64], prompt: source-faithful upright helmet}
+  121: {name: Bascinet, asset: generated_item_art/mm9_item_10121.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Bascinet.pcx, target_dimensions: [64, 64], prompt: source-faithful upright closed-crown helmet}
+  122: {name: Sallet, asset: generated_item_art/mm9_item_10122.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Sallet.pcx, target_dimensions: [64, 64], prompt: source-faithful upright helmet}
+  123: {name: Dragon Helm, asset: generated_item_art/mm9_item_10123.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/DragonHelm.pcx, target_dimensions: [64, 64], prompt: source-faithful upright helmet}
+  124: {name: Imperial Helm, asset: generated_item_art/mm9_item_10124.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ImperialHelm.pcx, target_dimensions: [64, 64], prompt: source-faithful upright helmet}
+  125: {name: Jarl's Helm, asset: generated_item_art/mm9_item_10125.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/JarlHelm.pcx, target_dimensions: [64, 64], prompt: source-faithful upright helmet}
+  203: {name: Witchbane, asset: generated_item_art/mm9_item_10203.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Witchbane.pcx, target_dimensions: [64, 64], prompt: source-faithful upright skull helmet}
+  221: {name: Prize Skullcap, asset: generated_item_art/mm9_item_10221.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/PrizeCap.pcx, target_dimensions: [64, 64], prompt: source-faithful upright helmet}
+  226: {name: Broderick's Helm, asset: generated_item_art/mm9_item_10226.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BrodericksHelm.pcx, target_dimensions: [64, 64], prompt: source-faithful upright helmet}
+  231: {name: Death Cap, asset: generated_item_art/mm9_item_10231.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/DeathHelm.pcx, target_dimensions: [64, 64], prompt: source-faithful upright skull helmet}
+  236: {name: Fre's Helm, asset: generated_item_art/mm9_item_10236.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FresHelm.pcx, target_dimensions: [64, 64], prompt: source-faithful upright helmet}
+  364: {name: Fur Cap, asset: generated_item_art/mm9_item_10364.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FurHat.pcx, target_dimensions: [64, 64], prompt: source-faithful upright cap}
+  126: {name: Leather Boots, asset: generated_item_art/mm9_item_10126.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BootsLeather.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  127: {name: Hardened Boots, asset: generated_item_art/mm9_item_10127.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Bootshardened.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  128: {name: Chain Boots, asset: generated_item_art/mm9_item_10128.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BootsChain.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  129: {name: Ronenguard Boots, asset: generated_item_art/mm9_item_10129.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BootsRonenguard.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  130: {name: Steel Boots, asset: generated_item_art/mm9_item_10130.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BootsSteel.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  131: {name: Sabaton, asset: generated_item_art/mm9_item_10131.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BootsSabaton.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  132: {name: Prote der Fatta, asset: generated_item_art/mm9_item_10132.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ProteDerFatta.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  205: {name: Walking Boots, asset: generated_item_art/mm9_item_10205.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BootsWalking.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  233: {name: Death Boots, asset: generated_item_art/mm9_item_10233.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BootsDeath.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  238: {name: Fre's Chain Boots, asset: generated_item_art/mm9_item_10238.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FresBoots.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  366: {name: Fuzzy Slippers, asset: generated_item_art/mm9_item_10366.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/fuzzyslippers.pcx, target_dimensions: [64, 72], prompt: source-faithful pair standing soles-down}
+  133: {name: Leather Gloves, asset: generated_item_art/mm9_item_10133.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GlovesLeather.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  134: {name: Leather Gauntlets, asset: generated_item_art/mm9_item_10134.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GlovesLeather2.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  135: {name: Mail Gauntlets, asset: generated_item_art/mm9_item_10135.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GlovesMail.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  136: {name: Steel Gauntlets, asset: generated_item_art/mm9_item_10136.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GlovesSteel.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  137: {name: Exceptional Mail Gauntlets, asset: generated_item_art/mm9_item_10137.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GlovesExceptional.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  138: {name: Superior Steel Gauntlets, asset: generated_item_art/mm9_item_10138.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GlovesSuperior.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  139: {name: Prote der Hanne, asset: generated_item_art/mm9_item_10139.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GlovesProte.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  140: {name: Processional Gauntlets, asset: generated_item_art/mm9_item_10140.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GlovesProcessional.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  141: {name: Magreeb Gauntlets, asset: generated_item_art/mm9_item_10141.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GlovesMagreeb.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  206: {name: Laet'ax, asset: generated_item_art/mm9_item_10206.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GlovesLaetax.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  227: {name: Broderick's Gloves, asset: generated_item_art/mm9_item_10227.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BrodericksGloves.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  237: {name: Fre's Gloves, asset: generated_item_art/mm9_item_10237.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FresGloves.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  365: {name: Cloth Gloves, asset: generated_item_art/mm9_item_10365.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ClothGloves.pcx, target_dimensions: [40, 72], prompt: source-faithful pair vertical cuffs-down}
+  150: {name: Peasant Belt, asset: generated_item_art/mm9_item_10150.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BeltPeasant.pcx, target_dimensions: [72, 32], prompt: source-faithful upright worn waist loop}
+  151: {name: Fancy Belt, asset: generated_item_art/mm9_item_10151.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BeltFancy.pcx, target_dimensions: [72, 32], prompt: source-faithful upright worn waist loop}
+  152: {name: Soldier's Belt, asset: generated_item_art/mm9_item_10152.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BeltSoldiers.pcx, target_dimensions: [72, 32], prompt: source-faithful upright worn waist loop}
+  153: {name: Regal Belt, asset: generated_item_art/mm9_item_10153.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BeltRegal.pcx, target_dimensions: [72, 32], prompt: source-faithful upright worn waist loop}
+  154: {name: Dragon Belt, asset: generated_item_art/mm9_item_10154.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BeltDragon.pcx, target_dimensions: [72, 32], prompt: source-faithful upright worn waist loop}
+  208: {name: Hubris, asset: generated_item_art/mm9_item_10208.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BeltHubris.pcx, target_dimensions: [72, 32], prompt: source-faithful upright worn waist loop}
+  155: {name: Iron Ring, asset: generated_item_art/mm9_item_10155.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/RingIron.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  156: {name: Gold Ring, asset: generated_item_art/mm9_item_10156.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/RingGold.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  157: {name: Puzzle Ring, asset: generated_item_art/mm9_item_10157.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/RingPuzzle.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  158: {name: Pearl Ring, asset: generated_item_art/mm9_item_10158.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/RingPearl.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  159: {name: Diamond Ring, asset: generated_item_art/mm9_item_10159.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Ringdiamond.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  209: {name: Weregild, asset: generated_item_art/mm9_item_10209.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/RingWeregild.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  210: {name: Soulband, asset: generated_item_art/mm9_item_10210.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Ringsoulband.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  211: {name: Sturkabygel, asset: generated_item_art/mm9_item_10211.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/RingStyrkabygel.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  212: {name: Lubricious, asset: generated_item_art/mm9_item_10212.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/RingLubricious.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  222: {name: Prize Ring, asset: generated_item_art/mm9_item_10222.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/PrizeRing.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  232: {name: Death Ring, asset: generated_item_art/mm9_item_10232.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/RingDeath.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  235: {name: Fre's Ring, asset: generated_item_art/mm9_item_10235.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FresRing.pcx, target_dimensions: [40, 40], prompt: source-faithful upright hoop plane}
+  160: {name: Bronze Amulet, asset: generated_item_art/mm9_item_10160.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletBronze.pcx, target_dimensions: [40, 64], prompt: source-faithful upright pendant}
+  161: {name: Platinum Amulet, asset: generated_item_art/mm9_item_10161.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletPlatinum.pcx, target_dimensions: [40, 64], prompt: source-faithful upright pendant}
+  162: {name: Gemmed Amulet, asset: generated_item_art/mm9_item_10162.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletGemmed.pcx, target_dimensions: [40, 64], prompt: source-faithful upright pendant}
+  163: {name: Warrior Amulet, asset: generated_item_art/mm9_item_10163.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletWarrior.pcx, target_dimensions: [40, 64], prompt: source-faithful upright pendant}
+  164: {name: Thjoradric Amulet, asset: generated_item_art/mm9_item_10164.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletThjoradric.pcx, target_dimensions: [40, 64], prompt: source-faithful upright pendant}
+  213: {name: The Green Man, asset: generated_item_art/mm9_item_10213.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletGreenMan.pcx, target_dimensions: [40, 64], prompt: source-faithful upright pendant}
+  214: {name: Mountbatten, asset: generated_item_art/mm9_item_10214.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletMountbatten.pcx, target_dimensions: [40, 64], prompt: source-faithful upright pendant}
+  215: {name: Pendant of the Spheres, asset: generated_item_art/mm9_item_10215.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletSpheres.pcx, target_dimensions: [40, 64], prompt: source-faithful upright pendant}
+  217: {name: Screever, asset: generated_item_art/mm9_item_10217.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletScreever.pcx, target_dimensions: [40, 64], prompt: source-faithful upright pendant}
+  218: {name: Fre's Heart, asset: generated_item_art/mm9_item_10218.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletFresHeart.pcx, target_dimensions: [40, 64], prompt: source-faithful upright heart jewel}
+  228: {name: Broderick's Amulet, asset: generated_item_art/mm9_item_10228.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BrodericksAmulet.pcx, target_dimensions: [40, 64], prompt: source-faithful upright pendant}
+  247: {name: Love Letter, asset: generated_item_art/mm9_item_10247.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/LoveLetter.pcx, target_dimensions: [72, 40], prompt: source-faithful folded letter}
+  251: {name: Scroll of Bad News, asset: generated_item_art/mm9_item_10251.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ScrollBadNews.pcx, target_dimensions: [72, 40], prompt: source-faithful rolled scroll}
+  397: {name: Gospel of Honk, asset: generated_item_art/mm9_item_10397.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GospelHonk.pcx, target_dimensions: [72, 40], prompt: source-faithful upright readable page}
+  216: {name: Fizbin of Misfortune, asset: generated_item_art/mm9_item_10216.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/AmuletFizbin.pcx, target_dimensions: [40, 64], prompt: source-faithful upright amulet}
+  240: {name: Lock of Hair, asset: generated_item_art/mm9_item_10240.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/haghair.pcx, target_dimensions: [40, 40], prompt: source-faithful vertical lock}
+  241: {name: Tree of Life, asset: generated_item_art/mm9_item_10241.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/TreeofLife.pcx, target_dimensions: [40, 64], prompt: source-faithful upright banner}
+  242: {name: Verhoffin's Book, asset: generated_item_art/mm9_item_10242.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GreatBookFake.pcx, target_dimensions: [72, 64], prompt: source-faithful closed book}
+  244: {name: Book Key, asset: generated_item_art/mm9_item_10244.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BookKey_Real.pcx, target_dimensions: [72, 64], prompt: source-faithful vertical key bow-up}
+  246: {name: Elixir of Defedation, asset: generated_item_art/mm9_item_10246.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ElixirDefedation.pcx, target_dimensions: [64, 64], prompt: source-faithful upright jar}
+  248: {name: Ludwig's Manuscript, asset: generated_item_art/mm9_item_10248.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/LudwigManuscript.pcx, target_dimensions: [72, 64], prompt: source-faithful manuscript sheet}
+  249: {name: Keg of Strange Brew, asset: generated_item_art/mm9_item_10249.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/KegStrangeBrew.pcx, target_dimensions: [64, 64], prompt: source-faithful keg on integral cradle}
+  250: {name: Black Orb of Knowledge, asset: generated_item_art/mm9_item_10250.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BlackOrb.pcx, target_dimensions: [40, 40], prompt: source-faithful orb}
+  252: {name: Orb of Linking, asset: generated_item_art/mm9_item_10252.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/OrbLinking.pcx, target_dimensions: [40, 40], prompt: source-faithful upright antenna orb}
+  359: {name: Lump of Elemental Thjorad, asset: generated_item_art/mm9_item_10359.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ore-lump.pcx, target_dimensions: [40, 40], prompt: source-faithful ore lump}
+  360: {name: Chunk of Elemental Thjorad, asset: generated_item_art/mm9_item_10360.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ore-chunk.pcx, target_dimensions: [40, 40], prompt: source-faithful ore chunk}
+  361: {name: Lode of Elemental Thjorad, asset: generated_item_art/mm9_item_10361.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/ore-lode.pcx, target_dimensions: [40, 40], prompt: source-faithful ore lode}
+  368: {name: Saint's Relic, asset: generated_item_art/mm9_item_10368.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Relic.pcx, target_dimensions: [64, 64], prompt: source-faithful vertical bone relic}
+  369: {name: The Golden Honk, asset: generated_item_art/mm9_item_10369.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GoldenHonk.pcx, target_dimensions: [64, 64], prompt: source-faithful upright bird statue}
+  370: {name: Dolly, asset: generated_item_art/mm9_item_10370.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/GirlDolly.pcx, target_dimensions: [64, 64], prompt: source-faithful standing doll}
+  371: {name: Farmer's Plow, asset: generated_item_art/mm9_item_10371.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/FarmerPlow.pcx, target_dimensions: [96, 64], prompt: source-faithful upright handles-above plow}
+  372: {name: Midwife's Bag of Herbs, asset: generated_item_art/mm9_item_10372.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Bag-Herbs2.pcx, target_dimensions: [64, 64], prompt: source-faithful upright tied bags}
+  373: {name: Basket of Food, asset: generated_item_art/mm9_item_10373.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Basket_Fruit.pcx, target_dimensions: [64, 64], prompt: source-faithful upright basket}
+  375: {name: Kira's Shield, asset: generated_item_art/mm9_item_10375.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/KiraShield.pcx, target_dimensions: [96, 128], prompt: source-faithful upright point-down shield}
+  378: {name: Elixir Ingredients, asset: generated_item_art/mm9_item_10378.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/elixir.pcx, target_dimensions: [64, 64], prompt: source-faithful upright tied bags}
+  379: {name: Broken Jar, asset: generated_item_art/mm9_item_10379.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Jar_Broken.pcx, target_dimensions: [40, 64], prompt: source-faithful upright broken jar}
+  380: {name: Basilisk Skin, asset: generated_item_art/mm9_item_10380.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BasSkin1.pcx, target_dimensions: [72, 96], prompt: source-faithful vertically hanging hide}
+  390: {name: Crona Kiga, asset: generated_item_art/mm9_item_10390.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/CronaKiga.pcx, target_dimensions: [64, 64], prompt: source-faithful upright crown}
+  391: {name: Book of Rules, asset: generated_item_art/mm9_item_10391.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BookRules.pcx, target_dimensions: [72, 64], prompt: source-faithful closed book}
+  395: {name: Dragon, asset: generated_item_art/mm9_item_10395.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Prize.pcx, target_dimensions: [40, 40], prompt: source-faithful standing dragon figurine}
+  396: {name: Capstone of Order, asset: generated_item_art/mm9_item_10396.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Capstone.pcx, target_dimensions: [40, 40], prompt: source-faithful upright stepped capstone}
+  398: {name: Broken Slag Extractor, asset: generated_item_art/mm9_item_10398.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/MachinePart_Broken.pcx, target_dimensions: [64, 64], prompt: source-faithful upright damaged machine part}
+  399: {name: Slag Extractor, asset: generated_item_art/mm9_item_10399.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/MachinePart_Whole.pcx, target_dimensions: [64, 64], prompt: source-faithful upright machine part}
+  590: {name: Clover, asset: generated_item_art/mm9_item_10590.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/Clover.pcx, target_dimensions: [40, 40], prompt: source-faithful upright stem-down clover}
+  591: {name: King Basilisk Skin, asset: generated_item_art/mm9_item_10591.png, source_reference: mm9/extracted/ART/ART/INVENTORYICONS/BasSkin2.pcx, target_dimensions: [72, 96], prompt: source-faithful vertically hanging hide}
+shared_icons:
+  scroll:
+    asset: generated_item_art/mm9_shared_scroll.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10400
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/scroll.pcx
+    target_dimensions: [72, 40]
+    prompt: |-
+      Faithfully repaint the binding original 64x64 MM9 scroll PCX in restrained MM6-MM8 inventory style. Preserve
+      its short horizontal aged-parchment roll, wrinkled tapered body, dark open spiral at the right, darker left roll
+      edge, and lack of ribbon or seal. Render exactly one complete scroll on genuine transparent alpha.
+    transparency_correction: isolate the unchanged complete rolled scroll on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 68x36; center on transparent 72x40 canvas
+  skillbook_basic:
+    asset: generated_item_art/mm9_shared_skillbook_basic.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10287
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/skillbook_basic.pcx
+    target_dimensions: [72, 64]
+    prompt: |-
+      Faithfully repaint the binding original 64x64 MM9 basic skill-book PCX in restrained MM6-MM8 inventory style.
+      Preserve the thin tan closed book, three-quarter pose, dark reinforced upper-left spine, brown page block, worn
+      corners, and exact small dark three-mark cover glyph. Render one complete book on genuine transparent alpha.
+    transparency_correction: isolate the unchanged complete basic skill book on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 68x60; center on transparent 72x64 canvas
+  skillbook_gm:
+    asset: generated_item_art/mm9_shared_skillbook_gm.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10286
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/skillbook_gm.pcx
+    target_dimensions: [72, 64]
+    prompt: |-
+      Faithfully repaint the binding original 64x64 MM9 grandmaster skill-book PCX in restrained MM6-MM8 inventory
+      style. Preserve the brighter tan closed book, three-quarter pose, dark reinforced spine, brown page block, worn
+      corners, and exact central cluster of dark cover marks. Render one complete book on genuine transparent alpha.
+    transparency_correction: isolate the unchanged complete grandmaster skill book on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 68x60; center on transparent 72x64 canvas
+  skillbook_expert:
+    asset: generated_item_art/mm9_shared_skillbook_expert.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10304
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/skillbook_expert.pcx
+    target_dimensions: [72, 64]
+    prompt: |-
+      Faithfully repaint the binding original 64x64 MM9 expert skill-book PCX in restrained MM6-MM8 inventory style.
+      Preserve the thin pale closed book, three-quarter pose, distinctive pale-blue left spine strip, brown page block,
+      worn corners, and cover panel with reddish-brown marks. Render one complete book on genuine transparent alpha.
+    transparency_correction: isolate the unchanged complete expert skill book on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 68x60; center on transparent 72x64 canvas
+  key1:
+    asset: generated_item_art/mm9_shared_key1.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10445
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/key1.pcx
+    target_dimensions: [40, 72]
+    prompt: |-
+      Faithfully repaint the binding original 64x64 MM9 key PCX in restrained MM6-MM8 inventory style. Preserve its
+      plain pale-iron construction, large open circular bow, very thin shaft, small lower collar, and irregular
+      two-tooth bit. Render one complete key on genuine transparent alpha without ornament or generic substitution.
+    transparency_correction: isolate the unchanged complete key, including its open bow, on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 36x68; center on transparent 40x72 canvas
+  greatbookreal:
+    asset: generated_item_art/mm9_shared_greatbookreal.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10243
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/greatbookreal.pcx
+    target_dimensions: [72, 64]
+    prompt: |-
+      Faithfully repaint the binding original 64x64 MM9 Great Book PCX in restrained MM6-MM8 inventory style.
+      Preserve its thick closed three-quarter pose, dark page block, raised golden-brown cover border, dense embossed
+      knotwork, small highlights, and central oval medallion. Render one complete book on genuine transparent alpha.
+    transparency_correction: isolate the unchanged complete ornate Great Book on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 68x60; center on transparent 72x64 canvas
+  writ:
+    asset: generated_item_art/mm9_shared_writ.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10392
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/writ.pcx
+    target_dimensions: [72, 40]
+    prompt: |-
+      Faithfully repaint the binding original 64x64 MM9 Writ PCX in restrained MM6-MM8 inventory style. Preserve its
+      slim horizontal white parchment cylinder, brown end caps, two violet bands, central round gold seal, and tightly
+      rolled proportions. Render one complete writ on genuine transparent alpha without redesign.
+    transparency_correction: isolate the unchanged complete Writ roll on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 68x36; center on transparent 72x40 canvas
+  lichinstructions:
+    asset: generated_item_art/mm9_shared_lichinstructions.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10245
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/lichinstructions.pcx
+    target_dimensions: [72, 40]
+    prompt: |-
+      Faithfully repaint the binding original 64x64 MM9 Lich Instructions PCX in restrained MM6-MM8 inventory style.
+      Preserve its short horizontal aged-ivory roll, brown center binding, flared folded left end, and dark open spiral
+      at the right. Render one complete roll on genuine transparent alpha without added seal or redesign.
+    transparency_correction: isolate the unchanged complete Lich Instructions roll on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 68x36; center on transparent 72x40 canvas
+  jar_empty:
+    asset: generated_item_art/mm9_shared_jar_empty.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10358
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/jar_empty.pcx
+    target_dimensions: [40, 64]
+    prompt: |-
+      Faithfully repaint the binding original MM9 jar PCX in restrained MM6-MM8 inventory style. Preserve the squat
+      dark charcoal glass body, rounded shoulders, pale side knobs, flat gold lid, and pale skull emblem centered on
+      the front. Render one complete jar on genuine transparent alpha without generic substitution.
+    transparency_correction: isolate the unchanged complete dark soul jar on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 36x60; center on transparent 40x64 canvas
+  potion_nutty:
+    asset: generated_item_art/mm9_shared_potion_nutty.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10558
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/potion_nutty.pcx
+    target_dimensions: [40, 64]
+    prompt: |-
+      Faithfully repaint the binding original MM9 potion PCX in restrained MM6-MM8 inventory style. Preserve the
+      broad squat green-glass body, narrow green neck, bright blue neck band, wide brown mushroom-shaped stopper, and
+      thin gold rims. Render one complete bottle on genuine transparent alpha without redesign.
+    transparency_correction: isolate the unchanged complete green potion flask on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 36x60; center on transparent 40x64 canvas
+  runestone_expert:
+    asset: generated_item_art/mm9_shared_runestone_expert.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10239
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/runestone_expert.pcx
+    target_dimensions: [40, 40]
+    prompt: |-
+      Faithfully repaint the binding original MM9 runestone PCX in restrained MM6-MM8 inventory style. Preserve the
+      low irregular pale-gray oval stone, chipped perimeter, shallow domed surface, and exact dark three-part carved
+      rune marks. Render one complete stone on genuine transparent alpha without changing its inscription.
+    transparency_correction: isolate the unchanged complete engraved runestone on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 36x36; center on transparent 40x40 canvas
+  plainhelm:
+    asset: generated_item_art/mm9_shared_plainhelm.png
+    generation_tool: built-in image_gen
+    use_case: style-transfer
+    representative_item_id: 10117
+    source_reference: mm9/extracted/ART/ART/INVENTORYICONS/plainhelm.pcx
+    target_dimensions: [64, 64]
+    prompt: |-
+      Faithfully repaint the binding original MM9 plain helm PCX in restrained MM6-MM8 inventory style. Preserve the
+      low triangular iron cap, three brown inset panels, bright steel ribs, top stud, side flanges, and long narrow
+      nasal guard descending at the viewer's right. Render one complete helm on genuine transparent alpha.
+    transparency_correction: isolate the unchanged complete plain helm on genuine transparent RGBA
+    postprocess: threshold residual background alpha; trim; compress to 60x60; center on transparent 64x64 canvas

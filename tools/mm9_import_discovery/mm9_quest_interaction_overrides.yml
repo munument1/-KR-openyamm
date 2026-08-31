@@ -1,0 +1,136 @@
+format_version: 1
+world: mm9
+overrides: []
+scr_interactions:
+  - interaction_id: mm9.scr.arslegardcity.113.gungnir
+    source_candidate_id: mm9.scr.arslegardcity.113
+    granted_qbits: [90357]
+    predicate: {required_qbits: [90356], forbidden_qbits: [90357]}
+    source_lines: [36, 37, 38, 39, 41]
+    reason: NPC334's RUDE-exit callback completes Gungnir only while key 356 is set and key 357 is absent.
+  - interaction_id: mm9.scr.arslegardcity.152.lifesaver
+    source_candidate_id: mm9.scr.arslegardcity.152
+    granted_qbits: [90235]
+    predicate: {required_qbits: [90234], forbidden_qbits: [90235]}
+    source_lines: [68, 69, 70, 71, 77, 82]
+    reason: Both NPC3 Lifesaver reward branches grant the same completion key under the same key predicate.
+  - interaction_id: mm9.scr.drangheimcity.320.crusader_promotion
+    source_candidate_id: mm9.scr.drangheimcity.320
+    granted_qbits: [90137]
+    predicate: {required_qbits: [90136], forbidden_qbits: [90137]}
+    source_lines: [50, 51, 53, 54, 56]
+    reason: NPC89's RUDE-exit promotion handoff is controlled solely by its accepted and completed QBits.
+  - interaction_id: mm9.scr.drangheimcity.329.bank_orbs
+    source_candidate_id: mm9.scr.drangheimcity.329
+    granted_qbits: [90337]
+    predicate: &bank_orb_predicate
+      required_qbits: [90330, 90331, 90332, 90333, 90334, 90335, 90336]
+      forbidden_qbits: [90337]
+    source_lines: &bank_orb_lines [51, 52, 54, 55, 58, 70, 77, 82, 87, 92, 97, 102, 107, 108]
+    reason: BANKORB grants the final journal key after the transient handoff key and all six placed-orb keys exist.
+  - interaction_id: mm9.scr.frosgardcity.560.good_reward
+    source_candidate_id: mm9.scr.frosgardcity.560
+    granted_qbits: [90308]
+    predicate: {required_qbits: [90307], forbidden_qbits: [90308]}
+    source_lines: [51, 52, 53, 54, 55]
+    reason: NPC184's good reward branch is a direct QBit-gated RUDE-exit completion.
+  - interaction_id: mm9.scr.frosgardcity.560.bad_reward
+    source_candidate_id: mm9.scr.frosgardcity.560
+    granted_qbits: [90310]
+    predicate: {required_qbits: [90309], forbidden_qbits: [90310]}
+    source_lines: [76, 77, 78, 79, 80]
+    reason: NPC184's bad reward branch is a separate direct QBit-gated RUDE-exit completion.
+  - interaction_id: mm9.scr.frosgardcity.562.maypole
+    source_candidate_id: mm9.scr.frosgardcity.562
+    granted_qbits: [90268]
+    predicate: {required_qbits: [90267], forbidden_qbits: [90268], minimum_gold: 500}
+    source_lines: [29, 30, 31, 32, 33, 34, 36]
+    reason: NPC190 completes the maypole stage only when its QBits match and the party carries at least 500 gold.
+  - interaction_id: mm9.scr.guberland.21.capstone
+    source_candidate_id: mm9.scr.guberland.21
+    granted_qbits: [90188]
+    predicate: {required_qbits: [90488], forbidden_qbits: [90188]}
+    source_lines: [46, 47, 52, 53, 55]
+    reason: NPC133's capstone callback uses key 488 as the persisted result of its six-item check.
+  - interaction_id: mm9.scr.guberland.21.nicolai
+    source_candidate_id: mm9.scr.guberland.21
+    granted_qbits: [90122]
+    predicate: {required_qbits: [90121], forbidden_qbits: [90122]}
+    source_lines: [70, 71, 75, 76, 80]
+    reason: NPC133's Nicolai handoff is a direct QBit-gated RUDE-exit completion.
+  - interaction_id: mm9.scr.guberland.85.mercenary_promotion
+    source_candidate_id: mm9.scr.guberland.85
+    granted_qbits: [90127]
+    predicate: {required_qbits: [90126], forbidden_qbits: [90127]}
+    source_lines: [63, 64, 66, 67, 69]
+    reason: NPC186's promotion handoff is controlled by its accepted and completed QBits.
+  - interaction_id: mm9.scr.guberlandcity.811.priest_offers
+    source_candidate_id: mm9.scr.guberlandcity.811
+    granted_qbits: [90250, 90251, 90252]
+    predicate: {any_required_qbits: [90441, 90442, 90443, 90444]}
+    source_lines: [85, 87, 88, 89, 93, 95, 96, 97, 101, 103, 104, 105, 109, 111, 112, 113]
+    reason: NPC129 exposes the three priest stages when any party member's persisted priest-promotion key is set.
+  - interaction_id: mm9.scr.guberlandcity.811.priest_handoff
+    source_candidate_id: mm9.scr.guberlandcity.811
+    granted_qbits: [90261]
+    predicate: {required_qbits: [90260], forbidden_qbits: [90261]}
+    source_lines: [124, 125, 126, 127, 131]
+    reason: NPC129's priest promotion handoff is a direct QBit-gated RUDE-exit completion.
+  - interaction_id: mm9.scr.guberlandcity.813.healer_offer
+    source_candidate_id: mm9.scr.guberlandcity.813
+    granted_qbits: [90206]
+    predicate: {forbidden_qbits: [90206], any_required_qbits: [90437, 90438, 90439, 90440]}
+    source_lines: [81, 82, 86, 88, 92, 94, 98, 100, 104, 106]
+    reason: NPC128 exposes the healer stage when any party member's persisted healer-promotion key is set.
+  - interaction_id: mm9.scr.guberlandcity.814.bank_orbs
+    source_candidate_id: mm9.scr.guberlandcity.814
+    granted_qbits: [90337]
+    predicate: *bank_orb_predicate
+    source_lines: *bank_orb_lines
+    reason: BANKORB grants the final journal key after the transient handoff key and all six placed-orb keys exist.
+  - interaction_id: mm9.scr.hallofthegods.126.golden_honk
+    source_candidate_id: mm9.scr.hallofthegods.126
+    classification: excluded
+    reason: The source object is not an imported actor, so there is no loaded NPC on which a marker can render.
+  - interaction_id: mm9.scr.sturmfordcity.830.bank_orbs
+    source_candidate_id: mm9.scr.sturmfordcity.830
+    granted_qbits: [90337]
+    predicate: *bank_orb_predicate
+    source_lines: *bank_orb_lines
+    reason: BANKORB grants the final journal key after the transient handoff key and all six placed-orb keys exist.
+  - interaction_id: mm9.scr.thjorgardcity.1048.bank_orbs
+    source_candidate_id: mm9.scr.thjorgardcity.1048
+    granted_qbits: [90337]
+    predicate: *bank_orb_predicate
+    source_lines: *bank_orb_lines
+    reason: BANKORB grants the final journal key after the transient handoff key and all six placed-orb keys exist.
+  - interaction_id: mm9.scr.thjorgardcity.1058.scholar_offer
+    source_candidate_id: mm9.scr.thjorgardcity.1058
+    granted_qbits: [90201]
+    predicate: {forbidden_qbits: [90201], any_required_qbits: [90425, 90426, 90427, 90428]}
+    source_lines: [57, 58, 64, 66, 69, 71, 74, 76, 79, 81]
+    reason: NPC161 exposes the scholar stages when any party member's persisted scholar-promotion key is set.
+  - interaction_id: mm9.scr.thjorgardcity.1058.scholar_handoff
+    source_candidate_id: mm9.scr.thjorgardcity.1058
+    granted_qbits: [90205]
+    predicate: {forbidden_qbits: [90205], any_required_qbits: [90203, 90204]}
+    source_lines: [123, 124, 125, 126, 127, 136, 137, 138, 139, 140]
+    reason: NPC161 accepts either persisted successful scholar-path key before granting the shared completion key.
+  - interaction_id: mm9.scr.thjorgardcity.1098.lifesaver
+    source_candidate_id: mm9.scr.thjorgardcity.1098
+    granted_qbits: [90235]
+    predicate: {required_qbits: [90234], forbidden_qbits: [90235]}
+    source_lines: [68, 69, 70, 71, 77, 82]
+    reason: Both NPC3 Lifesaver reward branches grant the same completion key under the same key predicate.
+  - interaction_id: mm9.scr.thronheimcity.59.bank_orbs
+    source_candidate_id: mm9.scr.thronheimcity.59
+    granted_qbits: [90337]
+    predicate: *bank_orb_predicate
+    source_lines: *bank_orb_lines
+    reason: BANKORB grants the final journal key after the transient handoff key and all six placed-orb keys exist.
+  - interaction_id: mm9.scr.thronheimcity.60.reward
+    source_candidate_id: mm9.scr.thronheimcity.60
+    granted_qbits: [90321]
+    predicate: {required_qbits: [90320], forbidden_qbits: [90321]}
+    source_lines: [28, 29, 30, 31, 32]
+    reason: NPC242's reward branch is a direct QBit-gated RUDE-exit completion.

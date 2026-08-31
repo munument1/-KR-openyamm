@@ -14,9 +14,11 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import yaml
 from pygltflib import ARRAY_BUFFER, ELEMENT_ARRAY_BUFFER, FLOAT, UNSIGNED_INT, Material, Mesh, Node, Primitive
 
 from convert_abc_model import GL_TRIANGLES, Buffer, GltfBuilder, align_blob
+from mm9_item_sources import Mm9ItemIdMap, Mm9ItemSourceManifest, build_mm9_item_source_manifest
 from mm9_units import MM9_TO_OPENYAMM_COORDINATE_SCALE
 from transcode_mm9_dat_to_odm import (
     DatWorld,
@@ -27,6 +29,7 @@ from transcode_mm9_dat_to_odm import (
     UserPortal,
     WorldLeaf,
     build_baked_model_instance_lines,
+    bind_mm9_barrel_geometry,
     build_mm9_light_lines,
     build_mm9_party_start_point_lines,
     build_mechanism_lines,
@@ -90,11 +93,25 @@ class SourceMechanism:
 
 
 @dataclass
+class SourceInteraction:
+    source_node_name: str
+    source_object_index: int
+    source_class: str
+    source_name: str
+    bmodel_index: int
+    bmodel: OdmBModel
+    variant_index: int = 0
+    face_indices: tuple[int, ...] | None = None
+    barrel_liquid: bool = False
+
+
+@dataclass
 class SourceLayout:
     rooms: list[SourceRoom]
     portals: list[SourcePortal]
     diagnostics: dict[str, Any]
     mechanisms: list[SourceMechanism] = field(default_factory=list)
+    interactions: list[SourceInteraction] = field(default_factory=list)
     lights: list[ExportedLight] = field(default_factory=list)
 
 
@@ -935,6 +952,15 @@ def write_source_glb(path: Path, layout: SourceLayout) -> dict[str, int]:
     material_names = {triangle.material_name for room in layout.rooms for triangle in room.triangles}
     material_names.update(portal.material_name for portal in layout.portals)
     material_names.update(face.texture_alias for mechanism in layout.mechanisms for face in mechanism.bmodel.faces)
+    material_names.update(
+        interaction.bmodel.faces[face_index].texture_alias
+        for interaction in layout.interactions
+        for face_index in (
+            interaction.face_indices
+            if interaction.face_indices is not None
+            else range(len(interaction.bmodel.faces))
+        )
+    )
     if layout.lights:
         material_names.add("LIGHT_MARKER")
 
@@ -995,6 +1021,26 @@ def write_source_glb(path: Path, layout: SourceLayout) -> dict[str, int]:
         total_vertices += vertices
         total_triangles += emitted_triangles
 
+    for interaction in layout.interactions:
+        triangles_by_material: dict[str, list[SourceTriangle]] = defaultdict(list)
+        face_indices = (
+            interaction.face_indices
+            if interaction.face_indices is not None
+            else tuple(range(len(interaction.bmodel.faces)))
+        )
+        for face_index in face_indices:
+            face = interaction.bmodel.faces[face_index]
+            for triangle in source_triangles_for_face(interaction.bmodel, face):
+                triangles_by_material[face.texture_alias].append(triangle)
+        vertices, emitted_triangles = append_mesh_from_triangles(
+            builder,
+            interaction.source_node_name,
+            triangles_by_material,
+            material_indices,
+        )
+        total_vertices += vertices
+        total_triangles += emitted_triangles
+
     for light in layout.lights:
         x, y, z = light.position
         triangles = [
@@ -1029,6 +1075,7 @@ def write_source_glb(path: Path, layout: SourceLayout) -> dict[str, int]:
         "source_glb_rooms": len(layout.rooms),
         "source_glb_portals": len(layout.portals),
         "source_glb_mechanisms": len(layout.mechanisms),
+        "source_glb_interactions": len(layout.interactions),
         "source_glb_lights": len(layout.lights),
     }
 
@@ -1166,6 +1213,7 @@ def write_scene_yml(
     door_lines: list[str] | None = None,
     face_override_lines: list[str] | None = None,
     baked_model_instance_lines: list[str] | None = None,
+    item_source_manifest: Mm9ItemSourceManifest | None = None,
 ) -> None:
     zero_outline_hex = "00" * 875
     zero_map_vars = ", ".join(["0"] * 75)
@@ -1180,6 +1228,18 @@ def write_scene_yml(
     )
     doors = "\n".join(door_lines) if door_lines else "    []"
     face_overrides = "\n".join(face_override_lines) if face_override_lines else "    []"
+    item_source_sections = yaml.safe_dump(
+        item_source_manifest.scene_data() if item_source_manifest is not None else {
+            "world_items": [],
+            "loot_containers": [],
+            "searchable_loot_props": [],
+            "actor_loot_overrides": [],
+            "spawned_loot_containers": [],
+            "persistent_item_mechanisms": [],
+        },
+        sort_keys=False,
+        width=120,
+    ).rstrip()
     path.write_text(
         f"""format_version: 1
 kind: "indoor_scene"
@@ -1218,6 +1278,7 @@ baked_model_instances:
 {baked_model_instances}
 party_start_points:
 {party_start_points}
+{item_source_sections}
 initial_state:
   location:
     respawn_count: 0
@@ -1379,9 +1440,17 @@ def compile_blv(
     geometry_metadata: Path,
     output_blv: Path,
     generated_doors_path: Path,
+    generated_face_groups_path: Path,
 ) -> None:
     subprocess.run(
-        [str(compile_tool), str(source_glb), str(geometry_metadata), str(output_blv), str(generated_doors_path)],
+        [
+            str(compile_tool),
+            str(source_glb),
+            str(geometry_metadata),
+            str(output_blv),
+            str(generated_doors_path),
+            str(generated_face_groups_path),
+        ],
         check=True,
     )
 
@@ -1443,6 +1512,84 @@ def build_indoor_mechanism_face_override_lines(door_lines: list[str]) -> tuple[l
     return lines, stats
 
 
+def build_indoor_item_source_face_override_lines(
+    face_group_lines: list[str],
+    projectile_trigger_source_indices: set[int] | None = None,
+    barrel_liquid_cogs: dict[int, int] | None = None,
+) -> tuple[list[str], dict[str, int]]:
+    lines: list[str] = []
+    stats = {
+        "item_source_event_faces": 0,
+        "item_source_event_face_objects": 0,
+    }
+    current_source_object_index: int | None = None
+    current_variant_index = 0
+    current_barrel_liquid = False
+
+    for line in face_group_lines:
+        source_match = re.search(r"\bsource_object_index:\s*(\d+)", line)
+        if source_match is not None:
+            current_source_object_index = int(source_match.group(1))
+            current_variant_index = 0
+            current_barrel_liquid = False
+            continue
+        variant_match = re.search(r"\bvariant_index:\s*(\d+)", line)
+        if variant_match is not None:
+            current_variant_index = int(variant_match.group(1))
+            continue
+        liquid_match = re.search(r"\bbarrel_liquid:\s*(true|false)", line, re.IGNORECASE)
+        if liquid_match is not None:
+            current_barrel_liquid = liquid_match.group(1).lower() == "true"
+            continue
+
+        face_match = re.search(r"\bface_ids:\s*\[([^\]]*)\]", line)
+        if face_match is None or current_source_object_index is None:
+            continue
+
+        event_id = mechanism_event_id(current_source_object_index)
+        state_cog_number = (
+            barrel_liquid_cogs[current_source_object_index]
+            if current_barrel_liquid
+            and barrel_liquid_cogs is not None
+            and current_source_object_index in barrel_liquid_cogs
+            else event_id
+            if current_variant_index == 0
+            else 60000 + current_source_object_index + current_variant_index - 1
+        )
+        if event_id <= 0 or event_id > 0xffff or state_cog_number > 0xffff:
+            continue
+        face_ids = [
+            int(value.strip())
+            for value in face_match.group(1).split(",")
+            if value.strip()
+        ]
+        if not face_ids:
+            continue
+
+        for face_id in face_ids:
+            legacy_attributes = 0x02000000
+            if current_variant_index > 0:
+                legacy_attributes |= 0x00002000 | 0x20000000
+            elif current_barrel_liquid:
+                legacy_attributes |= 0x20000000
+            if (
+                projectile_trigger_source_indices is not None
+                and current_source_object_index in projectile_trigger_source_indices
+            ):
+                legacy_attributes |= 0x10000000
+            lines.extend([
+                f"    - face_index: {face_id}",
+                f"      legacy_attributes: {legacy_attributes}",
+                f"      cog_number: {state_cog_number}",
+                f"      cog_triggered: {event_id}",
+                "      cog_trigger_type: 0",
+            ])
+            stats["item_source_event_faces"] += 1
+        stats["item_source_event_face_objects"] += 1
+
+    return lines, stats
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Transcode an MM9 LithTech DAT dungeon into a BLV prototype.")
     parser.add_argument("--dat", required=True, type=Path)
@@ -1480,12 +1627,25 @@ def main() -> int:
         type=Path,
         help="Optional mm9_compile_indoor_source executable. When supplied, writes the .blv too.",
     )
+    parser.add_argument(
+        "--item-id-map",
+        default=Path("assets_dev/worlds/mm9/state/item_ids.yml"),
+        type=Path,
+        help="Canonical MM9 raw-to-runtime item id map",
+    )
     args = parser.parse_args()
 
     output_name = args.name or args.dat.stem.lower()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     dat_world = read_dat_world(args.dat)
+    item_source_manifest = build_mm9_item_source_manifest(
+        output_name,
+        dat_world.objects,
+        Mm9ItemIdMap.load(args.item_id_map),
+        args.scale,
+    )
+    item_source_manifest.require_resolved_item_references()
     texture_sizes = build_texture_size_index(args.extracted_root)
     bmodels, alias_metadata, stats, baked_instances = transcode_geometry(
         dat_world,
@@ -1493,17 +1653,48 @@ def main() -> int:
         texture_sizes,
         args.extracted_root,
         preserve_source_ngons=False,
+        excluded_baked_object_indices=item_source_manifest.excluded_baked_object_indices(),
+        baked_model_variant_sources={
+            source.provenance.source_object_index: list(zip(source.model_variants, source.model_variant_skins))
+            for source in item_source_manifest.persistent_item_mechanisms
+            if source.model_variants
+        },
     )
+    bind_mm9_barrel_geometry(item_source_manifest, bmodels, baked_instances, alias_metadata)
     blv_mechanisms = build_blv_mechanisms(dat_world, bmodels, args.scale)
     lights, light_stats = export_mm9_lights(dat_world, args.scale)
     light_lines = build_mm9_light_lines(lights)
     party_start_points, party_start_stats = export_mm9_party_start_points(dat_world, args.scale)
     party_start_point_lines = build_mm9_party_start_point_lines(party_start_points)
     mechanism_bmodel_indices = {mechanism.bmodel_index for mechanism in blv_mechanisms}
+    retained_item_source_object_indices = {
+        source.provenance.source_object_index
+        for source in item_source_manifest.loot_containers
+        if source.kind == "chest"
+    } | {
+        source.provenance.source_object_index
+        for source in item_source_manifest.searchable_loot_props
+    } | {
+        source.provenance.source_object_index
+        for source in item_source_manifest.spawned_loot_containers
+    } | {
+        source.provenance.source_object_index
+        for source in item_source_manifest.persistent_item_mechanisms
+    } | {
+        source.provenance.source_object_index
+        for source in item_source_manifest.barrels
+    }
+    interactive_instances = [
+        instance
+        for instance in baked_instances
+        if instance.source_object_index in retained_item_source_object_indices
+    ]
+    interactive_bmodel_indices = {instance.bmodel_index for instance in interactive_instances}
     static_bmodels = [
         bmodel
         for bmodel_index, bmodel in enumerate(bmodels)
         if bmodel_index not in mechanism_bmodel_indices
+        and bmodel_index not in interactive_bmodel_indices
     ]
     mechanism_lines, mechanism_stats = build_mechanism_lines(dat_world, bmodels, args.scale)
     stats.update(mechanism_stats)
@@ -1520,10 +1711,57 @@ def main() -> int:
     raw_objects_path = args.output_dir / f"{output_name}.raw_objects.yml"
     blv_path = args.output_dir / f"{output_name}.blv"
     generated_doors_path = args.output_dir / f"{output_name}.compiled_doors.yml"
+    generated_face_groups_path = args.output_dir / f"{output_name}.compiled_face_groups.yml"
     bitmap_dir = args.bitmap_dir or (args.output_dir.parent / "textures")
 
-    layout = build_source_layout(dat_world, static_bmodels, args.sector_mode, args.sector_grid, alias_metadata, args.scale)
+    layout = build_source_layout(
+        dat_world,
+        static_bmodels,
+        args.sector_mode,
+        args.sector_grid,
+        alias_metadata,
+        args.scale,
+    )
     layout.mechanisms = blv_mechanisms
+    layout.interactions = []
+    barrel_by_source = {
+        source.provenance.source_object_index: source
+        for source in item_source_manifest.barrels
+    }
+    for instance in interactive_instances:
+        barrel = barrel_by_source.get(instance.source_object_index)
+        liquid_faces = set(barrel.liquid_faces if barrel is not None else ())
+        body_faces = tuple(
+            face_index
+            for face_index in range(len(instance.bmodel.faces))
+            if face_index not in liquid_faces
+        )
+        if not liquid_faces or body_faces:
+            layout.interactions.append(SourceInteraction(
+                source_node_name=(
+                    f"INTERACT_{instance.source_object_index}"
+                    if instance.variant_index == 0
+                    else f"IPVAR_{instance.source_object_index}_{instance.variant_index}"
+                ),
+                source_object_index=instance.source_object_index,
+                source_class=instance.source_class,
+                source_name=instance.source_name,
+                bmodel_index=instance.bmodel_index,
+                bmodel=bmodels[instance.bmodel_index],
+                variant_index=instance.variant_index,
+                face_indices=body_faces if liquid_faces else None,
+            ))
+        if barrel is not None and liquid_faces:
+            layout.interactions.append(SourceInteraction(
+                source_node_name=f"BARRELLIQUID_{instance.source_object_index}",
+                source_object_index=instance.source_object_index,
+                source_class=instance.source_class,
+                source_name=instance.source_name,
+                bmodel_index=instance.bmodel_index,
+                bmodel=bmodels[instance.bmodel_index],
+                face_indices=tuple(sorted(liquid_faces)),
+                barrel_liquid=True,
+            ))
     layout.lights = [
         light
         for light in lights
@@ -1538,10 +1776,31 @@ def main() -> int:
     door_lines: list[str] = []
     face_override_lines: list[str] = []
     if args.compile_tool:
-        compile_blv(args.compile_tool, source_glb_path, geometry_metadata_path, blv_path, generated_doors_path)
+        compile_blv(
+            args.compile_tool,
+            source_glb_path,
+            geometry_metadata_path,
+            blv_path,
+            generated_doors_path,
+            generated_face_groups_path,
+        )
         door_lines = read_generated_door_lines(generated_doors_path)
         face_override_lines, face_override_stats = build_indoor_mechanism_face_override_lines(door_lines)
         stats.update(face_override_stats)
+        face_group_lines = read_generated_door_lines(generated_face_groups_path)
+        item_source_face_lines, item_source_face_stats = build_indoor_item_source_face_override_lines(
+            face_group_lines,
+            {
+                source.provenance.source_object_index
+                for source in item_source_manifest.spawned_loot_containers
+            },
+            {
+                source.provenance.source_object_index: source.liquid_texture_cog
+                for source in item_source_manifest.barrels
+            },
+        )
+        face_override_lines.extend(item_source_face_lines)
+        stats.update(item_source_face_stats)
         stats["blv_compiled_door_scene_entries"] = len([line for line in door_lines if line.startswith("    - ")])
     write_scene_yml(
         scene_path,
@@ -1552,6 +1811,7 @@ def main() -> int:
         door_lines,
         face_override_lines,
         baked_model_instance_lines,
+        item_source_manifest,
     )
     write_source_metadata(
         source_metadata_path,

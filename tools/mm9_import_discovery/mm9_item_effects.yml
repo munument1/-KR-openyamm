@@ -1,0 +1,142 @@
+format_version: 1
+source_reference: /home/pjasicek/github/OpenMM9/docs/mm9_artifact_relic_effect_audit.md
+normalization: openyamm_mm9_item_effects_v1
+
+# Authored normalized effects. The importer requires one entry for every imported L7 item so an effect can never
+# disappear merely because a source description was difficult to translate. Named flags are shared runtime behaviors
+# or explicit, auditable behavior requirements; they are not parsed from prose at runtime.
+effects:
+  '175': {might: 30, skill_bonuses: {Armsmaster: 5}}
+  '176': {accuracy: -5, endurance: 15, luck: 50}
+  '178': {flags: [BreakAfterFirstAttack]}
+  '179': {speed: 10, accuracy: 20, max_sp: 50}
+  '180': {melee_attack: 20, melee_damage: 10, recovery_reduction_ticks: 10}
+  '181': {melee_attack: 35, melee_damage: 35, weapon_damage: 15, flags: [PoisonWeaponDamage]}
+  '182': {all_resistances: 10, flags: [PoisonOnHit40Grandmaster]}
+  '183': {skill_bonuses: {Sword: 6, Armsmaster: 6}, weapon_damage: 10, health_regen_per_second: 0.2}
+  '184': {flags: [PerfectAccuracy]}
+  '185': {max_health: 100, recovery_reduction_ticks: -20, flags: [TripleProjectile]}
+  '186': {might: 10, accuracy: 30, skill_bonuses: {RepairItem: 5}, flags: [DiseaseWeaponDamage]}
+  '187':
+    {might: 10, intellect: 10, personality: 10, endurance: 10, speed: 10, accuracy: 10, luck: 10,
+     skill_bonuses: {Bow: 7}}
+  '188': {weapon_damage: 15, recovery_reduction_ticks: -20, flags: [HalveTargetArmor, BreakChance2SelfDamage]}
+  '189': {weapon_damage: 15, flags: [BypassArmorChance20]}
+  '190': {might: 30, endurance: -10, armor_class: -10, skill_bonuses: {Spear: 5}}
+  '191': {might: 20, flags: [Vampiric, WeeklyInsanityChance10, WeeklyHealthLossChance10]}
+  '192': {might: 30, endurance: 10, flags: [EnrageOnHit5Grandmaster]}
+  '193': {might: 30, endurance: 10, flags: [EnrageOnHit5Grandmaster]}
+  '194': {skill_bonuses: {Mace: 5}, flags: [StunOnHit5, SelfKnockoutOnFailedStun70]}
+  '195': {intellect: 30, personality: 30, max_sp: 80, skill_bonuses: {Mace: 5}}
+  '196': {might: 80, endurance: 20, speed: -20, skill_bonuses: {Staff: 3}}
+  '197': {weapon_damage: 10, flags: [KillOnHit10]}
+  '198': {speed: 10, flags: [ReelOnHit]}
+  '199': {speed: -20, weapon_damage: 20, flags: [DisableDivineIntervention]}
+  '200': {intellect: 10, personality: 10}
+  '201': {health_regen_per_second: 0.2, flags: [FearOnHit10]}
+  '202': {flags: [MeleeArmor40, RangedArmorMinus10]}
+  '203': {all_resistances: 20, flags: [MagicArmor20]}
+  '204':
+    {might: 10, intellect: 10, personality: 10, endurance: 10, speed: 10, accuracy: 10, luck: 10,
+     skill_bonuses: {LeatherArmor: 10, ChainArmor: 10, PlateArmor: 10}}
+  '205':
+    {speed: 10, all_resistances: 10, health_regen_per_second: 0.2, flags: [Amelioration, Everlasting]}
+  '206': {accuracy: -10, luck: 10, skill_bonuses: {DisarmTraps: 5}}
+  '207': {flags: [MissileArmor30]}
+  '208': {might: 30, endurance: 10, armor_class: 20, skill_bonuses: {Armsmaster: 5}}
+  '209': {flags: [WeeklyGold1000, PartyEnduranceMinus40]}
+  '210':
+    {speed: 10, max_sp: 50, recovery_reduction_ticks: 10,
+     skill_bonuses: {LightMagic: 5, Meditation: 3}}
+  '211': {might: 10, endurance: 5, max_health: 100}
+  '212': {armor_class: 20, skill_bonuses: {Dodging: 5}, flags: [PhysicalDamageReduction3Percent]}
+  '213':
+    {max_sp: 20, health_regen_per_second: 0.2,
+     skill_bonuses: {Meditation: 3, LightMagic: 5, SpiritMagic: 5}}
+  '214': {skill_bonuses: {DarkMagic: 5, Perception: 3}, flags: [Amelioration]}
+  '215':
+    {skill_bonuses: {FireMagic: 5, AirMagic: 5, WaterMagic: 5, EarthMagic: 5, SpiritMagic: 5,
+                     MindMagic: 5, BodyMagic: 5, LightMagic: 5, DarkMagic: 5, Learning: 3, Meditation: 3}}
+  '216': {luck: -20, flags: [CarriedPartyEffect, EncounterChancePlus15Percent]}
+  '217': {skill_bonuses: {Learning: -3}, flags: [AllConditionImmunity, ExperienceGainMinus15Percent]}
+  '218': {max_health: 50, max_sp: -10, health_regen_per_second: 0.2}
+  '219': {skill_bonuses: {Bodybuilding: 2, Armsmaster: 4}}
+  '220': {might: 4, skill_bonuses: {Bodybuilding: 2}}
+  '221': {armor_class: 2, skill_bonuses: {Bodybuilding: 2}}
+  '222': {skill_bonuses: {Bodybuilding: 2, Learning: 2}}
+  '223': {skill_bonuses: {Bodybuilding: 2, Dodging: 2}}
+  '224': {skill_bonuses: {Sword: 2, Dagger: 2, Learning: 2}}
+  '225': {armor_class: 2, skill_bonuses: {Sword: 2, Dagger: 2}}
+  '226': {might: 2, skill_bonuses: {Sword: 2, Dagger: 2}}
+  '227': {skill_bonuses: {Sword: 2, Dagger: 2, LightMagic: 2}}
+  '228': {skill_bonuses: {Sword: 2, Dagger: 2, Armsmaster: 2}}
+  '229': {skill_bonuses: {DarkMagic: 2, Armsmaster: 2}}
+  '230': {skill_bonuses: {DarkMagic: 2, Meditation: 2}}
+  '231': {skill_bonuses: {DarkMagic: 2, Learning: 2}}
+  '232':
+    {skill_bonuses: {DarkMagic: 2, FireMagic: 2, AirMagic: 2, WaterMagic: 2, EarthMagic: 2}}
+  '233': {skill_bonuses: {DarkMagic: 2, IdentifyMonster: 2}}
+  '234': {might: 2, skill_bonuses: {LightMagic: 2}}
+  '235': {skill_bonuses: {LightMagic: 2, SpiritMagic: 2}}
+  '236': {skill_bonuses: {LightMagic: 2, Meditation: 2}}
+  '237': {skill_bonuses: {LightMagic: 2, RepairItem: 2}}
+  '238': {speed: 2, skill_bonuses: {LightMagic: 2}}
+
+sets:
+  - set_id: mm9:set/prize
+    required_pieces: 5
+    effect_profile: mm9:set_effect/prize_complete
+    effect:
+      might: 10
+      intellect: 10
+      personality: 10
+      endurance: 10
+      speed: 10
+      accuracy: 10
+      luck: 10
+      melee_attack: 40
+      ranged_attack: 40
+      all_resistances: 10
+      health_regen_per_second: 0.2
+      skill_bonuses: {Dodging: 5}
+  - set_id: mm9:set/broderick
+    required_pieces: 5
+    effect_profile: mm9:set_effect/broderick_complete
+    effect:
+      might: 10
+      intellect: 10
+      personality: 10
+      endurance: 10
+      speed: 10
+      accuracy: 10
+      luck: 10
+      melee_attack: 40
+      ranged_attack: 40
+      all_resistances: 10
+      health_regen_per_second: 0.2
+  - set_id: mm9:set/death
+    required_pieces: 5
+    effect_profile: mm9:set_effect/death_complete
+    effect:
+      might: 10
+      intellect: 40
+      personality: 40
+      endurance: 10
+      speed: 30
+      accuracy: 10
+      luck: 10
+      all_resistances: 10
+      skill_bonuses: {DarkMagic: 5}
+  - set_id: mm9:set/fre
+    required_pieces: 5
+    effect_profile: mm9:set_effect/fre_complete
+    effect:
+      might: 10
+      intellect: 10
+      personality: 10
+      endurance: 25
+      speed: 30
+      accuracy: 10
+      luck: 10
+      all_resistances: 10
+      skill_bonuses: {RepairItem: 5}

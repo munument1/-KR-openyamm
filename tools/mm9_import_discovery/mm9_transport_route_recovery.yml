@@ -1,0 +1,57 @@
+format_version: 1
+review_state: executable_backed
+source_executable: mm9/game/data/cshell.dll
+source_function_rva: 0x10029a80
+base_price: 20
+day_index_names: [Saturday, Sunday, Monday, Tuesday, Wednesday, Thursday, Friday]
+destinations:
+  Sturmford: {runtime_map: sturmford, start_point: StartPoint0}
+  Drangheim: {runtime_map: drangheim, start_point: StartPoint0}
+  Guberland: {runtime_map: guberland, start_point: StartPoint0}
+  Thjorgard: {runtime_map: thjorgard, start_point: StartPoint0}
+  Frosgard: {runtime_map: frosgardcity, start_point: StartPoint0, required_raw_keys: [73]}
+  Thronheim: {runtime_map: thronheim, start_point: StartPoint0}
+  Lindisfarne: {runtime_map: lindisfarne, start_point: StartPoint0}
+  Isle of Ashes: {runtime_map: isleofashes, start_point: StartPoint0}
+services:
+  18:
+    switch_table_rva: 0x1002a260
+    days: {Monday: [Sturmford, 2], Tuesday: [Drangheim, 3], Wednesday: [Frosgard, 3],
+      Thursday: [Guberland, 4], Friday: [Lindisfarne, 4], Saturday: [Isle of Ashes, 4], Sunday: [Thronheim, 2]}
+  60:
+    switch_table_rva: 0x1002a27c
+    days: {Monday: null, Tuesday: [Drangheim, 1], Wednesday: null, Thursday: [Drangheim, 1],
+      Friday: [Drangheim, 1], Saturday: [Drangheim, 1], Sunday: [Drangheim, 1]}
+  103:
+    switch_table_rva: 0x1002a298
+    days: {Monday: [Guberland, 1], Tuesday: [Sturmford, 1], Wednesday: [Guberland, 1], Thursday: null,
+      Friday: [Sturmford, 1], Saturday: [Guberland, 1], Sunday: null}
+  138:
+    switch_table_rva: 0x1002a2b4
+    classification: special_passage
+    days: {Monday: null, Tuesday: [Sturmford, 4], Wednesday: [Sturmford, 4], Thursday: [Sturmford, 4],
+      Friday: null, Saturday: [Sturmford, 4], Sunday: [Sturmford, 4]}
+  144:
+    switch_table_rva: 0x1002a2d0
+    days: {Monday: [Lindisfarne, 3], Tuesday: [Isle of Ashes, 3], Wednesday: [Thronheim, 5],
+      Thursday: [Thjorgard, 4], Friday: [Frosgard, 6], Saturday: [Drangheim, 1], Sunday: [Sturmford, 2]}
+  209:
+    switch_table_rva: 0x1002a324
+    days: {Monday: [Lindisfarne, 6], Tuesday: [Thronheim, 3], Wednesday: [Sturmford, 4],
+      Thursday: [Guberland, 6], Friday: [Thjorgard, 5], Saturday: null, Sunday: [Drangheim, 5]}
+  257:
+    switch_table_rva: 0x1002a308
+    days: {Monday: [Isle of Ashes, 4], Tuesday: [Thjorgard, 2], Wednesday: [Drangheim, 5],
+      Thursday: [Sturmford, 4], Friday: [Guberland, 5], Saturday: [Lindisfarne, 3], Sunday: [Frosgard, 3]}
+  288:
+    switch_table_rva: 0x1002a2ec
+    days: {Monday: [Drangheim, 5], Tuesday: [Sturmford, 5], Wednesday: [Guberland, 3], Thursday: null,
+      Friday: [Thronheim, 3], Saturday: [Thjorgard, 4], Sunday: null}
+review_notes:
+  - The route destinations and weekday availability for the seven Dock rows agree with source item 562,
+    Boat Schedule. The DLL switch tables independently establish the travel-day values and runtime map strings.
+  - DLL day indices 0 through 6 are Saturday through Friday for the original campaign epoch.
+  - The DLL guards every route into Frosgard with its thawed-docks state. OpenYAMM represents that state with raw
+    RUDE quest key 73, which also guards NPC 209's source service row.
+  - NPC 138 is a reachable RUDE -5 special passage present in the executable switch but is not a Dock in
+    MMIXSHOPS.txt. It remains classified separately and retains its RUDE forbidden-key condition.
