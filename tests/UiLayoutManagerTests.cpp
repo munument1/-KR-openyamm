@@ -1,25 +1,35 @@
 #include "doctest/doctest.h"
 
-#include "engine/AssetFileSystem.h"
 #include "game/ui/UiLayoutManager.h"
 
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
+namespace
+{
+std::string loadLayoutSource(const std::filesystem::path &relativePath)
+{
+    std::ifstream input(std::filesystem::path(OPENYAMM_SOURCE_DIR) / relativePath);
+    std::ostringstream text;
+    text << input.rdbuf();
+    return text.str();
+}
+}
+
 TEST_CASE("mobile gameplay layout overrides preserve follower child draw order")
 {
-    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
-    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
-    REQUIRE(assetFileSystem.initialize(
-        sourceRoot,
-        sourceRoot / "assets_dev",
-        OpenYAMM::Engine::AssetScaleTier::X1));
+    const std::string gameplayLayout = loadLayoutSource("assets_dev/engine/ui/gameplay/gameplay.yml");
+    const std::string mobileLayout = loadLayoutSource("assets_dev/engine/ui/gameplay/gameplay_mobile.yml");
+    REQUIRE_FALSE(gameplayLayout.empty());
+    REQUIRE_FALSE(mobileLayout.empty());
 
     OpenYAMM::Game::UiLayoutManager layoutManager;
-    REQUIRE(layoutManager.loadLayoutFile(assetFileSystem, "Data/ui/gameplay/gameplay.yml"));
-    REQUIRE(layoutManager.loadLayoutFile(assetFileSystem, "Data/ui/gameplay/gameplay_mobile.yml"));
+    REQUIRE(layoutManager.loadLayoutText("gameplay.yml", gameplayLayout));
+    REQUIRE(layoutManager.loadLayoutText("gameplay_mobile.yml", mobileLayout));
 
     const std::vector<std::string> layoutIds = layoutManager.sortedLayoutIdsForScreen("OutdoorHud");
     CHECK_EQ(std::count(layoutIds.begin(), layoutIds.end(), "OutdoorFollowerPanel"), 1);
@@ -64,15 +74,11 @@ TEST_CASE("mobile gameplay layout overrides preserve follower child draw order")
 
 TEST_CASE("character doll boots render above armor")
 {
-    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
-    OpenYAMM::Engine::AssetFileSystem assetFileSystem;
-    REQUIRE(assetFileSystem.initialize(
-        sourceRoot,
-        sourceRoot / "assets_dev",
-        OpenYAMM::Engine::AssetScaleTier::X1));
+    const std::string characterLayout = loadLayoutSource("assets_dev/engine/ui/gameplay/character.yml");
+    REQUIRE_FALSE(characterLayout.empty());
 
     OpenYAMM::Game::UiLayoutManager layoutManager;
-    REQUIRE(layoutManager.loadLayoutFile(assetFileSystem, "Data/ui/gameplay/character.yml"));
+    REQUIRE(layoutManager.loadLayoutText("character.yml", characterLayout));
 
     const OpenYAMM::Game::UiLayoutManager::LayoutElement *pArmor =
         layoutManager.findElement("CharacterDollArmorSlot");

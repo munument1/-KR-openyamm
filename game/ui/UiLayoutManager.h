@@ -112,6 +112,7 @@ public:
 
     void clear();
     bool loadLayoutFile(const Engine::AssetFileSystem &assetFileSystem, const std::string &path);
+    bool loadLayoutText(const std::string &sourceName, const std::string &text);
 
     const LayoutElement *findElement(const std::string &layoutId) const;
     const std::vector<std::string> &sortedLayoutIdsForScreenCached(const std::string &screen) const;

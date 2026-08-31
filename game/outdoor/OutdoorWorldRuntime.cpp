@@ -167,31 +167,6 @@ bool outdoorMapActorCorpseWasConsumed(
     return actorIndex < corpseViews.size() && isConsumedCorpseView(corpseViews[actorIndex]);
 }
 
-void restoreConsumedOutdoorCorpseMarkers(
-    const std::vector<OutdoorWorldRuntime::MapActorState> &actors,
-    std::vector<std::optional<GameplayCorpseViewState>> &corpseViews)
-{
-    corpseViews.resize(std::max(corpseViews.size(), actors.size()));
-
-    for (size_t actorIndex = 0; actorIndex < actors.size(); ++actorIndex)
-    {
-        const OutdoorWorldRuntime::MapActorState &actor = actors[actorIndex];
-
-        // Older runtime snapshots represented a consumed corpse only through the actor's Invisible state.
-        const bool terminalCorpse = actor.isDead
-            || actor.currentHp <= 0
-            || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dying
-            || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dead;
-
-        if (terminalCorpse && actor.isInvisible && !corpseViews[actorIndex].has_value())
-        {
-            GameplayCorpseViewState consumedCorpse = {};
-            consumedCorpse.sourceIndex = static_cast<uint32_t>(actorIndex);
-            corpseViews[actorIndex] = std::move(consumedCorpse);
-        }
-    }
-}
-
 bool environmentFlagEnabled(const char *pName)
 {
     const char *pValue = std::getenv(pName);
@@ -5500,7 +5475,6 @@ void OutdoorWorldRuntime::initialize(
         }
     }
 
-    restoreConsumedOutdoorCorpseMarkers(m_mapActors, m_mapActorCorpseViews);
     applyEventRuntimeState(true);
     applyOutdoorDestructibleStates(false);
     groundMm9LoadedPlacements(true, true);
@@ -7457,7 +7431,6 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_sessionChestSeed = snapshot.sessionChestSeed;
     m_nextActorId = snapshot.nextActorId;
     m_mapActorCorpseViews = snapshot.mapActorCorpseViews;
-    restoreConsumedOutdoorCorpseMarkers(m_mapActors, m_mapActorCorpseViews);
     m_activeCorpseView = snapshot.activeCorpseView;
     m_worldItems = snapshot.worldItems;
     m_nextWorldItemId = snapshot.nextWorldItemId;

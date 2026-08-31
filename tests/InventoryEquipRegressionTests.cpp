@@ -1067,6 +1067,13 @@ TEST_CASE("merged MM7 artifacts and relics apply their MMerge passive effects")
             static_cast<size_t>(OpenYAMM::Game::CharacterCondition::Petrified)));
     }
 
+    SUBCASE("Gibbet grants its flat weapon damage bonus")
+    {
+        OpenYAMM::Game::Character character = {};
+        applyMergedRareItemEffects(gameData, 1310, character);
+        CHECK_EQ(character.weaponEnchantmentDamageBonus, 15);
+    }
+
     SUBCASE("Ethric's Staff drains living wielders but not liches")
     {
         OpenYAMM::Game::Character livingCharacter = {};

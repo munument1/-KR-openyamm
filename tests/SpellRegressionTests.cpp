@@ -1,6 +1,7 @@
 #include "doctest/doctest.h"
 
 #include "game/StringUtils.h"
+#include "game/events/EvtEnums.h"
 #include "game/gameplay/GameplayActorService.h"
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/MonsterSpellSupport.h"
@@ -2011,6 +2012,74 @@ TEST_CASE("indoor scene runtime state survives save round trip")
     CHECK_EQ(loadedSnapshot.lastProcessedPartyMoveStateForFaceTriggers->supportFaceIndex, 4u);
     CHECK_EQ(loadedSnapshot.mechanismAccumulatorMilliseconds, 16.0f);
     REQUIRE(loaded->indoorSceneStates.contains("save_test.blv"));
+}
+
+TEST_CASE("legacy corpse migration materializes explicit indoor and outdoor markers")
+{
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.hasIndoorSceneState = true;
+    saveData.indoorScene.mapDeltaData.emplace();
+    saveData.indoorScene.mapDeltaData->actors.resize(2);
+    saveData.indoorScene.mapDeltaData->actors[0].hp = 0;
+    saveData.indoorScene.mapDeltaData->actors[0].attributes =
+        static_cast<uint32_t>(OpenYAMM::Game::EvtActorAttribute::Invisible);
+    saveData.indoorScene.mapDeltaData->actors[1].hp = 10;
+    saveData.indoorScene.mapDeltaData->actors[1].attributes =
+        static_cast<uint32_t>(OpenYAMM::Game::EvtActorAttribute::Invisible);
+
+    saveData.hasOutdoorRuntimeState = true;
+    saveData.outdoorWorld.mapActors.resize(2);
+    saveData.outdoorWorld.mapActors[0].currentHp = 0;
+    saveData.outdoorWorld.mapActors[0].isInvisible = true;
+    saveData.outdoorWorld.mapActors[1].currentHp = 10;
+    saveData.outdoorWorld.mapActors[1].isInvisible = true;
+
+    saveData.indoorSceneStates["legacy.blv"] = saveData.indoorScene;
+    saveData.outdoorWorldStates["legacy.odm"] = saveData.outdoorWorld;
+    OpenYAMM::Game::migrateLegacyConsumedCorpseMarkers(saveData, 82);
+
+    REQUIRE_EQ(saveData.indoorScene.worldRuntime.mapActorCorpseViews.size(), 2u);
+    REQUIRE(saveData.indoorScene.worldRuntime.mapActorCorpseViews[0].has_value());
+    CHECK_EQ(saveData.indoorScene.worldRuntime.mapActorCorpseViews[0]->sourceIndex, 0u);
+    CHECK_FALSE(saveData.indoorScene.worldRuntime.mapActorCorpseViews[1].has_value());
+    REQUIRE(saveData.indoorSceneStates.at("legacy.blv").worldRuntime.mapActorCorpseViews[0].has_value());
+
+    REQUIRE_EQ(saveData.outdoorWorld.mapActorCorpseViews.size(), 2u);
+    REQUIRE(saveData.outdoorWorld.mapActorCorpseViews[0].has_value());
+    CHECK_EQ(saveData.outdoorWorld.mapActorCorpseViews[0]->sourceIndex, 0u);
+    CHECK_FALSE(saveData.outdoorWorld.mapActorCorpseViews[1].has_value());
+    REQUIRE(saveData.outdoorWorldStates.at("legacy.odm").mapActorCorpseViews[0].has_value());
+}
+
+TEST_CASE("current save round trip does not infer consumed markers for hidden dead actors")
+{
+    OpenYAMM::Game::GameSaveData saveData = {};
+    saveData.currentSceneKind = OpenYAMM::Game::SceneKind::Indoor;
+    saveData.mapFileName = "hidden_dead_actor.blv";
+    saveData.hasIndoorSceneState = true;
+    saveData.indoorScene.mapDeltaData.emplace();
+    saveData.indoorScene.mapDeltaData->actors.push_back({});
+    saveData.indoorScene.mapDeltaData->actors[0].hp = 0;
+    saveData.indoorScene.mapDeltaData->actors[0].attributes =
+        static_cast<uint32_t>(OpenYAMM::Game::EvtActorAttribute::Invisible);
+
+    saveData.hasOutdoorRuntimeState = true;
+    saveData.outdoorWorld.mapActors.push_back({});
+    saveData.outdoorWorld.mapActors[0].currentHp = 0;
+    saveData.outdoorWorld.mapActors[0].isInvisible = true;
+
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_hidden_dead_actor_roundtrip.oysav";
+    std::string error;
+    REQUIRE(OpenYAMM::Game::saveGameDataToPath(savePath, saveData, error));
+
+    const std::optional<OpenYAMM::Game::GameSaveData> loaded =
+        OpenYAMM::Game::loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+
+    REQUIRE(loaded.has_value());
+    CHECK(loaded->indoorScene.worldRuntime.mapActorCorpseViews.empty());
+    CHECK(loaded->outdoorWorld.mapActorCorpseViews.empty());
 }
 
 TEST_CASE("party spell scroll override cast uses fixed master skill without mana")

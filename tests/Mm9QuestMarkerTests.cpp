@@ -291,7 +291,7 @@ TEST_CASE("Checked-in MM9 quest interaction metadata loads through the runtime "
 
     REQUIRE(table.loadText(path.string(), text.str()));
     CHECK(table.errors().empty());
-    CHECK(table.interactions().size() == 119);
+    CHECK(table.interactions().size() == 125);
     CHECK(std::count_if(
               table.interactions().begin(), table.interactions().end(),
               [](const OpenYAMM::Game::Mm9QuestInteraction &interaction) { return interaction.scrPredicate; }) == 21);

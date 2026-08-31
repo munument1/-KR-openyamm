@@ -1055,6 +1055,9 @@ void applyRareItemBonus(Character &member, uint32_t itemId)
             break;
 
         case 1310:
+            member.weaponEnchantmentDamageBonus += 15;
+            break;
+
         case 1311:
             break;
 

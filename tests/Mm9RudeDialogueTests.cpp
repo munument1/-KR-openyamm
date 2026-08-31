@@ -543,7 +543,7 @@ TEST_CASE("MM9 Old Man exit callback grants canonically mapped reward items")
     REQUIRE_FALSE(bootcampLua.empty());
     CHECK(worldLua.find("[197] = 10197") != std::string::npos);
     CHECK(worldLua.find("[253] = 222") != std::string::npos);
-    CHECK(worldLua.find("[347]") == std::string::npos);
+    CHECK(worldLua.find("[347] = 419") != std::string::npos);
 
     std::string error;
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> program =
@@ -1650,9 +1650,9 @@ TEST_CASE("MM9 world quest overlay augments the shared journal without replacing
         dataLoader.getMergedComplexItemPictureTable().get(10086u);
     REQUIRE(pArmingDoubletPicture != nullptr);
     REQUIRE_EQ(pArmingDoubletPicture->points.size(), 6);
-    CHECK_EQ(pArmingDoubletPicture->points[0].x, 29);
-    CHECK_EQ(pArmingDoubletPicture->points[0].y, 72);
-    CHECK_EQ(pArmingDoubletPicture->points[4].x, 0);
+    CHECK_EQ(pArmingDoubletPicture->points[0].x, 47);
+    CHECK_EQ(pArmingDoubletPicture->points[0].y, 78);
+    CHECK_EQ(pArmingDoubletPicture->points[4].x, -2);
     CHECK_EQ(pArmingDoubletPicture->points[4].y, 0);
     CHECK(assetFileSystem.exists("icons/mm9_item_10086v1.png"));
     CHECK(assetFileSystem.exists("icons/mm9_item_10086v5a.png"));

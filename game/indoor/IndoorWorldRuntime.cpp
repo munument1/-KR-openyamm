@@ -87,32 +87,6 @@ bool indoorMapActorCorpseWasConsumed(
     return actorIndex < corpseViews.size() && isConsumedCorpseView(corpseViews[actorIndex]);
 }
 
-void restoreConsumedIndoorCorpseMarkers(
-    const MapDeltaData *pMapDeltaData,
-    std::vector<std::optional<GameplayCorpseViewState>> &corpseViews)
-{
-    if (pMapDeltaData == nullptr)
-    {
-        return;
-    }
-
-    corpseViews.resize(std::max(corpseViews.size(), pMapDeltaData->actors.size()));
-    const uint32_t invisibleMask = static_cast<uint32_t>(EvtActorAttribute::Invisible);
-
-    for (size_t actorIndex = 0; actorIndex < pMapDeltaData->actors.size(); ++actorIndex)
-    {
-        const MapDeltaActor &actor = pMapDeltaData->actors[actorIndex];
-
-        // Older runtime snapshots represented a consumed corpse only through the actor's Invisible bit.
-        if (actor.hp <= 0 && (actor.attributes & invisibleMask) != 0 && !corpseViews[actorIndex].has_value())
-        {
-            GameplayCorpseViewState consumedCorpse = {};
-            consumedCorpse.sourceIndex = static_cast<uint32_t>(actorIndex);
-            corpseViews[actorIndex] = std::move(consumedCorpse);
-        }
-    }
-}
-
 constexpr float Pi = 3.14159265358979323846f;
 constexpr float GameMinutesPerRealSecond = 0.5f;
 constexpr float CameraVerticalFovRadians = Pi / 3.0f;
@@ -4086,7 +4060,6 @@ void IndoorWorldRuntime::initialize(
     m_actorMovementController.reset();
     invalidateRuntimeGeometryCache();
     materializeInitialMonsterSpawns();
-    restoreConsumedIndoorCorpseMarkers(mapDeltaData(), m_mapActorCorpseViews);
     // On-load event group flags target generated spawn actors too.
     applyEventRuntimeState(true);
     syncMapActorAiStates();
@@ -4173,7 +4146,6 @@ void IndoorWorldRuntime::initialize(
     m_actorMovementController.reset();
     invalidateRuntimeGeometryCache();
     materializeInitialMonsterSpawns();
-    restoreConsumedIndoorCorpseMarkers(mapDeltaData(), m_mapActorCorpseViews);
     // On-load event group flags target generated spawn actors too.
     applyEventRuntimeState(true);
     syncMapActorAiStates();
@@ -16734,7 +16706,6 @@ void IndoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     m_materializedChestViews = snapshot.materializedChestViews;
     m_activeChestView = snapshot.activeChestView;
     m_mapActorCorpseViews = snapshot.mapActorCorpseViews;
-    restoreConsumedIndoorCorpseMarkers(mapDeltaData(), m_mapActorCorpseViews);
     m_activeCorpseView = snapshot.activeCorpseView;
     m_mapActorAiStates = snapshot.mapActorAiStates;
     m_activatedIndoorSectorMask = snapshot.activatedIndoorSectorMask;

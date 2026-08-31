@@ -1,5 +1,6 @@
 #include "game/maps/SaveGame.h"
 
+#include "game/events/EvtEnums.h"
 #include "game/tables/HouseTable.h"
 #include "game/tables/ItemTable.h"
 
@@ -85,6 +86,7 @@ constexpr uint32_t SaveVersionVendorStockGeneration = 80;
 constexpr uint32_t SaveVersionOutdoorDestructibles = 81;
 constexpr uint32_t SaveVersionMm9Barrels = 82;
 constexpr uint32_t SaveVersionTemporaryEventBonuses = 83;
+constexpr uint32_t SaveVersionConsumedCorpseMarkers = 83;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -3627,6 +3629,54 @@ bool readValue(BinaryReader &reader, GameSaveData &value)
 
 namespace
 {
+void migrateLegacyIndoorCorpseMarkers(IndoorSceneRuntime::Snapshot &snapshot)
+{
+    if (!snapshot.mapDeltaData)
+    {
+        return;
+    }
+
+    const std::vector<MapDeltaActor> &actors = snapshot.mapDeltaData->actors;
+    std::vector<std::optional<GameplayCorpseViewState>> &corpseViews =
+        snapshot.worldRuntime.mapActorCorpseViews;
+    corpseViews.resize(std::max(corpseViews.size(), actors.size()));
+    const uint32_t invisibleMask = static_cast<uint32_t>(EvtActorAttribute::Invisible);
+
+    for (size_t actorIndex = 0; actorIndex < actors.size(); ++actorIndex)
+    {
+        const MapDeltaActor &actor = actors[actorIndex];
+
+        if (actor.hp <= 0 && (actor.attributes & invisibleMask) != 0 && !corpseViews[actorIndex].has_value())
+        {
+            GameplayCorpseViewState consumedCorpse = {};
+            consumedCorpse.sourceIndex = static_cast<uint32_t>(actorIndex);
+            corpseViews[actorIndex] = std::move(consumedCorpse);
+        }
+    }
+}
+
+void migrateLegacyOutdoorCorpseMarkers(OutdoorWorldRuntime::Snapshot &snapshot)
+{
+    std::vector<std::optional<GameplayCorpseViewState>> &corpseViews = snapshot.mapActorCorpseViews;
+    corpseViews.resize(std::max(corpseViews.size(), snapshot.mapActors.size()));
+
+    for (size_t actorIndex = 0; actorIndex < snapshot.mapActors.size(); ++actorIndex)
+    {
+        const OutdoorWorldRuntime::MapActorState &actor = snapshot.mapActors[actorIndex];
+        const bool terminalCorpse = actor.isDead
+            || actor.currentHp <= 0
+            || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dying
+            || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dead;
+
+        if (terminalCorpse && actor.isInvisible && !corpseViews[actorIndex].has_value())
+        {
+            GameplayCorpseViewState consumedCorpse = {};
+            consumedCorpse.sourceIndex = static_cast<uint32_t>(actorIndex);
+            corpseViews[actorIndex] = std::move(consumedCorpse);
+        }
+    }
+}
+
 std::vector<uint32_t> persistentSaveItemIds(const GameSaveData &data)
 {
     std::vector<uint32_t> itemIds;
@@ -3800,6 +3850,36 @@ std::vector<uint32_t> persistentSaveItemIds(const GameSaveData &data)
     itemIds.erase(std::unique(itemIds.begin(), itemIds.end()), itemIds.end());
     return itemIds;
 }
+}
+
+void migrateLegacyConsumedCorpseMarkers(GameSaveData &data, uint32_t sourceSaveVersion)
+{
+    if (sourceSaveVersion >= SaveVersionConsumedCorpseMarkers)
+    {
+        return;
+    }
+
+    if (data.hasOutdoorRuntimeState)
+    {
+        migrateLegacyOutdoorCorpseMarkers(data.outdoorWorld);
+    }
+
+    for (auto &[mapName, snapshot] : data.outdoorWorldStates)
+    {
+        (void)mapName;
+        migrateLegacyOutdoorCorpseMarkers(snapshot);
+    }
+
+    if (data.hasIndoorSceneState)
+    {
+        migrateLegacyIndoorCorpseMarkers(data.indoorScene);
+    }
+
+    for (auto &[mapName, snapshot] : data.indoorSceneStates)
+    {
+        (void)mapName;
+        migrateLegacyIndoorCorpseMarkers(snapshot);
+    }
 }
 
 std::unordered_map<std::string, uint32_t> collectRequiredContentPackages(
@@ -4005,6 +4085,8 @@ std::optional<GameSaveData> loadGameDataFromPath(const std::filesystem::path &pa
         error = "save data is corrupted";
         return std::nullopt;
     }
+
+    migrateLegacyConsumedCorpseMarkers(data, version);
 
     return data;
 }

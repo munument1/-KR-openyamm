@@ -8196,7 +8196,7 @@ TEST_CASE("mm7 Mount Nighon local relations keep resident warlocks peaceful to t
     peasant.group = actors[9].group;
     peasant.height = actors[9].height;
 
-    CHECK(actorService.resolveActorTargetPolicy(warlock, peasant).canTarget);
+    CHECK_FALSE(actorService.resolveActorTargetPolicy(warlock, peasant).canTarget);
 
     std::string error;
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =

@@ -10014,19 +10014,20 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                     return false;
                 }
 
-                IndoorWorldRuntime::Snapshot legacyCorpseSnapshot = scenario.world.snapshot();
-                legacyCorpseSnapshot.mapActorCorpseViews[actorIndex].reset();
-                scenario.world.restoreSnapshot(legacyCorpseSnapshot);
-
-                if ((actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) == 0)
-                {
-                    failure = "legacy indoor corpse state was revived during snapshot migration";
-                    return false;
-                }
-
                 if (scenario.world.openMapActorCorpseView(actorIndex))
                 {
                     failure = "fully looted indoor corpse should not reopen";
+                    return false;
+                }
+
+                IndoorWorldRuntime::Snapshot markerlessCorpseSnapshot = scenario.world.snapshot();
+                markerlessCorpseSnapshot.mapActorCorpseViews[actorIndex].reset();
+                scenario.world.restoreSnapshot(markerlessCorpseSnapshot);
+                scenario.world.applyEventRuntimeState();
+
+                if ((actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0)
+                {
+                    failure = "markerless indoor dead actor should follow visibility events";
                     return false;
                 }
 
@@ -18007,20 +18008,21 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
-            OutdoorWorldRuntime::Snapshot legacyCorpseSnapshot = scenario.world.snapshot();
-            legacyCorpseSnapshot.mapActorCorpseViews[5].reset();
-            scenario.world.restoreSnapshot(legacyCorpseSnapshot);
-            pActor = scenario.world.mapActorState(5);
-
-            if (pActor == nullptr || !pActor->isInvisible)
-            {
-                failure = "legacy outdoor corpse state was revived during snapshot migration";
-                return false;
-            }
-
             if (scenario.world.openMapActorCorpseView(5))
             {
                 failure = "looted corpse should no longer be reopenable";
+                return false;
+            }
+
+            OutdoorWorldRuntime::Snapshot markerlessCorpseSnapshot = scenario.world.snapshot();
+            markerlessCorpseSnapshot.mapActorCorpseViews[5].reset();
+            scenario.world.restoreSnapshot(markerlessCorpseSnapshot);
+            scenario.world.applyEventRuntimeState();
+            pActor = scenario.world.mapActorState(5);
+
+            if (pActor == nullptr || pActor->isInvisible)
+            {
+                failure = "markerless outdoor dead actor should follow visibility events";
                 return false;
             }
 

@@ -275,10 +275,15 @@ bool UiLayoutManager::loadLayoutFile(const Engine::AssetFileSystem &assetFileSys
         return false;
     }
 
+    return loadLayoutText(path, *fileContents);
+}
+
+bool UiLayoutManager::loadLayoutText(const std::string &sourceName, const std::string &text)
+{
     try
     {
         m_sortedLayoutIdsByScreen.clear();
-        const YAML::Node root = YAML::Load(*fileContents);
+        const YAML::Node root = YAML::Load(text);
 
         if (!root.IsMap())
         {
@@ -551,7 +556,7 @@ bool UiLayoutManager::loadLayoutFile(const Engine::AssetFileSystem &assetFileSys
         {
             if (!appendElement(elementNode, ""))
             {
-                std::cerr << "HUD layout YAML parse failed in " << path << '\n';
+                std::cerr << "HUD layout YAML parse failed in " << sourceName << '\n';
                 return false;
             }
         }
@@ -560,7 +565,7 @@ bool UiLayoutManager::loadLayoutFile(const Engine::AssetFileSystem &assetFileSys
     }
     catch (const YAML::Exception &exception)
     {
-        std::cerr << "HUD layout YAML exception in " << path << ": " << exception.what() << '\n';
+        std::cerr << "HUD layout YAML exception in " << sourceName << ": " << exception.what() << '\n';
         return false;
     }
 }
