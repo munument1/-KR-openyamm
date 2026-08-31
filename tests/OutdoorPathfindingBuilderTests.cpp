@@ -14,6 +14,8 @@
 
 using OpenYAMM::Game::FaceAttribute;
 using OpenYAMM::Game::MapDeltaData;
+using OpenYAMM::Game::MapBoundaryEdge;
+using OpenYAMM::Game::MapBounds;
 using OpenYAMM::Game::OutdoorBModel;
 using OpenYAMM::Game::OutdoorBModelFace;
 using OpenYAMM::Game::OutdoorMapData;
@@ -48,6 +50,7 @@ namespace
 constexpr uint8_t OutdoorPolygonWall = 0x1;
 constexpr uint8_t OutdoorPolygonFloor = 0x3;
 constexpr uint8_t OutdoorPolygonInBetweenFloorAndWall = 0x4;
+constexpr uint8_t OutdoorPolygonCeiling = 0x5;
 constexpr uint8_t OutdoorTerrainWater = 0x02;
 
 size_t terrainSampleIndex(size_t gridX, size_t gridY)
@@ -140,6 +143,74 @@ OutdoorBModel makeOutdoorBridgeBModel(float centerX, float centerY, float z)
     return bModel;
 }
 
+OutdoorMapData makeBModelStepTestMap(bool addOverheadFace)
+{
+    OutdoorMapData mapData = makeOutdoorMapWithTerrain();
+    mapData.noTerrain = true;
+
+    OutdoorBModel bModel = {};
+    bModel.name = "bmodel_step_test";
+    bModel.vertices = {
+        {-200, -100, 0},
+        {0, -100, 0},
+        {0, 100, 0},
+        {-200, 100, 0},
+        {-20, -100, 80},
+        {200, -100, 80},
+        {200, 100, 80},
+        {-20, 100, 80},
+        {0, -100, 0},
+        {0, 100, 0},
+        {0, 100, 80},
+        {0, -100, 80},
+        {-20, -100, 40},
+        {200, -100, 40},
+        {200, 100, 40},
+        {-20, 100, 40},
+    };
+    bModel.faces = {
+        makeOutdoorFace({0, 1, 2, 3}, OutdoorPolygonFloor),
+        makeOutdoorFace({4, 5, 6, 7}, OutdoorPolygonFloor),
+        makeOutdoorFace({8, 9, 10, 11}, OutdoorPolygonWall),
+    };
+
+    if (addOverheadFace)
+    {
+        bModel.faces.push_back(makeOutdoorFace({12, 15, 14, 13}, OutdoorPolygonCeiling));
+    }
+
+    mapData.bmodels.push_back(std::move(bModel));
+    return mapData;
+}
+
+OpenYAMM::Game::OutdoorMoveState moveAcrossBModelStep(
+    const OutdoorMovementController &controller,
+    const OpenYAMM::Game::OutdoorBodyDimensions &body)
+{
+    OpenYAMM::Game::OutdoorMoveState state = controller.initializeStateForBody(-80.0f, 0.0f, 1.0f, body.radius);
+
+    for (int step = 0; step < 80; ++step)
+    {
+        state = controller.resolveMoveForBody(
+            state,
+            body,
+            384.0f,
+            0.0f,
+            0.0f,
+            false,
+            false,
+            false,
+            false,
+            false,
+            480.0f,
+            1536.0f,
+            4000.0f,
+            1.0f / 128.0f);
+    }
+
+    return state;
+}
+
 OutdoorBModel makeOutdoorBridgeRampToFlatBModel(float centerX, float centerY)
 {
     OutdoorBModel bModel = {};
@@ -182,6 +253,32 @@ PathPlanRequest makeOutdoorPathRequest()
     request.nodeLimit = 8000;
     return request;
 }
+}
+
+TEST_CASE("outdoor BModel movement honors the configured body step height")
+{
+    const OutdoorMapData mapData = makeBModelStepTestMap(false);
+    const OutdoorMovementController controller(mapData, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+
+    const OpenYAMM::Game::OutdoorMoveState lowStep =
+        moveAcrossBModelStep(controller, OpenYAMM::Game::OutdoorBodyDimensions{10.0f, 30.0f, 40.96f});
+    const OpenYAMM::Game::OutdoorMoveState highStep =
+        moveAcrossBModelStep(controller, OpenYAMM::Game::OutdoorBodyDimensions{10.0f, 30.0f, 128.0f});
+
+    INFO("low step position=" << lowStep.x << "," << lowStep.y << "," << lowStep.footZ);
+    INFO("high step position=" << highStep.x << "," << highStep.y << "," << highStep.footZ);
+    CHECK_LT(lowStep.footZ, 40.0f);
+    CHECK_GT(highStep.footZ, 80.0f);
+}
+
+TEST_CASE("outdoor BModel movement cannot step through an overhead face")
+{
+    const OutdoorMapData mapData = makeBModelStepTestMap(true);
+    const OutdoorMovementController controller(mapData, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+    const OpenYAMM::Game::OutdoorMoveState state =
+        moveAcrossBModelStep(controller, OpenYAMM::Game::OutdoorBodyDimensions{10.0f, 30.0f, 128.0f});
+
+    CHECK_LT(state.footZ, 40.0f);
 }
 
 TEST_CASE("outdoor pathfinding builder materializes terrain triangles matching rendered terrain height")
@@ -375,6 +472,55 @@ TEST_CASE("outdoor actor support query treats non-fluid BModel above water as br
             bridgeY,
             state.footZ,
             128.0f));
+}
+
+TEST_CASE("outdoor map bounds clamp flying party movement and report the blocked edge")
+{
+    OutdoorMapData mapData = makeOutdoorMapWithTerrain();
+    const MapBounds bounds = {
+        .enabled = true,
+        .minX = -23143,
+        .maxX = 23143,
+        .minY = -23143,
+        .maxY = 23143,
+    };
+    const OutdoorMovementController controller(
+        mapData,
+        bounds,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt);
+    constexpr float PartyRadius = 37.0f;
+    const float expectedMaxPartyX = static_cast<float>(bounds.maxX) - PartyRadius;
+    OpenYAMM::Game::OutdoorMoveState state =
+        controller.initializeState(expectedMaxPartyX - 1.0f, 0.0f, 0.0f);
+    state.footZ = 1000.0f;
+    state.airborne = true;
+    state.fallStartZ = state.footZ;
+
+    const OpenYAMM::Game::OutdoorMoveState resolved = controller.resolveMove(
+        state,
+        1024.0f,
+        0.0f,
+        0.0f,
+        false,
+        false,
+        false,
+        true,
+        false,
+        480.0f,
+        1536.0f,
+        4000.0f,
+        0.1f);
+
+    CHECK_EQ(resolved.x, doctest::Approx(expectedMaxPartyX));
+    CHECK_EQ(resolved.y, doctest::Approx(0.0f));
+    CHECK_EQ(resolved.footZ, doctest::Approx(1000.0f));
+    const std::optional<MapBoundaryEdge> blockedEdge =
+        controller.detectBoundaryBlock(state, resolved, 1024.0f, 0.0f);
+    REQUIRE(blockedEdge.has_value());
+    CHECK(*blockedEdge == MapBoundaryEdge::East);
 }
 
 TEST_CASE("outdoor actor placement initialization grounds a static source position immediately")

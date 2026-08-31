@@ -1838,7 +1838,8 @@ void IndoorGameView::updateDialogueVideoPlayback(float deltaSeconds)
     const EventDialogContent &activeDialog = screenRuntime.activeEventDialog();
 
     if (!activeDialog.isActive
-        || screenRuntime.currentHudScreenState() != GameplayHudScreenState::Dialogue)
+        || screenRuntime.currentHudScreenState() != GameplayHudScreenState::Dialogue
+        || !activeEventDialogAllowsHouseVideoPlayback(activeDialog))
     {
         screenRuntime.stopHouseVideoPlayback();
         return;

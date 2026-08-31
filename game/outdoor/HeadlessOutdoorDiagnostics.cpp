@@ -36,6 +36,7 @@
 #include "game/items/ItemGenerator.h"
 #include "game/items/ItemRuntime.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
+#include "game/mm9/Mm9BarrelRuntime.h"
 #include "game/outdoor/OutdoorMovementController.h"
 #include "game/outdoor/OutdoorPathfindingBuilder.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
@@ -68,6 +69,7 @@
 #include <limits>
 #include <optional>
 #include <sstream>
+#include <unordered_set>
 #include <utility>
 
 namespace OpenYAMM::Game
@@ -84,6 +86,36 @@ GameplayActorService buildBoundGameplayActorService(const GameDataLoader &gameDa
 bool textContains(const std::string &text, const std::string &needle)
 {
     return text.find(needle) != std::string::npos;
+}
+
+bool mm9BarrelVisualMatches(
+    const MapMm9BarrelSource &source,
+    const MapDeltaMm9BarrelState &state,
+    const EventRuntimeState &eventRuntimeState)
+{
+    if (source.liquidFaces.empty())
+    {
+        return true;
+    }
+
+    const size_t textureIndex = mm9BarrelLiquidTextureIndex(state);
+    if (textureIndex >= source.liquidTextureAliases.size())
+    {
+        return false;
+    }
+
+    const std::string &expectedTextureAlias = source.liquidTextureAliases[textureIndex];
+    for (uint32_t faceIndex : source.liquidFaces)
+    {
+        const uint32_t key = EventRuntime::outdoorModelFacetTextureOverrideKey(source.bmodelIndex, faceIndex);
+        const auto overrideIt = eventRuntimeState.outdoorModelFacetTextureOverrides.find(key);
+        if (overrideIt == eventRuntimeState.outdoorModelFacetTextureOverrides.end()
+            || overrideIt->second != expectedTextureAlias)
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 size_t pendingPartySoundCount(const Party &party, SoundId soundId)
@@ -3966,6 +3998,44 @@ int HeadlessGameplayDiagnostics::runProfileFullMapLoad(
         }
     }
 
+    if (selectedMap->itemSourceData && !selectedMap->itemSourceData->mm9Barrels.empty())
+    {
+        std::unordered_set<std::string> loadedTextureNames;
+        if (selectedMap->outdoorBModelTextureSet)
+        {
+            for (const OutdoorBitmapTexture &texture : selectedMap->outdoorBModelTextureSet->textures)
+            {
+                loadedTextureNames.insert(toLowerCopy(texture.textureName));
+            }
+        }
+        if (selectedMap->indoorTextureSet)
+        {
+            for (const OutdoorBitmapTexture &texture : selectedMap->indoorTextureSet->textures)
+            {
+                loadedTextureNames.insert(toLowerCopy(texture.textureName));
+            }
+        }
+
+        std::unordered_set<std::string> requiredTextureNames;
+        for (const MapMm9BarrelSource &barrel : selectedMap->itemSourceData->mm9Barrels)
+        {
+            for (const std::string &textureAlias : barrel.liquidTextureAliases)
+            {
+                requiredTextureNames.insert(toLowerCopy(textureAlias));
+            }
+        }
+        for (const std::string &textureName : requiredTextureNames)
+        {
+            if (!loadedTextureNames.contains(textureName))
+            {
+                std::cerr << "Headless diagnostic failed: MM9 barrel texture not loaded: "
+                          << textureName << '\n';
+                return 1;
+            }
+        }
+        std::cout << "Headless MM9 barrel textures loaded: " << requiredTextureNames.size() << '\n';
+    }
+
     std::cout << "Headless load profile complete: map=\"" << selectedMap->map.name
               << "\" file=" << selectedMap->map.fileName
               << '\n';
@@ -5918,30 +5988,68 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
     party.setClassSkillTable(&gameDataLoader.getClassSkillTable());
     party.reset();
 
-    OutdoorWorldRuntime outdoorWorldRuntime;
-    outdoorWorldRuntime.initialize(
-        selectedMap->map,
-        gameDataLoader.getMonsterTable(),
-        gameDataLoader.getMonsterProjectileTable(),
-        gameDataLoader.getObjectTable(),
-        gameDataLoader.getSpellTable(),
-        gameDataLoader.getItemTable(),
+    const MapItemSourceData *pItemSourceData =
+        selectedMap->itemSourceData ? &*selectedMap->itemSourceData : nullptr;
+    const MapMm9BarrelSource *pMm9BarrelSource = nullptr;
+    if (pItemSourceData != nullptr)
+    {
+        const auto barrelIt = std::find_if(
+            pItemSourceData->mm9Barrels.begin(),
+            pItemSourceData->mm9Barrels.end(),
+            [eventId](const MapMm9BarrelSource &source)
+            {
+                return source.interactionEventId == eventId;
+            });
+        if (barrelIt != pItemSourceData->mm9Barrels.end())
+        {
+            pMm9BarrelSource = &*barrelIt;
+        }
+    }
+
+    const auto initializeWorldRuntime = [
+        &selectedMap,
+        &gameDataLoader,
         &party,
-        nullptr,
-        gameDataLoader.getStandardItemEnchantTable(),
-        gameDataLoader.getSpecialItemEnchantTable(),
-        &gameDataLoader.getChestTable(),
-        selectedMap->outdoorMapData,
-        selectedMap->outdoorMapDeltaData,
-        selectedMap->outdoorWeatherProfile,
-        selectedMap->eventRuntimeState,
-        selectedMap->outdoorActorPreviewBillboardSet,
-        selectedMap->outdoorLandMask,
-        selectedMap->outdoorDecorationCollisionSet,
-        selectedMap->outdoorActorCollisionSet,
-        selectedMap->outdoorSpriteObjectCollisionSet,
-        selectedMap->outdoorSpriteObjectBillboardSet
-    );
+        pItemSourceData
+    ](
+        OutdoorWorldRuntime &worldRuntime,
+        const std::optional<MapDeltaData> &mapDeltaData,
+        const std::optional<EventRuntimeState> &eventRuntimeState)
+    {
+        worldRuntime.initialize(
+            selectedMap->map,
+            gameDataLoader.getMonsterTable(),
+            gameDataLoader.getMonsterProjectileTable(),
+            gameDataLoader.getObjectTable(),
+            gameDataLoader.getSpellTable(),
+            gameDataLoader.getItemTable(),
+            &party,
+            nullptr,
+            gameDataLoader.getStandardItemEnchantTable(),
+            gameDataLoader.getSpecialItemEnchantTable(),
+            &gameDataLoader.getChestTable(),
+            selectedMap->outdoorMapData,
+            mapDeltaData,
+            selectedMap->outdoorWeatherProfile,
+            eventRuntimeState,
+            selectedMap->outdoorActorPreviewBillboardSet,
+            selectedMap->outdoorLandMask,
+            selectedMap->outdoorDecorationCollisionSet,
+            selectedMap->outdoorActorCollisionSet,
+            selectedMap->outdoorSpriteObjectCollisionSet,
+            selectedMap->outdoorSpriteObjectBillboardSet,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            pItemSourceData
+        );
+    };
+
+    OutdoorWorldRuntime outdoorWorldRuntime;
+    initializeWorldRuntime(outdoorWorldRuntime, selectedMap->outdoorMapDeltaData, selectedMap->eventRuntimeState);
 
     EventRuntime eventRuntime;
     EventRuntimeState *pEventRuntimeState = outdoorWorldRuntime.eventRuntimeState();
@@ -5950,6 +6058,32 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
     {
         std::cerr << "Headless diagnostic failed: event runtime state is not available\n";
         return 1;
+    }
+
+    std::optional<Mm9BarrelType> mm9BarrelTypeBeforeEvent;
+    if (pMm9BarrelSource != nullptr)
+    {
+        const MapDeltaData *pMapDeltaData = outdoorWorldRuntime.mapDeltaData();
+        const auto stateIt = pMapDeltaData != nullptr
+            ? std::find_if(
+                pMapDeltaData->mm9Barrels.begin(),
+                pMapDeltaData->mm9Barrels.end(),
+                [pMm9BarrelSource](const MapDeltaMm9BarrelState &state)
+                {
+                    return state.sourceObjectIndex == pMm9BarrelSource->sourceObjectIndex;
+                })
+            : std::vector<MapDeltaMm9BarrelState>::const_iterator{};
+        if (pMapDeltaData == nullptr || stateIt == pMapDeltaData->mm9Barrels.end() || stateIt->used)
+        {
+            std::cerr << "Headless diagnostic failed: MM9 barrel did not initialize as unused\n";
+            return 1;
+        }
+        if (!mm9BarrelVisualMatches(*pMm9BarrelSource, *stateIt, *pEventRuntimeState))
+        {
+            std::cerr << "Headless diagnostic failed: MM9 barrel did not initialize its colored liquid visual\n";
+            return 1;
+        }
+        mm9BarrelTypeBeforeEvent = stateIt->type;
     }
 
     std::cout << "Headless diagnostic: map=" << selectedMap->map.fileName
@@ -5981,7 +6115,11 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
         });
     }
 
-    const bool executed = eventRuntime.executeEventById(
+    const Character *pActiveMemberBeforeEvent = party.activeMember();
+    const std::optional<Character> activeMemberBeforeEvent =
+        pActiveMemberBeforeEvent != nullptr ? std::optional<Character>(*pActiveMemberBeforeEvent) : std::nullopt;
+    const bool nativeEventExecuted = outdoorWorldRuntime.useMm9BarrelEvent(eventId);
+    const bool executed = nativeEventExecuted || eventRuntime.executeEventById(
         selectedMap->localEventProgram,
         selectedMap->globalEventProgram,
         eventId,
@@ -5994,6 +6132,110 @@ int HeadlessGameplayDiagnostics::runOpenEvent(
     {
         std::cout << "Headless diagnostic: event " << eventId << " unresolved\n";
         return 2;
+    }
+
+    if (pMm9BarrelSource != nullptr)
+    {
+        const MapDeltaData *pMapDeltaData = outdoorWorldRuntime.mapDeltaData();
+        const auto stateIt = pMapDeltaData != nullptr
+            ? std::find_if(
+                pMapDeltaData->mm9Barrels.begin(),
+                pMapDeltaData->mm9Barrels.end(),
+                [pMm9BarrelSource](const MapDeltaMm9BarrelState &state)
+                {
+                    return state.sourceObjectIndex == pMm9BarrelSource->sourceObjectIndex;
+                })
+            : std::vector<MapDeltaMm9BarrelState>::const_iterator{};
+        if (pMapDeltaData == nullptr || stateIt == pMapDeltaData->mm9Barrels.end() || !stateIt->used)
+        {
+            std::cerr << "Headless diagnostic failed: MM9 barrel event did not consume its map state\n";
+            return 1;
+        }
+        if (!mm9BarrelTypeBeforeEvent.has_value()
+            || stateIt->type != *mm9BarrelTypeBeforeEvent
+            || !mm9BarrelVisualMatches(*pMm9BarrelSource, *stateIt, *pEventRuntimeState))
+        {
+            std::cerr << "Headless diagnostic failed: MM9 barrel did not retain its type and apply the water visual\n";
+            return 1;
+        }
+        const Character *pActiveMemberAfterEvent = party.activeMember();
+        bool effectMatches = activeMemberBeforeEvent.has_value() && pActiveMemberAfterEvent != nullptr;
+        if (effectMatches)
+        {
+            const Character &before = *activeMemberBeforeEvent;
+            const Character &after = *pActiveMemberAfterEvent;
+            switch (stateIt->type)
+            {
+                case Mm9BarrelType::RedMight:
+                    effectMatches = after.might == before.might + 2;
+                    break;
+                case Mm9BarrelType::BlueMagic:
+                    effectMatches = after.intellect == before.intellect + 2
+                        && after.personality == before.personality;
+                    break;
+                case Mm9BarrelType::GreenEndurance:
+                    effectMatches = after.endurance == before.endurance + 2;
+                    break;
+                case Mm9BarrelType::PurpleSpeed:
+                    effectMatches = after.speed == before.speed + 2;
+                    break;
+                case Mm9BarrelType::WhiteLuck:
+                    effectMatches = after.luck == before.luck + 2;
+                    break;
+                case Mm9BarrelType::YellowAccuracy:
+                    effectMatches = after.accuracy == before.accuracy + 2;
+                    break;
+                case Mm9BarrelType::Swamp:
+                    effectMatches = after.conditions.test(static_cast<size_t>(CharacterCondition::DiseaseWeak))
+                        && after.inventory.size() > before.inventory.size();
+                    break;
+                case Mm9BarrelType::Water:
+                    effectMatches = after.might == before.might
+                        && after.intellect == before.intellect
+                        && after.personality == before.personality
+                        && after.endurance == before.endurance
+                        && after.speed == before.speed
+                        && after.accuracy == before.accuracy
+                        && after.luck == before.luck
+                        && after.conditions == before.conditions
+                        && after.inventory.size() == before.inventory.size();
+                    break;
+            }
+        }
+        if (!effectMatches)
+        {
+            std::cerr << "Headless diagnostic failed: MM9 barrel effect did not match its saved type\n";
+            return 1;
+        }
+
+        std::optional<MapDeltaData> reloadMapDeltaData = *pMapDeltaData;
+        std::optional<EventRuntimeState> reloadEventRuntimeState = EventRuntimeState{};
+        OutdoorWorldRuntime reloadedWorldRuntime;
+        initializeWorldRuntime(reloadedWorldRuntime, reloadMapDeltaData, reloadEventRuntimeState);
+        const MapDeltaData *pReloadedMapDeltaData = reloadedWorldRuntime.mapDeltaData();
+        const EventRuntimeState *pReloadedEventRuntimeState = reloadedWorldRuntime.eventRuntimeState();
+        const auto reloadedStateIt = pReloadedMapDeltaData != nullptr
+            ? std::find_if(
+                pReloadedMapDeltaData->mm9Barrels.begin(),
+                pReloadedMapDeltaData->mm9Barrels.end(),
+                [pMm9BarrelSource](const MapDeltaMm9BarrelState &state)
+                {
+                    return state.sourceObjectIndex == pMm9BarrelSource->sourceObjectIndex;
+                })
+            : std::vector<MapDeltaMm9BarrelState>::const_iterator{};
+        if (pReloadedMapDeltaData == nullptr
+            || pReloadedEventRuntimeState == nullptr
+            || reloadedStateIt == pReloadedMapDeltaData->mm9Barrels.end()
+            || reloadedStateIt->type != stateIt->type
+            || !reloadedStateIt->used
+            || !mm9BarrelVisualMatches(*pMm9BarrelSource, *reloadedStateIt, *pReloadedEventRuntimeState))
+        {
+            std::cerr << "Headless diagnostic failed: MM9 barrel state or water visual did not survive map reload\n";
+            return 1;
+        }
+        std::cout << "Headless diagnostic: MM9 barrel source=" << pMm9BarrelSource->sourceObjectIndex
+                  << " type=" << static_cast<int>(stateIt->type)
+                  << " used=yes reload=preserved\n";
     }
 
     outdoorWorldRuntime.applyEventRuntimeState();
@@ -10449,6 +10691,368 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
         std::cout << "Regression suite summary: passed=" << passedCount << " failed=" << failedCount << '\n';
         return failedCount == 0 ? 0 : 1;
     }
+
+    runCase(
+        "outdoor_destructible_damage_removes_render_and_collision_faces",
+        [&](std::string &failure)
+        {
+            MapAssetInfo modifiedMap = *selectedMap;
+            if (!modifiedMap.outdoorMapData || !modifiedMap.outdoorMapDeltaData
+                || modifiedMap.outdoorMapData->bmodels.empty()
+                || modifiedMap.outdoorMapData->bmodels.front().faces.empty())
+            {
+                failure = "selected outdoor map has no BModel face for destructible regression";
+                return false;
+            }
+
+            constexpr uint32_t SourceObjectIndex = 424242;
+            OutdoorDestructible definition = {};
+            definition.sourceObjectIndex = SourceObjectIndex;
+            definition.runtimeObjectId = 1424242;
+            definition.sourceName = "diagnostic_destructible";
+            definition.bmodelIndex = 0;
+            definition.bmodelName = modifiedMap.outdoorMapData->bmodels.front().name;
+            definition.initialHp = 3;
+            definition.initiallyDamageEnabled = true;
+            modifiedMap.outdoorMapData->destructibles = {definition};
+            modifiedMap.outdoorMapData->triggerVolumes.clear();
+            modifiedMap.eventRuntimeState = EventRuntimeState{};
+
+            RegressionScenario scenario = {};
+            if (!initializeRegressionScenario(gameDataLoader, modifiedMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            const RuntimeDestructibleState *pInitialState =
+                scenario.world.outdoorDestructibleState(SourceObjectIndex);
+            if (pInitialState == nullptr || pInitialState->hp != 3 || pInitialState->destroyed)
+            {
+                failure = "destructible initial state was not created";
+                return false;
+            }
+
+            if (!scenario.world.applyPartyAttackMeleeBModelDamage(0, 2))
+            {
+                failure = "melee BModel damage was rejected";
+                return false;
+            }
+            const RuntimeDestructibleState *pDamagedState =
+                scenario.world.outdoorDestructibleState(SourceObjectIndex);
+            if (pDamagedState == nullptr || pDamagedState->hp != 1 || pDamagedState->destroyed)
+            {
+                failure = "nonlethal damage state was wrong";
+                return false;
+            }
+
+            if (!scenario.world.damageOutdoorDestructible(SourceObjectIndex, 1))
+            {
+                failure = "lethal damage was rejected";
+                return false;
+            }
+            const RuntimeDestructibleState *pDestroyedState =
+                scenario.world.outdoorDestructibleState(SourceObjectIndex);
+            if (pDestroyedState == nullptr || pDestroyedState->hp != 0 || !pDestroyedState->destroyed)
+            {
+                failure = "lethal damage did not produce destroyed state";
+                return false;
+            }
+
+            const MapDeltaData *pMapDeltaData = scenario.world.mapDeltaData();
+            const size_t faceCount = modifiedMap.outdoorMapData->bmodels.front().faces.size();
+            if (pMapDeltaData == nullptr || pMapDeltaData->faceAttributes.size() < faceCount)
+            {
+                failure = "destructible map face state was missing";
+                return false;
+            }
+
+            for (size_t faceIndex = 0; faceIndex < faceCount; ++faceIndex)
+            {
+                const uint32_t attributes = pMapDeltaData->faceAttributes[faceIndex];
+                if (!hasFaceAttribute(attributes, FaceAttribute::Invisible)
+                    || !hasFaceAttribute(attributes, FaceAttribute::Untouchable))
+                {
+                    failure = "destroyed BModel face remained visible or collidable";
+                    return false;
+                }
+            }
+
+            const std::filesystem::path savePath = "/tmp/openyamm_destructible_roundtrip.oysav";
+            GameSaveData saveData = {};
+            saveData.currentSceneKind = SceneKind::Outdoor;
+            saveData.mapFileName = modifiedMap.map.fileName;
+            saveData.party = scenario.party.snapshot();
+            saveData.hasOutdoorRuntimeState = true;
+            saveData.outdoorWorld = scenario.world.snapshot();
+            saveData.outdoorWorldStates[saveData.mapFileName] = saveData.outdoorWorld;
+            std::string saveError;
+            if (!saveGameDataToPath(savePath, saveData, saveError))
+            {
+                failure = "destructible save failed: " + saveError;
+                return false;
+            }
+
+            const std::optional<GameSaveData> loadedSave = loadGameDataFromPath(savePath, saveError);
+            std::error_code removeError;
+            std::filesystem::remove(savePath, removeError);
+            if (!loadedSave || !loadedSave->outdoorWorld.eventRuntimeState)
+            {
+                failure = "destructible load failed: " + saveError;
+                return false;
+            }
+
+            const auto savedStateIterator =
+                loadedSave->outdoorWorld.eventRuntimeState->destructibles.find(SourceObjectIndex);
+            if (savedStateIterator == loadedSave->outdoorWorld.eventRuntimeState->destructibles.end()
+                || !savedStateIterator->second.destroyed
+                || savedStateIterator->second.hp != 0)
+            {
+                failure = "destroyed state did not survive save/load";
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    runCase(
+        "outdoor_thjorad_destructible_trigger_destroys_cavein",
+        [&](std::string &failure)
+        {
+            GameDataLoader thjoradLoader;
+            if (!thjoradLoader.loadForHeadlessGameplay(assetFileSystem)
+                || !thjoradLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "thjoradmine.odm"))
+            {
+                failure = "could not load thjoradmine.odm";
+                return false;
+            }
+
+            const std::optional<MapAssetInfo> &thjoradMap = thjoradLoader.getSelectedMap();
+            if (!thjoradMap || !thjoradMap->outdoorMapData || !thjoradMap->outdoorMapDeltaData
+                || !thjoradMap->eventRuntimeState)
+            {
+                failure = "Thjorad Mine is missing outdoor runtime data";
+                return false;
+            }
+
+            const auto triggerIterator = std::find_if(
+                thjoradMap->outdoorMapData->triggerVolumes.begin(),
+                thjoradMap->outdoorMapData->triggerVolumes.end(),
+                [](const OutdoorTriggerVolume &trigger)
+                {
+                    return trigger.sourceObjectIndex == 597;
+                });
+            if (triggerIterator == thjoradMap->outdoorMapData->triggerVolumes.end())
+            {
+                failure = "Trigger7 was not imported";
+                return false;
+            }
+
+            OutdoorPartyRuntime partyRuntime(
+                OutdoorMovementDriver(
+                    *thjoradMap->outdoorMapData,
+                    thjoradMap->map.outdoorBounds.enabled
+                        ? std::optional<MapBounds>(thjoradMap->map.outdoorBounds)
+                        : std::nullopt,
+                    thjoradMap->outdoorLandMask,
+                    thjoradMap->outdoorDecorationCollisionSet,
+                    thjoradMap->outdoorActorCollisionSet,
+                    thjoradMap->outdoorSpriteObjectCollisionSet),
+                thjoradLoader.getItemTable());
+            partyRuntime.party().seed(createRegressionPartySeed());
+            partyRuntime.initialize(
+                static_cast<float>(triggerIterator->x),
+                static_cast<float>(triggerIterator->y),
+                static_cast<float>(triggerIterator->z - 96));
+
+            GameplayActorService actorService = buildBoundGameplayActorService(thjoradLoader);
+            GameplayProjectileService projectileService;
+            GameplayCombatController combatController;
+            OutdoorWorldRuntime world;
+            world.initialize(
+                thjoradMap->map,
+                thjoradLoader.getMonsterTable(),
+                thjoradLoader.getMonsterProjectileTable(),
+                thjoradLoader.getObjectTable(),
+                thjoradLoader.getSpellTable(),
+                thjoradLoader.getItemTable(),
+                &partyRuntime.party(),
+                &partyRuntime,
+                thjoradLoader.getStandardItemEnchantTable(),
+                thjoradLoader.getSpecialItemEnchantTable(),
+                &thjoradLoader.getChestTable(),
+                thjoradMap->outdoorMapData,
+                thjoradMap->outdoorMapDeltaData,
+                thjoradMap->outdoorWeatherProfile,
+                thjoradMap->eventRuntimeState,
+                thjoradMap->outdoorActorPreviewBillboardSet,
+                thjoradMap->outdoorLandMask,
+                thjoradMap->outdoorDecorationCollisionSet,
+                thjoradMap->outdoorActorCollisionSet,
+                thjoradMap->outdoorSpriteObjectCollisionSet,
+                thjoradMap->outdoorSpriteObjectBillboardSet,
+                &actorService,
+                &projectileService,
+                &combatController);
+
+            OutdoorWorldRuntime::Snapshot legacySnapshot = world.snapshot();
+            if (!legacySnapshot.eventRuntimeState)
+            {
+                failure = "Thjorad snapshot is missing event runtime state";
+                return false;
+            }
+            legacySnapshot.eventRuntimeState->destructibles.clear();
+            world.restoreSnapshot(legacySnapshot);
+            const RuntimeDestructibleState *pRestoredRockState = world.outdoorDestructibleState(0);
+            if (pRestoredRockState == nullptr
+                || pRestoredRockState->hp != 1
+                || !pRestoredRockState->damageEnabled
+                || pRestoredRockState->destroyed)
+            {
+                failure = "legacy save restoration did not seed Thjorad destructible state";
+                return false;
+            }
+
+            if (!world.isPartyAttackMeleeBModelTarget(85))
+            {
+                failure = "PerceptionBrush4 is not a melee target proxy for destructible db12";
+                return false;
+            }
+            const GameplayActionController::PartyAttackExecutionResult meleeResult =
+                GameplayActionController::executePartyAttack(
+                    GameplayActionController::PartyAttackConfig{
+                        .pWorldRuntime = &world,
+                        .pParty = &partyRuntime.party(),
+                        .pItemTable = &thjoradLoader.getItemTable(),
+                        .pSpellTable = &thjoradLoader.getSpellTable(),
+                        .pMonsterTable = &thjoradLoader.getMonsterTable(),
+                        .directTargetBModelIndex = 85,
+                        .directWorldTargetDistance = 100.0f,
+                        .randomSeed = 1,
+                    });
+            if (!meleeResult.attempted || !meleeResult.attacked)
+            {
+                failure = "party melee attack did not damage PerceptionBrush4's destructible";
+                return false;
+            }
+            const RuntimeDestructibleState *pRockState = world.outdoorDestructibleState(0);
+            if (pRockState == nullptr || !pRockState->destroyed)
+            {
+                failure = "damaging the perception overlay did not destroy db12";
+                return false;
+            }
+
+            const MapDeltaData *pRockMapDelta = world.mapDeltaData();
+            size_t perceptionFaceOffset = 0;
+            for (size_t bmodelIndex = 0; bmodelIndex < 85; ++bmodelIndex)
+            {
+                perceptionFaceOffset += thjoradMap->outdoorMapData->bmodels[bmodelIndex].faces.size();
+            }
+            if (pRockMapDelta == nullptr
+                || perceptionFaceOffset >= pRockMapDelta->faceAttributes.size()
+                || !hasFaceAttribute(
+                    pRockMapDelta->faceAttributes[perceptionFaceOffset], FaceAttribute::Invisible)
+                || !hasFaceAttribute(
+                    pRockMapDelta->faceAttributes[perceptionFaceOffset], FaceAttribute::Untouchable))
+            {
+                failure = "destroyed db12 left its perception overlay visible or collidable";
+                return false;
+            }
+
+            const OutdoorBModel &spellTarget = thjoradMap->outdoorMapData->bmodels[1];
+            const float targetX = static_cast<float>(spellTarget.minX + spellTarget.maxX) * 0.5f;
+            const float targetY = static_cast<float>(spellTarget.minY + spellTarget.maxY) * 0.5f;
+            const float targetZ = static_cast<float>(spellTarget.minZ + spellTarget.maxZ) * 0.5f;
+            const bool wallIsThinOnX = spellTarget.maxX - spellTarget.minX <= spellTarget.maxY - spellTarget.minY;
+
+            OutdoorWorldRuntime::SpellCastRequest spellRequest = {};
+            spellRequest.sourceKind = OutdoorWorldRuntime::RuntimeSpellSourceKind::Party;
+            spellRequest.sourceId = 1;
+            spellRequest.sourcePartyMemberIndex = 0;
+            spellRequest.ability = OutdoorWorldRuntime::MonsterAttackAbility::Spell1;
+            spellRequest.spellId = spellIdValue(SpellId::FireBolt);
+            spellRequest.skillLevel = 10;
+            spellRequest.skillMastery = static_cast<uint32_t>(SkillMastery::Expert);
+            spellRequest.damage = 1;
+            spellRequest.sourceX = targetX + (wallIsThinOnX ? 256.0f : 0.0f);
+            spellRequest.sourceY = targetY + (wallIsThinOnX ? 0.0f : 256.0f);
+            spellRequest.sourceZ = targetZ;
+            spellRequest.targetX = targetX;
+            spellRequest.targetY = targetY;
+            spellRequest.targetZ = targetZ;
+            if (!world.castPartySpell(spellRequest))
+            {
+                failure = "Fire Bolt did not spawn for the destructible-wall test";
+                return false;
+            }
+
+            bool spellDestroyedRock = false;
+            for (int step = 0; step < 256 && !spellDestroyedRock; ++step)
+            {
+                world.updateMapActors(
+                    1.0f / 128.0f,
+                    spellRequest.sourceX,
+                    spellRequest.sourceY,
+                    spellRequest.sourceZ - 96.0f);
+                for (uint32_t sourceObjectIndex = 1; sourceObjectIndex <= 11; ++sourceObjectIndex)
+                {
+                    const RuntimeDestructibleState *pState = world.outdoorDestructibleState(sourceObjectIndex);
+                    spellDestroyedRock = spellDestroyedRock || (pState != nullptr && pState->destroyed);
+                }
+            }
+            if (!spellDestroyedRock)
+            {
+                failure = "Fire Bolt hit the secret-wall cluster without destroying a rock piece";
+                return false;
+            }
+
+            const RuntimeDestructibleState *pInitialState = world.outdoorDestructibleState(595);
+            if (pInitialState == nullptr || pInitialState->destroyed)
+            {
+                failure = "CaveIn did not start intact";
+                return false;
+            }
+
+            uint32_t initialExperience = 0;
+            for (const Character &member : partyRuntime.party().members())
+            {
+                initialExperience += member.experience;
+            }
+
+            world.updateWorld(1.0f / 60.0f);
+            const RuntimeDestructibleState *pDestroyedState = world.outdoorDestructibleState(595);
+            if (pDestroyedState == nullptr || !pDestroyedState->destroyed)
+            {
+                const OutdoorMoveState &moveState = partyRuntime.movementState();
+                failure = "Trigger7 did not destroy CaveIn at party position ("
+                    + std::to_string(moveState.x) + "," + std::to_string(moveState.y) + ","
+                    + std::to_string(moveState.footZ) + ")";
+                return false;
+            }
+
+            uint32_t rewardedExperience = 0;
+            for (const Character &member : partyRuntime.party().members())
+            {
+                rewardedExperience += member.experience;
+            }
+            if (!partyRuntime.party().hasQuestBit(90035u) || rewardedExperience <= initialExperience)
+            {
+                failure = "CaveIn death output did not award MM9 key 35 and experience";
+                return false;
+            }
+
+            if (world.eventRuntimeState() == nullptr
+                || world.eventRuntimeState()->pendingSounds.empty()
+                || world.eventRuntimeState()->pendingSounds.back().soundName != "Events/stonecrumble.wav")
+            {
+                failure = "CaveIn destruction sound was not queued";
+                return false;
+            }
+
+            return true;
+        }
+    );
 
     if (suiteName == "chest" || suiteName == "items" || suiteName == "outdoor")
     {
@@ -15793,6 +16397,76 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
 
             failure = !sawProjectile ? "party arrow projectile never appeared" : "party arrow did not damage actor 53";
             return false;
+        }
+    );
+
+    runCase(
+        "party_spell_projectile_ignores_placeholder_terrain_on_no_terrain_map",
+        [&](std::string &failure)
+        {
+            MapAssetInfo modifiedMap = *selectedMap;
+            modifiedMap.outdoorMapData = *selectedMap->outdoorMapData;
+            modifiedMap.outdoorMapData->noTerrain = true;
+            std::fill(
+                modifiedMap.outdoorMapData->heightMap.begin(),
+                modifiedMap.outdoorMapData->heightMap.end(),
+                0);
+
+            RegressionScenario scenario = {};
+
+            if (!initializeRegressionScenario(gameDataLoader, modifiedMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            OutdoorWorldRuntime::SpellCastRequest request = {};
+            request.sourceKind = OutdoorWorldRuntime::RuntimeSpellSourceKind::Party;
+            request.sourceId = 1;
+            request.sourcePartyMemberIndex = 0;
+            request.ability = OutdoorWorldRuntime::MonsterAttackAbility::Spell1;
+            request.spellId = spellIdValue(SpellId::FireBolt);
+            request.skillLevel = 10;
+            request.skillMastery = static_cast<uint32_t>(SkillMastery::Expert);
+            request.damage = 9;
+            request.sourceX = 100000.0f;
+            request.sourceY = 100000.0f;
+            request.sourceZ = -512.0f;
+            request.targetX = 101024.0f;
+            request.targetY = request.sourceY;
+            request.targetZ = request.sourceZ;
+
+            if (!scenario.world.castPartySpell(request))
+            {
+                failure = "party spell projectile spawn failed";
+                return false;
+            }
+
+            const OutdoorWorldRuntime::ProjectileState *pBefore = scenario.world.projectileState(0);
+
+            if (pBefore == nullptr)
+            {
+                failure = "party spell projectile state missing";
+                return false;
+            }
+
+            const float initialX = pBefore->x;
+            scenario.world.updateMapActors(1.0f / 30.0f, request.sourceX, request.sourceY, request.sourceZ - 96.0f);
+            const OutdoorWorldRuntime::ProjectileState *pAfter = scenario.world.projectileState(0);
+
+            if (pAfter == nullptr)
+            {
+                failure = "projectile collided with the placeholder heightmap";
+                return false;
+            }
+
+            if (pAfter->x <= initialX)
+            {
+                failure = "projectile did not advance through the no-terrain scene";
+                return false;
+            }
+
+            return true;
         }
     );
 

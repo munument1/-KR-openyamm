@@ -2,6 +2,8 @@
 
 #include "game/maps/MapItemSourceData.h"
 
+#include <string>
+
 namespace OpenYAMM::Game
 {
 class Party;
@@ -14,4 +16,5 @@ bool applyWorldItemPolicyActions(
     const InventoryItem &randomPoolItem,
     Party &party,
     const ItemTable &itemTable);
+std::string formatWorldItemPickupStatusText(const InventoryItem &item, const ItemTable &itemTable);
 }

@@ -407,6 +407,7 @@ public:
     void setHiredNpcFollowerAbilityUsedDay(uint32_t npcId, uint32_t day);
     bool tryGrantItem(uint32_t objectDescriptionId, uint32_t quantity = 1);
     bool tryGrantInventoryItem(const InventoryItem &item, size_t *pRecipientMemberIndex = nullptr);
+    bool tryGrantInventoryItemToMember(size_t memberIndex, const InventoryItem &item);
     bool tryGrantInventoryItemStartingAt(
         size_t firstMemberIndex,
         const InventoryItem &item,

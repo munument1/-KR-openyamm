@@ -212,5 +212,12 @@ void applyStealingAttemptResult(
     {
         pParty->applyRecoveryToActiveMember(result.recoverySeconds);
     }
+
+    if (pParty != nullptr
+        && result.breakInvisibility
+        && pParty->hasPartyBuff(PartyBuffId::Invisibility))
+    {
+        pParty->clearPartyBuff(PartyBuffId::Invisibility);
+    }
 }
 }

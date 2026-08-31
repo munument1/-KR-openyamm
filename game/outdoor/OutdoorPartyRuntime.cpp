@@ -223,9 +223,9 @@ void OutdoorPartyRuntime::setMovementSpeedMultiplier(float multiplier)
     m_movementDriver.setSpeedMultiplier(multiplier);
 }
 
-void OutdoorPartyRuntime::setBodyDimensions(float radius, float height)
+void OutdoorPartyRuntime::setBodyDimensions(float radius, float height, float maxStepHeight)
 {
-    m_movementDriver.setBodyDimensions(radius, height);
+    m_movementDriver.setBodyDimensions(radius, height, maxStepHeight);
 }
 
 void OutdoorPartyRuntime::setCollisionTraceEnabled(bool enabled, const std::string &mapName)

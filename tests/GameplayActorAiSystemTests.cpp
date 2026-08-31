@@ -261,6 +261,34 @@ TEST_CASE("shared actor AI marks first party detection without playing a monster
     CHECK(result.audioRequests.empty());
 }
 
+TEST_CASE("shared actor AI drops an invisible party target")
+{
+    GameplayActorAiSystem system;
+    ActorAiFrameFacts frame = makeFrame();
+    frame.party.invisible = true;
+    ActorAiFacts actor = makeActor(2, 100);
+    actor.world.active = true;
+    actor.identity.hostilityType = 4;
+    actor.status.hostileToParty = true;
+    actor.status.hasDetectedParty = true;
+    actor.target.currentKind = ActorAiTargetKind::Party;
+    actor.target.currentPosition = {0.0f, 0.0f, 64.0f};
+    actor.target.currentDistance = 128.0f;
+    actor.target.currentEdgeDistance = 64.0f;
+    actor.target.currentCanSense = true;
+    actor.target.currentHasAttackLineOfSight = true;
+    actor.target.partyCanSenseActor = true;
+    frame.activeActors.push_back(actor);
+
+    const OpenYAMM::Game::ActorAiFrameResult result = system.updateActors(frame);
+
+    REQUIRE_EQ(result.actorUpdates.size(), 1u);
+    const OpenYAMM::Game::ActorAiUpdate &update = result.actorUpdates.front();
+    REQUIRE(update.state.hasDetectedParty.has_value());
+    CHECK_FALSE(*update.state.hasDetectedParty);
+    CHECK_FALSE(update.attackRequest.has_value());
+}
+
 TEST_CASE("shared actor service lets hostile actors target party controlled actors in the same group")
 {
     MonsterTable monsterTable = {};
@@ -412,6 +440,71 @@ TEST_CASE("shared actor AI exposes a melee recovery window after the attack anim
     CHECK(*recoveryUpdate.state.motionState == ActorAiMotionState::Standing);
     REQUIRE(recoveryUpdate.state.attackCooldownSeconds.has_value());
     CHECK(*recoveryUpdate.state.attackCooldownSeconds > 0.0f);
+}
+
+TEST_CASE("shared actor AI preserves ranged presentation while a missile attack is in progress")
+{
+    GameplayActorAiSystem system;
+    ActorAiFrameFacts frame = makeFrame();
+    ActorAiFacts actor = makeActor(12, 109);
+    actor.world.active = true;
+    actor.identity.hostilityType = 4;
+    actor.status.hostileToParty = true;
+    actor.status.hasDetectedParty = true;
+    actor.stats.attackConstraints.attack1IsRanged = true;
+    actor.runtime.motionState = ActorAiMotionState::Attacking;
+    actor.runtime.animationState = ActorAiAnimationState::AttackMelee;
+    actor.runtime.queuedAttackAbility = GameplayActorAttackAbility::Attack1;
+    actor.runtime.actionSeconds = 0.5f;
+    actor.runtime.attackImpactTriggered = false;
+    actor.target.currentKind = ActorAiTargetKind::Party;
+    actor.target.currentPosition = {132.0f, 200.0f, 64.0f};
+    actor.target.currentDistance = 512.0f;
+    actor.target.currentEdgeDistance = 400.0f;
+    actor.target.currentCanSense = true;
+    actor.target.partyCanSenseActor = true;
+    frame.activeActors.push_back(actor);
+
+    const OpenYAMM::Game::ActorAiFrameResult result = system.updateActors(frame);
+
+    REQUIRE_EQ(result.actorUpdates.size(), 1u);
+    const OpenYAMM::Game::ActorAiUpdate &update = result.actorUpdates.front();
+    REQUIRE(update.animation.animationState.has_value());
+    CHECK(*update.animation.animationState == ActorAiAnimationState::AttackRanged);
+}
+
+TEST_CASE("shared actor AI uses a missile attack outside melee range when the melee attack chance is certain")
+{
+    GameplayActorAiSystem system;
+    ActorAiFrameFacts frame = makeFrame();
+    ActorAiFacts actor = makeActor(12, 109);
+    actor.world.active = true;
+    actor.identity.hostilityType = 4;
+    actor.status.hostileToParty = true;
+    actor.status.hasDetectedParty = true;
+    actor.stats.attack2Chance = 100;
+    actor.stats.attackConstraints.attack1IsRanged = true;
+    actor.runtime.rangedAttackAnimationSeconds = 0.5f;
+    actor.movement.movementAllowed = false;
+    actor.target.currentKind = ActorAiTargetKind::Party;
+    actor.target.currentPosition = {1024.0f, 200.0f, 64.0f};
+    actor.target.currentDistance = 1024.0f;
+    actor.target.currentEdgeDistance = 900.0f;
+    actor.target.currentCanSense = true;
+    actor.target.currentHasAttackLineOfSight = true;
+    actor.target.partyCanSenseActor = true;
+    frame.activeActors.push_back(actor);
+
+    const OpenYAMM::Game::ActorAiFrameResult result = system.updateActors(frame);
+
+    REQUIRE_EQ(result.actorUpdates.size(), 1u);
+    const OpenYAMM::Game::ActorAiUpdate &update = result.actorUpdates.front();
+    REQUIRE(update.state.motionState.has_value());
+    CHECK(*update.state.motionState == ActorAiMotionState::Attacking);
+    REQUIRE(update.state.queuedAttackAbility.has_value());
+    CHECK(*update.state.queuedAttackAbility == GameplayActorAttackAbility::Attack1);
+    REQUIRE(update.animation.animationState.has_value());
+    CHECK(*update.animation.animationState == ActorAiAnimationState::AttackRanged);
 }
 
 TEST_CASE("shared actor AI returns to standing presentation when attack impact resolves")

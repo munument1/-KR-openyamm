@@ -101,6 +101,16 @@ persistent_item_mechanisms:
     random_item_pool: [10254]
     model_variants: [models/example.abc]
     model_variant_skins: [skins/example.dtx]
+barrels:
+  - source_id: mm9:bootcamp:barrel:372
+    source_object_index: 372
+    source_name: Barrel6
+    position: {x: 1, y: 2, z: 3}
+    interaction_event_id: 30372
+    liquid_texture_cog: 20000
+    bmodel_index: 44
+    liquid_faces: [12, 13]
+    liquid_texture_aliases: [red, blue, green, purple, white, yellow, swamp, water]
 )");
 
     OpenYAMM::Game::MapItemSourceData sources = {};
@@ -136,6 +146,12 @@ persistent_item_mechanisms:
     CHECK_EQ(sources.persistentItemMechanisms[0].randomItemPool[0], 10254u);
     CHECK_EQ(sources.persistentItemMechanisms[0].modelVariants[0], "models/example.abc");
     CHECK_EQ(sources.persistentItemMechanisms[0].modelVariantSkins[0], "skins/example.dtx");
+
+    REQUIRE_EQ(sources.mm9Barrels.size(), 1u);
+    CHECK_EQ(sources.mm9Barrels[0].sourceObjectIndex, 372u);
+    CHECK_EQ(sources.mm9Barrels[0].interactionEventId, 30372u);
+    CHECK_EQ(sources.mm9Barrels[0].liquidFaces.size(), 2u);
+    CHECK_EQ(sources.mm9Barrels[0].liquidTextureAliases[7], "water");
 }
 
 TEST_CASE("map item-source parser rejects an unknown container kind")
@@ -193,6 +209,17 @@ TEST_CASE("quest world-item actions use one shared transactional policy")
     party.setQuestBit(90128, true);
     source.onPickupEvent = "focused_authored_callback";
     CHECK_FALSE(OpenYAMM::Game::applyWorldItemPolicyActions(source, randomPoolItem, party, itemTable));
+}
+
+TEST_CASE("semantic world-item pickup feedback uses the standard found-item status")
+{
+    const OpenYAMM::Game::ItemTable itemTable = {};
+    OpenYAMM::Game::InventoryItem item = {};
+    item.objectDescriptionId = 379;
+
+    CHECK_EQ(
+        OpenYAMM::Game::formatWorldItemPickupStatusText(item, itemTable),
+        "You found an item (item)!");
 }
 
 TEST_CASE("MM9 bone pile uses native one-shot disease comparison without opening a container")

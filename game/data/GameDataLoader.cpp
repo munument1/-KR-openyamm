@@ -2531,10 +2531,16 @@ bool GameDataLoader::loadHouseTable(const Engine::AssetFileSystem &assetFileSyst
 
     std::vector<WorldManifest> mountedWorlds;
     std::string manifestError;
-    if (!loadMountedWorldManifests(assetFileSystem, mountedWorlds, manifestError))
+    const WorldManifest activeWorldManifest =
+        loadActiveWorldManifestOrDefault(assetFileSystem, m_activeWorldId, manifestError);
+    if (!manifestError.empty())
     {
         std::cerr << "Failed to resolve house table contributions: " << manifestError << '\n';
         return false;
+    }
+    if (activeWorldManifest.loadedFromFile)
+    {
+        mountedWorlds.push_back(activeWorldManifest);
     }
 
     const auto loadHouseContributionRows =

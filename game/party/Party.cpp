@@ -3220,6 +3220,19 @@ bool Party::tryGrantInventoryItem(const InventoryItem &item, size_t *pRecipientM
     return tryGrantInventoryItemStartingAt(activeMemberIndex(), item, pRecipientMemberIndex);
 }
 
+bool Party::tryGrantInventoryItemToMember(size_t memberIndex, const InventoryItem &item)
+{
+    Character *pMember = member(memberIndex);
+    if (pMember == nullptr || item.objectDescriptionId == 0 || item.quantity == 0 || !pMember->addInventoryItem(item))
+    {
+        m_lastStatus = "inventory full";
+        return false;
+    }
+    markArtifactItemFoundIfRelevant(item);
+    recordEverOwnedItemIfRelevant(item);
+    return true;
+}
+
 bool Party::tryGrantInventoryItemStartingAt(
     size_t firstMemberIndex,
     const InventoryItem &item,

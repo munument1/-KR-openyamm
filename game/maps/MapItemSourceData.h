@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -131,6 +132,19 @@ struct MapPersistentItemMechanismSource
     std::vector<std::string> modelVariantSkins;
 };
 
+struct MapMm9BarrelSource
+{
+    std::string sourceId;
+    uint32_t sourceObjectIndex = 0;
+    std::string sourceName;
+    MapItemSourcePosition position = {};
+    uint16_t interactionEventId = 0;
+    uint16_t liquidTextureCog = 0;
+    uint32_t bmodelIndex = std::numeric_limits<uint32_t>::max();
+    std::vector<uint32_t> liquidFaces;
+    std::vector<std::string> liquidTextureAliases;
+};
+
 struct MapItemSourceData
 {
     std::vector<MapWorldItemSource> worldItems;
@@ -139,5 +153,6 @@ struct MapItemSourceData
     std::vector<MapActorLootOverride> actorLootOverrides;
     std::vector<MapSpawnedLootContainerSource> spawnedLootContainers;
     std::vector<MapPersistentItemMechanismSource> persistentItemMechanisms;
+    std::vector<MapMm9BarrelSource> mm9Barrels;
 };
 }

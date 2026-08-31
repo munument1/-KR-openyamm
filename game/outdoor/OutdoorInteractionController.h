@@ -129,6 +129,15 @@ private:
         OutdoorGameView &view,
         const OutdoorMapData &outdoorMapData,
         const GameplayWorldPickRequest &request);
+    static GameplayWorldHit pickPartyAttackTarget(
+        OutdoorGameView &view,
+        const OutdoorMapData &outdoorMapData,
+        const GameplayWorldPickRequest &request);
+    static GameplayWorldHit pickRayWorldTarget(
+        OutdoorGameView &view,
+        const OutdoorMapData &outdoorMapData,
+        const GameplayWorldPickRequest &request,
+        FacePickMode facePickMode);
     static GameplayWorldHoverCacheState worldHoverCacheState(const OutdoorGameView &view);
     static GameplayHoverStatusPayload refreshWorldHover(
         OutdoorGameView &view,

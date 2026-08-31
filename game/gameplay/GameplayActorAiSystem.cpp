@@ -1175,6 +1175,19 @@ CombatAbilityChoiceResult chooseCombatAbility(const CombatAbilityChoiceInput &in
     }
 
     GameplayActorAttackConstraintState constraintState = input.constraintState;
+
+    if (!input.inMeleeRange && !attackAbilityIsRanged(chosenAbility, constraintState))
+    {
+        if (constraintState.attack1IsRanged)
+        {
+            chosenAbility = GameplayActorAttackAbility::Attack1;
+        }
+        else if (input.attack2Chance > 0 && constraintState.attack2IsRanged)
+        {
+            chosenAbility = GameplayActorAttackAbility::Attack2;
+        }
+    }
+
     const bool hardRangedAbilityBlocked =
         input.constraintState.darkGraspActive
         || input.constraintState.blindActive
@@ -1309,7 +1322,8 @@ ActorEngagementState resolveActorEngagement(
     result.hasCombatTarget = combatTarget.kind != ActorAiTargetKind::None;
     result.targetIsParty = combatTarget.kind == ActorAiTargetKind::Party;
     result.targetIsActor = combatTarget.kind == ActorAiTargetKind::Actor;
-    result.shouldEngageTarget = result.hasCombatTarget && combatTarget.canSense;
+    const bool invisiblePartyTarget = result.targetIsParty && frame.party.invisible;
+    result.shouldEngageTarget = result.hasCombatTarget && combatTarget.canSense && !invisiblePartyTarget;
     result.inMeleeRange =
         combatTarget.edgeDistance <= meleeRangeForCombatTarget(result.targetIsActor)
         && combatTarget.attackLineOfSight;
@@ -1337,7 +1351,11 @@ ActorEngagementState resolveActorEngagement(
         }
     }
 
-    if (result.targetIsParty && !actor.status.hasDetectedParty)
+    if (invisiblePartyTarget)
+    {
+        result.hasDetectedParty = false;
+    }
+    else if (result.targetIsParty && !actor.status.hasDetectedParty)
     {
         result.hasDetectedParty = true;
     }
@@ -2192,6 +2210,13 @@ ActorAiAnimationState actorAnimationStateFromCombatFlow(
     switch (animation)
     {
         case ActorCombatFlowAnimation::Current:
+            if (actor.runtime.motionState == ActorAiMotionState::Attacking)
+            {
+                return attackAnimationStateForAbility(
+                    actor.runtime.queuedAttackAbility,
+                    actor.stats.attackConstraints);
+            }
+
             return actor.runtime.animationState;
         case ActorCombatFlowAnimation::Walking:
             return ActorAiAnimationState::Walking;
@@ -3529,10 +3554,9 @@ bool AI_ContinueCurrentAction(ActorAiCommandContext &ai)
     }
 
     ai.setMotionState(ActorAiMotionState::Attacking);
-    ai.setAnimationState(actor.runtime.queuedAttackAbility == GameplayActorAttackAbility::Attack1
-        || actor.runtime.queuedAttackAbility == GameplayActorAttackAbility::Attack2
-        ? ActorAiAnimationState::AttackMelee
-        : ActorAiAnimationState::AttackRanged);
+    ai.setAnimationState(attackAnimationStateForAbility(
+        actor.runtime.queuedAttackAbility,
+        actor.stats.attackConstraints));
     ai.setMovementAction(ActorAiMovementAction::Stand);
     return true;
 }

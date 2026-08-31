@@ -820,10 +820,11 @@ void OutdoorMovementDriver::setSpeedMultiplier(float multiplier)
     m_speedMultiplier = std::clamp(multiplier, 0.1f, 20.0f);
 }
 
-void OutdoorMovementDriver::setBodyDimensions(float radius, float height)
+void OutdoorMovementDriver::setBodyDimensions(float radius, float height, float maxStepHeight)
 {
     m_bodyDimensions.radius = radius;
     m_bodyDimensions.height = height;
+    m_bodyDimensions.maxStepHeight = maxStepHeight;
 }
 
 void OutdoorMovementDriver::setCollisionTraceEnabled(bool enabled, std::string mapName)

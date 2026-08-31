@@ -7,6 +7,7 @@
 #include <cmath>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 namespace OpenYAMM::Game
 {
@@ -182,6 +183,7 @@ void IndoorPartyRuntime::update(
     const bool hasPendingImpulse =
         impulseVelocityX != 0.0f || impulseVelocityY != 0.0f || impulseVelocityZ != 0.0f;
     float landingFallDistance = 0.0f;
+    std::vector<size_t> contactedActorIndices;
 
     if (hasPendingImpulse)
     {
@@ -206,7 +208,7 @@ void IndoorPartyRuntime::update(
             desiredVelocityY * m_movementSpeedMultiplier + impulseVelocityY,
             m_pendingJumpRequested,
             IndoorMovementStepSeconds,
-            nullptr,
+            &contactedActorIndices,
             std::nullopt,
             true,
             pDebugInfo,
@@ -327,6 +329,11 @@ void IndoorPartyRuntime::update(
         m_pendingJumpVelocity.reset();
         m_pendingJumpLift = DefaultJumpLift;
         m_movementAccumulatorSeconds -= IndoorMovementStepSeconds;
+    }
+
+    if (!contactedActorIndices.empty() && m_party.hasPartyBuff(PartyBuffId::Invisibility))
+    {
+        m_party.clearPartyBuff(PartyBuffId::Invisibility);
     }
 
     OutdoorMovementEffects effects = {};

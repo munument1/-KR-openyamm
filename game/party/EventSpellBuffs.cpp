@@ -33,7 +33,6 @@ float resolveEventPartyBuffDurationSeconds(uint32_t spellId, uint32_t skillLevel
     {
         case SpellId::TorchLight:
         case SpellId::WizardEye:
-        case SpellId::Invisibility:
         case SpellId::Fly:
         case SpellId::WaterWalk:
         case SpellId::DetectLife:
@@ -46,6 +45,10 @@ float resolveEventPartyBuffDurationSeconds(uint32_t spellId, uint32_t skillLevel
         case SpellId::MindResistance:
         case SpellId::BodyResistance:
             return secondsFromHours(static_cast<float>(skillLevel));
+        case SpellId::Invisibility:
+            return mastery >= SkillMastery::Grandmaster
+                ? secondsFromHours(static_cast<float>(skillLevel))
+                : secondsFromMinutes(static_cast<float>(10 * skillLevel));
 
         case SpellId::FeatherFall:
             if (mastery == SkillMastery::Normal)

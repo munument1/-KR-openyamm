@@ -2876,6 +2876,27 @@ GameplayWorldHit OutdoorInteractionController::pickCurrentInteractionTarget(
     const OutdoorMapData &outdoorMapData,
     const GameplayWorldPickRequest &request)
 {
+    return pickRayWorldTarget(
+        view,
+        outdoorMapData,
+        request,
+        FacePickMode::InteractionActivatable);
+}
+
+GameplayWorldHit OutdoorInteractionController::pickPartyAttackTarget(
+    OutdoorGameView &view,
+    const OutdoorMapData &outdoorMapData,
+    const GameplayWorldPickRequest &request)
+{
+    return pickRayWorldTarget(view, outdoorMapData, request, FacePickMode::AnyVisible);
+}
+
+GameplayWorldHit OutdoorInteractionController::pickRayWorldTarget(
+    OutdoorGameView &view,
+    const OutdoorMapData &outdoorMapData,
+    const GameplayWorldPickRequest &request,
+    FacePickMode facePickMode)
+{
     bx::Vec3 rayOrigin = request.rayOrigin;
     bx::Vec3 rayDirection = request.rayDirection;
 
@@ -2905,7 +2926,7 @@ GameplayWorldHit OutdoorInteractionController::pickCurrentInteractionTarget(
         request.viewMatrix.data(),
         request.projectionMatrix.data(),
         OutdoorGameView::DecorationPickMode::Interaction,
-        FacePickMode::InteractionActivatable,
+        facePickMode,
         request.ignoreActors);
 
     return translateInspectHitToGameplayWorldHit(view, inspectHit);
@@ -5272,13 +5293,7 @@ bool OutdoorInteractionController::tryActivateWorldItemInspectEvent(
 
     if (view.m_pOutdoorWorldRuntime->isSemanticWorldItem(inspectHit.bModelIndex))
     {
-        const bool activated = view.m_pOutdoorWorldRuntime->activateSemanticWorldItem(inspectHit.bModelIndex);
-        if (activated)
-        {
-            view.m_pOutdoorPartyRuntime->party().requestSound(SoundId::Gold);
-            view.setStatusBarEvent("Item received.");
-        }
-        return activated;
+        return view.m_pOutdoorWorldRuntime->activateSemanticWorldItem(inspectHit.bModelIndex);
     }
 
     const ItemDefinition *pItemDefinition = view.data().itemTable().get(pWorldItem->item.objectDescriptionId);

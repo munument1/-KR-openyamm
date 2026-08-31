@@ -30,6 +30,7 @@ add_executable(openyamm_unit_tests
     MM7MechanicsRuntimeTests.cpp
     MercenaryRecruitmentRuntimeTests.cpp
     Mm9MapTransitionTests.cpp
+    Mm9BarrelRuntimeTests.cpp
     Mm9TeacherScheduleTests.cpp
     Mm9RudeDialogueTests.cpp
     Mm9SkillTrainerTests.cpp
@@ -112,6 +113,7 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/StealingRuntime.cpp
     ../game/gameplay/GameplayProjectileService.cpp
     ../game/gameplay/GameplaySaveLoadUiSupport.cpp
+    ../game/gameplay/GameplayScreenState.cpp
     ../game/gameplay/TurnBasedCombatRuntime.cpp
     ../game/gameplay/TravelRuntime.cpp
     ../game/gameplay/CorpseLootRuntime.cpp
@@ -166,6 +168,8 @@ add_executable(openyamm_unit_tests
     ../game/tables/MonsterProjectileTable.cpp
     ../game/tables/MergedBaseTables.cpp
     ../game/mm9/Mm9RudeDialogue.cpp
+    ../game/mm9/Mm9BarrelRuntime.cpp
+    ../game/mm9/Mm9PrimaryStats.cpp
     ../game/mm9/Mm9PositionedTransitionRuntime.cpp
     ../game/mm9/Mm9SkillTrainer.cpp
     ../game/mm9/Mm9TransportRoute.cpp

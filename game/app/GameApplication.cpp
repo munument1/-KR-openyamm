@@ -75,6 +75,7 @@ constexpr bool IncludeGodLichCharacterCreationCandidate = false;
 constexpr float DefaultOutdoorPartyEyeHeight = 176.0f;
 constexpr float DefaultOutdoorPartyCollisionRadius = 37.0f;
 constexpr float DefaultOutdoorPartyCollisionHeight = 192.0f;
+constexpr float DefaultOutdoorPartyMaxStepHeight = 128.0f;
 
 struct PendingMapLeaveOutputs
 {
@@ -6076,6 +6077,9 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
         const float partyCollisionHeight = partyMovement.declared
             ? partyMovement.collisionHeight
             : DefaultOutdoorPartyCollisionHeight;
+        const float partyMaxStepHeight = partyMovement.declared
+            ? partyMovement.maxStepHeight
+            : DefaultOutdoorPartyMaxStepHeight;
 
         m_gameSession.setCurrentSceneKind(SceneKind::Outdoor);
         m_gameSession.setCurrentMapFileName(selectedMap->map.fileName);
@@ -6093,7 +6097,10 @@ bool GameApplication::initializeSelectedMapRuntime(bool initializeView)
             ),
             m_gameDataLoader.getItemTable()
         );
-        m_pOutdoorPartyRuntime->setBodyDimensions(partyCollisionRadius, partyCollisionHeight);
+        m_pOutdoorPartyRuntime->setBodyDimensions(
+            partyCollisionRadius,
+            partyCollisionHeight,
+            partyMaxStepHeight);
         bindPartyDependencies(m_pOutdoorPartyRuntime->party());
 
         if (m_gameSession.partyState())

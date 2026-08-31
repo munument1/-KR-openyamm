@@ -2121,7 +2121,8 @@ bool GameplayUiRuntime::triggerPortraitFxAnimation(
     {
         if (memberIndex >= m_portraitFxStates.size())
         {
-            continue;
+            // Party members can be recruited without reinitializing the current map UI.
+            m_portraitFxStates.resize(memberIndex + 1);
         }
 
         GameplayPortraitFxState &state = m_portraitFxStates[memberIndex];

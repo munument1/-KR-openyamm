@@ -114,7 +114,7 @@ const CreationCandidate DebugGodLichCandidate = {
 };
 
 constexpr std::array<DebugEquipmentItem, 11> DebugGodLichEquipment = {{
-    {&CharacterEquipment::mainHand, &CharacterEquipmentRuntimeState::mainHand, 527},   // Spiritslayer
+    {&CharacterEquipment::mainHand, &CharacterEquipmentRuntimeState::mainHand, 1667},  // MM6 Blaster Rifle
     {&CharacterEquipment::offHand, &CharacterEquipmentRuntimeState::offHand, 534},     // Herondale's Lost Shield
     {&CharacterEquipment::bow, &CharacterEquipmentRuntimeState::bow, 531},             // Tournament Bow
     {&CharacterEquipment::armor, &CharacterEquipmentRuntimeState::armor, 515},         // Supreme Plate

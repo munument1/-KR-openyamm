@@ -791,6 +791,180 @@ bool parseOutdoorBModelMechanism(
     return true;
 }
 
+bool parseOutdoorDestructible(
+    const YAML::Node &node,
+    OutdoorDestructible &destructible,
+    std::string &errorMessage)
+{
+    if (!node.IsMap()
+        || !readScalarNode(node, "source_object_index", destructible.sourceObjectIndex, errorMessage)
+        || !readScalarNode(node, "runtime_object_id", destructible.runtimeObjectId, errorMessage)
+        || !readScalarNode(node, "source_name", destructible.sourceName, errorMessage)
+        || !readScalarNode(node, "initial_hp", destructible.initialHp, errorMessage, false)
+        || !readScalarNode(
+            node, "initially_damage_enabled", destructible.initiallyDamageEnabled, errorMessage, false)
+        || !readScalarNode(node, "trigger_destroy_only", destructible.triggerDestroyOnly, errorMessage, false)
+        || !readScalarNode(node, "should_mini_save", destructible.shouldMiniSave, errorMessage, false)
+        || !readScalarNode(node, "destruction_sound", destructible.destructionSound, errorMessage, false)
+        || !readScalarNode(
+            node, "death_target_source_object_index", destructible.deathTargetSourceObjectIndex,
+            errorMessage, false)
+        || !readScalarNode(node, "death_message", destructible.deathMessage, errorMessage, false))
+    {
+        errorMessage = errorMessage.empty() ? "destructible entry must be a map" : errorMessage;
+        return false;
+    }
+
+    const YAML::Node bindingNode = node["binding"];
+    std::string targetKind;
+    if (!bindingNode || !bindingNode.IsMap()
+        || !readScalarNode(bindingNode, "target_kind", targetKind, errorMessage)
+        || toLowerCopy(targetKind) != "odm_bmodel"
+        || !readScalarNode(bindingNode, "bmodel_index", destructible.bmodelIndex, errorMessage)
+        || !readScalarNode(bindingNode, "bmodel_name", destructible.bmodelName, errorMessage))
+    {
+        errorMessage = errorMessage.empty()
+            ? "destructible.binding must target an odm_bmodel"
+            : errorMessage;
+        return false;
+    }
+
+    if (destructible.initialHp <= 0)
+    {
+        errorMessage = "destructible.initial_hp must be positive";
+        return false;
+    }
+
+    const YAML::Node auxiliaryBmodelIndicesNode = bindingNode["auxiliary_bmodel_indices"];
+    if (auxiliaryBmodelIndicesNode)
+    {
+        if (!auxiliaryBmodelIndicesNode.IsSequence())
+        {
+            errorMessage = "destructible.binding.auxiliary_bmodel_indices must be a sequence";
+            return false;
+        }
+
+        try
+        {
+            for (const YAML::Node &indexNode : auxiliaryBmodelIndicesNode)
+            {
+                destructible.auxiliaryBmodelIndices.push_back(indexNode.as<size_t>());
+            }
+        }
+        catch (const YAML::Exception &exception)
+        {
+            errorMessage = std::string("invalid destructible auxiliary BModel index: ") + exception.what();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool parseOutdoorDestructibleReceiver(
+    const YAML::Node &node,
+    OutdoorDestructibleReceiver &receiver,
+    std::string &errorMessage)
+{
+    if (!node.IsMap()
+        || !readScalarNode(node, "source_object_index", receiver.sourceObjectIndex, errorMessage)
+        || !readScalarNode(node, "source_name", receiver.sourceName, errorMessage)
+        || !readScalarNode(
+            node, "required_destruction_count", receiver.requiredDestructionCount, errorMessage)
+        || !readScalarNode(node, "reward_raw_quest_key", receiver.rewardRawQuestKey, errorMessage)
+        || !readScalarNode(node, "reward_experience", receiver.rewardExperience, errorMessage))
+    {
+        errorMessage = errorMessage.empty() ? "destructible receiver entry must be a map" : errorMessage;
+        return false;
+    }
+
+    if (receiver.requiredDestructionCount == 0 || receiver.rewardRawQuestKey <= 0)
+    {
+        errorMessage = "destructible receiver requires a positive count and quest key";
+        return false;
+    }
+
+    return true;
+}
+
+std::optional<OutdoorTriggerAction> outdoorTriggerActionFromText(const std::string &value)
+{
+    const std::string normalized = toLowerCopy(value);
+    if (normalized == "damage_on")
+    {
+        return OutdoorTriggerAction::DamageOn;
+    }
+    if (normalized == "damage_off")
+    {
+        return OutdoorTriggerAction::DamageOff;
+    }
+    if (normalized == "damage")
+    {
+        return OutdoorTriggerAction::Damage;
+    }
+    if (normalized == "destroy")
+    {
+        return OutdoorTriggerAction::Destroy;
+    }
+    if (normalized == "remove")
+    {
+        return OutdoorTriggerAction::Remove;
+    }
+    return std::nullopt;
+}
+
+bool parseOutdoorTriggerVolume(
+    const YAML::Node &node,
+    OutdoorTriggerVolume &trigger,
+    std::string &errorMessage)
+{
+    if (!node.IsMap()
+        || !readScalarNode(node, "source_object_index", trigger.sourceObjectIndex, errorMessage)
+        || !readScalarNode(node, "source_name", trigger.sourceName, errorMessage)
+        || !parsePositionNode(node["position"], trigger.x, trigger.y, trigger.z, errorMessage)
+        || !parsePositionNode(
+            node["half_extents"], trigger.halfExtentX, trigger.halfExtentY, trigger.halfExtentZ, errorMessage)
+        || !readScalarNode(node, "start_on", trigger.startOn, errorMessage, false))
+    {
+        errorMessage = errorMessage.empty() ? "trigger volume entry must be a map" : errorMessage;
+        return false;
+    }
+
+    const YAML::Node outputsNode = node["outputs"];
+    if (!outputsNode || !outputsNode.IsSequence())
+    {
+        errorMessage = "trigger volume outputs must be a sequence";
+        return false;
+    }
+
+    for (const YAML::Node &outputNode : outputsNode)
+    {
+        OutdoorTriggerOutput output = {};
+        std::string action;
+        if (!outputNode.IsMap()
+            || !readScalarNode(
+                outputNode, "target_source_object_index", output.targetSourceObjectIndex, errorMessage)
+            || !readScalarNode(outputNode, "action", action, errorMessage)
+            || !readScalarNode(outputNode, "damage", output.damage, errorMessage, false))
+        {
+            errorMessage = errorMessage.empty() ? "trigger output entry must be a map" : errorMessage;
+            return false;
+        }
+
+        const std::optional<OutdoorTriggerAction> parsedAction = outdoorTriggerActionFromText(action);
+        if (!parsedAction)
+        {
+            errorMessage = "unsupported trigger output action: " + action;
+            return false;
+        }
+
+        output.action = *parsedAction;
+        trigger.outputs.push_back(output);
+    }
+
+    return true;
+}
+
 void mergeOutdoorTerrainFootstepSoundOverride(
     OutdoorSceneData &sceneData,
     const OutdoorSceneTerrainFootstepSoundOverride &sourceOverride)
@@ -1968,6 +2142,98 @@ std::optional<OutdoorSceneData> OutdoorSceneYmlLoader::loadFromText(
         }
     }
 
+    const YAML::Node destructiblesNode = rootNode["destructibles"];
+
+    if (destructiblesNode)
+    {
+        if (!destructiblesNode.IsSequence())
+        {
+            errorMessage = "destructibles must be a sequence";
+            return std::nullopt;
+        }
+
+        for (const YAML::Node &destructibleNode : destructiblesNode)
+        {
+            OutdoorDestructible destructible = {};
+            if (!parseOutdoorDestructible(destructibleNode, destructible, errorMessage))
+            {
+                return std::nullopt;
+            }
+
+            const auto duplicate = std::find_if(
+                sceneData.destructibles.begin(),
+                sceneData.destructibles.end(),
+                [&destructible](const OutdoorDestructible &existing)
+                {
+                    return existing.sourceObjectIndex == destructible.sourceObjectIndex;
+                });
+            if (duplicate != sceneData.destructibles.end())
+            {
+                errorMessage = "destructible source_object_index must be unique";
+                return std::nullopt;
+            }
+
+            sceneData.destructibles.push_back(std::move(destructible));
+        }
+    }
+
+    const YAML::Node triggerVolumesNode = rootNode["trigger_volumes"];
+
+    const YAML::Node destructibleReceiversNode = rootNode["destructible_receivers"];
+
+    if (destructibleReceiversNode)
+    {
+        if (!destructibleReceiversNode.IsSequence())
+        {
+            errorMessage = "destructible_receivers must be a sequence";
+            return std::nullopt;
+        }
+
+        for (const YAML::Node &receiverNode : destructibleReceiversNode)
+        {
+            OutdoorDestructibleReceiver receiver = {};
+            if (!parseOutdoorDestructibleReceiver(receiverNode, receiver, errorMessage))
+            {
+                return std::nullopt;
+            }
+
+            const auto duplicate = std::find_if(
+                sceneData.destructibleReceivers.begin(),
+                sceneData.destructibleReceivers.end(),
+                [&receiver](const OutdoorDestructibleReceiver &existing)
+                {
+                    return existing.sourceObjectIndex == receiver.sourceObjectIndex;
+                });
+            if (duplicate != sceneData.destructibleReceivers.end())
+            {
+                errorMessage = "destructible receiver source_object_index must be unique";
+                return std::nullopt;
+            }
+
+            sceneData.destructibleReceivers.push_back(std::move(receiver));
+        }
+    }
+
+    if (triggerVolumesNode)
+    {
+        if (!triggerVolumesNode.IsSequence())
+        {
+            errorMessage = "trigger_volumes must be a sequence";
+            return std::nullopt;
+        }
+
+        for (const YAML::Node &triggerNode : triggerVolumesNode)
+        {
+            OutdoorTriggerVolume trigger = {};
+            if (!parseOutdoorTriggerVolume(triggerNode, trigger, errorMessage))
+            {
+                return std::nullopt;
+            }
+
+            sceneData.triggerVolumes.push_back(std::move(trigger));
+        }
+    }
+
     const YAML::Node mm9NpcGreetingsNode = rootNode["mm9_npc_greetings"];
 
     if (mm9NpcGreetingsNode)
@@ -2817,11 +3083,18 @@ bool buildOutdoorMapStateFromScene(
     outdoorMapData.masterTile = sceneData.environment.masterTile;
     outdoorMapData.tileSetLookupIndices = sceneData.environment.tileSetLookupIndices;
     outdoorMapData.mechanisms.clear();
+    outdoorMapData.destructibles.clear();
+    outdoorMapData.destructibleReceivers.clear();
+    outdoorMapData.triggerVolumes.clear();
     outdoorMapData.mm9NpcGreetings = sceneData.mm9NpcGreetings;
 
-    if (sceneData.sceneProfile == OutdoorSceneProfile::ClassicOdm && !sceneData.mechanisms.empty())
+    if (sceneData.sceneProfile == OutdoorSceneProfile::ClassicOdm
+        && (!sceneData.mechanisms.empty()
+            || !sceneData.destructibles.empty()
+            || !sceneData.destructibleReceivers.empty()
+            || !sceneData.triggerVolumes.empty()))
     {
-        errorMessage = "outdoor mechanisms require scene_profile bmodel_world";
+        errorMessage = "outdoor mechanisms and triggers require scene_profile bmodel_world";
         return false;
     }
 
@@ -2835,6 +3108,32 @@ bool buildOutdoorMapStateFromScene(
 
         outdoorMapData.mechanisms.push_back(mechanism);
     }
+
+    for (const OutdoorDestructible &destructible : sceneData.destructibles)
+    {
+        if (destructible.bmodelIndex >= outdoorMapData.bmodels.size())
+        {
+            errorMessage = "destructible BModel binding is out of bounds";
+            return false;
+        }
+
+        if (std::any_of(
+            destructible.auxiliaryBmodelIndices.begin(),
+            destructible.auxiliaryBmodelIndices.end(),
+            [&outdoorMapData](size_t bmodelIndex)
+            {
+                return bmodelIndex >= outdoorMapData.bmodels.size();
+            }))
+        {
+            errorMessage = "destructible auxiliary BModel binding is out of bounds";
+            return false;
+        }
+
+        outdoorMapData.destructibles.push_back(destructible);
+    }
+
+    outdoorMapData.destructibleReceivers = sceneData.destructibleReceivers;
+    outdoorMapData.triggerVolumes = sceneData.triggerVolumes;
     outdoorMapData.attributeMap.assign(
         OutdoorMapData::TerrainWidth * OutdoorMapData::TerrainHeight,
         0);

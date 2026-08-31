@@ -904,6 +904,15 @@ void executePartyAttack(
         currentHit.kind == GameplayWorldHitKind::Actor && currentHit.actor
             ? currentHit.actor->displayName
             : "";
+    const std::optional<size_t> directTargetBModelIndex =
+        currentHit.kind == GameplayWorldHitKind::EventTarget
+            && currentHit.eventTarget
+            && currentHit.eventTarget->targetKind == GameplayWorldEventTargetKind::Surface
+        ? std::optional<size_t>(currentHit.eventTarget->targetIndex)
+        : std::nullopt;
+    const float directWorldTargetDistance = directTargetBModelIndex
+        ? currentHit.eventTarget->distance
+        : 0.0f;
     const std::optional<GameplayActionController::WorldPoint> hitRangedTarget =
         partyRangedTargetFromWorldHit(currentHit);
 
@@ -919,6 +928,8 @@ void executePartyAttack(
             .pMonsterTable = runtime.monsterTable(),
             .pSpecialItemEnchantTable = runtime.specialItemEnchantTable(),
             .directTargetActorIndex = directActorIndex,
+            .directTargetBModelIndex = directTargetBModelIndex,
+            .directWorldTargetDistance = directWorldTargetDistance,
             .directTargetName = directTargetName,
             .partyPosition = toActionWorldPoint(partyAttackInput.partyPosition),
             .rangedSource = toActionWorldPoint(partyAttackInput.rangedSource),
@@ -1558,6 +1569,11 @@ GameplayInteractionController::updateWorldInteractionFrame(
 
         if (pendingTargetResult.castSucceeded)
         {
+            if (confirmFromPointer)
+            {
+                attackActionState.suppressAttackUntilRelease = true;
+            }
+
             IGameplayWorldRuntime *pWorldRuntime = runtime.worldRuntime();
 
             if (pWorldRuntime != nullptr)
@@ -1936,6 +1952,9 @@ GameplayInteractionController::updateWorldInteractionFrame(
     if (attackActionDecision.shouldAttemptAttack)
     {
         pickCurrentHit();
+        const GameplayWorldHit attackHit = pWorldRuntime != nullptr
+            ? pWorldRuntime->pickPartyAttackTarget(currentInteractionPickRequest)
+            : currentHit;
         const GameplayPartyAttackFrameInput partyAttackInput =
             pWorldRuntime != nullptr
             ? pWorldRuntime->buildPartyAttackFrameInput(currentInteractionPickRequest)
@@ -1948,7 +1967,7 @@ GameplayInteractionController::updateWorldInteractionFrame(
             standardHoverInput,
             targetQueries,
             attackActionDecision,
-            currentHit);
+            attackHit);
     }
 
     runtime.setStatusBarHoverText(result.hover.statusText);

@@ -175,6 +175,22 @@ CharacterAttackResult buildUntargetedMeleeAttack(const CharacterAttackProfile &p
     return attack;
 }
 
+CharacterAttackResult buildWorldObjectMeleeAttack(
+    const CharacterAttackProfile &profile,
+    float targetDistance,
+    std::mt19937 &rng)
+{
+    CharacterAttackResult attack = buildUntargetedMeleeAttack(profile);
+    attack.hit = true;
+    attack.damageType = CombatDamageType::Physical;
+    attack.targetDistance = std::max(0.0f, targetDistance);
+    const int minimumDamage = std::max(1, profile.meleeMinDamage);
+    const int maximumDamage = std::max(minimumDamage, profile.meleeMaxDamage);
+    std::uniform_int_distribution<int> damageDistribution(minimumDamage, maximumDamage);
+    attack.damage = damageDistribution(rng);
+    return attack;
+}
+
 CharacterAttackResult buildRangedReleaseAttack(
     CharacterAttackMode mode,
     const CharacterAttackProfile &profile,
@@ -507,6 +523,12 @@ GameplayActionController::AttackActionDecision GameplayActionController::updateA
     GameplayScreenState::QuickSpellState &quickSpellState,
     const AttackActionConfig &config)
 {
+    if (attackActionState.blocksAttackInput(config.attackPressed))
+    {
+        quickSpellState.attackFallbackRequested = false;
+        return {};
+    }
+
     const bool attackTriggeredByQuickCastFallback = quickSpellState.attackFallbackRequested;
     bool readyMemberTransitionWhileHeld = false;
 
@@ -576,6 +598,10 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
     const size_t actingMemberIndex = party.activeMemberIndex();
     result.attempted = true;
     result.actingMemberIndex = actingMemberIndex;
+    if (party.hasPartyBuff(PartyBuffId::Invisibility))
+    {
+        party.clearPartyBuff(PartyBuffId::Invisibility);
+    }
 
     if (!pAttacker->attackSpellName.empty())
     {
@@ -617,6 +643,10 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
 
     const float targetDistance = target ? actorDistanceFromParty(*target, config.partyPosition) : 0.0f;
     const bool targetInMeleeRange = target.has_value() && targetDistance <= CharacterMeleeAttackDistance;
+    const bool worldTargetInMeleeRange = config.pWorldRuntime != nullptr
+        && config.directTargetBModelIndex.has_value()
+        && config.pWorldRuntime->isPartyAttackMeleeBModelTarget(*config.directTargetBModelIndex)
+        && config.directWorldTargetDistance <= CharacterMeleeAttackDistance;
     const CharacterAttackTuning attackTuning = config.pRuntime != nullptr
         ? characterAttackTuningFromSettings(config.pRuntime->settingsSnapshot())
         : CharacterAttackTuning{};
@@ -636,6 +666,13 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
             targetDistance,
             rng,
             attackTuning);
+    }
+    else if (attackMode == CharacterAttackMode::Melee && worldTargetInMeleeRange)
+    {
+        attack = buildWorldObjectMeleeAttack(
+            attackProfile,
+            config.directWorldTargetDistance,
+            rng);
     }
     else if (attackMode == CharacterAttackMode::Melee)
     {
@@ -703,6 +740,17 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
                     config.pWorldRuntime->refreshWorldHover(config.worldInspectionRefreshRequest);
                 }
             }
+        }
+        else if (worldTargetInMeleeRange
+            && config.directTargetBModelIndex
+            && attack.hit
+            && attack.damage > 0
+            && config.pWorldRuntime != nullptr)
+        {
+            appliedMeleeDamage = attack.damage;
+            attacked = config.pWorldRuntime->applyPartyAttackMeleeBModelDamage(
+                *config.directTargetBModelIndex,
+                attack.damage);
         }
     }
     else if (attack.canAttack)

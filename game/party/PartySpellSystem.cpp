@@ -1062,13 +1062,16 @@ float resolvePartyBuffDurationSeconds(uint32_t spellId, uint32_t skillLevel, Ski
     {
         case SpellId::TorchLight:
         case SpellId::WizardEye:
-        case SpellId::Invisibility:
         case SpellId::Fly:
         case SpellId::WaterWalk:
         case SpellId::DetectLife:
         case SpellId::ProtectionFromMagic:
         case SpellId::Glamour:
             return secondsFromHours(static_cast<float>(skillLevel));
+        case SpellId::Invisibility:
+            return mastery >= SkillMastery::Grandmaster
+                ? secondsFromHours(static_cast<float>(skillLevel))
+                : secondsFromMinutes(static_cast<float>(10 * skillLevel));
         case SpellId::FireResistance:
         case SpellId::AirResistance:
         case SpellId::WaterResistance:
@@ -1486,6 +1489,11 @@ PartySpellCastResult PartySpellSystem::castSpell(
             PartySpellCastTargetKind::None,
             PartySpellCastEffectKind::Unsupported,
             SpellFailedText);
+    }
+
+    if (party.hasPartyBuff(PartyBuffId::Invisibility))
+    {
+        party.clearPartyBuff(PartyBuffId::Invisibility);
     }
 
     uint32_t skillLevel = 0;

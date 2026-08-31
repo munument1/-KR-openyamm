@@ -369,6 +369,33 @@ bool readPersistentItemMechanism(
     return true;
 }
 
+bool readMm9Barrel(const YAML::Node &node, MapMm9BarrelSource &source, std::string &errorMessage)
+{
+    if (!node.IsMap()
+        || !readSourceIdentity(
+            node,
+            source.sourceId,
+            source.sourceObjectIndex,
+            source.sourceName,
+            source.position,
+            errorMessage)
+        || !readScalar(node, "interaction_event_id", source.interactionEventId, errorMessage)
+        || !readScalar(node, "liquid_texture_cog", source.liquidTextureCog, errorMessage)
+        || !readScalar(node, "bmodel_index", source.bmodelIndex, errorMessage)
+        || !readUInt32Sequence(node, "liquid_faces", source.liquidFaces, errorMessage)
+        || !readStringSequence(node, "liquid_texture_aliases", source.liquidTextureAliases, errorMessage))
+    {
+        return false;
+    }
+    if (source.interactionEventId == 0 || source.liquidTextureCog == 0
+        || source.liquidTextureAliases.size() != 8)
+    {
+        errorMessage = "MM9 barrel requires valid event/cog ids and exactly eight liquid texture aliases";
+        return false;
+    }
+    return true;
+}
+
 template <typename SourceType, typename Reader>
 bool readSequence(
     const YAML::Node &rootNode,
@@ -436,6 +463,12 @@ bool parseMapItemSourceData(
             "persistent_item_mechanisms",
             itemSources.persistentItemMechanisms,
             readPersistentItemMechanism,
+            errorMessage)
+        || !readSequence(
+            rootNode,
+            "barrels",
+            itemSources.mm9Barrels,
+            readMm9Barrel,
             errorMessage))
     {
         return false;

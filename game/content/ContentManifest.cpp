@@ -156,6 +156,7 @@ bool parseManifestRoot(const YAML::Node &root, WorldManifest &manifest, std::str
         const YAML::Node eyeHeightNode = partyMovementNode["eyeHeight"];
         const YAML::Node collisionRadiusNode = partyMovementNode["collisionRadius"];
         const YAML::Node collisionHeightNode = partyMovementNode["collisionHeight"];
+        const YAML::Node maxStepHeightNode = partyMovementNode["maxStepHeight"];
 
         if (!eyeHeightNode || !eyeHeightNode.IsScalar()
             || !collisionRadiusNode || !collisionRadiusNode.IsScalar()
@@ -168,14 +169,26 @@ bool parseManifestRoot(const YAML::Node &root, WorldManifest &manifest, std::str
         manifest.partyMovement.eyeHeight = eyeHeightNode.as<float>();
         manifest.partyMovement.collisionRadius = collisionRadiusNode.as<float>();
         manifest.partyMovement.collisionHeight = collisionHeightNode.as<float>();
+        if (maxStepHeightNode)
+        {
+            if (!maxStepHeightNode.IsScalar())
+            {
+                errorMessage = "world.yml partyMovement maxStepHeight must be scalar";
+                return false;
+            }
+
+            manifest.partyMovement.maxStepHeight = maxStepHeightNode.as<float>();
+        }
         manifest.partyMovement.declared = true;
 
         if (!std::isfinite(manifest.partyMovement.eyeHeight)
             || !std::isfinite(manifest.partyMovement.collisionRadius)
             || !std::isfinite(manifest.partyMovement.collisionHeight)
+            || !std::isfinite(manifest.partyMovement.maxStepHeight)
             || manifest.partyMovement.eyeHeight <= 0.0f
             || manifest.partyMovement.collisionRadius <= 0.0f
             || manifest.partyMovement.collisionHeight <= 0.0f
+            || manifest.partyMovement.maxStepHeight <= 0.0f
             || manifest.partyMovement.eyeHeight > manifest.partyMovement.collisionHeight)
         {
             errorMessage =

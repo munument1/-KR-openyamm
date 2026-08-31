@@ -170,6 +170,9 @@ struct OutdoorSceneData
     std::vector<OutdoorSceneInteractiveFace> interactiveFaces;
     std::vector<OutdoorScenePerceptionFace> perceptionFaces;
     std::vector<OutdoorBModelMechanism> mechanisms;
+    std::vector<OutdoorDestructible> destructibles;
+    std::vector<OutdoorDestructibleReceiver> destructibleReceivers;
+    std::vector<OutdoorTriggerVolume> triggerVolumes;
     std::vector<OutdoorMm9NpcGreeting> mm9NpcGreetings;
     std::vector<OutdoorSceneEntity> entities;
     std::vector<OutdoorSceneSpawn> spawns;

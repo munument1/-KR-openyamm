@@ -96,6 +96,8 @@ add_library(openyamm_game STATIC
     maps/MapPresentation.cpp
     maps/MapDeltaData.cpp
     mm9/Mm9MapTransition.cpp
+    mm9/Mm9BarrelRuntime.cpp
+    mm9/Mm9PrimaryStats.cpp
     mm9/Mm9TeacherSchedule.cpp
     mm9/Mm9TransportRoute.cpp
     mm9/Mm9PositionedTransitionRuntime.cpp

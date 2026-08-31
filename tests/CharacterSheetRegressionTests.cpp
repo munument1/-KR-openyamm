@@ -101,10 +101,31 @@ TEST_CASE("dragon character sheet uses dragon ability attack and spell points")
     CHECK_EQ(dragon.maxSpellPoints, 45);
     CHECK_EQ(summary.spellPoints.maximum, 45);
     CHECK_EQ(summary.combat.attack, 9);
+    CHECK_EQ(summary.armorClass.base, 39);
+    CHECK_EQ(summary.armorClass.actual, 39);
     REQUIRE(summary.combat.shoot.has_value());
     CHECK_EQ(*summary.combat.shoot, 9);
     CHECK_EQ(summary.combat.meleeDamageText, "9 - 90");
     CHECK_EQ(summary.combat.rangedDamageText, "9 - 90");
+}
+
+TEST_CASE("great wyrm armor class uses dragon ability level without a mastery multiplier")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    OpenYAMM::Game::Character greatWyrm = {};
+    greatWyrm.className = "Great Wyrm";
+    greatWyrm.speed = 14;
+    greatWyrm.skills["DragonAbility"] = {
+        "DragonAbility",
+        4,
+        OpenYAMM::Game::SkillMastery::Grandmaster};
+
+    const OpenYAMM::Game::CharacterSheetSummary summary =
+        OpenYAMM::Game::GameMechanics::buildCharacterSheetSummary(greatWyrm, &gameData.itemTable);
+
+    CHECK_EQ(summary.armorClass.base, 20);
+    CHECK_EQ(summary.armorClass.actual, 20);
 }
 
 TEST_CASE("base resource formulas include bodybuilding and meditation skill bonuses")

@@ -35,6 +35,7 @@
 #include "game/items/ItemGenerator.h"
 #include "game/items/ItemRuntime.h"
 #include "game/maps/MapAssetLoader.h"
+#include "game/mm9/Mm9BarrelRuntime.h"
 #include "game/party/EventSpellBuffs.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/ObjectTable.h"
@@ -4019,6 +4020,7 @@ void IndoorWorldRuntime::initialize(
     std::random_device randomDevice;
     const uint64_t timeSeed = uint64_t(std::chrono::steady_clock::now().time_since_epoch().count());
     m_sessionChestSeed = randomDevice() ^ uint32_t(timeSeed) ^ uint32_t(timeSeed >> 32);
+    initializeMm9Barrels();
     materializeIndoorLootContainers(
         m_itemSourceData,
         m_map,
@@ -4106,6 +4108,7 @@ void IndoorWorldRuntime::initialize(
     std::random_device randomDevice;
     const uint64_t timeSeed = uint64_t(std::chrono::steady_clock::now().time_since_epoch().count());
     m_sessionChestSeed = randomDevice() ^ uint32_t(timeSeed) ^ uint32_t(timeSeed >> 32);
+    initializeMm9Barrels();
     materializeIndoorLootContainers(
         m_itemSourceData,
         m_map,
@@ -5144,7 +5147,7 @@ ActorAiFrameFacts IndoorWorldRuntime::collectIndoorActorAiFrameFacts(
     facts.fixedStepSeconds = ActorUpdateStepSeconds;
     facts.party.collisionRadius = PartyCollisionRadius;
     facts.party.collisionHeight = PartyCollisionHeight;
-    facts.party.invisible = false;
+    facts.party.invisible = m_pParty != nullptr && m_pParty->hasPartyBuff(PartyBuffId::Invisibility);
     facts.party.hasDispellableBuffs = partyHasDispellableBuffs(m_pParty);
 
     int16_t partySectorId = -1;
@@ -9666,7 +9669,8 @@ std::optional<ActorAiFacts> IndoorWorldRuntime::collectIndoorActorAiFacts(
     const float partyDeltaZ = partyTargetPoint.z - actorTargetZ;
     const float partySenseRange = pActorService->partyEngagementRange(actorPolicyState);
     const bool actorCanSenseParty =
-        activeCanKeepPartyTarget
+        !partyFacts.invisible
+        && activeCanKeepPartyTarget
         && std::abs(partyDeltaX) <= partySenseRange
         && std::abs(partyDeltaY) <= partySenseRange
         && std::abs(partyDeltaZ) <= partySenseRange
@@ -10827,6 +10831,12 @@ bool IndoorWorldRuntime::executeMapEvent(
     std::optional<uint8_t> continueStep)
 {
     EventRuntimeState *pEventRuntimeState = eventRuntimeState();
+
+    if (useMm9BarrelEvent(eventId))
+    {
+        previousMessageCount = pEventRuntimeState != nullptr ? pEventRuntimeState->messages.size() : 0;
+        return true;
+    }
 
     if (m_pEventRuntime == nullptr || pEventRuntimeState == nullptr || eventId == 0)
     {
@@ -14564,6 +14574,10 @@ bool IndoorWorldRuntime::activateSemanticWorldItem(size_t worldItemIndex)
     }
     synchronizeSemanticWorldItemVisibility();
     m_pParty->requestSound(SoundId::Gold);
+    if (m_pGameplayView != nullptr)
+    {
+        m_pGameplayView->setStatusBarEvent(formatWorldItemPickupStatusText(randomPoolItem, *m_pItemTable));
+    }
     return true;
 }
 
@@ -16036,6 +16050,94 @@ bool IndoorWorldRuntime::setFacetBit(uint32_t cogNumber, uint32_t bit, bool isOn
     }
 
     return matchedAny;
+}
+
+void IndoorWorldRuntime::applyMm9BarrelVisual(
+    const MapMm9BarrelSource &source,
+    const MapDeltaMm9BarrelState &state)
+{
+    EventRuntimeState *pRuntimeState = eventRuntimeState();
+    const size_t textureIndex = mm9BarrelLiquidTextureIndex(state);
+    if (pRuntimeState == nullptr
+        || source.liquidFaces.empty()
+        || textureIndex >= source.liquidTextureAliases.size())
+    {
+        return;
+    }
+    pRuntimeState->textureOverrides[source.liquidTextureCog] = source.liquidTextureAliases[textureIndex];
+}
+
+void IndoorWorldRuntime::initializeMm9Barrels()
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr)
+    {
+        return;
+    }
+    for (const MapMm9BarrelSource &source : m_itemSourceData.mm9Barrels)
+    {
+        std::mt19937 rng(mm9BarrelSeed(m_sessionChestSeed, source.sourceId));
+        MapDeltaMm9BarrelState &state = ensureMm9BarrelState(
+            pMapDeltaData->mm9Barrels,
+            source.sourceObjectIndex,
+            rng);
+        applyMm9BarrelVisual(source, state);
+    }
+}
+
+bool IndoorWorldRuntime::useMm9Barrel(const std::string &sourceId)
+{
+    const auto sourceIt = std::find_if(
+        m_itemSourceData.mm9Barrels.begin(),
+        m_itemSourceData.mm9Barrels.end(),
+        [&sourceId](const MapMm9BarrelSource &source)
+        {
+            return source.sourceId == sourceId;
+        });
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (sourceIt == m_itemSourceData.mm9Barrels.end()
+        || pMapDeltaData == nullptr
+        || m_pParty == nullptr
+        || m_pItemTable == nullptr)
+    {
+        return false;
+    }
+    std::mt19937 stateRng(mm9BarrelSeed(m_sessionChestSeed, sourceId));
+    MapDeltaMm9BarrelState &state = ensureMm9BarrelState(
+        pMapDeltaData->mm9Barrels,
+        sourceIt->sourceObjectIndex,
+        stateRng);
+    std::mt19937 useRng(mm9BarrelSeed(m_sessionChestSeed, sourceId) ^ 0x555345u);
+    const Mm9BarrelResult result = OpenYAMM::Game::useMm9Barrel(state, *m_pParty, *m_pItemTable, useRng);
+    applyMm9BarrelVisual(*sourceIt, state);
+    EventRuntimeState *pRuntimeState = eventRuntimeState();
+    if (pRuntimeState != nullptr)
+    {
+        if (!result.statusMessage.empty())
+        {
+            pRuntimeState->statusMessages.push_back(result.statusMessage);
+        }
+        if (!result.soundName.empty())
+        {
+            EventRuntimeState::PendingSound sound = {};
+            sound.soundScope = SoundScope::World;
+            sound.soundName = result.soundName;
+            pRuntimeState->pendingSounds.push_back(std::move(sound));
+        }
+    }
+    return result.handled;
+}
+
+bool IndoorWorldRuntime::useMm9BarrelEvent(uint16_t eventId)
+{
+    const auto sourceIt = std::find_if(
+        m_itemSourceData.mm9Barrels.begin(),
+        m_itemSourceData.mm9Barrels.end(),
+        [eventId](const MapMm9BarrelSource &source)
+        {
+            return source.interactionEventId == eventId;
+        });
+    return sourceIt != m_itemSourceData.mm9Barrels.end() && useMm9Barrel(sourceIt->sourceId);
 }
 
 bool IndoorWorldRuntime::searchLootProp(const std::string &sourceId)

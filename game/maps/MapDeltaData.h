@@ -145,6 +145,25 @@ struct MapDeltaDoor
     std::vector<int16_t> zOffsets;
 };
 
+enum class Mm9BarrelType : uint8_t
+{
+    RedMight = 1,
+    BlueMagic = 2,
+    GreenEndurance = 3,
+    PurpleSpeed = 4,
+    WhiteLuck = 5,
+    YellowAccuracy = 6,
+    Swamp = 7,
+    Water = 8,
+};
+
+struct MapDeltaMm9BarrelState
+{
+    uint32_t sourceObjectIndex = 0;
+    Mm9BarrelType type = Mm9BarrelType::Water;
+    bool used = false;
+};
+
 struct MapDeltaData
 {
     MapDeltaLocationInfo locationInfo = {};
@@ -162,6 +181,7 @@ struct MapDeltaData
     std::vector<int16_t> doorsData;
     MapDeltaPersistentVariables eventVariables = {};
     MapDeltaLocationTime locationTime = {};
+    std::vector<MapDeltaMm9BarrelState> mm9Barrels;
 };
 
 void normalizeIndoorDoorTextureDeltas(MapDeltaData &mapDeltaData, const IndoorMapData &indoorMapData);

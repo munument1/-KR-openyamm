@@ -132,6 +132,21 @@ std::optional<OutdoorNavigationData> OutdoorNavigationDataLoader::loadFromBytes(
         }
     }
 
+    for (const OutdoorDestructible &destructible : outdoorMapData.destructibles)
+    {
+        if (destructible.runtimeObjectId != 0 && destructible.bmodelIndex < mechanismIdByBModel.size())
+        {
+            mechanismIdByBModel[destructible.bmodelIndex] = destructible.runtimeObjectId;
+        }
+        for (size_t auxiliaryBmodelIndex : destructible.auxiliaryBmodelIndices)
+        {
+            if (destructible.runtimeObjectId != 0 && auxiliaryBmodelIndex < mechanismIdByBModel.size())
+            {
+                mechanismIdByBModel[auxiliaryBmodelIndex] = destructible.runtimeObjectId;
+            }
+        }
+    }
+
     for (size_t facetIndex = 0; facetIndex < facetCount; ++facetIndex)
     {
         const size_t offset = headerSize + facetIndex * recordSize;

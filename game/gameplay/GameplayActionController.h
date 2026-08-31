@@ -112,6 +112,8 @@ public:
         const MonsterTable *pMonsterTable = nullptr;
         const SpecialItemEnchantTable *pSpecialItemEnchantTable = nullptr;
         std::optional<size_t> directTargetActorIndex;
+        std::optional<size_t> directTargetBModelIndex;
+        float directWorldTargetDistance = 0.0f;
         std::string directTargetName;
         WorldPoint partyPosition = {};
         WorldPoint rangedSource = {};

@@ -287,6 +287,69 @@ TEST_CASE("party spell backend haste applies party buff and spends mana")
     CHECK(worldRuntime.syncSpellMovementStatesCalled());
 }
 
+TEST_CASE("invisibility uses OpenEnroth mastery duration")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    for (const OpenYAMM::Game::SkillMastery mastery : {
+             OpenYAMM::Game::SkillMastery::Master,
+             OpenYAMM::Game::SkillMastery::Grandmaster})
+    {
+        OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+        OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+        worldRuntime.bindParty(&party);
+        OpenYAMM::Game::Character *pCaster = party.member(0);
+        REQUIRE(pCaster != nullptr);
+        pCaster->skills["AirMagic"] = {"AirMagic", 2, mastery};
+
+        OpenYAMM::Game::PartySpellCastRequest request = {};
+        request.casterMemberIndex = 0;
+        request.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Invisibility);
+
+        const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
+            party,
+            worldRuntime,
+            gameData.spellTable,
+            request);
+
+        REQUIRE(result.succeeded());
+        const OpenYAMM::Game::PartyBuffState *pBuff =
+            party.partyBuff(OpenYAMM::Game::PartyBuffId::Invisibility);
+        REQUIRE(pBuff != nullptr);
+        const float expectedDurationSeconds = mastery == OpenYAMM::Game::SkillMastery::Grandmaster
+            ? 2.0f * 60.0f * 60.0f
+            : 20.0f * 60.0f;
+        CHECK(pBuff->remainingSeconds == doctest::Approx(expectedDurationSeconds));
+    }
+}
+
+TEST_CASE("casting a spell breaks invisibility before resolving the cast")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.bindParty(&party);
+    OpenYAMM::Game::Character *pCaster = party.member(0);
+    REQUIRE(pCaster != nullptr);
+    pCaster->skills["FireMagic"] = {"FireMagic", 1, OpenYAMM::Game::SkillMastery::Normal};
+    party.applyPartyBuff(
+        OpenYAMM::Game::PartyBuffId::Invisibility,
+        600.0f,
+        0,
+        OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Invisibility),
+        1,
+        OpenYAMM::Game::SkillMastery::Master,
+        0);
+
+    OpenYAMM::Game::PartySpellCastRequest request = {};
+    request.casterMemberIndex = 0;
+    request.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::FireBolt);
+
+    OpenYAMM::Game::PartySpellSystem::castSpell(party, worldRuntime, gameData.spellTable, request);
+
+    CHECK_FALSE(party.hasPartyBuff(OpenYAMM::Game::PartyBuffId::Invisibility));
+}
+
 TEST_CASE("grandmaster fear casts without target and affects hostile actors in sight")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -710,6 +773,38 @@ TEST_CASE("regeneration spell heals on OE five-minute ticks")
 
     party.advanceTimedStates(1.0f);
     CHECK_EQ(pTarget->health, 51);
+}
+
+TEST_CASE("heal reports the selected character for portrait spell FX")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+    OpenYAMM::Tests::PartySpellTestWorldRuntime worldRuntime = {};
+    worldRuntime.bindParty(&party);
+
+    OpenYAMM::Game::Character *pTarget = party.member(1);
+    REQUIRE(pTarget != nullptr);
+    pTarget->health = 1;
+
+    OpenYAMM::Game::PartySpellCastRequest request = {};
+    request.casterMemberIndex = 0;
+    request.spellId = OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Heal);
+    request.targetCharacterIndex = 1;
+    request.skillLevelOverride = 5;
+    request.skillMasteryOverride = OpenYAMM::Game::SkillMastery::Normal;
+    request.spendMana = false;
+    request.applyRecovery = false;
+
+    const OpenYAMM::Game::PartySpellCastResult result = OpenYAMM::Game::PartySpellSystem::castSpell(
+        party,
+        worldRuntime,
+        gameData.spellTable,
+        request);
+
+    REQUIRE(result.succeeded());
+    REQUIRE_EQ(result.affectedCharacterIndices.size(), 1u);
+    CHECK_EQ(result.affectedCharacterIndices.front(), 1u);
+    CHECK_GT(pTarget->health, 1);
 }
 
 TEST_CASE("party spell backend skips character targeting for mastery-wide character buffs")
@@ -1609,6 +1704,11 @@ TEST_CASE("indoor scene runtime state survives save round trip")
     snapshot.mapDeltaData->doors[0].timeSinceTriggered = 1234;
     snapshot.mapDeltaData->doors[0].state = 2;
     snapshot.mapDeltaData->doorsData = {5, 6, 7};
+    snapshot.mapDeltaData->mm9Barrels.push_back({
+        372,
+        OpenYAMM::Game::Mm9BarrelType::BlueMagic,
+        true,
+    });
 
     snapshot.eventRuntimeState.emplace();
     OpenYAMM::Game::RuntimeMechanismState mechanism = {};
@@ -1772,6 +1872,10 @@ TEST_CASE("indoor scene runtime state survives save round trip")
     REQUIRE_EQ(loadedSnapshot.mapDeltaData->doors.size(), 1u);
     CHECK_EQ(loadedSnapshot.mapDeltaData->doors[0].state, 2);
     CHECK_EQ(loadedSnapshot.mapDeltaData->doorsData, std::vector<int16_t>({5, 6, 7}));
+    REQUIRE_EQ(loadedSnapshot.mapDeltaData->mm9Barrels.size(), 1u);
+    CHECK_EQ(loadedSnapshot.mapDeltaData->mm9Barrels[0].sourceObjectIndex, 372u);
+    CHECK(loadedSnapshot.mapDeltaData->mm9Barrels[0].type == OpenYAMM::Game::Mm9BarrelType::BlueMagic);
+    CHECK(loadedSnapshot.mapDeltaData->mm9Barrels[0].used);
 
     REQUIRE(loadedSnapshot.eventRuntimeState.has_value());
     REQUIRE(loadedSnapshot.eventRuntimeState->mechanisms.contains(7));

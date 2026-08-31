@@ -89,6 +89,13 @@ struct RuntimeMechanismState
     bool isMoving = false;
 };
 
+struct RuntimeDestructibleState
+{
+    int hp = 1;
+    bool damageEnabled = false;
+    bool destroyed = false;
+};
+
 struct EventRuntimeState
 {
     struct OutdoorModelMechanismDefinition
@@ -430,6 +437,7 @@ struct EventRuntimeState
     mutable size_t facetInvisibleOverrideCacheClearSize = 0;
     mutable std::vector<uint8_t> facetInvisibleOverrideCache;
     std::unordered_map<uint32_t, RuntimeMechanismState> mechanisms;
+    std::unordered_map<uint32_t, RuntimeDestructibleState> destructibles;
     std::unordered_map<uint32_t, OutdoorModelMechanismDefinition> outdoorModelMechanisms;
     std::unordered_map<uint32_t, std::string> textureOverrides;
     std::unordered_map<uint32_t, std::string> outdoorModelFacetTextureOverrides;

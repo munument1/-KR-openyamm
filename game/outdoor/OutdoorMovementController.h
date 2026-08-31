@@ -44,6 +44,7 @@ struct OutdoorBodyDimensions
 {
     float radius = 37.0f;
     float height = 192.0f;
+    float maxStepHeight = 128.0f;
 };
 
 struct OutdoorMoveFloorDebugInfo

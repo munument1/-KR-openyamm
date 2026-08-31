@@ -64,8 +64,10 @@ public:
     {
         bool inspectLatch = false;
         bool readyMemberAvailableWhileHeld = false;
+        bool suppressAttackUntilRelease = false;
         float inspectRepeatCooldownSeconds = 0.0f;
 
+        bool blocksAttackInput(bool attackPressed);
         void clear();
     };
 

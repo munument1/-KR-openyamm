@@ -1037,6 +1037,12 @@ bool IndoorSceneRuntime::activateEvent(
         return false;
     }
 
+    if (m_worldRuntime.useMm9BarrelEvent(eventId))
+    {
+        m_eventRuntimeState->lastActivationResult = "MM9 barrel event " + std::to_string(eventId) + " executed";
+        return true;
+    }
+
     m_eventRuntimeState->activeDecorationContext = activeDecorationContext;
 
     const bool allowGlobalFallback = activeDecorationContext.has_value();

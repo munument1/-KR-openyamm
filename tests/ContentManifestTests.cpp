@@ -76,6 +76,7 @@ TEST_CASE("content manifests parse mounted world definition")
         "  eyeHeight: 152\n"
         "  collisionRadius: 38\n"
         "  collisionHeight: 169\n"
+        "  maxStepHeight: 40.96\n"
         "actorAwareness:\n"
         "  partyEngagementRange: 4096\n"
         "start:\n"
@@ -106,6 +107,7 @@ TEST_CASE("content manifests parse mounted world definition")
         CHECK_EQ(world.partyMovement.eyeHeight, 152.0f);
         CHECK_EQ(world.partyMovement.collisionRadius, 38.0f);
         CHECK_EQ(world.partyMovement.collisionHeight, 169.0f);
+        CHECK_EQ(world.partyMovement.maxStepHeight, doctest::Approx(40.96f));
         REQUIRE(world.actorAwareness.declared);
         CHECK_EQ(world.actorAwareness.partyEngagementRange, 4096.0f);
     }

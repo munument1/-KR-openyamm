@@ -119,6 +119,18 @@ public:
         return false;
     }
 
+    virtual bool useMm9Barrel(const std::string &sourceId)
+    {
+        (void)sourceId;
+        return false;
+    }
+
+    virtual bool useMm9BarrelEvent(uint16_t eventId)
+    {
+        (void)eventId;
+        return false;
+    }
+
     virtual bool spawnLootContainer(const std::string &sourceId)
     {
         (void)sourceId;

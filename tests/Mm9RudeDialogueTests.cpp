@@ -201,9 +201,11 @@ TEST_CASE("MM9 RUDE and live-gameplay vendor presentations select their intended
         OpenYAMM::Game::GameplayHudScreenState::Dialogue,
         dialog));
     CHECK_FALSE(OpenYAMM::Game::activeEventDialogShowsVideoArea(dialog, true));
+    CHECK_FALSE(OpenYAMM::Game::activeEventDialogAllowsHouseVideoPlayback(dialog));
 
     dialog.scenePolicy = OpenYAMM::Game::DialogueScenePolicy::HouseVideo;
     CHECK(OpenYAMM::Game::activeEventDialogShowsVideoArea(dialog, true));
+    CHECK(OpenYAMM::Game::activeEventDialogAllowsHouseVideoPlayback(dialog));
 }
 
 TEST_CASE("MM9 RUDE topics retain source ordering and use mapped QBit conditions")
@@ -770,6 +772,44 @@ TEST_CASE("MM9 RUDE shop suspension opens a mounted live-gameplay vendor and res
     CHECK_EQ(worldRuntime.lastEventId, 50053);
 }
 
+TEST_CASE("MM9 RUDE unresolved vendor remains visible with source-specific feedback")
+{
+    OpenYAMM::Game::Mm9RudeDialogueTable rudeTable;
+    REQUIRE(rudeTable.loadDialogueText(
+        "NPC53.rude",
+        rudeRow(53, 53, 1, "Show us what you have.", "Certainly.", -2)
+            + rudeRow(53, 53, 2, "Goodbye.", "blank", -1)));
+
+    OpenYAMM::Game::Party party;
+    OpenYAMM::Game::GameplayUiController uiController;
+    OpenYAMM::Game::EventRuntimeState eventRuntimeState;
+    OpenYAMM::Game::EventDialogContent dialog = {};
+    size_t selectionIndex = 0;
+    OpenYAMM::Game::HouseTable houseTable;
+    OpenYAMM::Game::GameplayDialogController::Context context = {
+        .uiController = uiController,
+        .eventRuntimeState = eventRuntimeState,
+        .activeEventDialog = dialog,
+        .selectionIndex = selectionIndex,
+        .pParty = &party,
+        .pHouseTable = &houseTable,
+        .pMm9RudeDialogueTable = &rudeTable,
+        .dialogueHudActive = true,
+    };
+    const OpenYAMM::Game::GameplayDialogController controller;
+    controller.openMm9RudeDialogue(context, 53, 0);
+    REQUIRE_EQ(dialog.actions.size(), 2);
+
+    const OpenYAMM::Game::GameplayDialogController::Result result =
+        controller.executeActiveDialogAction(context);
+    CHECK_FALSE(result.shouldCloseActiveDialog);
+    CHECK_FALSE(result.shouldOpenPendingEventDialog);
+    CHECK_FALSE(eventRuntimeState.dialogueState.suspendedMm9RudeDialogue.has_value());
+    CHECK(dialog.presentation == OpenYAMM::Game::EventDialogPresentation::Mm9Rude);
+    CHECK_EQ(dialog.sourceId, 53);
+    CHECK_EQ(uiController.statusBar().eventText, "MM9 shop 53 has no mounted service definition.");
+}
+
 TEST_CASE("MM9 RUDE temple and training services open shared house venues and restore RUDE")
 {
     struct ServiceCase
@@ -1084,6 +1124,9 @@ TEST_CASE("MM9 world data loads transitions trainers and source monster gameplay
     REQUIRE(pSturmfordWeaponVendor != nullptr);
     CHECK_EQ(pSturmfordWeaponVendor->id, 30053);
     CHECK(pSturmfordWeaponVendor->dialogueScenePolicy == OpenYAMM::Game::DialogueScenePolicy::LiveGameplay);
+    CHECK(pSturmfordWeaponVendor->videoName.empty());
+    CHECK_EQ(pSturmfordWeaponVendor->roomSoundId, 0);
+    CHECK_EQ(pSturmfordWeaponVendor->houseSoundBaseId, 0);
     CHECK(pSturmfordWeaponVendor->vendorStockProfile == OpenYAMM::Game::VendorStockProfile::Weapon);
     const std::vector<OpenYAMM::Game::HouseActionOption> vendorRootActions =
         OpenYAMM::Game::buildHouseActionOptions(
@@ -1527,6 +1570,20 @@ TEST_CASE("MM9 world data loads transitions trainers and source monster gameplay
     REQUIRE(pAxe != nullptr);
     CHECK_EQ(pAxe->objectId, 309);
 
+    const OpenYAMM::Game::MonsterProjectileEntry *pSkull =
+        dataLoader.getMonsterProjectileTable().findByToken("MM9Skull");
+    REQUIRE(pSkull != nullptr);
+    CHECK_EQ(pSkull->objectId, 6030);
+    CHECK_EQ(pSkull->impactObjectId, 6031);
+
+    const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pSkullThrower =
+        dataLoader.getMonsterTable().findStatsById(9185);
+    REQUIRE(pSkullThrower != nullptr);
+    CHECK_EQ(pSkullThrower->name, "Skull Thrower");
+    CHECK_EQ(pSkullThrower->attack1MissileType, "MM9Skull");
+    CHECK(pSkullThrower->attack1HasMissile);
+    CHECK(pSkullThrower->attackStyle == OpenYAMM::Game::MonsterTable::MonsterAttackStyle::Ranged);
+
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pLegacyTroglodyte =
         dataLoader.getMonsterTable().findStatsById(413);
     REQUIRE(pLegacyTroglodyte != nullptr);
@@ -1546,6 +1603,15 @@ TEST_CASE("MM9 monster overlay leaves legacy monster rows unchanged")
     REQUIRE(dataLoader.loadCommonForGameplay(assetFileSystem));
     CHECK(dataLoader.getMm9MapTransitionTable().entries().empty());
     CHECK(dataLoader.getMm9SkillTrainerTable().entries().empty());
+    CHECK(dataLoader.getHouseTable().resolvePackageSourceVendorId("mm9", 53) == nullptr);
+    CHECK(dataLoader.getHouseTable().resolvePackageSourceServiceId("mm9", 58) == nullptr);
+    CHECK(std::none_of(
+        dataLoader.getHouseTable().entries().begin(),
+        dataLoader.getHouseTable().entries().end(),
+        [](const std::pair<const uint32_t, OpenYAMM::Game::HouseEntry> &entry)
+        {
+            return entry.second.vendorStockProfile != OpenYAMM::Game::VendorStockProfile::None;
+        }));
 
     const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pLegacyTroglodyte =
         dataLoader.getMonsterTable().findStatsById(413);

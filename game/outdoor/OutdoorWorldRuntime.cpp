@@ -20,6 +20,7 @@
 #include "game/gameplay/StealingRuntime.h"
 #include "game/items/ItemGenerator.h"
 #include "game/mm9/Mm9RudeDialogue.h"
+#include "game/mm9/Mm9BarrelRuntime.h"
 #include "game/gameplay/TreasureRuntime.h"
 #include "game/events/EventProjectileSpells.h"
 #include "game/outdoor/OutdoorGameView.h"
@@ -4259,6 +4260,7 @@ OutdoorTargetFacts resolveOutdoorTargetFacts(
     float partyX,
     float partyY,
     float partyZ,
+    bool partyInvisible,
     float partyCollisionRadius,
     VisibilityFn &&hasClearOutdoorLineOfSight)
 {
@@ -4275,7 +4277,7 @@ OutdoorTargetFacts resolveOutdoorTargetFacts(
     const float partyTargetZ = partyZ + PartyTargetHeightOffset;
     const float partySenseRange = pGameplayActorService->partyEngagementRange(actorPolicyState);
 
-    if (partySenseRange > 0.0f)
+    if (!partyInvisible && partySenseRange > 0.0f)
     {
         const float deltaPartyX = partyX - actor.preciseX;
         const float deltaPartyY = partyY - actor.preciseY;
@@ -4907,7 +4909,7 @@ void OutdoorWorldRuntime::activateChestView(uint32_t chestId)
         }
     }
 
-    if (m_pParty != nullptr)
+    if (m_pParty != nullptr && m_pParty->hasPartyBuff(PartyBuffId::Invisibility))
     {
         m_pParty->requestSound(SoundId::OpenChest);
     }
@@ -5173,6 +5175,7 @@ void OutdoorWorldRuntime::initialize(
     m_enclosedMinimapLinesValid = false;
     m_cachedEnclosedMinimapLines.clear();
     initializeOutdoorModelMechanismsFromMapData();
+    initializeOutdoorDestructiblesFromMapData();
     m_outdoorLandMask = outdoorLandMask;
     m_pSpellTable = &spellTable;
     m_pGameplayActorService = pGameplayActorService;
@@ -5389,6 +5392,7 @@ void OutdoorWorldRuntime::initialize(
     const uint64_t timeSeed = static_cast<uint64_t>(
         std::chrono::steady_clock::now().time_since_epoch().count());
     m_sessionChestSeed = randomDevice() ^ static_cast<uint32_t>(timeSeed) ^ static_cast<uint32_t>(timeSeed >> 32);
+    initializeMm9Barrels();
     if (!m_itemSourceData.lootContainers.empty())
     {
         const uint32_t maximumContainerId = std::max_element(
@@ -5465,6 +5469,7 @@ void OutdoorWorldRuntime::initialize(
     }
 
     applyEventRuntimeState(true);
+    applyOutdoorDestructibleStates(false);
     groundMm9LoadedPlacements(true, true);
 }
 
@@ -6924,6 +6929,7 @@ void OutdoorWorldRuntime::stopTurnBasedActorMovement()
 void OutdoorWorldRuntime::updateWorld(float deltaSeconds)
 {
     updateImmolation(deltaSeconds);
+    updateOutdoorTriggerVolumes();
 
     if (m_pOutdoorMapDeltaData != nullptr && m_pPartyRuntime != nullptr)
     {
@@ -7410,6 +7416,7 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
             m_pParty->applyGlobalNpcStateTo(*m_eventRuntimeState);
         }
     }
+    initializeOutdoorDestructiblesFromMapData();
     m_actorUpdateAccumulatorSeconds = snapshot.actorUpdateAccumulatorSeconds;
     m_immolationTickAccumulatorGameMinutes = 0.0f;
     m_immolationTickSequence = 0;
@@ -7473,6 +7480,7 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
 
     refreshAtmosphereState();
     applyEventRuntimeState(true);
+    applyOutdoorDestructibleStates(false);
     groundMm9LoadedPlacements(false, false);
 }
 
@@ -8392,7 +8400,7 @@ ActorAiFrameFacts OutdoorWorldRuntime::collectOutdoorActorAiFrameFacts(
     facts.party.position = GameplayWorldPoint{partyX, partyY, partyZ};
     facts.party.collisionRadius = m_partyCollisionRadius;
     facts.party.collisionHeight = m_partyCollisionHeight;
-    facts.party.invisible = false;
+    facts.party.invisible = m_pParty != nullptr && m_pParty->hasPartyBuff(PartyBuffId::Invisibility);
     facts.party.hasDispellableBuffs = partyHasDispellableBuffs(m_pParty);
 
     std::vector<int8_t> actorLineOfSightCache(m_mapActors.size() * m_mapActors.size(), -1);
@@ -8496,6 +8504,7 @@ std::optional<ActorAiFacts> OutdoorWorldRuntime::collectOutdoorActorAiFacts(
                 partyX,
                 partyY,
                 partyZ,
+                m_pParty != nullptr && m_pParty->hasPartyBuff(PartyBuffId::Invisibility),
                 m_partyCollisionRadius,
                 hasClearOutdoorLineOfSight);
     }
@@ -11273,7 +11282,7 @@ bool OutdoorWorldRuntime::castMeteorShower(
     {
         float meteorTargetZ = shot.targetZ;
 
-        if (m_pOutdoorMapData != nullptr)
+        if (m_pOutdoorMapData != nullptr && !m_pOutdoorMapData->noTerrain)
         {
             meteorTargetZ = std::max(
                 meteorTargetZ,
@@ -11315,7 +11324,7 @@ bool OutdoorWorldRuntime::castStarburst(
         float starTargetZ = shot.targetZ;
         float starSourceBaseZ = shot.targetZ;
 
-        if (m_pOutdoorMapData != nullptr)
+        if (m_pOutdoorMapData != nullptr && !m_pOutdoorMapData->noTerrain)
         {
             starTargetZ = std::max(
                 starTargetZ,
@@ -12188,6 +12197,340 @@ void OutdoorWorldRuntime::initializeOutdoorModelMechanismsFromMapData()
     }
 }
 
+void OutdoorWorldRuntime::initializeOutdoorDestructiblesFromMapData()
+{
+    m_outdoorDestructibleDefinitionBySourceObject.clear();
+    m_outdoorDestructibleSourceObjectByBModel.clear();
+    m_outdoorTriggerWasInside.clear();
+
+    if (!m_eventRuntimeState || m_pOutdoorMapData == nullptr)
+    {
+        return;
+    }
+
+    for (size_t definitionIndex = 0;
+         definitionIndex < m_pOutdoorMapData->destructibles.size();
+         ++definitionIndex)
+    {
+        const OutdoorDestructible &definition = m_pOutdoorMapData->destructibles[definitionIndex];
+        if (definition.bmodelIndex >= m_pOutdoorMapData->bmodels.size())
+        {
+            continue;
+        }
+
+        m_outdoorDestructibleDefinitionBySourceObject[definition.sourceObjectIndex] = definitionIndex;
+        m_outdoorDestructibleSourceObjectByBModel[definition.bmodelIndex] = definition.sourceObjectIndex;
+        for (size_t auxiliaryBmodelIndex : definition.auxiliaryBmodelIndices)
+        {
+            if (auxiliaryBmodelIndex < m_pOutdoorMapData->bmodels.size())
+            {
+                m_outdoorDestructibleSourceObjectByBModel[auxiliaryBmodelIndex] = definition.sourceObjectIndex;
+            }
+        }
+        m_eventRuntimeState->destructibles.try_emplace(
+            definition.sourceObjectIndex,
+            RuntimeDestructibleState{
+                .hp = definition.initialHp,
+                .damageEnabled = definition.initiallyDamageEnabled,
+                .destroyed = false,
+            });
+    }
+}
+
+const RuntimeDestructibleState *OutdoorWorldRuntime::outdoorDestructibleState(
+    uint32_t sourceObjectIndex) const
+{
+    if (!m_eventRuntimeState)
+    {
+        return nullptr;
+    }
+
+    const auto stateIterator = m_eventRuntimeState->destructibles.find(sourceObjectIndex);
+    return stateIterator != m_eventRuntimeState->destructibles.end() ? &stateIterator->second : nullptr;
+}
+
+void OutdoorWorldRuntime::projectOutdoorDestructibleGeometry(
+    const OutdoorDestructible &definition,
+    bool destroyed)
+{
+    if (m_pOutdoorMapData == nullptr || definition.bmodelIndex >= m_pOutdoorMapData->bmodels.size())
+    {
+        return;
+    }
+
+    const uint32_t disabledAttributes =
+        faceAttributeBit(FaceAttribute::Invisible) | faceAttributeBit(FaceAttribute::Untouchable);
+    std::vector<size_t> affectedBmodelIndices = {definition.bmodelIndex};
+    affectedBmodelIndices.insert(
+        affectedBmodelIndices.end(),
+        definition.auxiliaryBmodelIndices.begin(),
+        definition.auxiliaryBmodelIndices.end());
+    for (size_t affectedBmodelIndex : affectedBmodelIndices)
+    {
+        if (affectedBmodelIndex >= m_pOutdoorMapData->bmodels.size())
+        {
+            continue;
+        }
+
+        size_t flattenedFaceIndex = 0;
+        for (size_t bModelIndex = 0; bModelIndex < affectedBmodelIndex; ++bModelIndex)
+        {
+            flattenedFaceIndex += m_pOutdoorMapData->bmodels[bModelIndex].faces.size();
+        }
+
+        const OutdoorBModel &bmodel = m_pOutdoorMapData->bmodels[affectedBmodelIndex];
+        for (size_t faceIndex = 0; faceIndex < bmodel.faces.size(); ++faceIndex)
+        {
+            uint32_t attributes = bmodel.faces[faceIndex].attributes;
+            if (destroyed)
+            {
+                attributes |= disabledAttributes;
+            }
+
+            if (m_pOutdoorMapDeltaData != nullptr
+                && flattenedFaceIndex + faceIndex < m_pOutdoorMapDeltaData->faceAttributes.size())
+            {
+                m_pOutdoorMapDeltaData->faceAttributes[flattenedFaceIndex + faceIndex] = attributes;
+            }
+
+            for (OutdoorFaceGeometryData &geometry : m_outdoorFaces)
+            {
+                if (geometry.bModelIndex == affectedBmodelIndex && geometry.faceIndex == faceIndex)
+                {
+                    geometry.attributes = attributes;
+                    break;
+                }
+            }
+
+            if (m_outdoorMovementController)
+            {
+                m_outdoorMovementController->setFaceAttributes(affectedBmodelIndex, faceIndex, attributes);
+            }
+            if (m_pPartyRuntime != nullptr)
+            {
+                m_pPartyRuntime->setFaceAttributes(affectedBmodelIndex, faceIndex, attributes);
+            }
+        }
+    }
+
+    if (m_pOutdoorMapDeltaData != nullptr)
+    {
+        ++m_pOutdoorMapDeltaData->surfaceRevision;
+    }
+    if (m_eventRuntimeState)
+    {
+        ++m_eventRuntimeState->outdoorSurfaceRevision;
+    }
+    m_enclosedMinimapLinesValid = false;
+    invalidateOutdoorPathMaps(true);
+}
+
+void OutdoorWorldRuntime::applyOutdoorDestructibleStates(bool playEffects)
+{
+    (void)playEffects;
+    if (!m_eventRuntimeState || m_pOutdoorMapData == nullptr)
+    {
+        return;
+    }
+
+    for (const OutdoorDestructible &definition : m_pOutdoorMapData->destructibles)
+    {
+        const RuntimeDestructibleState *pState = outdoorDestructibleState(definition.sourceObjectIndex);
+        if (pState != nullptr)
+        {
+            projectOutdoorDestructibleGeometry(definition, pState->destroyed);
+        }
+    }
+}
+
+void OutdoorWorldRuntime::applyOutdoorDestructibleDeathOutput(const OutdoorDestructible &definition)
+{
+    if (!m_eventRuntimeState || m_pOutdoorMapData == nullptr || m_pParty == nullptr
+        || toLowerCopy(definition.deathMessage) != "onedown")
+    {
+        return;
+    }
+
+    const auto receiverIterator = std::find_if(
+        m_pOutdoorMapData->destructibleReceivers.begin(),
+        m_pOutdoorMapData->destructibleReceivers.end(),
+        [&definition](const OutdoorDestructibleReceiver &receiver)
+        {
+            return receiver.sourceObjectIndex == definition.deathTargetSourceObjectIndex;
+        });
+    if (receiverIterator == m_pOutdoorMapData->destructibleReceivers.end())
+    {
+        return;
+    }
+
+    uint32_t destroyedCount = 0;
+    for (const OutdoorDestructible &candidate : m_pOutdoorMapData->destructibles)
+    {
+        if (candidate.deathTargetSourceObjectIndex != receiverIterator->sourceObjectIndex
+            || toLowerCopy(candidate.deathMessage) != "onedown")
+        {
+            continue;
+        }
+
+        const RuntimeDestructibleState *pState = outdoorDestructibleState(candidate.sourceObjectIndex);
+        if (pState != nullptr && pState->destroyed)
+        {
+            ++destroyedCount;
+        }
+    }
+
+    if (destroyedCount != receiverIterator->requiredDestructionCount)
+    {
+        return;
+    }
+
+    const std::optional<uint32_t> rewardQBit = mm9QBitForRawQuestKey(receiverIterator->rewardRawQuestKey);
+    if (!rewardQBit || m_pParty->hasQuestBit(*rewardQBit))
+    {
+        return;
+    }
+
+    m_pParty->setQuestBit(*rewardQBit, true);
+    m_pParty->grantSharedExperience(receiverIterator->rewardExperience);
+    m_pParty->requestSound(SoundId::Quest);
+}
+
+bool OutdoorWorldRuntime::destroyOutdoorDestructible(uint32_t sourceObjectIndex, bool playEffects)
+{
+    if (!m_eventRuntimeState || m_pOutdoorMapData == nullptr)
+    {
+        return false;
+    }
+
+    const auto definitionIterator = m_outdoorDestructibleDefinitionBySourceObject.find(sourceObjectIndex);
+    const auto stateIterator = m_eventRuntimeState->destructibles.find(sourceObjectIndex);
+    if (definitionIterator == m_outdoorDestructibleDefinitionBySourceObject.end()
+        || stateIterator == m_eventRuntimeState->destructibles.end()
+        || stateIterator->second.destroyed)
+    {
+        return false;
+    }
+
+    const OutdoorDestructible &definition = m_pOutdoorMapData->destructibles[definitionIterator->second];
+    stateIterator->second.hp = 0;
+    stateIterator->second.destroyed = true;
+    projectOutdoorDestructibleGeometry(definition, true);
+
+    if (playEffects && !definition.destructionSound.empty())
+    {
+        EventRuntimeState::PendingSound sound = {};
+        sound.soundScope = SoundScope::World;
+        sound.soundName = definition.destructionSound;
+        sound.positional = true;
+        if (definition.bmodelIndex < m_pOutdoorMapData->bmodels.size())
+        {
+            const OutdoorBModel &bmodel = m_pOutdoorMapData->bmodels[definition.bmodelIndex];
+            sound.x = (bmodel.minX + bmodel.maxX) / 2;
+            sound.y = (bmodel.minY + bmodel.maxY) / 2;
+            sound.z = (bmodel.minZ + bmodel.maxZ) / 2;
+            sound.hasExplicitZ = true;
+        }
+        m_eventRuntimeState->pendingSounds.push_back(std::move(sound));
+    }
+    if (playEffects)
+    {
+        applyOutdoorDestructibleDeathOutput(definition);
+    }
+
+    return true;
+}
+
+bool OutdoorWorldRuntime::damageOutdoorDestructible(uint32_t sourceObjectIndex, int damage)
+{
+    if (!m_eventRuntimeState || m_pOutdoorMapData == nullptr || damage <= 0)
+    {
+        return false;
+    }
+
+    const auto definitionIterator = m_outdoorDestructibleDefinitionBySourceObject.find(sourceObjectIndex);
+    const auto stateIterator = m_eventRuntimeState->destructibles.find(sourceObjectIndex);
+    if (definitionIterator == m_outdoorDestructibleDefinitionBySourceObject.end()
+        || stateIterator == m_eventRuntimeState->destructibles.end()
+        || stateIterator->second.destroyed
+        || !stateIterator->second.damageEnabled)
+    {
+        return false;
+    }
+
+    const OutdoorDestructible &definition = m_pOutdoorMapData->destructibles[definitionIterator->second];
+    if (definition.triggerDestroyOnly)
+    {
+        return false;
+    }
+
+    stateIterator->second.hp = std::max(0, stateIterator->second.hp - damage);
+    if (stateIterator->second.hp == 0)
+    {
+        destroyOutdoorDestructible(sourceObjectIndex, true);
+    }
+    return true;
+}
+
+void OutdoorWorldRuntime::updateOutdoorTriggerVolumes()
+{
+    if (!m_eventRuntimeState || m_pOutdoorMapData == nullptr || m_pPartyRuntime == nullptr)
+    {
+        return;
+    }
+
+    const float x = partyX();
+    const float y = partyY();
+    const float z = partyFootZ() + m_partyCollisionHeight * 0.5f;
+    for (const OutdoorTriggerVolume &trigger : m_pOutdoorMapData->triggerVolumes)
+    {
+        const bool inside = trigger.startOn
+            && std::abs(x - static_cast<float>(trigger.x)) <= static_cast<float>(trigger.halfExtentX)
+            && std::abs(y - static_cast<float>(trigger.y)) <= static_cast<float>(trigger.halfExtentY)
+            && std::abs(z - static_cast<float>(trigger.z)) <= static_cast<float>(trigger.halfExtentZ);
+        const bool wasInside = m_outdoorTriggerWasInside[trigger.sourceObjectIndex];
+        m_outdoorTriggerWasInside[trigger.sourceObjectIndex] = inside;
+        if (!inside || wasInside)
+        {
+            continue;
+        }
+
+        for (const OutdoorTriggerOutput &output : trigger.outputs)
+        {
+            RuntimeDestructibleState *pState = nullptr;
+            const auto stateIterator = m_eventRuntimeState->destructibles.find(output.targetSourceObjectIndex);
+            if (stateIterator != m_eventRuntimeState->destructibles.end())
+            {
+                pState = &stateIterator->second;
+            }
+
+            switch (output.action)
+            {
+                case OutdoorTriggerAction::DamageOn:
+                    if (pState != nullptr)
+                    {
+                        pState->damageEnabled = true;
+                    }
+                    break;
+                case OutdoorTriggerAction::DamageOff:
+                    if (pState != nullptr)
+                    {
+                        pState->damageEnabled = false;
+                    }
+                    break;
+                case OutdoorTriggerAction::Damage:
+                    damageOutdoorDestructible(output.targetSourceObjectIndex, output.damage);
+                    break;
+                case OutdoorTriggerAction::Destroy:
+                case OutdoorTriggerAction::Remove:
+                    destroyOutdoorDestructible(
+                        output.targetSourceObjectIndex,
+                        output.action == OutdoorTriggerAction::Destroy);
+                    break;
+            }
+        }
+    }
+}
+
 void OutdoorWorldRuntime::updateOutdoorMechanismOpenAwayDirections()
 {
     if (m_pOutdoorMapData == nullptr || !m_eventRuntimeState || m_eventRuntimeState->lastAffectedMechanismIds.empty())
@@ -12609,7 +12952,7 @@ OutdoorWorldRuntime::ProjectileCollisionFacts OutdoorWorldRuntime::buildProjecti
         }
     }
 
-    if (m_pOutdoorMapData != nullptr)
+    if (m_pOutdoorMapData != nullptr && !m_pOutdoorMapData->noTerrain)
     {
         const float terrainZ = sampleOutdoorTerrainHeight(*m_pOutdoorMapData, segmentEnd.x, segmentEnd.y);
 
@@ -12825,6 +13168,15 @@ void OutdoorWorldRuntime::applyProjectileFrameResult(
         const OutdoorFaceGeometryData &geometry = m_outdoorFaces[collision.faceIndex];
         if (geometry.bModelIndex < m_pOutdoorMapData->bmodels.size())
         {
+            const auto destructibleIterator =
+                m_outdoorDestructibleSourceObjectByBModel.find(geometry.bModelIndex);
+            if (destructibleIterator != m_outdoorDestructibleSourceObjectByBModel.end())
+            {
+                damageOutdoorDestructible(
+                    destructibleIterator->second,
+                    std::max(1, projectile.damage));
+            }
+
             const OutdoorBModel &bmodel = m_pOutdoorMapData->bmodels[geometry.bModelIndex];
             const uint16_t eventId = geometry.faceIndex < bmodel.faces.size()
                 ? bmodel.faces[geometry.faceIndex].cogNumber
@@ -13774,6 +14126,98 @@ bool OutdoorWorldRuntime::isMapActorWithinPartyDistance(size_t actorIndex, float
     return dx * dx + dy * dy + dz * dz <= distance * distance;
 }
 
+void OutdoorWorldRuntime::applyMm9BarrelVisual(
+    const MapMm9BarrelSource &source,
+    const MapDeltaMm9BarrelState &state)
+{
+    EventRuntimeState *pRuntimeState = eventRuntimeState();
+    const size_t textureIndex = mm9BarrelLiquidTextureIndex(state);
+    if (pRuntimeState == nullptr || textureIndex >= source.liquidTextureAliases.size())
+    {
+        return;
+    }
+    const std::string &textureAlias = source.liquidTextureAliases[textureIndex];
+    for (uint32_t faceIndex : source.liquidFaces)
+    {
+        const uint32_t key = EventRuntime::outdoorModelFacetTextureOverrideKey(source.bmodelIndex, faceIndex);
+        pRuntimeState->outdoorModelFacetTextureOverrides[key] = textureAlias;
+    }
+    ++pRuntimeState->outdoorSurfaceRevision;
+}
+
+void OutdoorWorldRuntime::initializeMm9Barrels()
+{
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (pMapDeltaData == nullptr)
+    {
+        return;
+    }
+    for (const MapMm9BarrelSource &source : m_itemSourceData.mm9Barrels)
+    {
+        std::mt19937 rng(mm9BarrelSeed(m_sessionChestSeed, source.sourceId));
+        MapDeltaMm9BarrelState &state = ensureMm9BarrelState(
+            pMapDeltaData->mm9Barrels,
+            source.sourceObjectIndex,
+            rng);
+        applyMm9BarrelVisual(source, state);
+    }
+}
+
+bool OutdoorWorldRuntime::useMm9Barrel(const std::string &sourceId)
+{
+    const auto sourceIt = std::find_if(
+        m_itemSourceData.mm9Barrels.begin(),
+        m_itemSourceData.mm9Barrels.end(),
+        [&sourceId](const MapMm9BarrelSource &source)
+        {
+            return source.sourceId == sourceId;
+        });
+    MapDeltaData *pMapDeltaData = mapDeltaData();
+    if (sourceIt == m_itemSourceData.mm9Barrels.end()
+        || pMapDeltaData == nullptr
+        || m_pParty == nullptr
+        || m_pItemTable == nullptr)
+    {
+        return false;
+    }
+    std::mt19937 stateRng(mm9BarrelSeed(m_sessionChestSeed, sourceId));
+    MapDeltaMm9BarrelState &state = ensureMm9BarrelState(
+        pMapDeltaData->mm9Barrels,
+        sourceIt->sourceObjectIndex,
+        stateRng);
+    std::mt19937 useRng(mm9BarrelSeed(m_sessionChestSeed, sourceId) ^ 0x555345u);
+    const Mm9BarrelResult result = OpenYAMM::Game::useMm9Barrel(state, *m_pParty, *m_pItemTable, useRng);
+    applyMm9BarrelVisual(*sourceIt, state);
+    EventRuntimeState *pRuntimeState = eventRuntimeState();
+    if (pRuntimeState != nullptr)
+    {
+        if (!result.statusMessage.empty())
+        {
+            pRuntimeState->statusMessages.push_back(result.statusMessage);
+        }
+        if (!result.soundName.empty())
+        {
+            EventRuntimeState::PendingSound sound = {};
+            sound.soundScope = SoundScope::World;
+            sound.soundName = result.soundName;
+            pRuntimeState->pendingSounds.push_back(std::move(sound));
+        }
+    }
+    return result.handled;
+}
+
+bool OutdoorWorldRuntime::useMm9BarrelEvent(uint16_t eventId)
+{
+    const auto sourceIt = std::find_if(
+        m_itemSourceData.mm9Barrels.begin(),
+        m_itemSourceData.mm9Barrels.end(),
+        [eventId](const MapMm9BarrelSource &source)
+        {
+            return source.interactionEventId == eventId;
+        });
+    return sourceIt != m_itemSourceData.mm9Barrels.end() && useMm9Barrel(sourceIt->sourceId);
+}
+
 bool OutdoorWorldRuntime::searchLootProp(const std::string &sourceId)
 {
     const auto sourceIt = std::find_if(
@@ -14697,6 +15141,7 @@ std::optional<OutdoorWorldRuntime::ActorDecisionDebugInfo> OutdoorWorldRuntime::
             partyX,
             partyY,
             partyZ,
+            m_pParty != nullptr && m_pParty->hasPartyBuff(PartyBuffId::Invisibility),
             m_partyCollisionRadius,
             hasClearOutdoorLineOfSight);
     const bool targetIsParty = combatTarget.kind == OutdoorTargetKind::Party;
@@ -15538,6 +15983,23 @@ bool OutdoorWorldRuntime::applyPartyAttackMeleeDamage(
     const GameplayWorldPoint &source)
 {
     return applyPartyAttackToMapActor(actorIndex, damage, source.x, source.y, source.z);
+}
+
+bool OutdoorWorldRuntime::applyPartyAttackMeleeBModelDamage(size_t bModelIndex, int damage)
+{
+    const auto destructibleIterator = m_outdoorDestructibleSourceObjectByBModel.find(bModelIndex);
+    return destructibleIterator != m_outdoorDestructibleSourceObjectByBModel.end()
+        && damageOutdoorDestructible(destructibleIterator->second, damage);
+}
+
+bool OutdoorWorldRuntime::isPartyAttackMeleeBModelTarget(size_t bModelIndex) const
+{
+    return isOutdoorDestructibleBModel(bModelIndex);
+}
+
+bool OutdoorWorldRuntime::isOutdoorDestructibleBModel(size_t bModelIndex) const
+{
+    return m_outdoorDestructibleSourceObjectByBModel.contains(bModelIndex);
 }
 
 std::vector<GameplayCombatFeedbackEvent> OutdoorWorldRuntime::drainCombatFeedbackEvents()
@@ -16592,6 +17054,11 @@ bool OutdoorWorldRuntime::notifyPartyContactWithMapActor(size_t actorIndex, floa
         return false;
     }
 
+    if (m_pParty != nullptr)
+    {
+        m_pParty->clearPartyBuff(PartyBuffId::Invisibility);
+    }
+
     return faceMapActorTowardPoint(actorIndex, partyX, partyY);
 }
 
@@ -16994,6 +17461,7 @@ bool OutdoorWorldRuntime::activateSemanticWorldItem(size_t worldItemIndex)
     }
 
     const WorldItemState &worldItem = m_worldItems[worldItemIndex];
+    const InventoryItem pickupItem = worldItem.item;
     if (!worldItem.semanticPlacedPickup)
     {
         return false;
@@ -17027,6 +17495,11 @@ bool OutdoorWorldRuntime::activateSemanticWorldItem(size_t worldItemIndex)
     if (sourceIt->consumeOnSuccess)
     {
         m_worldItems.erase(m_worldItems.begin() + static_cast<std::ptrdiff_t>(worldItemIndex));
+    }
+    m_pParty->requestSound(SoundId::Gold);
+    if (m_pInteractionView != nullptr)
+    {
+        m_pInteractionView->setStatusBarEvent(formatWorldItemPickupStatusText(pickupItem, *m_pItemTable));
     }
     return true;
 }
@@ -18132,6 +18605,12 @@ bool OutdoorWorldRuntime::executeMapEvent(
     size_t &previousMessageCount,
     std::optional<uint8_t> continueStep)
 {
+    if (useMm9BarrelEvent(eventId))
+    {
+        const EventRuntimeState *pRuntimeState = eventRuntimeState();
+        previousMessageCount = pRuntimeState != nullptr ? pRuntimeState->messages.size() : 0;
+        return true;
+    }
     return m_pInteractionView != nullptr
         && OutdoorInteractionController::executeMapEvent(
             *m_pInteractionView,
@@ -18796,6 +19275,19 @@ GameplayWorldHit OutdoorWorldRuntime::pickMouseInteractionTarget(const GameplayW
     }
 
     return OutdoorInteractionController::pickCurrentInteractionTarget(
+        *m_pInteractionView,
+        *m_pOutdoorMapData,
+        request);
+}
+
+GameplayWorldHit OutdoorWorldRuntime::pickPartyAttackTarget(const GameplayWorldPickRequest &request)
+{
+    if (m_pInteractionView == nullptr || m_pOutdoorMapData == nullptr)
+    {
+        return {};
+    }
+
+    return OutdoorInteractionController::pickPartyAttackTarget(
         *m_pInteractionView,
         *m_pOutdoorMapData,
         request);

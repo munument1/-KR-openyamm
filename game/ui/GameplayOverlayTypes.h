@@ -69,6 +69,11 @@ inline bool activeEventDialogShowsVideoArea(
         && (hasHostHouseEntry || !activeEventDialog.videoName.empty());
 }
 
+inline bool activeEventDialogAllowsHouseVideoPlayback(const EventDialogContent &activeEventDialog)
+{
+    return activeEventDialog.scenePolicy != DialogueScenePolicy::LiveGameplay;
+}
+
 inline GameplayHudScreenState resolveGameplayHudScreenState(
     const GameplayUiController &uiController,
     const EventDialogContent &activeEventDialog,

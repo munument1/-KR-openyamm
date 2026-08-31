@@ -97,4 +97,12 @@ bool applyWorldItemPolicyActions(
     }
     return true;
 }
+
+std::string formatWorldItemPickupStatusText(const InventoryItem &item, const ItemTable &itemTable)
+{
+    const ItemDefinition *pDefinition = itemTable.get(item.objectDescriptionId);
+    const std::string itemName =
+        pDefinition != nullptr && !pDefinition->name.empty() ? pDefinition->name : "item";
+    return "You found an item (" + itemName + ")!";
+}
 }

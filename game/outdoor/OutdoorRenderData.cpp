@@ -135,6 +135,21 @@ std::optional<OutdoorRenderData> OutdoorRenderDataLoader::loadFromBytes(
         }
     }
 
+    for (const OutdoorDestructible &destructible : outdoorMapData.destructibles)
+    {
+        if (destructible.bmodelIndex < dynamicBModels.size())
+        {
+            dynamicBModels[destructible.bmodelIndex] = true;
+        }
+        for (size_t auxiliaryBmodelIndex : destructible.auxiliaryBmodelIndices)
+        {
+            if (auxiliaryBmodelIndex < dynamicBModels.size())
+            {
+                dynamicBModels[auxiliaryBmodelIndex] = true;
+            }
+        }
+    }
+
     for (size_t recordIndex = 0; recordIndex < faceCount; ++recordIndex)
     {
         const size_t offset = headerSize + recordIndex * recordSize;

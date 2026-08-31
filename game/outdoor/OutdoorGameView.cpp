@@ -4321,7 +4321,8 @@ void OutdoorGameView::updateHouseVideoPlayback(float deltaSeconds)
             m_pOutdoorWorldRuntime)
             != GameplayHudScreenState::Dialogue
         || !activeDialog.isActive
-        || m_pAssetFileSystem == nullptr)
+        || m_pAssetFileSystem == nullptr
+        || !activeEventDialogAllowsHouseVideoPlayback(activeDialog))
     {
         if (m_activeHouseAudioHostId != 0 && m_pGameAudioSystem != nullptr)
         {

@@ -2207,9 +2207,13 @@ CharacterSheetSummary GameMechanics::buildCharacterSheetSummary(
     summary.spellPoints.maximum = calculateEffectiveCharacterMaxSpellPoints(character);
     summary.spellPoints.current = std::clamp(character.spellPoints, 0, std::max(0, summary.spellPoints.maximum));
 
+    const int dragonArmorBonus = isDragonClass(character)
+        ? 5 * std::max(0, skillLevel(character, "DragonAbility"))
+        : 0;
     const int armorBase = parameterBonus(actualSpeed)
         + resolvePassiveArmorBonus(equippedItems)
         + resolveArmorSkillBonus(character, equippedItems)
+        + dragonArmorBonus
         + character.permanentBonuses.armorClass;
     const int armorActual = std::max(0, armorBase + character.magicalBonuses.armorClass);
     summary.armorClass = makeSheetValue(std::max(0, armorBase), armorActual);

@@ -180,6 +180,62 @@ struct OutdoorBModelMechanism
     OutdoorMechanismAudioProfile audio = {};
 };
 
+struct OutdoorDestructible
+{
+    uint32_t sourceObjectIndex = 0;
+    uint32_t runtimeObjectId = 0;
+    std::string sourceName;
+    size_t bmodelIndex = static_cast<size_t>(-1);
+    std::string bmodelName;
+    std::vector<size_t> auxiliaryBmodelIndices;
+    int initialHp = 1;
+    bool initiallyDamageEnabled = false;
+    bool triggerDestroyOnly = false;
+    bool shouldMiniSave = true;
+    std::string destructionSound;
+    uint32_t deathTargetSourceObjectIndex = 0;
+    std::string deathMessage;
+};
+
+struct OutdoorDestructibleReceiver
+{
+    uint32_t sourceObjectIndex = 0;
+    std::string sourceName;
+    uint32_t requiredDestructionCount = 0;
+    int32_t rewardRawQuestKey = 0;
+    uint32_t rewardExperience = 0;
+};
+
+enum class OutdoorTriggerAction
+{
+    DamageOn,
+    DamageOff,
+    Damage,
+    Destroy,
+    Remove,
+};
+
+struct OutdoorTriggerOutput
+{
+    uint32_t targetSourceObjectIndex = 0;
+    OutdoorTriggerAction action = OutdoorTriggerAction::Destroy;
+    int damage = 1;
+};
+
+struct OutdoorTriggerVolume
+{
+    uint32_t sourceObjectIndex = 0;
+    std::string sourceName;
+    int32_t x = 0;
+    int32_t y = 0;
+    int32_t z = 0;
+    int32_t halfExtentX = 0;
+    int32_t halfExtentY = 0;
+    int32_t halfExtentZ = 0;
+    bool startOn = true;
+    std::vector<OutdoorTriggerOutput> outputs;
+};
+
 struct OutdoorMm9NpcGreeting
 {
     uint32_t sourceObjectIndex = 0;
@@ -220,6 +276,9 @@ struct OutdoorMapData
     std::vector<OutdoorSpawn> spawns;
     std::vector<OutdoorTerrainFootstepSoundOverride> terrainFootstepSoundOverrides;
     std::vector<OutdoorBModelMechanism> mechanisms;
+    std::vector<OutdoorDestructible> destructibles;
+    std::vector<OutdoorDestructibleReceiver> destructibleReceivers;
+    std::vector<OutdoorTriggerVolume> triggerVolumes;
     std::vector<OutdoorMm9NpcGreeting> mm9NpcGreetings;
     std::optional<OutdoorNavigationData> navigationData;
     std::optional<OutdoorRenderData> renderData;

@@ -636,6 +636,8 @@ public:
     bool isMapActorHostile(size_t actorIndex) const override;
     bool isMapActorWithinPartyDistance(size_t actorIndex, float distance) const override;
     bool searchLootProp(const std::string &sourceId) override;
+    bool useMm9Barrel(const std::string &sourceId) override;
+    bool useMm9BarrelEvent(uint16_t eventId) override;
     bool spawnLootContainer(const std::string &sourceId) override;
     bool consumeWorldItem(const std::string &sourceId) override;
     bool setPersistentItemMechanismState(
@@ -834,6 +836,7 @@ public:
     GameplayWorldHit pickKeyboardInteractionTarget(const GameplayWorldPickRequest &request) override;
     GameplayWorldHit pickHeldItemWorldTarget(const GameplayWorldPickRequest &request) override;
     GameplayWorldHit pickMouseInteractionTarget(const GameplayWorldPickRequest &request) override;
+    GameplayWorldHit pickPartyAttackTarget(const GameplayWorldPickRequest &request) override;
     bool worldItemInspectState(size_t worldItemIndex, GameplayWorldItemInspectState &state) const override;
     bool updateWorldItemInspectState(size_t worldItemIndex, const InventoryItem &item) override;
     bool takeWorldItemInspectState(size_t worldItemIndex, GameplayWorldItemInspectState &state) override;
@@ -923,6 +926,12 @@ public:
         bool moveParty) override;
     EventRuntimeState *eventRuntimeState() override;
     const EventRuntimeState *eventRuntimeState() const override;
+    bool damageOutdoorDestructible(uint32_t sourceObjectIndex, int damage);
+    bool destroyOutdoorDestructible(uint32_t sourceObjectIndex, bool playEffects = true);
+    const RuntimeDestructibleState *outdoorDestructibleState(uint32_t sourceObjectIndex) const;
+    bool applyPartyAttackMeleeBModelDamage(size_t bModelIndex, int damage) override;
+    bool isPartyAttackMeleeBModelTarget(size_t bModelIndex) const override;
+    bool isOutdoorDestructibleBModel(size_t bModelIndex) const;
     bool castEventSpell(
         uint32_t spellId,
         uint32_t skillLevel,
@@ -1174,6 +1183,11 @@ private:
     void syncOutdoorFaceGeometryAttributesFromMapDelta();
     void setOutdoorFaceGeometryAttributes(size_t bModelIndex, size_t faceIndex, uint32_t attributes);
     void initializeOutdoorModelMechanismsFromMapData();
+    void initializeOutdoorDestructiblesFromMapData();
+    void updateOutdoorTriggerVolumes();
+    void applyOutdoorDestructibleStates(bool playEffects);
+    void projectOutdoorDestructibleGeometry(const OutdoorDestructible &definition, bool destroyed);
+    void applyOutdoorDestructibleDeathOutput(const OutdoorDestructible &definition);
     void updateOutdoorMechanismOpenAwayDirections();
     void refreshOutdoorModelMechanismGeometry();
     bool setOutdoorFaceGeometry(const OutdoorFaceGeometryData &geometry);
@@ -1278,6 +1292,8 @@ private:
     void bakeBloodSplatGeometry(BloodSplatState &splat) const;
     void spawnBloodSplatForActorIfNeeded(size_t actorIndex);
     void removeBloodSplat(uint32_t sourceActorId);
+    void initializeMm9Barrels();
+    void applyMm9BarrelVisual(const MapMm9BarrelSource &source, const MapDeltaMm9BarrelState &state);
     GameplayProjectileService &projectileService();
     const GameplayProjectileService &projectileService() const;
     GameplayProjectileService::ProjectileImpactSpawnResult spawnProjectileImpactVisual(
@@ -1394,6 +1410,9 @@ private:
     float m_outdoorMechanismGeometryRefreshAccumulatorSeconds = 0.0f;
     std::unordered_map<uint32_t, std::array<int32_t, 3>> m_outdoorMechanismOffsets;
     std::unordered_map<uint32_t, bool> m_outdoorNavigationMechanismMovingStates;
+    std::unordered_map<uint32_t, size_t> m_outdoorDestructibleDefinitionBySourceObject;
+    std::unordered_map<size_t, uint32_t> m_outdoorDestructibleSourceObjectByBModel;
+    std::unordered_map<uint32_t, bool> m_outdoorTriggerWasInside;
     std::unordered_map<int16_t, MonsterVisualState> m_monsterVisualsById;
     float m_actorUpdateAccumulatorSeconds = 0.0f;
     float m_mm9FoundPlayerAccumulatorSeconds = 0.0f;

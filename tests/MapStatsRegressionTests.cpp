@@ -3,6 +3,7 @@
 #include "engine/TextTable.h"
 #include "game/maps/MapIdentity.h"
 #include "game/maps/MapRegistry.h"
+#include "game/StringUtils.h"
 #include "game/tables/MapStats.h"
 #include "game/tables/MergedBaseTables.h"
 
@@ -103,6 +104,60 @@ TEST_CASE("map navigation matches authoritative world map")
         checkTransition(pEntry->eastTransition, expected.pEast);
         checkTransition(pEntry->westTransition, expected.pWest);
     }
+}
+
+TEST_CASE("all legacy outdoor maps declare movement bounds independently of transitions")
+{
+    const OpenYAMM::Game::MapStats mapStats = loadMapStats();
+    size_t mm6OutdoorCount = 0;
+    size_t mm7OutdoorCount = 0;
+    size_t mm8OutdoorCount = 0;
+
+    for (const OpenYAMM::Game::MapStatsEntry &entry : mapStats.getEntries())
+    {
+        if (!OpenYAMM::Game::toLowerCopy(entry.fileName).ends_with(".odm"))
+        {
+            continue;
+        }
+
+        size_t *pWorldOutdoorCount = nullptr;
+
+        if (entry.worldId == "mm6")
+        {
+            pWorldOutdoorCount = &mm6OutdoorCount;
+        }
+        else if (entry.worldId == "mm7")
+        {
+            pWorldOutdoorCount = &mm7OutdoorCount;
+        }
+        else if (entry.worldId == "mm8")
+        {
+            pWorldOutdoorCount = &mm8OutdoorCount;
+        }
+
+        if (pWorldOutdoorCount == nullptr)
+        {
+            continue;
+        }
+
+        ++*pWorldOutdoorCount;
+        INFO("map=" << entry.fileName << " world=" << entry.worldId);
+        CHECK(entry.outdoorBounds.enabled);
+        CHECK_LT(entry.outdoorBounds.minX, entry.outdoorBounds.maxX);
+        CHECK_LT(entry.outdoorBounds.minY, entry.outdoorBounds.maxY);
+    }
+
+    CHECK_EQ(mm6OutdoorCount, 15u);
+    CHECK_EQ(mm7OutdoorCount, 13u);
+    CHECK_EQ(mm8OutdoorCount, 14u);
+
+    const OpenYAMM::Game::MapStatsEntry *pEmeraldIsland = mapStats.findByFileName("7out01.odm");
+    REQUIRE(pEmeraldIsland != nullptr);
+    CHECK(pEmeraldIsland->outdoorBounds.enabled);
+    CHECK_FALSE(pEmeraldIsland->northTransition.has_value());
+    CHECK_FALSE(pEmeraldIsland->southTransition.has_value());
+    CHECK_FALSE(pEmeraldIsland->eastTransition.has_value());
+    CHECK_FALSE(pEmeraldIsland->westTransition.has_value());
 }
 
 TEST_CASE("map stats parse perception difficulty")

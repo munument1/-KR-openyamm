@@ -58,6 +58,20 @@
 #include <utility>
 #include <vector>
 
+TEST_CASE("spell target pointer confirmation suppresses attacks until pointer release")
+{
+    OpenYAMM::Game::GameplayScreenState::AttackActionState attackActionState = {};
+    attackActionState.suppressAttackUntilRelease = true;
+
+    CHECK(attackActionState.blocksAttackInput(true));
+    CHECK(attackActionState.suppressAttackUntilRelease);
+
+    CHECK(attackActionState.blocksAttackInput(false));
+    CHECK_FALSE(attackActionState.suppressAttackUntilRelease);
+
+    CHECK_FALSE(attackActionState.blocksAttackInput(true));
+}
+
 TEST_CASE("full-screen gameplay HUD states occlude world rendering")
 {
     using OpenYAMM::Game::EventDialogContent;
@@ -1990,6 +2004,82 @@ TEST_CASE("mm7 shoals scene overlay combines always dark fog with underwater tin
     CHECK(mergedScene.environment.flags.alwaysFoggy);
     CHECK_EQ(mergedScene.environment.dayBitsRaw, 0x00);
     CHECK_EQ(mergedScene.environment.mapExtraBitsRaw, 0x54u);
+}
+
+TEST_CASE("thjorad mine scene imports CaveIn as a typed destructible with its touch trigger")
+{
+    const std::filesystem::path scenePath =
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/worlds/mm9/maps/thjoradmine.scene.yml";
+    std::ifstream sceneFile(scenePath);
+    REQUIRE(sceneFile.good());
+    std::ostringstream sceneText;
+    sceneText << sceneFile.rdbuf();
+
+    OpenYAMM::Game::OutdoorSceneYmlLoader loader = {};
+    std::string errorMessage;
+    const std::optional<OpenYAMM::Game::OutdoorSceneData> scene =
+        loader.loadFromText(sceneText.str(), errorMessage);
+    REQUIRE_MESSAGE(scene.has_value(), errorMessage.c_str());
+
+    const auto firstRockIterator = std::find_if(
+        scene->destructibles.begin(),
+        scene->destructibles.end(),
+        [](const OpenYAMM::Game::OutdoorDestructible &destructible)
+        {
+            return destructible.sourceObjectIndex == 0;
+        });
+    REQUIRE(firstRockIterator != scene->destructibles.end());
+    CHECK_EQ(firstRockIterator->bmodelIndex, 0u);
+    REQUIRE_EQ(firstRockIterator->auxiliaryBmodelIndices.size(), 1u);
+    CHECK_EQ(firstRockIterator->auxiliaryBmodelIndices.front(), 85u);
+
+    const auto caveInIterator = std::find_if(
+        scene->destructibles.begin(),
+        scene->destructibles.end(),
+        [](const OpenYAMM::Game::OutdoorDestructible &destructible)
+        {
+            return destructible.sourceObjectIndex == 595;
+        });
+    REQUIRE(caveInIterator != scene->destructibles.end());
+    CHECK_EQ(caveInIterator->sourceName, "CaveIn");
+    CHECK_EQ(caveInIterator->runtimeObjectId, 900595u);
+    CHECK_EQ(caveInIterator->bmodelIndex, 33u);
+    CHECK_EQ(caveInIterator->initialHp, 1);
+    CHECK_FALSE(caveInIterator->initiallyDamageEnabled);
+    CHECK_EQ(caveInIterator->destructionSound, "Events/stonecrumble.wav");
+    CHECK_EQ(caveInIterator->deathTargetSourceObjectIndex, 596u);
+    CHECK_EQ(caveInIterator->deathMessage, "OneDown");
+
+    const auto receiverIterator = std::find_if(
+        scene->destructibleReceivers.begin(),
+        scene->destructibleReceivers.end(),
+        [](const OpenYAMM::Game::OutdoorDestructibleReceiver &receiver)
+        {
+            return receiver.sourceObjectIndex == 596;
+        });
+    REQUIRE(receiverIterator != scene->destructibleReceivers.end());
+    CHECK_EQ(receiverIterator->sourceName, "CaveInControl");
+    CHECK_EQ(receiverIterator->requiredDestructionCount, 1u);
+    CHECK_EQ(receiverIterator->rewardRawQuestKey, 35);
+    CHECK_EQ(receiverIterator->rewardExperience, 5000u);
+
+    const auto triggerIterator = std::find_if(
+        scene->triggerVolumes.begin(),
+        scene->triggerVolumes.end(),
+        [](const OpenYAMM::Game::OutdoorTriggerVolume &trigger)
+        {
+            return trigger.sourceObjectIndex == 597;
+        });
+    REQUIRE(triggerIterator != scene->triggerVolumes.end());
+    CHECK(triggerIterator->startOn);
+    CHECK_EQ(triggerIterator->x, 7332);
+    CHECK_EQ(triggerIterator->y, 2499);
+    CHECK_EQ(triggerIterator->z, -1393);
+    REQUIRE_EQ(triggerIterator->outputs.size(), 2u);
+    CHECK_EQ(triggerIterator->outputs[0].targetSourceObjectIndex, 595u);
+    CHECK_EQ(triggerIterator->outputs[0].action, OpenYAMM::Game::OutdoorTriggerAction::DamageOn);
+    CHECK_EQ(triggerIterator->outputs[1].targetSourceObjectIndex, 595u);
+    CHECK_EQ(triggerIterator->outputs[1].action, OpenYAMM::Game::OutdoorTriggerAction::Destroy);
 }
 
 TEST_CASE("mm6 outdoor scene overlays restore mmmerge footstep sound overrides")

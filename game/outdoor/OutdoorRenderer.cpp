@@ -1005,6 +1005,16 @@ bool outdoorBModelHasRuntimeMechanism(const EventRuntimeState *pEventRuntimeStat
     return outdoorModelMechanismDefinitionForBModel(pEventRuntimeState, bModelIndex) != nullptr;
 }
 
+bool outdoorBModelUsesRuntimeDraw(
+    const EventRuntimeState *pEventRuntimeState,
+    const OutdoorWorldRuntime *pOutdoorWorldRuntime,
+    size_t bModelIndex)
+{
+    return outdoorBModelHasRuntimeMechanism(pEventRuntimeState, bModelIndex)
+        || (pOutdoorWorldRuntime != nullptr
+            && pOutdoorWorldRuntime->isOutdoorDestructibleBModel(bModelIndex));
+}
+
 OutdoorFogParameters buildOutdoorWorldFogParameters(
     const OutdoorWorldRuntime *pOutdoorWorldRuntime,
     const OutdoorWorldRuntime::AtmosphereState *pAtmosphereState,
@@ -3943,7 +3953,8 @@ void OutdoorRenderer::renderWorldPasses(OutdoorGameView &view, uint16_t viewWidt
 
                     for (const OutdoorGameView::TexturedBModelBatch &batch : view.m_texturedBModelBatches)
                     {
-                        if (!outdoorBModelHasRuntimeMechanism(pEventRuntimeState, batch.bModelIndex) ||
+                        if (!outdoorBModelUsesRuntimeDraw(
+                                pEventRuntimeState, view.m_pOutdoorWorldRuntime, batch.bModelIndex) ||
                             batch.vertices.empty() || (bmodelWorld && batch.translucent != translucentPass) ||
                             outdoorFaceHiddenByEventRuntime(batch.faceId, batch.baseAttributes, pMapDeltaData,
                                                             pEventRuntimeState))

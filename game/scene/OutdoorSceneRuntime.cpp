@@ -519,6 +519,13 @@ bool OutdoorSceneRuntime::executeEventById(
     }
 
     previousMessageCount = pEventRuntimeState->messages.size();
+
+    if (m_pWorldRuntime->useMm9BarrelEvent(eventId))
+    {
+        pEventRuntimeState->lastActivationResult = "MM9 barrel event " + std::to_string(eventId) + " executed";
+        return true;
+    }
+
     pEventRuntimeState->activeDecorationContext = activeDecorationContext;
     const std::optional<ScriptedEventProgram> emptyLocalProgram;
     const std::optional<ScriptedEventProgram> &effectiveLocalEventProgram =

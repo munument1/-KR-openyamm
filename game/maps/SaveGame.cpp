@@ -19,7 +19,7 @@ namespace OpenYAMM::Game
 {
 namespace
 {
-constexpr uint32_t SaveVersion = 80;
+constexpr uint32_t SaveVersion = 82;
 constexpr uint32_t SaveVersionAttackSpell = 19;
 constexpr uint32_t SaveVersionIndoorCorpseViews = 21;
 constexpr uint32_t SaveVersionIndoorChestViews = 22;
@@ -82,6 +82,8 @@ constexpr uint32_t SaveVersionMm9IndoorSemanticWorldItems = 78;
 constexpr uint32_t SaveVersionTimedPrimaryStatBonuses = 79;
 constexpr uint32_t SaveVersionSuspendedMm9RudeVendor = 80;
 constexpr uint32_t SaveVersionVendorStockGeneration = 80;
+constexpr uint32_t SaveVersionOutdoorDestructibles = 81;
+constexpr uint32_t SaveVersionMm9Barrels = 82;
 constexpr char SaveMagic[8] = {'O', 'Y', 'S', 'A', 'V', 'E', '1', '\0'};
 
 std::string toLowerCopy(const std::string &value)
@@ -1505,6 +1507,20 @@ bool readValue(BinaryReader &reader, RuntimeMechanismState &value)
             || readValue(reader, value.rotationDirection));
 }
 
+void writeValue(BinaryWriter &writer, const RuntimeDestructibleState &value)
+{
+    writeValue(writer, value.hp);
+    writeValue(writer, value.damageEnabled);
+    writeValue(writer, value.destroyed);
+}
+
+bool readValue(BinaryReader &reader, RuntimeDestructibleState &value)
+{
+    return readValue(reader, value.hp)
+        && readValue(reader, value.damageEnabled)
+        && readValue(reader, value.destroyed);
+}
+
 void writeValue(BinaryWriter &writer, const EventRuntimeState::OutdoorModelMechanismDefinition &value)
 {
     writeValue(writer, value.mechanismId);
@@ -1946,6 +1962,7 @@ void writeValue(BinaryWriter &writer, const EventRuntimeState &value)
     writeValue(writer, value.facetSetMasks);
     writeValue(writer, value.facetClearMasks);
     writeValue(writer, value.mechanisms);
+    writeValue(writer, value.destructibles);
     writeValue(writer, value.outdoorModelMechanisms);
     writeValue(writer, value.textureOverrides);
     writeValue(writer, value.outdoorModelFacetTextureOverrides);
@@ -2022,6 +2039,8 @@ bool readValue(BinaryReader &reader, EventRuntimeState &value)
         && readValue(reader, value.facetSetMasks)
         && readValue(reader, value.facetClearMasks)
         && readValue(reader, value.mechanisms)
+        && (reader.version() < SaveVersionOutdoorDestructibles
+            || readValue(reader, value.destructibles))
         && (reader.version() < SaveVersionOutdoorModelMechanisms
             || readValue(reader, value.outdoorModelMechanisms))
         && readValue(reader, value.textureOverrides)
@@ -2406,6 +2425,28 @@ bool readValue(BinaryReader &reader, MapDeltaDoor &value)
         && readValue(reader, value.zOffsets);
 }
 
+void writeValue(BinaryWriter &writer, const MapDeltaMm9BarrelState &value)
+{
+    writeValue(writer, value.sourceObjectIndex);
+    writeValue(writer, value.type);
+    writeValue(writer, value.used);
+}
+
+bool readValue(BinaryReader &reader, MapDeltaMm9BarrelState &value)
+{
+    uint8_t rawType = 0;
+    if (!readValue(reader, value.sourceObjectIndex)
+        || !readValue(reader, rawType)
+        || !readValue(reader, value.used)
+        || rawType < static_cast<uint8_t>(Mm9BarrelType::RedMight)
+        || rawType > static_cast<uint8_t>(Mm9BarrelType::Water))
+    {
+        return false;
+    }
+    value.type = static_cast<Mm9BarrelType>(rawType);
+    return true;
+}
+
 void writeValue(BinaryWriter &writer, const MapDeltaData &value)
 {
     writeValue(writer, value.locationInfo);
@@ -2422,6 +2463,7 @@ void writeValue(BinaryWriter &writer, const MapDeltaData &value)
     writeValue(writer, value.doorsData);
     writeValue(writer, value.eventVariables);
     writeValue(writer, value.locationTime);
+    writeValue(writer, value.mm9Barrels);
 }
 
 bool readValue(BinaryReader &reader, MapDeltaData &value)
@@ -2439,7 +2481,8 @@ bool readValue(BinaryReader &reader, MapDeltaData &value)
         && readValue(reader, value.doors)
         && readValue(reader, value.doorsData)
         && readValue(reader, value.eventVariables)
-        && readValue(reader, value.locationTime);
+        && readValue(reader, value.locationTime)
+        && (reader.version() < SaveVersionMm9Barrels || readValue(reader, value.mm9Barrels));
 }
 
 void writeValue(BinaryWriter &writer, const ScriptedEventTimerDefinition &value)

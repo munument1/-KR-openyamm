@@ -17,6 +17,21 @@ void GameplayScreenState::AttackActionState::clear()
     *this = {};
 }
 
+bool GameplayScreenState::AttackActionState::blocksAttackInput(bool attackPressed)
+{
+    if (!suppressAttackUntilRelease)
+    {
+        return false;
+    }
+
+    if (!attackPressed)
+    {
+        clear();
+    }
+
+    return true;
+}
+
 void GameplayScreenState::WorldInteractionInputState::clear()
 {
     *this = {};

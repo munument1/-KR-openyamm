@@ -29,6 +29,7 @@ struct WorldPartyMovementDefinition
     float eyeHeight = 0.0f;
     float collisionRadius = 0.0f;
     float collisionHeight = 0.0f;
+    float maxStepHeight = 128.0f;
     bool declared = false;
 };
 

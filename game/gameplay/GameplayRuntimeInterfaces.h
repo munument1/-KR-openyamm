@@ -720,6 +720,17 @@ public:
         size_t actorIndex,
         int damage,
         const GameplayWorldPoint &source) = 0;
+    virtual bool applyPartyAttackMeleeBModelDamage(size_t bModelIndex, int damage)
+    {
+        (void)bModelIndex;
+        (void)damage;
+        return false;
+    }
+    virtual bool isPartyAttackMeleeBModelTarget(size_t bModelIndex) const
+    {
+        (void)bModelIndex;
+        return false;
+    }
     virtual void applyPartyAttackMeleeEffects(
         size_t actorIndex,
         const CharacterAttackResult &attack,
@@ -754,6 +765,10 @@ public:
     virtual GameplayWorldHit pickKeyboardInteractionTarget(const GameplayWorldPickRequest &request) = 0;
     virtual GameplayWorldHit pickHeldItemWorldTarget(const GameplayWorldPickRequest &request) = 0;
     virtual GameplayWorldHit pickMouseInteractionTarget(const GameplayWorldPickRequest &request) = 0;
+    virtual GameplayWorldHit pickPartyAttackTarget(const GameplayWorldPickRequest &request)
+    {
+        return pickMouseInteractionTarget(request);
+    }
     virtual bool hasCustomWorldItemActivation(size_t worldItemIndex) const
     {
         (void)worldItemIndex;

@@ -1420,6 +1420,24 @@ void appendTextureNameIfMissing(std::vector<std::string> &textureNames, const st
     }
 }
 
+void appendMm9BarrelLiquidTextureNames(
+    std::vector<std::string> &textureNames,
+    const MapItemSourceData *pItemSourceData)
+{
+    if (pItemSourceData == nullptr)
+    {
+        return;
+    }
+
+    for (const MapMm9BarrelSource &barrel : pItemSourceData->mm9Barrels)
+    {
+        for (const std::string &textureAlias : barrel.liquidTextureAliases)
+        {
+            appendTextureNameIfMissing(textureNames, toLowerCopy(textureAlias));
+        }
+    }
+}
+
 struct BitmapTextureRequest
 {
     std::string textureName;
@@ -3693,6 +3711,7 @@ std::optional<OutdoorBModelTextureSet> buildOutdoorBModelTextureSet(
     const TextureFrameTable *pTextureFrameTable,
     const SurfaceMaterialTable *pSurfaceMaterialTable,
     const std::vector<OutdoorSceneSurfaceAnimation> *pSceneSurfaceAnimations,
+    const MapItemSourceData *pItemSourceData,
     const MapLoadProgressPump &progressPump
 )
 {
@@ -3741,6 +3760,7 @@ std::optional<OutdoorBModelTextureSet> buildOutdoorBModelTextureSet(
             appendTextureAnimationBindingIfMissing(animationBindings, normalizedName, animation);
         }
     }
+    appendMm9BarrelLiquidTextureNames(textureNames, pItemSourceData);
 
     if (textureNames.empty())
     {
@@ -3817,6 +3837,7 @@ std::optional<IndoorTextureSet> buildIndoorTextureSet(
     BitmapLoadCache &bitmapLoadCache,
     const TextureFrameTable *pTextureFrameTable,
     const SurfaceMaterialTable *pSurfaceMaterialTable,
+    const MapItemSourceData *pItemSourceData,
     const MapLoadProgressPump &progressPump
 )
 {
@@ -3846,6 +3867,7 @@ std::optional<IndoorTextureSet> buildIndoorTextureSet(
         appendAnimationTextureNamesIfMissing(textureNames, animation);
         appendTextureAnimationBindingIfMissing(animationBindings, normalizedName, animation);
     }
+    appendMm9BarrelLiquidTextureNames(textureNames, pItemSourceData);
 
     if (textureNames.empty())
     {
@@ -4505,6 +4527,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         textureFrameTable ? &*textureFrameTable : nullptr,
                         surfaceMaterialTable ? &*surfaceMaterialTable : nullptr,
                         outdoorSceneSurfaceAnimations.empty() ? nullptr : &outdoorSceneSurfaceAnimations,
+                        assetInfo.itemSourceData ? &*assetInfo.itemSourceData : nullptr,
                         progressPump);
                 logStageComplete("outdoor bmodel textures built");
             }
@@ -4699,6 +4722,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     bitmapLoadCache,
                     textureFrameTable ? &*textureFrameTable : nullptr,
                     surfaceMaterialTable ? &*surfaceMaterialTable : nullptr,
+                    assetInfo.itemSourceData ? &*assetInfo.itemSourceData : nullptr,
                     progressPump
                 );
                 logStageComplete("indoor textures built");

@@ -279,6 +279,8 @@ public:
     bool isMapActorHostile(size_t actorIndex) const override;
     bool isMapActorWithinPartyDistance(size_t actorIndex, float distance) const override;
     bool searchLootProp(const std::string &sourceId) override;
+    bool useMm9Barrel(const std::string &sourceId) override;
+    bool useMm9BarrelEvent(uint16_t eventId) override;
     bool spawnLootContainer(const std::string &sourceId) override;
     bool consumeWorldItem(const std::string &sourceId) override;
     bool setPersistentItemMechanismState(
@@ -770,6 +772,8 @@ private:
     void updateIndoorJournalRevealIfNeeded();
     void setMapActorHostilityFromEvent(size_t actorIndex, bool hostileToParty);
     void aggroNearbyMapActorFaction(size_t actorIndex);
+    void initializeMm9Barrels();
+    void applyMm9BarrelVisual(const MapMm9BarrelSource &source, const MapDeltaMm9BarrelState &state);
 
     std::optional<MapStatsEntry> m_map;
     const MonsterTable *m_pMonsterTable = nullptr;
