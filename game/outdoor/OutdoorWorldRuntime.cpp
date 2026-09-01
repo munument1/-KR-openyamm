@@ -6666,6 +6666,66 @@ void OutdoorWorldRuntime::bindInteractionView(OutdoorGameView *pView)
 {
     m_pInteractionView = pView;
     m_pActorSpriteFrameTable = pView != nullptr ? pView->actorSpriteFrameTable() : nullptr;
+    refreshRuntimeActorVisualResources();
+}
+
+void OutdoorWorldRuntime::refreshRuntimeActorVisualResources()
+{
+    if (m_pInteractionView == nullptr || m_pMonsterTable == nullptr)
+    {
+        return;
+    }
+
+    std::set<int16_t> monsterIds;
+
+    for (const MapActorState &actor : m_mapActors)
+    {
+        const bool missingCurrentFrame =
+            m_pActorSpriteFrameTable == nullptr
+            || actor.spriteFrameIndex == 0
+            || m_pActorSpriteFrameTable->getFrame(actor.spriteFrameIndex, 0) == nullptr;
+
+        if (actor.monsterId > 0 && (actor.spawnedAtRuntime || missingCurrentFrame))
+        {
+            monsterIds.insert(actor.monsterId);
+        }
+    }
+
+    for (int16_t monsterId : monsterIds)
+    {
+        m_pInteractionView->ensureMonsterVisualResources(monsterId);
+    }
+
+    m_pActorSpriteFrameTable = m_pInteractionView->actorSpriteFrameTable();
+
+    if (m_pActorSpriteFrameTable == nullptr)
+    {
+        return;
+    }
+
+    for (MapActorState &actor : m_mapActors)
+    {
+        if (!monsterIds.contains(actor.monsterId))
+        {
+            continue;
+        }
+
+        const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId);
+        const MonsterEntry *pMonsterEntry = resolveMonsterEntry(*m_pMonsterTable, actor.monsterId, pStats);
+        const MonsterVisualState visualState = buildMonsterVisualState(*m_pActorSpriteFrameTable, pMonsterEntry);
+
+        if (visualState.spriteFrameIndex == 0)
+        {
+            continue;
+        }
+
+        m_monsterVisualsById[actor.monsterId] = visualState;
+
+        if (actor.spriteFrameIndex == 0 || m_pActorSpriteFrameTable->getFrame(actor.spriteFrameIndex, 0) == nullptr)
+        {
+            applyMonsterVisualState(actor, visualState);
+        }
+    }
 }
 
 void OutdoorWorldRuntime::bindGlobalEventProgram(const std::optional<ScriptedEventProgram> *pGlobalEventProgram)
@@ -7490,6 +7550,7 @@ void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
     applyEventRuntimeState(true);
     applyOutdoorDestructibleStates(false);
     groundMm9LoadedPlacements(false, false);
+    refreshRuntimeActorVisualResources();
 }
 
 void OutdoorWorldRuntime::stampLastVisitTime()
@@ -18481,10 +18542,13 @@ GameplayWorldPoint OutdoorWorldRuntime::chooseBountyHuntSpawnPoint(uint32_t seed
 
     constexpr int MinCoordinate = -22528;
     constexpr int MaxCoordinate = 22528;
-    constexpr size_t MaxAttempts = 5;
+    constexpr size_t MaxAttempts = 32;
+    constexpr float MinimumPartyDistance = 8192.0f;
+    constexpr float MinimumPartyDistanceSquared = MinimumPartyDistance * MinimumPartyDistance;
     std::mt19937 rng(seed);
     std::uniform_int_distribution<int> coordinateDistribution(MinCoordinate, MaxCoordinate);
     GameplayWorldPoint fallback = IGameplayWorldRuntime::chooseBountyHuntSpawnPoint(seed);
+    bool foundLandFallback = false;
 
     for (size_t attempt = 0; attempt < MaxAttempts; ++attempt)
     {
@@ -18498,15 +18562,24 @@ GameplayWorldPoint OutdoorWorldRuntime::chooseBountyHuntSpawnPoint(uint32_t seed
             terrainZ,
             sampleOutdoorPlacementFloorHeight(*m_pOutdoorMapData, x, y, terrainZ + 512.0f));
 
-        if (!isOutdoorMonsterWaterTile(*m_pOutdoorMapData, m_outdoorLandMask, x, y))
+        if (isOutdoorMonsterWaterTile(*m_pOutdoorMapData, m_outdoorLandMask, x, y))
         {
-            return candidate;
+            continue;
         }
 
         fallback = candidate;
+        foundLandFallback = true;
+
+        const float partyDeltaX = x - partyX();
+        const float partyDeltaY = y - partyY();
+
+        if (partyDeltaX * partyDeltaX + partyDeltaY * partyDeltaY >= MinimumPartyDistanceSquared)
+        {
+            return candidate;
+        }
     }
 
-    return fallback;
+    return foundLandFallback ? fallback : IGameplayWorldRuntime::chooseBountyHuntSpawnPoint(seed);
 }
 
 float OutdoorWorldRuntime::partyX() const
@@ -19009,6 +19082,7 @@ bool OutdoorWorldRuntime::castPartySpellProjectile(const GameplayPartySpellProje
     worldRequest.skillLevel = request.skillLevel;
     worldRequest.skillMastery = static_cast<uint32_t>(request.skillMastery);
     worldRequest.damage = request.damage;
+    worldRequest.damageType = request.damageType;
     worldRequest.attackBonus = 0;
     worldRequest.useActorHitChance = false;
     worldRequest.sourceX = request.sourceX;

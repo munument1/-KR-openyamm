@@ -11877,7 +11877,7 @@ bool IndoorWorldRuntime::castPartySpellProjectile(const GameplayPartySpellProjec
     spawnRequest.damage = request.damage;
     spawnRequest.attackBonus = 0;
     spawnRequest.useActorHitChance = false;
-    spawnRequest.damageType = GameMechanics::spellCombatDamageType(request.spellId, m_pSpellTable);
+    spawnRequest.damageType = request.damageType;
     spawnRequest.turnBasedPendingAction = request.turnBasedPendingAction;
     spawnRequest.sourceX = request.sourceX;
     spawnRequest.sourceY = request.sourceY;

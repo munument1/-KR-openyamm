@@ -1,9 +1,11 @@
 #include "doctest/doctest.h"
 
 #include "engine/AssetFileSystem.h"
+#include "engine/ImageAssetLoader.h"
 #include "game/maps/MapAssetLoader.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/tables/MonsterTable.h"
+#include "game/tables/SpriteTables.h"
 
 #include <array>
 #include <filesystem>
@@ -270,30 +272,55 @@ TEST_CASE("dynamic bounty monsters load their sprite frame families")
     OpenYAMM::Game::MonsterTable monsterTable;
     REQUIRE(monsterTable.loadEntriesFromRows({
         makeMonsterPresentationRow(
-            233,
-            "Elemental Air B",
-            {"m196s", "m196w", "m196a", "m196a", "m196n", "m196d", "null", "m196f"}),
+            218,
+            "Cleric Sun B",
+            {"m176s", "m176w", "m176a", "m176a", "m176n", "m176d", "m176x", "m176f"}),
         makeMonsterPresentationRow(
-            253,
-            "Fighter Chain A",
-            {"m223s", "m223w", "m223a", "m223a", "m223n", "m223d", "m223x", "m223f"})
+            242,
+            "Elemental Light B",
+            {"m208w", "m208w", "m208a", "m208a", "m208n", "m208d", "null", "m208w"})
     }));
-    OpenYAMM::Game::SpriteFrameTable spriteFrameTable;
-    CHECK_FALSE(spriteFrameTable.findFrameIndexBySpriteName("m223s").has_value());
-    CHECK_FALSE(spriteFrameTable.findFrameIndexBySpriteName("m196s").has_value());
+    OpenYAMM::Game::SpriteFrameTable reloadedMapSpriteFrameTable;
+    CHECK_FALSE(reloadedMapSpriteFrameTable.findFrameIndexBySpriteName("m176s").has_value());
+    CHECK_FALSE(reloadedMapSpriteFrameTable.findFrameIndexBySpriteName("m208w").has_value());
 
     REQUIRE(OpenYAMM::Game::ensureMonsterSpriteFramesLoaded(
         assetFileSystem,
         monsterTable,
-        253,
-        spriteFrameTable));
-    CHECK(spriteFrameTable.findFrameIndexBySpriteName("m223s").has_value());
+        218,
+        reloadedMapSpriteFrameTable));
+    CHECK(reloadedMapSpriteFrameTable.findFrameIndexBySpriteName("m176s").has_value());
 
     REQUIRE(OpenYAMM::Game::ensureMonsterSpriteFramesLoaded(
         assetFileSystem,
         monsterTable,
-        233,
-        spriteFrameTable));
-    CHECK(spriteFrameTable.findFrameIndexBySpriteName("m223s").has_value());
-    CHECK(spriteFrameTable.findFrameIndexBySpriteName("m196s").has_value());
+        242,
+        reloadedMapSpriteFrameTable));
+    CHECK(reloadedMapSpriteFrameTable.findFrameIndexBySpriteName("m176s").has_value());
+    CHECK(reloadedMapSpriteFrameTable.findFrameIndexBySpriteName("m208w").has_value());
+
+    OpenYAMM::Engine::DirectoryAssetPathCache directoryAssetPathsByPath;
+    OpenYAMM::Engine::AssetPathLookupCache assetPathByKey;
+
+    for (const std::string &spriteName : {std::string("m176s"), std::string("m208w")})
+    {
+        const std::optional<uint16_t> frameIndex =
+            reloadedMapSpriteFrameTable.findFrameIndexBySpriteName(spriteName);
+        REQUIRE(frameIndex.has_value());
+        const OpenYAMM::Game::SpriteFrameEntry *pFrame =
+            reloadedMapSpriteFrameTable.getFrame(*frameIndex, 0);
+        REQUIRE(pFrame != nullptr);
+        const OpenYAMM::Game::ResolvedSpriteTexture resolvedTexture =
+            OpenYAMM::Game::SpriteFrameTable::resolveTexture(*pFrame, 0);
+        const std::optional<std::string> spritePath = OpenYAMM::Engine::findImageAssetPath(
+            assetFileSystem,
+            "Data/sprites",
+            resolvedTexture.textureName,
+            directoryAssetPathsByPath,
+            assetPathByKey);
+        REQUIRE(spritePath.has_value());
+        const std::optional<std::vector<uint8_t>> spriteBytes = assetFileSystem.readBinaryFile(*spritePath);
+        REQUIRE(spriteBytes.has_value());
+        CHECK_FALSE(spriteBytes->empty());
+    }
 }

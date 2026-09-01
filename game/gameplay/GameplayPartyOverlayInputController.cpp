@@ -44,6 +44,15 @@ void latchGameplayMenuEscape(GameplayScreenRuntime &context)
     context.interactionState().menuToggleLatch = true;
 }
 
+bool isScancodeNewlyPressed(
+    GameplayScreenRuntime &context,
+    const GameplayInputFrame &input,
+    SDL_Scancode scancode)
+{
+    return input.scancodePressCount(scancode) > 0
+        || (input.isScancodeHeld(scancode) && context.previousKeyboardState()[scancode] == 0);
+}
+
 struct HudPointerState
 {
     float x = 0.0f;
@@ -1724,7 +1733,8 @@ void GameplayPartyOverlayInputController::handleCharacterOverlayInput(
         skillRowHeight * static_cast<float>(std::max<size_t>(1, skillUiData.miscRows.size())));
 
     const bool closePressed =
-        pKeyboardState != nullptr && (pKeyboardState[SDL_SCANCODE_ESCAPE] || pKeyboardState[SDL_SCANCODE_E]);
+        (pKeyboardState != nullptr && pKeyboardState[SDL_SCANCODE_ESCAPE])
+        || isScancodeNewlyPressed(context, input, SDL_SCANCODE_E);
     const bool isInventorySpellTargetMode =
         context.utilitySpellOverlayReadOnly().active
         && context.utilitySpellOverlayReadOnly().mode == GameplayUiController::UtilitySpellOverlayMode::InventoryTarget;

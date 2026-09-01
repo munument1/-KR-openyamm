@@ -67,6 +67,35 @@ enum class CombatDamageType
     Irresistible,
 };
 
+struct ElementalDamageBonuses
+{
+    int fire = 0;
+    int air = 0;
+    int water = 0;
+    int body = 0;
+    int light = 0;
+    int dark = 0;
+
+    int total() const
+    {
+        return fire + air + water + body + light + dark;
+    }
+};
+
+struct MonsterDamageResistances
+{
+    int fire = 0;
+    int air = 0;
+    int water = 0;
+    int earth = 0;
+    int spirit = 0;
+    int mind = 0;
+    int body = 0;
+    int light = 0;
+    int dark = 0;
+    int physical = 0;
+};
+
 struct CharacterAttackProfile
 {
     bool canMelee = false;
@@ -233,6 +262,13 @@ public:
         int damage,
         CombatDamageType damageType,
         int resistance,
+        int hourOfPowerResistanceBonus,
+        std::mt19937 &rng);
+    static int resolveMonsterIncomingWeaponDamage(
+        int damage,
+        CombatDamageType damageType,
+        const ElementalDamageBonuses &additionalDamage,
+        const MonsterDamageResistances &resistances,
         int hourOfPowerResistanceBonus,
         std::mt19937 &rng);
     static int rollMonsterAttackDamage(int diceRolls, int diceSides, int damageBonus, std::mt19937 &rng);

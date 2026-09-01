@@ -11,6 +11,11 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+// MM8 encodes roster slots 1-49 directly in global join topic ids 601-649.
+constexpr uint32_t FirstRosterJoinTopicId = 601;
+constexpr uint32_t LastRosterJoinTopicId = 649;
+constexpr uint32_t RosterJoinTopicIdOffset = 600;
+
 bool parseUnsigned(const std::string &text, uint32_t &value)
 {
     if (text.empty() || text[0] == '#')
@@ -128,19 +133,22 @@ std::optional<NpcDialogTable::RosterJoinOffer> buildRosterJoinOffer(
     const std::unordered_map<uint32_t, std::string> &textsById
 )
 {
-    if (!isRosterJoinTopicLabel(entry))
+    if (!isRosterJoinTopicLabel(entry)
+        || entry.id < FirstRosterJoinTopicId
+        || entry.id > LastRosterJoinTopicId)
     {
         return std::nullopt;
     }
 
-    const RosterEntry *pRosterEntry = rosterTable.findByName(entry.notes);
+    const uint32_t rosterId = entry.id - RosterJoinTopicIdOffset;
+    const RosterEntry *pRosterEntry = rosterTable.get(rosterId);
 
     if (pRosterEntry == nullptr)
     {
         return std::nullopt;
     }
 
-    const uint32_t inviteTextId = 198 + pRosterEntry->id * 2;
+    const uint32_t inviteTextId = 198 + rosterId * 2;
     const uint32_t partyFullTextId = inviteTextId + 1;
 
     if (!textsById.contains(inviteTextId) || !textsById.contains(partyFullTextId))
@@ -150,7 +158,7 @@ std::optional<NpcDialogTable::RosterJoinOffer> buildRosterJoinOffer(
 
     NpcDialogTable::RosterJoinOffer offer = {};
     offer.topicId = entry.id;
-    offer.rosterId = pRosterEntry->id;
+    offer.rosterId = rosterId;
     offer.inviteTextId = inviteTextId;
     offer.partyFullTextId = partyFullTextId;
     return offer;

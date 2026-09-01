@@ -3152,6 +3152,58 @@ int GameMechanics::resolveMonsterIncomingDamage(
     return std::max(0, resolvedDamage);
 }
 
+int GameMechanics::resolveMonsterIncomingWeaponDamage(
+    int damage,
+    CombatDamageType damageType,
+    const ElementalDamageBonuses &additionalDamage,
+    const MonsterDamageResistances &resistances,
+    int hourOfPowerResistanceBonus,
+    std::mt19937 &rng)
+{
+    const auto resistanceForType = [&resistances](CombatDamageType type)
+    {
+        switch (type)
+        {
+            case CombatDamageType::Fire: return resistances.fire;
+            case CombatDamageType::Air: return resistances.air;
+            case CombatDamageType::Water: return resistances.water;
+            case CombatDamageType::Earth: return resistances.earth;
+            case CombatDamageType::Spirit: return resistances.spirit;
+            case CombatDamageType::Mind: return resistances.mind;
+            case CombatDamageType::Body: return resistances.body;
+            case CombatDamageType::Light: return resistances.light;
+            case CombatDamageType::Dark: return resistances.dark;
+            case CombatDamageType::Energy:
+            case CombatDamageType::Irresistible:
+                return 0;
+            case CombatDamageType::Physical:
+            default:
+                return resistances.physical;
+        }
+    };
+    const auto resolveComponent =
+        [hourOfPowerResistanceBonus, &resistanceForType, &rng](int componentDamage, CombatDamageType type)
+    {
+        return resolveMonsterIncomingDamage(
+            componentDamage,
+            type,
+            resistanceForType(type),
+            hourOfPowerResistanceBonus,
+            rng);
+    };
+
+    int resolvedDamage = resolveComponent(
+        std::max(0, damage - additionalDamage.total()),
+        damageType);
+    resolvedDamage += resolveComponent(additionalDamage.fire, CombatDamageType::Fire);
+    resolvedDamage += resolveComponent(additionalDamage.air, CombatDamageType::Air);
+    resolvedDamage += resolveComponent(additionalDamage.water, CombatDamageType::Water);
+    resolvedDamage += resolveComponent(additionalDamage.body, CombatDamageType::Body);
+    resolvedDamage += resolveComponent(additionalDamage.light, CombatDamageType::Light);
+    resolvedDamage += resolveComponent(additionalDamage.dark, CombatDamageType::Dark);
+    return resolvedDamage;
+}
+
 std::optional<CharacterCondition> GameMechanics::displayedCondition(const Character &character)
 {
     if (hasCondition(character, CharacterCondition::Eradicated))

@@ -635,7 +635,33 @@ TEST_CASE("party spell backend fire bolt spawns projectile")
     REQUIRE_EQ(worldRuntime.projectileRequests().size(), 1u);
     CHECK_EQ(worldRuntime.projectileRequests().front().spellId, request.spellId);
     CHECK_EQ(worldRuntime.projectileRequests().front().casterMemberIndex, 0u);
+    CHECK(worldRuntime.projectileRequests().front().damageType == OpenYAMM::Game::CombatDamageType::Fire);
     CHECK_EQ(worldRuntime.projectileRequests().front().targetX, 1024.0f);
+}
+
+TEST_CASE("sunray resolves as direct light damage")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::GameplayActorService service = {};
+    service.bindTables(&gameData.monsterTable, &gameData.spellTable);
+
+    const OpenYAMM::Game::GameplayActorService::DirectSpellImpactResult result =
+        service.resolveDirectSpellImpact(
+            OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Sunray),
+            10,
+            137,
+            400,
+            false);
+
+    CHECK(
+        result.disposition
+        == OpenYAMM::Game::GameplayActorService::DirectSpellImpactDisposition::ApplyDamage);
+    CHECK_EQ(result.damage, 137);
+    CHECK(
+        OpenYAMM::Game::GameMechanics::spellCombatDamageType(
+            OpenYAMM::Game::spellIdValue(OpenYAMM::Game::SpellId::Sunray),
+            &gameData.spellTable)
+        == OpenYAMM::Game::CombatDamageType::Light);
 }
 
 TEST_CASE("party spell backend blades targets actor but resolves through projectile impact")

@@ -158,8 +158,21 @@ bool hasWonAllMm8ArcomageTaverns(const std::unordered_set<uint32_t> &wonHouseIds
     return true;
 }
 
-uint32_t resolveAdventurersInnPortraitPictureId(const Character &character, uint32_t portraitPictureId)
+uint32_t resolveAdventurersInnPortraitPictureId(
+    const Character &character,
+    uint32_t portraitPictureId,
+    const CharacterDollTable *pCharacterDollTable)
 {
+    if (pCharacterDollTable != nullptr && character.characterDataId != 0)
+    {
+        const CharacterDollEntry *pDollEntry = pCharacterDollTable->getCharacter(character.characterDataId);
+
+        if (pDollEntry != nullptr && pDollEntry->npcPictureId != 0)
+        {
+            return pDollEntry->npcPictureId;
+        }
+    }
+
     if (character.rosterId != 0 && portraitPictureId < RosterNpcPortraitBaseId && character.portraitPictureId != 0)
     {
         return RosterNpcPortraitBaseId + character.portraitPictureId;
@@ -2175,6 +2188,10 @@ void Party::setCharacterDollTable(const CharacterDollTable *pCharacterDollTable)
     for (AdventurersInnMember &member : m_adventurersInnMembers)
     {
         applyCharacterIdentityFromDollTable(member.character, m_pCharacterDollTable);
+        member.portraitPictureId = resolveAdventurersInnPortraitPictureId(
+            member.character,
+            member.portraitPictureId,
+            m_pCharacterDollTable);
     }
 }
 
@@ -2357,7 +2374,10 @@ void Party::setClassSkillTable(const ClassSkillTable *pClassSkillTable)
         member.character.synchronizeInnateAbilitySpells();
 
         initializePortraitRuntimeState(member.character);
-        member.portraitPictureId = resolveAdventurersInnPortraitPictureId(member.character, member.portraitPictureId);
+        member.portraitPictureId = resolveAdventurersInnPortraitPictureId(
+            member.character,
+            member.portraitPictureId,
+            m_pCharacterDollTable);
     }
 }
 
@@ -2480,7 +2500,10 @@ void Party::restoreSnapshot(const Snapshot &snapshot)
         applyCharacterIdentityFromDollTable(member.character, m_pCharacterDollTable);
         member.character.synchronizeInnateAbilitySpells();
         initializePortraitRuntimeState(member.character);
-        member.portraitPictureId = resolveAdventurersInnPortraitPictureId(member.character, member.portraitPictureId);
+        member.portraitPictureId = resolveAdventurersInnPortraitPictureId(
+            member.character,
+            member.portraitPictureId,
+            m_pCharacterDollTable);
     }
 
     if (m_members.empty())
@@ -3756,7 +3779,10 @@ bool Party::addAdventurersInnMember(const RosterEntry &rosterEntry, uint32_t por
         m_pItemTable,
         m_pStandardItemEnchantTable,
         m_pSpecialItemEnchantTable);
-    const uint32_t resolvedPortraitPictureId = resolveAdventurersInnPortraitPictureId(character, portraitPictureId);
+    const uint32_t resolvedPortraitPictureId = resolveAdventurersInnPortraitPictureId(
+        character,
+        portraitPictureId,
+        m_pCharacterDollTable);
     return addAdventurersInnMember(character, resolvedPortraitPictureId);
 }
 
@@ -3777,7 +3803,10 @@ bool Party::addAdventurersInnMember(const Character &character, uint32_t portrai
     member.character.synchronizeInnateAbilitySpells();
 
     initializePortraitRuntimeState(member.character);
-    member.portraitPictureId = resolveAdventurersInnPortraitPictureId(member.character, portraitPictureId);
+    member.portraitPictureId = resolveAdventurersInnPortraitPictureId(
+        member.character,
+        portraitPictureId,
+        m_pCharacterDollTable);
     m_adventurersInnMembers.push_back(std::move(member));
     m_lastStatus = "adventurer moved to inn";
     return true;
@@ -3805,8 +3834,10 @@ bool Party::dismissMemberToAdventurersInn(size_t memberIndex)
     }
 
     const Character dismissedMember = m_members[memberIndex];
-    const uint32_t portraitPictureId =
-        resolveAdventurersInnPortraitPictureId(dismissedMember, dismissedMember.portraitPictureId);
+    const uint32_t portraitPictureId = resolveAdventurersInnPortraitPictureId(
+        dismissedMember,
+        dismissedMember.portraitPictureId,
+        m_pCharacterDollTable);
 
     if (!addAdventurersInnMember(dismissedMember, portraitPictureId))
     {

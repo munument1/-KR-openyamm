@@ -1028,6 +1028,28 @@ TEST_CASE("rare and special slaying damage multipliers match the target family")
         2);
 }
 
+TEST_CASE("weapon elemental damage keeps its resistance type")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    const std::optional<uint16_t> flameEnchantId =
+        findSpecialEnchantId(gameData.specialItemEnchantTable, OpenYAMM::Game::SpecialItemEnchantKind::Flame);
+    REQUIRE(flameEnchantId.has_value());
+
+    OpenYAMM::Game::Character character = {};
+    character.equipment.mainHand = 1;
+    character.equipmentRuntime.mainHand.specialEnchantId = *flameEnchantId;
+
+    const OpenYAMM::Game::ElementalDamageBonuses damage =
+        OpenYAMM::Game::ItemEnchantRuntime::characterAttackElementalDamageBonuses(
+            character,
+            OpenYAMM::Game::CharacterAttackMode::Melee,
+            &gameData.itemTable,
+            &gameData.specialItemEnchantTable);
+
+    CHECK_EQ(damage.fire, 12);
+    CHECK_EQ(damage.total(), 12);
+}
+
 TEST_CASE("merged MM7 artifacts and relics apply their MMerge passive effects")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

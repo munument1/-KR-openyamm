@@ -186,7 +186,9 @@ GameplayActorService::DirectSpellImpactResult GameplayActorService::resolveDirec
     const SpellId resolvedSpellId = spellIdFromValue(spellId);
     const std::string &spellName = pSpellEntry->normalizedName;
 
-    if (resolvedSpellId == SpellId::Implosion || resolvedSpellId == SpellId::Blades)
+    if (resolvedSpellId == SpellId::Implosion
+        || resolvedSpellId == SpellId::Blades
+        || resolvedSpellId == SpellId::Sunray)
     {
         result.disposition = DirectSpellImpactDisposition::ApplyDamage;
         result.damage = std::max(1, baseDamage);
@@ -195,6 +197,10 @@ GameplayActorService::DirectSpellImpactResult GameplayActorService::resolveDirec
         {
             result.visualKind = DirectSpellImpactVisualKind::ActorCenter;
             result.centerVisual = true;
+        }
+        else if (resolvedSpellId == SpellId::Sunray)
+        {
+            result.visualKind = DirectSpellImpactVisualKind::ActorUpperBody;
         }
 
         return result;

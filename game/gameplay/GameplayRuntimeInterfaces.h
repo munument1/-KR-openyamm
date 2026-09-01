@@ -279,6 +279,7 @@ struct GameplayPartySpellProjectileRequest
     uint32_t skillLevel = 0;
     SkillMastery skillMastery = SkillMastery::None;
     int damage = 0;
+    CombatDamageType damageType = CombatDamageType::Physical;
     float sourceX = 0.0f;
     float sourceY = 0.0f;
     float sourceZ = 0.0f;

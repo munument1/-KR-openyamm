@@ -272,6 +272,8 @@ constexpr uint32_t SalSharktoothNpcId = 346;
 constexpr uint32_t DysonDirectNpcId = 295;
 constexpr uint32_t BlazenQuestNpcId = 107;
 constexpr uint32_t BlazenJoinNpcId = 296;
+constexpr uint32_t AriusNpcId = 266;
+constexpr uint32_t AriusHouseId = 861;
 constexpr uint32_t RohaniNpcId = 267;
 constexpr uint32_t StephenNpcId = 59;
 constexpr uint32_t OverduneNpcId = 7;
@@ -4976,6 +4978,87 @@ TEST_CASE("actual roster join rohani")
     CHECK(dialogContainsText(resultDialog, "joined the party"));
 }
 
+TEST_CASE("mm8 roster join topics use their hardcoded roster slot mapping")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+
+    for (uint32_t rosterId = 1; rosterId <= 49; ++rosterId)
+    {
+        const uint32_t topicId = 600 + rosterId;
+        const std::optional<OpenYAMM::Game::NpcDialogTable::RosterJoinOffer> offer =
+            gameData.npcDialogTable.getRosterJoinOfferForTopic(topicId);
+        const std::optional<OpenYAMM::Game::NpcDialogTable::ResolvedTopic> topic =
+            gameData.npcDialogTable.getTopicById(topicId);
+
+        REQUIRE(offer.has_value());
+        REQUIRE(topic.has_value());
+        CHECK_EQ(offer->topicId, topicId);
+        CHECK_EQ(offer->rosterId, rosterId);
+        CHECK_EQ(offer->inviteTextId, 198 + rosterId * 2);
+        CHECK_EQ(offer->partyFullTextId, 199 + rosterId * 2);
+        CHECK_EQ(topic->topic, "Join");
+        CHECK_EQ(topic->specialKind, OpenYAMM::Game::NpcTopicEntry::SpecialKind::RosterJoinOffer);
+    }
+
+    CHECK_FALSE(gameData.npcDialogTable.getRosterJoinOfferForTopic(600).has_value());
+}
+
+TEST_CASE("arius roster join uses roster five instead of topic notes")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.openNpcDialogue(AriusNpcId, AriusHouseId);
+    const std::optional<size_t> joinIndex = findActionIndexByLabel(dialog, "Join");
+
+    REQUIRE(joinIndex.has_value());
+    CHECK_FALSE(dialogHasActionLabel(dialog, "Roster Join Event"));
+    const OpenYAMM::Game::EventDialogContent &offerDialog = harness.executeAndPresent(*joinIndex);
+    CHECK(dialogContainsText(offerDialog, "Would you like Arius the Minotaur to join you?"));
+
+    const std::optional<size_t> yesIndex = findActionIndexByLabel(offerDialog, "Yes");
+    REQUIRE(yesIndex.has_value());
+    const OpenYAMM::Game::EventDialogContent &resultDialog = harness.executeAndPresent(*yesIndex);
+
+    CHECK(harness.party().hasRosterMember(5));
+    CHECK(harness.eventRuntimeState().unavailableNpcIds.contains(AriusNpcId));
+    CHECK(dialogContainsText(resultDialog, "Arius joined the party"));
+}
+
+TEST_CASE("arius waits at the adventurers inn when the party is full")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::RosterEntry *pExtraMember = gameData.rosterTable.get(3);
+
+    REQUIRE(pExtraMember != nullptr);
+    REQUIRE(harness.party().recruitRosterMember(*pExtraMember));
+
+    const OpenYAMM::Game::EventDialogContent &dialog = harness.openNpcDialogue(AriusNpcId, AriusHouseId);
+    const std::optional<size_t> joinIndex = findActionIndexByLabel(dialog, "Join");
+    REQUIRE(joinIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &offerDialog = harness.executeAndPresent(*joinIndex);
+    const std::optional<size_t> yesIndex = findActionIndexByLabel(offerDialog, "Yes");
+    REQUIRE(yesIndex.has_value());
+
+    const OpenYAMM::Game::EventDialogContent &resultDialog = harness.executeAndPresent(*yesIndex);
+    const auto movedHouseIt = harness.eventRuntimeState().npcHouseOverrides.find(AriusNpcId);
+    const bool ariusIsAtAdventurersInn = std::any_of(
+        harness.party().adventurersInnMembers().begin(),
+        harness.party().adventurersInnMembers().end(),
+        [](const OpenYAMM::Game::AdventurersInnMember &member)
+        {
+            return member.character.rosterId == 5;
+        });
+
+    CHECK_EQ(harness.party().members().size(), 5u);
+    CHECK(ariusIsAtAdventurersInn);
+    REQUIRE(movedHouseIt != harness.eventRuntimeState().npcHouseOverrides.end());
+    CHECK_EQ(movedHouseIt->second, AdventurersInnHouseId);
+    CHECK(dialogContainsText(resultDialog, "I will be happy to journey with you when your party is not so full"));
+}
+
 TEST_CASE("overdune quest completion unlocks roster join")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -5390,9 +5473,12 @@ TEST_CASE("adventurers inn roster members use roster portraits and identified it
     REQUIRE(harness.party().addAdventurersInnMember(*pRosterEntry, 1));
 
     const OpenYAMM::Game::AdventurersInnMember *pInnMember = harness.party().adventurersInnMember(0);
+    const OpenYAMM::Game::CharacterDollEntry *pDollEntry =
+        gameData.characterDollTable.getCharacter(pRosterEntry->pictureId + 1);
 
     REQUIRE(pInnMember != nullptr);
-    CHECK_EQ(pInnMember->portraitPictureId, 2909u);
+    REQUIRE(pDollEntry != nullptr);
+    CHECK_EQ(pInnMember->portraitPictureId, pDollEntry->npcPictureId);
 
     for (const OpenYAMM::Game::InventoryItem &item : pInnMember->character.inventory)
     {
@@ -5447,6 +5533,33 @@ TEST_CASE("adventurers inn roster members use roster portraits and identified it
     CHECK(innEquipmentItemIdentified(
         pInnMember->character.equipmentRuntime.ring6,
         pInnMember->character.equipment.ring6));
+}
+
+TEST_CASE("adventurers inn portrait follows the character doll identity")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(gameData);
+    const OpenYAMM::Game::CharacterDollEntry *pDragonDoll = gameData.characterDollTable.getCharacter(25);
+
+    REQUIRE(pDragonDoll != nullptr);
+    REQUIRE_EQ(pDragonDoll->raceId, 5);
+    REQUIRE_NE(pDragonDoll->npcPictureId, 0u);
+
+    OpenYAMM::Game::Character dragon = {};
+    dragon.name = "Stoken";
+    dragon.className = "Dragon";
+    dragon.role = "Dragon";
+    dragon.rosterId = 42;
+    dragon.characterDataId = pDragonDoll->id;
+    dragon.portraitPictureId = pDragonDoll->id - 1;
+    dragon.portraitTextureName = pDragonDoll->facePicturesPrefix + "01";
+
+    REQUIRE(harness.party().addAdventurersInnMember(dragon, 2));
+    const OpenYAMM::Game::AdventurersInnMember *pInnMember = harness.party().adventurersInnMember(0);
+
+    REQUIRE(pInnMember != nullptr);
+    CHECK_EQ(pInnMember->character.characterDataId, pDragonDoll->id);
+    CHECK_EQ(pInnMember->portraitPictureId, pDragonDoll->npcPictureId);
 }
 
 TEST_CASE("transport action spends gold advances time and queues map move")

@@ -404,33 +404,34 @@ int resolveMeleeAppliedDamage(
             config.pItemTable,
             config.pSpecialItemEnchantTable,
             pStats->kindFlags);
-    appliedDamage *= multiplier;
+    ElementalDamageBonuses additionalDamage = ItemEnchantRuntime::characterAttackElementalDamageBonuses(
+        attacker,
+        CharacterAttackMode::Melee,
+        config.pItemTable,
+        config.pSpecialItemEnchantTable);
+    additionalDamage.fire *= multiplier;
+    additionalDamage.air *= multiplier;
+    additionalDamage.water *= multiplier;
+    additionalDamage.body *= multiplier;
+    additionalDamage.light *= multiplier;
+    additionalDamage.dark *= multiplier;
 
-    int resistance = pStats->physicalResistance;
-
-    switch (attack.damageType)
-    {
-        case CombatDamageType::Fire: resistance = pStats->fireResistance; break;
-        case CombatDamageType::Air: resistance = pStats->airResistance; break;
-        case CombatDamageType::Water: resistance = pStats->waterResistance; break;
-        case CombatDamageType::Earth: resistance = pStats->earthResistance; break;
-        case CombatDamageType::Spirit: resistance = pStats->spiritResistance; break;
-        case CombatDamageType::Mind: resistance = pStats->mindResistance; break;
-        case CombatDamageType::Body: resistance = pStats->bodyResistance; break;
-        case CombatDamageType::Light: resistance = pStats->lightResistance; break;
-        case CombatDamageType::Dark: resistance = pStats->darkResistance; break;
-        case CombatDamageType::Energy: resistance = 0; break;
-        case CombatDamageType::Irresistible: resistance = 0; break;
-        case CombatDamageType::Physical:
-        default:
-            resistance = pStats->physicalResistance;
-            break;
-    }
-
-    return GameMechanics::resolveMonsterIncomingDamage(
-        appliedDamage,
+    return GameMechanics::resolveMonsterIncomingWeaponDamage(
+        appliedDamage * multiplier,
         attack.damageType,
-        resistance,
+        additionalDamage,
+        MonsterDamageResistances{
+            .fire = pStats->fireResistance,
+            .air = pStats->airResistance,
+            .water = pStats->waterResistance,
+            .earth = pStats->earthResistance,
+            .spirit = pStats->spiritResistance,
+            .mind = pStats->mindResistance,
+            .body = pStats->bodyResistance,
+            .light = pStats->lightResistance,
+            .dark = pStats->darkResistance,
+            .physical = pStats->physicalResistance,
+        },
         target.hourOfPowerPower,
         rng);
 }
@@ -784,6 +785,9 @@ GameplayActionController::PartyAttackExecutionResult GameplayActionController::e
                         .skillLevel = attack.skillLevel,
                         .skillMastery = static_cast<SkillMastery>(attack.skillMastery),
                         .damage = attack.damage,
+                        .damageType = GameMechanics::spellCombatDamageType(
+                            static_cast<uint32_t>(attack.spellId),
+                            config.pSpellTable),
                         .sourceX = source.x,
                         .sourceY = source.y,
                         .sourceZ = source.z,

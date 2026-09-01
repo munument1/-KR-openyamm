@@ -1311,6 +1311,7 @@ private:
     void bakeBloodSplatGeometry(BloodSplatState &splat) const;
     void spawnBloodSplatForActorIfNeeded(size_t actorIndex);
     void removeBloodSplat(uint32_t sourceActorId);
+    void refreshRuntimeActorVisualResources();
     void initializeMm9Barrels();
     void applyMm9BarrelVisual(const MapMm9BarrelSource &source, const MapDeltaMm9BarrelState &state);
     GameplayProjectileService &projectileService();

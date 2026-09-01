@@ -6502,6 +6502,7 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
     const bool showSkillBonus = overlay.skillBonus > 0;
     static constexpr float CharacterInspectBodyToRowsGap = 10.0f;
     static constexpr float CharacterInspectRowGap = 2.0f;
+    static constexpr float CharacterInspectSkillBonusGap = 10.0f;
     static constexpr float CharacterInspectBottomPadding = 15.0f;
 
     const auto resolveWrappedMasteryLines =
@@ -6566,7 +6567,9 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
 
         if (hasAnyMasteryRows)
         {
-            masteryHeight += CharacterInspectRowGap * popupScale;
+            masteryHeight += (pLayout == pSkillBonusLayout
+                ? CharacterInspectSkillBonusGap
+                : CharacterInspectRowGap) * popupScale;
         }
 
         masteryHeight += masteryRowHeight(*pLayout, *pLines);
@@ -6875,7 +6878,7 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
                 overlay.normal,
                 normalLines);
 
-            if (showNormal)
+            if (showNormal && (showExpert || showMaster || showGrandmaster))
             {
                 nextRowY += CharacterInspectRowGap * popupScale;
             }
@@ -6890,7 +6893,7 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
                 overlay.expert,
                 expertLines);
 
-            if (showExpert)
+            if (showExpert && (showMaster || showGrandmaster))
             {
                 nextRowY += CharacterInspectRowGap * popupScale;
             }
@@ -6905,7 +6908,7 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
                 overlay.master,
                 masterLines);
 
-            if (showMaster)
+            if (showMaster && showGrandmaster)
             {
                 nextRowY += CharacterInspectRowGap * popupScale;
             }
@@ -6919,11 +6922,11 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
                 nextRowY,
                 overlay.grandmaster,
                 grandmasterLines);
+        }
 
-            if (showGrandmaster && showSkillBonus)
-            {
-                nextRowY += CharacterInspectRowGap * popupScale;
-            }
+        if (showSkillBonus && (showNormal || showExpert || showMaster || showGrandmaster))
+        {
+            nextRowY += CharacterInspectSkillBonusGap * popupScale;
         }
 
         if (skillBonusRect && showSkillBonus)

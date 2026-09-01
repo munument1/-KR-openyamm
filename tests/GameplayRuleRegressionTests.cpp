@@ -2797,6 +2797,44 @@ TEST_CASE("zero monster resistance does not reduce incoming melee damage")
     CHECK(observedHitDamages() == std::set<int>{7, 8, 9, 10, 11});
 }
 
+TEST_CASE("elemental weapon damage bypasses physical monster immunity")
+{
+    OpenYAMM::Game::MonsterTable monsterTable = {};
+    REQUIRE(monsterTable.loadStatsFromRows(
+        loadSourceTabSeparatedRows("assets_dev/engine/data_tables/monster_data.txt")));
+
+    for (int16_t monsterId : {int16_t(151), int16_t(152), int16_t(153)})
+    {
+        const OpenYAMM::Game::MonsterTable::MonsterStatsEntry *pNightmare =
+            monsterTable.findStatsById(monsterId);
+        REQUIRE(pNightmare != nullptr);
+        CAPTURE(pNightmare->name);
+        CHECK_EQ(pNightmare->physicalResistance, 200);
+        CHECK_EQ(pNightmare->fireResistance, 0);
+        CHECK_EQ(pNightmare->lightResistance, 0);
+        CHECK_EQ(pNightmare->darkResistance, 0);
+
+        OpenYAMM::Game::MonsterDamageResistances nightmareResistances = {};
+        nightmareResistances.fire = pNightmare->fireResistance;
+        nightmareResistances.light = pNightmare->lightResistance;
+        nightmareResistances.dark = pNightmare->darkResistance;
+        nightmareResistances.physical = pNightmare->physicalResistance;
+        OpenYAMM::Game::ElementalDamageBonuses weaponDamage = {};
+        weaponDamage.fire = 12;
+        std::mt19937 rng(static_cast<uint32_t>(monsterId));
+
+        CHECK_EQ(
+            OpenYAMM::Game::GameMechanics::resolveMonsterIncomingWeaponDamage(
+                42,
+                OpenYAMM::Game::CombatDamageType::Physical,
+                weaponDamage,
+                nightmareResistances,
+                0,
+                rng),
+            12);
+    }
+}
+
 TEST_CASE("incoming monster hits do not add character recovery")
 {
     constexpr uint32_t ActorId = 64;

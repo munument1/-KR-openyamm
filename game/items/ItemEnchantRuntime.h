@@ -16,6 +16,7 @@ class ItemTable;
 struct ItemDefinition;
 struct ItemContentEffect;
 enum class CharacterAttackMode;
+struct ElementalDamageBonuses;
 
 enum class ItemEnchantCategory : uint8_t
 {
@@ -88,6 +89,11 @@ public:
         uint32_t monsterKindFlags = 0);
     static int elementalDamageBonus(
         const InventoryItem &item,
+        const SpecialItemEnchantTable *pSpecialTable);
+    static ElementalDamageBonuses characterAttackElementalDamageBonuses(
+        const Character &character,
+        CharacterAttackMode attackMode,
+        const ItemTable *pItemTable,
         const SpecialItemEnchantTable *pSpecialTable);
 };
 }
