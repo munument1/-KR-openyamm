@@ -1,0 +1,1 @@
+Assemble MenuScreenBase.cpp wrapper with preserved upstream blob.
