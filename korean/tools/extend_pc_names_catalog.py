@@ -19,9 +19,9 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def read_tsv(path: Path) -> tuple[list[list[str]], str]:
+def read_tsv(path: Path, encodings: tuple[str, ...] = ("utf-8-sig", "cp1252")) -> tuple[list[list[str]], str]:
     raw = path.read_bytes()
-    for encoding in ("utf-8-sig", "cp1252"):
+    for encoding in encodings:
         try:
             text = raw.decode(encoding)
             return list(csv.reader(io.StringIO(text, newline=""), delimiter="\t", quotechar='"')), encoding
@@ -33,7 +33,13 @@ def read_tsv(path: Path) -> tuple[list[list[str]], str]:
 def write_tsv(path: Path, rows: list[list[str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as stream:
-        csv.writer(stream, delimiter="\t", quotechar='"', quoting=csv.QUOTE_MINIMAL, lineterminator="\n").writerows(rows)
+        csv.writer(
+            stream,
+            delimiter="\t",
+            quotechar='"',
+            quoting=csv.QUOTE_MINIMAL,
+            lineterminator="\n",
+        ).writerows(rows)
 
 
 def refresh_summary(catalog: dict) -> None:
@@ -48,12 +54,43 @@ def refresh_summary(catalog: dict) -> None:
     }
 
 
+def build_reviewed_npc_name_reuse(
+    source_rows: list[list[str]],
+    localized_rows: list[list[str]],
+    pc_sources: set[str],
+) -> dict[str, str]:
+    if len(source_rows) != len(localized_rows):
+        raise ValueError(
+            f"NPC name source/overlay row mismatch: source={len(source_rows)} overlay={len(localized_rows)}"
+        )
+
+    candidates: dict[str, set[str]] = {}
+    for row_index, (source_row, localized_row) in enumerate(zip(source_rows, localized_rows)):
+        if row_index == 0:
+            continue
+        for column in (0, 1):
+            source = source_row[column].strip() if column < len(source_row) else ""
+            translation = localized_row[column].strip() if column < len(localized_row) else ""
+            if not source or source not in pc_sources or not translation or translation == source:
+                continue
+            candidates.setdefault(source, set()).add(translation)
+
+    conflicts = {source: sorted(values) for source, values in candidates.items() if len(values) != 1}
+    if conflicts:
+        raise ValueError(f"Conflicting reviewed NPC-name reuse candidates: {conflicts}")
+
+    return {source: next(iter(values)) for source, values in candidates.items()}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=None)
     parser.add_argument("--catalog", default="korean/translations/catalog.json")
     parser.add_argument("--inventory", default="korean/translations/pc_names_inventory.json")
-    parser.add_argument("--translations", default="korean/translations/pc_names_reviewed.json")
+    parser.add_argument(
+        "--direct-translations",
+        default="korean/translations/pc_names_direct_reviewed.json",
+    )
     parser.add_argument("--overlay-engine-root", default="korean/overlay/engine")
     parser.add_argument("--fail-on-review", action="store_true")
     args = parser.parse_args()
@@ -61,21 +98,23 @@ def main() -> int:
     repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parents[2]
     catalog_path = repo_root / args.catalog
     inventory_path = repo_root / args.inventory
-    translation_path = repo_root / args.translations
+    direct_path = repo_root / args.direct_translations
     source_relpath = "assets_dev/engine/data_tables/english/pc_names.txt"
     source_path = repo_root / source_relpath
+    npc_source_path = repo_root / "assets_dev/engine/data_tables/npc_names.txt"
     overlay_root = repo_root / args.overlay_engine_root
+    npc_overlay_path = overlay_root / "data_tables/npc_names.txt"
 
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
     inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
-    payload = json.loads(translation_path.read_text(encoding="utf-8"))
+    direct_payload = json.loads(direct_path.read_text(encoding="utf-8"))
 
     if inventory.get("source_file") != source_relpath:
         raise ValueError("PC name inventory source path mismatch")
-    if payload.get("source_file") != source_relpath:
-        raise ValueError("PC name translation source path mismatch")
-    if payload.get("review_status") != "reviewed":
-        raise ValueError("PC name translation set has not passed review")
+    if direct_payload.get("source_file") != source_relpath:
+        raise ValueError("PC name direct-translation source path mismatch")
+    if direct_payload.get("review_status") != "reviewed":
+        raise ValueError("PC name direct-translation set has not passed review")
 
     inventory_entries = inventory.get("entries", [])
     unique_sources = inventory.get("unique_sources", [])
@@ -86,22 +125,40 @@ def main() -> int:
     if len(set(unique_sources)) != len(unique_sources):
         raise ValueError("PC name inventory contains duplicate unique_sources")
 
-    translations = payload.get("entries", {})
     source_set = set(unique_sources)
-    translation_set = set(translations)
-    if translation_set != source_set:
-        missing = sorted(source_set - translation_set)
-        extra = sorted(translation_set - source_set)
-        raise ValueError(f"PC name translation key mismatch: missing={missing}, extra={extra}")
-
-    for source in unique_sources:
-        spec = translations[source]
+    direct_entries = direct_payload.get("entries", {})
+    for source, spec in direct_entries.items():
+        if source not in source_set:
+            raise ValueError(f"Direct PC name is not present in active source inventory: {source!r}")
         if not spec.get("reviewed"):
-            raise ValueError(f"PC name is not marked reviewed: {source!r}")
+            raise ValueError(f"Direct PC name is not marked reviewed: {source!r}")
         if str(spec.get("source", source)) != source:
-            raise ValueError(f"PC name source mismatch inside translation map: {source!r}")
+            raise ValueError(f"Direct PC name source mismatch: {source!r}")
         if not str(spec.get("translation", "")).strip():
-            raise ValueError(f"PC name translation is empty: {source!r}")
+            raise ValueError(f"Direct PC name translation is empty: {source!r}")
+
+    npc_source_rows, _ = read_tsv(npc_source_path)
+    npc_overlay_rows, _ = read_tsv(npc_overlay_path, ("utf-8-sig",))
+    reused = build_reviewed_npc_name_reuse(npc_source_rows, npc_overlay_rows, source_set)
+
+    direct_set = set(direct_entries)
+    expected_direct_set = source_set - set(reused)
+    if direct_set != expected_direct_set:
+        missing = sorted(expected_direct_set - direct_set)
+        extra = sorted(direct_set - expected_direct_set)
+        raise ValueError(
+            f"Direct PC-name review coverage mismatch: missing={missing}, extra={extra}"
+        )
+
+    translations = dict(reused)
+    origins = {source: "verified_npc_name_reuse" for source in reused}
+    for source, spec in direct_entries.items():
+        translations[source] = str(spec["translation"]).strip()
+        origins[source] = "reviewed_direct"
+
+    if set(translations) != source_set:
+        missing = sorted(source_set - set(translations))
+        raise ValueError(f"PC name translation coverage incomplete: {missing}")
 
     rows, source_encoding = read_tsv(source_path)
     output_rows = [list(row) for row in rows]
@@ -128,63 +185,85 @@ def main() -> int:
         active_source = rows[row_index][column].strip()
         if active_source != source:
             raise ValueError(
-                f"PC name source drift at row={row_index}, column={column}: expected {source!r}, got {active_source!r}"
+                f"PC name source drift at row={row_index}, column={column}: "
+                f"expected {source!r}, got {active_source!r}"
             )
 
-        translation = str(translations[source]["translation"]).strip()
+        translation = translations[source]
         output_rows[row_index][column] = translation
         key = f"engine:pc_names.txt:{row_index}:{column}:{category}"
         if key in existing_keys:
             raise ValueError(f"Duplicate catalog key: {key}")
         existing_keys.add(key)
-        added.append({
-            "key": key,
-            "scope": "engine",
-            "source_file": source_relpath,
-            "record_id": row_index,
-            "field": category,
-            "source": source,
-            "translation": translation,
-            "translation_origin": "reviewed_direct",
-            "status": "translated",
-            "placeholder_ok": True,
-            "note": "Character-creation default name; directly transliterated to Korean and reviewed by unique source name.",
-        })
+
+        origin = origins[source]
+        if origin == "reviewed_direct":
+            note = "OpenYAMM-only character-creation name; directly transliterated to Korean and reviewed."
+        else:
+            note = "Character-creation name; exact English match reuses the reviewed Korean NPC-name transliteration."
+
+        added.append(
+            {
+                "key": key,
+                "scope": "engine",
+                "source_file": source_relpath,
+                "record_id": row_index,
+                "field": category,
+                "source": source,
+                "translation": translation,
+                "translation_origin": origin,
+                "status": "translated",
+                "placeholder_ok": True,
+                "note": note,
+            }
+        )
 
     if len(added) != int(inventory.get("entry_count", -1)):
         raise ValueError("PC name imported entry count mismatch")
 
     output_path = overlay_root / Path(source_relpath).relative_to("assets_dev/engine")
     write_tsv(output_path, output_rows)
+
     catalog["entries"].extend(added)
-    catalog["tables"].append({
-        "overlay_source": translation_path.relative_to(repo_root).as_posix(),
-        "overlay_format": "reviewed direct transliteration map by unique source name",
-        "source_file": source_relpath,
-        "source_sha256": sha256_file(source_path),
-        "source_encoding": source_encoding,
-        "translation_sha256": sha256_file(translation_path),
-        "inventory_sha256": sha256_file(inventory_path),
-        "entries": len(added),
-        "translated": len(added),
-        "untranslated": 0,
-        "placeholder_mismatches": 0,
-        "overrides": 0,
-        "excluded": 0,
-        "output_file": output_path.relative_to(repo_root).as_posix(),
-        "output_encoding": "utf-8",
-    })
+    catalog["tables"].append(
+        {
+            "overlay_source": direct_path.relative_to(repo_root).as_posix(),
+            "overlay_format": "reviewed direct names plus exact reviewed NPC-name reuse",
+            "source_file": source_relpath,
+            "source_sha256": sha256_file(source_path),
+            "source_encoding": source_encoding,
+            "direct_translation_sha256": sha256_file(direct_path),
+            "inventory_sha256": sha256_file(inventory_path),
+            "reviewed_reuse_unique_names": len(reused),
+            "reviewed_direct_unique_names": len(direct_entries),
+            "reviewed_unique_names": len(translations),
+            "entries": len(added),
+            "translated": len(added),
+            "untranslated": 0,
+            "placeholder_mismatches": 0,
+            "overrides": 0,
+            "excluded": 0,
+            "output_file": output_path.relative_to(repo_root).as_posix(),
+            "output_encoding": "utf-8",
+        }
+    )
     catalog["format"] = max(int(catalog.get("format", 1)), 12)
     refresh_summary(catalog)
-    catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
     print(json.dumps(catalog["summary"], ensure_ascii=False))
     print(
         f"pc_names.txt: {len(added)}/{len(added)} translated from "
-        f"{len(unique_sources)} reviewed unique source names"
+        f"{len(translations)} reviewed unique source names "
+        f"({len(reused)} reused, {len(direct_entries)} direct)"
     )
 
-    if args.fail_on_review and (catalog["summary"]["untranslated"] or catalog["summary"]["needs_review"]):
+    if args.fail_on_review and (
+        catalog["summary"]["untranslated"] or catalog["summary"]["needs_review"]
+    ):
         return 2
     return 0
 
