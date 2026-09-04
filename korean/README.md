@@ -63,6 +63,8 @@ No Linux/Flatpak Korean release artifact should be generated.
 
 Korean runtime source changes must remain narrowly scoped and smoke-tested on both release targets. Character creation name entry is UTF-8 aware: Hangul input is accepted by code point, the 15-character limit counts Unicode code points rather than UTF-8 bytes, and Backspace removes one complete UTF-8 code point.
 
+Hard-coded runtime display overrides are added only after the English string is confirmed to reach a player-visible UI or status-message path. English logic keys remain unchanged; Korean text is substituted at the final display layer and covered by focused runtime QA before native smoke builds.
+
 ## Base-version rule
 
 Any runtime binary patch must record the exact upstream OpenYAMM version/commit it targets. A binary patch must fail rather than silently apply to an unknown executable or APK.
