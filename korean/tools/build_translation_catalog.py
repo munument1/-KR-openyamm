@@ -4,7 +4,8 @@
 The source of truth for reusable Korean text is the user's MMMerge Korean
 localization repository. OpenYAMM runtime files remain in their native TSV/TXT
 formats; JSON is only the review/coverage layer used to detect omissions and
-source drift.
+source drift. OpenYAMM-only or deliberately corrected strings live in a small
+JSON override file keyed by stable catalog keys.
 """
 
 from __future__ import annotations
@@ -20,7 +21,13 @@ from pathlib import Path
 import re
 from typing import Iterable
 
-PRINTF_TOKEN_RE = re.compile(r"%(?:\d+\$)?[-+#0 ]*\d*(?:\.\d+)?[A-Za-z]")
+# Deliberately do not accept the printf space flag here. Legacy game prose often
+# contains ordinary percentages such as "10% per point"; treating "% p" as a
+# printf token creates false positives. The game tables we localize use compact
+# tokens such as %d, %s, %lu, etc.
+PRINTF_TOKEN_RE = re.compile(
+    r"%(?:\d+\$)?[-+#0]*\d*(?:\.\d+)?(?:hh|h|ll|l|j|z|t|L)?[diuoxXfFeEgGaAcspn]"
+)
 
 
 @dataclass(frozen=True)
@@ -70,18 +77,21 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def decode_text(path: Path) -> tuple[str, str]:
+def decode_text(path: Path, encodings: tuple[str, ...]) -> tuple[str, str]:
     raw = path.read_bytes()
-    for encoding in ("utf-8-sig", "cp1252"):
+    last_error: UnicodeDecodeError | None = None
+    for encoding in encodings:
         try:
             return raw.decode(encoding), encoding
-        except UnicodeDecodeError:
-            continue
-    raise UnicodeDecodeError("utf-8", raw, 0, len(raw), f"unsupported text encoding: {path}")
+        except UnicodeDecodeError as error:
+            last_error = error
+    if last_error is not None:
+        raise last_error
+    raise ValueError(f"No encodings configured for {path}")
 
 
-def read_tsv(path: Path) -> tuple[list[list[str]], str]:
-    text, encoding = decode_text(path)
+def read_tsv(path: Path, encodings: tuple[str, ...]) -> tuple[list[list[str]], str]:
+    text, encoding = decode_text(path, encodings)
     stream = io.StringIO(text, newline="")
     return list(csv.reader(stream, delimiter="\t", quotechar='"')), encoding
 
@@ -100,7 +110,7 @@ def write_tsv(path: Path, rows: Iterable[list[str]]) -> None:
 
 
 def parse_mmmerge_overlay(path: Path) -> tuple[dict[tuple[int, str], str], str]:
-    rows, encoding = read_tsv(path)
+    rows, encoding = read_tsv(path, ("utf-8-sig", "cp949"))
     result: dict[tuple[int, str], str] = {}
     for row in rows[1:]:
         if len(row) < 4:
@@ -127,11 +137,30 @@ def printf_tokens(text: str) -> Counter[str]:
     return Counter(PRINTF_TOKEN_RE.findall(text))
 
 
+def load_overrides(path: Path) -> dict[str, dict]:
+    if not path.is_file():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    entries = payload.get("entries", {})
+    if not isinstance(entries, dict):
+        raise ValueError(f"{path}: entries must be an object")
+    result: dict[str, dict] = {}
+    for key, value in entries.items():
+        if not isinstance(key, str) or not isinstance(value, dict):
+            raise ValueError(f"{path}: invalid override entry")
+        translation = value.get("translation")
+        if not isinstance(translation, str) or not translation:
+            raise ValueError(f"{path}: override {key!r} has no translation")
+        result[key] = value
+    return result
+
+
 def build_table(
     repo_root: Path,
     mmmerge_root: Path,
     overlay_engine_root: Path,
     spec: TableSpec,
+    overrides: dict[str, dict],
 ) -> tuple[list[dict], dict]:
     source_path = repo_root / spec.source_relpath
     mmmerge_path = mmmerge_root / "Data" / "Text localization" / spec.overlay_name
@@ -140,7 +169,7 @@ def build_table(
     if not mmmerge_path.is_file():
         raise FileNotFoundError(mmmerge_path)
 
-    source_rows, source_encoding = read_tsv(source_path)
+    source_rows, source_encoding = read_tsv(source_path, ("utf-8-sig", "cp1252"))
     output_rows = [list(row) for row in source_rows]
     row_lookup = source_rows_by_id(source_rows)
     translations, mmmerge_encoding = parse_mmmerge_overlay(mmmerge_path)
@@ -149,6 +178,7 @@ def build_table(
     translated_count = 0
     missing_count = 0
     placeholder_mismatches = 0
+    override_count = 0
 
     for record_id, row_index in sorted(row_lookup.items()):
         row = source_rows[row_index]
@@ -159,7 +189,18 @@ def build_table(
             if source_text == "":
                 continue
 
-            translation = translations.get((record_id, field_name), "")
+            key = f"engine:{Path(spec.source_relpath).name}:{record_id}:{field_name or 'text'}"
+            override = overrides.get(key)
+            if override is not None:
+                translation = override["translation"]
+                translation_origin = "override"
+                note = str(override.get("note", ""))
+                override_count += 1
+            else:
+                translation = translations.get((record_id, field_name), "")
+                translation_origin = "mmmerge" if translation else "none"
+                note = ""
+
             status = "translated" if translation else "untranslated"
             placeholder_ok = True
             if translation:
@@ -175,15 +216,17 @@ def build_table(
 
             entries.append(
                 {
-                    "key": f"engine:{Path(spec.source_relpath).name}:{record_id}:{field_name or 'text'}",
+                    "key": key,
                     "scope": "engine",
                     "source_file": spec.source_relpath,
                     "record_id": record_id,
                     "field": field_name or "text",
                     "source": source_text,
                     "translation": translation,
+                    "translation_origin": translation_origin,
                     "status": status,
                     "placeholder_ok": placeholder_ok,
+                    "note": note,
                 }
             )
 
@@ -202,6 +245,7 @@ def build_table(
         "translated": translated_count,
         "untranslated": missing_count,
         "placeholder_mismatches": placeholder_mismatches,
+        "overrides": override_count,
         "output_file": output_path.relative_to(repo_root).as_posix(),
         "output_encoding": "utf-8",
     }
@@ -215,6 +259,10 @@ def main() -> int:
     parser.add_argument(
         "--catalog-output",
         default="korean/translations/catalog.json",
+    )
+    parser.add_argument(
+        "--overrides",
+        default="korean/translations/overrides.json",
     )
     parser.add_argument(
         "--overlay-engine-root",
@@ -233,7 +281,9 @@ def main() -> int:
     )
     mmmerge_root = Path(args.mmmerge_root).resolve()
     catalog_output = repo_root / args.catalog_output
+    override_path = repo_root / args.overrides
     overlay_engine_root = repo_root / args.overlay_engine_root
+    overrides = load_overrides(override_path)
 
     all_entries: list[dict] = []
     tables: list[dict] = []
@@ -243,21 +293,28 @@ def main() -> int:
             mmmerge_root,
             overlay_engine_root,
             spec,
+            overrides,
         )
         all_entries.extend(entries)
         tables.append(stats)
+
+    known_keys = {entry["key"] for entry in all_entries}
+    stale_overrides = sorted(set(overrides) - known_keys)
+    if stale_overrides:
+        raise ValueError(f"Stale translation overrides: {stale_overrides}")
 
     summary = {
         "entries": len(all_entries),
         "translated": sum(1 for entry in all_entries if entry["status"] == "translated"),
         "untranslated": sum(1 for entry in all_entries if entry["status"] == "untranslated"),
         "needs_review": sum(1 for entry in all_entries if entry["status"] == "needs_review"),
+        "overrides": sum(1 for entry in all_entries if entry["translation_origin"] == "override"),
     }
     catalog = {
         "format": 1,
         "purpose": "OpenYAMM Korean translation coverage and source-drift tracking",
         "runtime_format": "native OpenYAMM TSV/TXT overlay",
-        "translation_source": "munument1/-KR-MMMerge",
+        "translation_source": "munument1/-KR-MMMerge plus OpenYAMM-specific overrides",
         "tables": tables,
         "summary": summary,
         "entries": all_entries,
@@ -275,7 +332,9 @@ def main() -> int:
             f"{table['translated']}/{table['entries']} translated, "
             f"{table['untranslated']} untranslated, "
             f"{table['placeholder_mismatches']} placeholder mismatch(es), "
-            f"source encoding={table['source_encoding']}"
+            f"{table['overrides']} override(s), "
+            f"source encoding={table['source_encoding']}, "
+            f"translation encoding={table['mmmerge_encoding']}"
         )
 
     if args.fail_on_placeholder_mismatch and summary["needs_review"]:
