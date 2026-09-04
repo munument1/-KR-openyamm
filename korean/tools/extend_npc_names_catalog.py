@@ -177,6 +177,8 @@ def main() -> int:
         str(repo_root / "korean" / "tools" / "extend_pc_names_catalog.py"),
         "--repo-root",
         str(repo_root),
+        "--mmmerge-root",
+        str(mmmerge_root),
         "--catalog",
         args.catalog,
         "--overlay-engine-root",
