@@ -197,6 +197,7 @@ bool CharacterInspectTable::loadStatRows(const std::vector<std::vector<std::stri
     {
         const std::string name = cellValue(row, 0);
         const std::string description = cellValue(row, 1);
+        const std::string localizedName = cellValue(row, 2);
         const std::string canonicalName = canonicalStatName(name);
 
         if (canonicalName.empty() || description.empty())
@@ -205,7 +206,7 @@ bool CharacterInspectTable::loadStatRows(const std::vector<std::vector<std::stri
         }
 
         StatInspectEntry entry = {};
-        entry.name = name;
+        entry.name = localizedName.empty() ? name : localizedName;
         entry.description = description;
         m_stats[canonicalName] = std::move(entry);
     }
@@ -226,8 +227,9 @@ bool CharacterInspectTable::loadSkillRows(const std::vector<std::vector<std::str
             continue;
         }
 
+        const std::string localizedName = cellValue(row, 6);
         SkillInspectEntry entry = {};
-        entry.name = displaySkillName(canonicalSkill);
+        entry.name = localizedName.empty() ? displaySkillName(canonicalSkill) : localizedName;
         entry.description = cellValue(row, 1);
         entry.normalDescription = cellValue(row, 2);
         entry.expertDescription = cellValue(row, 3);
