@@ -271,7 +271,7 @@ void GameplayHudCommon::renderLayoutLabel(
     float fontScale = resolved.scale * std::max(0.1f, layout.textScale);
     if (fontScale >= 1.0f)
     {
-        fontScale = snappedHudFontScale(fontScale);
+        fontScale = GameplayHudCommon::snappedHudFontScale(fontScale);
     }
     else
     {
