@@ -2,8 +2,9 @@
 """Import legacy tables whose IDs do not map 1:1 to OpenYAMM rows.
 
 Handled here:
-- scroll.txt uses OpenYAMM item IDs starting at 700 while the MMMerge
-  MessageScrolls localization is zero-based.
+- scroll.txt merges the MM8, MM7 and MM6 MessageScrolls arrays into three
+  disjoint OpenYAMM item-ID ranges. The Korean source keeps those arrays
+  concatenated as logical IDs 0..210.
 - class.txt has no numeric ID column; ClassNames and ClassDescriptions use the
   zero-based logical row order.
 """
@@ -21,6 +22,17 @@ import re
 
 PRINTF_TOKEN_RE = re.compile(
     r"%(?:\d+\$)?\d*(?:\.\d+)?(?:hh|h|ll|l|j|z|t|L)?[diuoxXfFeEgGaAcsn]"
+)
+
+# OpenYAMM keeps scrolls in the global item namespace. MMMerge's MessageScrolls
+# localization instead concatenates the three game-local scroll arrays:
+#   MM8: OpenYAMM 700..781  -> MessageScrolls 0..81
+#   MM7: OpenYAMM 1502..1583 -> MessageScrolls 82..163
+#   MM6: OpenYAMM 2120..2166 -> MessageScrolls 164..210
+SCROLL_ID_RANGES = (
+    (700, 781, 700),
+    (1502, 1583, 1420),
+    (2120, 2166, 1956),
 )
 
 
@@ -82,6 +94,7 @@ def make_entry(
     field_name: str,
     source_text: str,
     translation: str,
+    note: str = "",
 ) -> dict:
     placeholder_ok = not translation or printf_tokens(source_text) == printf_tokens(translation)
     status = "translated" if translation and placeholder_ok else (
@@ -98,7 +111,7 @@ def make_entry(
         "translation_origin": "mmmerge" if translation else "none",
         "status": status,
         "placeholder_ok": placeholder_ok,
-        "note": "",
+        "note": note,
     }
 
 
@@ -136,6 +149,13 @@ def stats_for(
     }
 
 
+def scroll_translation_id(source_id: int) -> int | None:
+    for first_id, last_id, offset in SCROLL_ID_RANGES:
+        if first_id <= source_id <= last_id:
+            return source_id - offset
+    return None
+
+
 def import_scrolls(
     repo_root: Path,
     mmmerge_root: Path,
@@ -149,13 +169,21 @@ def import_scrolls(
     translations, translation_encoding = parse_overlay(translation_path)
 
     entries: list[dict] = []
+    unmapped_source_ids: list[int] = []
     for row_index, row in enumerate(rows[1:], start=1):
         if len(row) < 2 or not row[0].strip().isdigit() or not row[1]:
             continue
         source_id = int(row[0].strip())
-        translation_id = source_id - 700
-        translation = translations.get((translation_id, ""), "") if translation_id >= 0 else ""
-        entry = make_entry(source_relpath, source_id, "Text", row[1], translation)
+        translation_id = scroll_translation_id(source_id)
+        if translation_id is None:
+            unmapped_source_ids.append(source_id)
+            translation = ""
+            note = "Source ID is outside the three known MM6-MM8 scroll ranges."
+        else:
+            translation = translations.get((translation_id, ""), "")
+            note = f"MMMerge MessageScrolls logical ID {translation_id}."
+
+        entry = make_entry(source_relpath, source_id, "Text", row[1], translation, note)
         if entry["status"] == "translated":
             output_rows[row_index][1] = translation
         entries.append(entry)
@@ -171,9 +199,19 @@ def import_scrolls(
         [translation_encoding],
         entries,
         output_path,
-        "OpenYAMM source ID minus 700 -> zero-based MessageScrolls ID",
+        "three merged game ranges -> concatenated MessageScrolls logical IDs",
     )
-    stats["translation_id_offset"] = -700
+    stats["translation_id_ranges"] = [
+        {
+            "source_first": first_id,
+            "source_last": last_id,
+            "subtract": offset,
+            "translation_first": first_id - offset,
+            "translation_last": last_id - offset,
+        }
+        for first_id, last_id, offset in SCROLL_ID_RANGES
+    ]
+    stats["unmapped_source_ids"] = unmapped_source_ids
     return entries, stats
 
 
@@ -207,7 +245,14 @@ def import_classes(
             if not source_text:
                 continue
             translation = translations.get((logical_id, ""), "")
-            entry = make_entry(source_relpath, logical_id, field_name, source_text, translation)
+            entry = make_entry(
+                source_relpath,
+                logical_id,
+                field_name,
+                source_text,
+                translation,
+                f"MMMerge class logical row {logical_id}.",
+            )
             if entry["status"] == "translated":
                 output_rows[row_index][target_column] = translation
             entries.append(entry)
@@ -271,7 +316,7 @@ def main() -> int:
 
     catalog["entries"].extend(new_entries)
     catalog["tables"].extend(new_tables)
-    catalog["format"] = max(int(catalog.get("format", 1)), 6)
+    catalog["format"] = max(int(catalog.get("format", 1)), 7)
     refresh_summary(catalog)
     catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
