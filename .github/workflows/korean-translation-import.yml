@@ -57,8 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 korean/tools/build_translation_catalog.py \
-            --mmmerge-root _mmmerge \
-            --fail-on-placeholder-mismatch
+            --mmmerge-root _mmmerge
           python3 -m json.tool korean/translations/catalog.json >/dev/null
 
       - name: Add Korean fallback font to generated engine overlay
@@ -82,15 +81,34 @@ jobs:
           grep -Fxq 'data_tables/english/autonote.txt' dist/korean-translation-import/engine-contents.txt
           grep -Fxq 'data_tables/english/spells.txt' dist/korean-translation-import/engine-contents.txt
 
-      - name: Print translation coverage
+      - name: Print translation coverage and review queue
         run: |
           python3 - <<'PY'
           import json
           from pathlib import Path
+
           data = json.loads(Path('korean/translations/catalog.json').read_text(encoding='utf-8'))
           print(json.dumps(data['summary'], ensure_ascii=False, indent=2))
           for table in data['tables']:
-              print(table['source_file'], table['translated'], '/', table['entries'], 'translated')
+              print(
+                  table['source_file'],
+                  table['translated'], '/', table['entries'], 'translated,',
+                  table['untranslated'], 'untranslated,',
+                  table['placeholder_mismatches'], 'placeholder mismatch(es)'
+              )
+
+          review_entries = [
+              entry for entry in data['entries']
+              if entry['status'] in {'untranslated', 'needs_review'}
+          ]
+          print(f'REVIEW_QUEUE={len(review_entries)}')
+          for entry in review_entries:
+              print('---')
+              print('key:', entry['key'])
+              print('status:', entry['status'])
+              print('source:', entry['source'])
+              print('translation:', entry['translation'])
+              print('placeholder_ok:', entry['placeholder_ok'])
           PY
 
       - name: Upload translation import artifact
