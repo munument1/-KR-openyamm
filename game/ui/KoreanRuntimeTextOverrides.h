@@ -515,13 +515,73 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         return gold + "골드와 아이템을 발견했습니다 (" + item + ")!";
     }
 
-    if (startsWith(text, "That player is ")) return "그 캐릭터는 " + text.substr(15);
-    if (endsWith(text, " can not be used that way")) return text.substr(0, text.size() - 25) + "은(는) 그런 방식으로 사용할 수 없습니다";
-    if (startsWith(text, "You don't have the skill to learn ")) return text.substr(34) + "을(를) 배우기 위한 기술이 부족합니다";
-    if (startsWith(text, "You already know the ")) return "이미 " + text.substr(21) + "을(를) 알고 있습니다";
-    if (startsWith(text, "You already know one or more skills in ")) return text.substr(39) + " 계열의 기술을 이미 하나 이상 알고 있습니다";
-    if (startsWith(text, "This character cannot learn the skills in ")) return "이 캐릭터는 " + text.substr(42) + " 계열 기술을 배울 수 없습니다";
-    if (startsWith(text, "Learned the skills in ")) return text.substr(22) + " 계열 기술을 배웠습니다";
+    if (startsWith(text, "That player is "))
+    {
+        static const std::unordered_map<std::string, std::string> Conditions = {
+            {"Cursed", "저주 상태입니다"},
+            {"Weak", "쇠약 상태입니다"},
+            {"Asleep", "잠들어 있습니다"},
+            {"Afraid", "겁에 질려 있습니다"},
+            {"Drunk", "만취 상태입니다"},
+            {"Insane", "광기 상태입니다"},
+            {"Poisoned", "중독 상태입니다"},
+            {"Diseased", "질병 상태입니다"},
+            {"Paralyzed", "마비 상태입니다"},
+            {"Unconscious", "의식불명 상태입니다"},
+            {"Dead", "사망 상태입니다"},
+            {"Petrified", "석화 상태입니다"},
+            {"Eradicated", "소멸 상태입니다"},
+            {"Zombie", "좀비 상태입니다"},
+            {"not active", "지금 행동할 수 없습니다"},
+        };
+        const std::string condition = text.substr(15);
+        if (const auto it = Conditions.find(condition); it != Conditions.end())
+        {
+            return "그 캐릭터는 " + it->second;
+        }
+        return "그 캐릭터는 " + condition;
+    }
+    if (endsWith(text, " can not be used that way")) return text.substr(0, text.size() - 25) + ": 그런 방식으로 사용할 수 없습니다";
+    if (startsWith(text, "You don't have the skill to learn ")) return "필요한 기술이 부족합니다: " + text.substr(34);
+    if (startsWith(text, "You already know the ") && endsWith(text, " spell")) return "이미 알고 있는 주문입니다: " + between(text, "You already know the ", " spell");
+    if (startsWith(text, "You already know the ")) return "이미 알고 있습니다: " + text.substr(21);
+    if (startsWith(text, "You already know one or more skills in ")) return "이미 배운 기술이 포함되어 있습니다: " + text.substr(39);
+    if (startsWith(text, "This character cannot learn the skills in ")) return "이 캐릭터는 해당 기술을 배울 수 없습니다: " + text.substr(42);
+    if (startsWith(text, "Learned the skills in ")) return "기술을 습득했습니다: " + text.substr(22);
+    if (startsWith(text, "Learned ")) return "기술 습득: " + text.substr(8);
+
+    // Genie lamp rewards. Source semantics confirm permanent stat/resistance changes.
+    if (startsWith(text, "+") && endsWith(text, " Might Permanent")) return "힘 +" + between(text, "+", " Might Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Intellect Permanent")) return "지능 +" + between(text, "+", " Intellect Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Personality Permanent")) return "인격 +" + between(text, "+", " Personality Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Endurance Permanent")) return "인내력 +" + between(text, "+", " Endurance Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Accuracy Permanent")) return "정확도 +" + between(text, "+", " Accuracy Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Speed Permanent")) return "속도 +" + between(text, "+", " Speed Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Luck Permanent")) return "행운 +" + between(text, "+", " Luck Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Gold")) return "골드 +" + between(text, "+", " Gold");
+    if (startsWith(text, "+") && endsWith(text, " Food")) return "식량 +" + between(text, "+", " Food");
+    if (startsWith(text, "+") && endsWith(text, " Skill Points")) return "기술 점수 +" + between(text, "+", " Skill Points");
+    if (startsWith(text, "+") && endsWith(text, " Experience")) return "경험치 +" + between(text, "+", " Experience");
+    if (startsWith(text, "+") && endsWith(text, " Fire Permanent")) return "화염 저항 +" + between(text, "+", " Fire Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Air Permanent")) return "공기 저항 +" + between(text, "+", " Air Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Water Permanent")) return "물 저항 +" + between(text, "+", " Water Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Earth Permanent")) return "대지 저항 +" + between(text, "+", " Earth Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Mind Permanent")) return "정신 저항 +" + between(text, "+", " Mind Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Body Permanent")) return "육체 저항 +" + between(text, "+", " Body Permanent") + " (영구)";
+
+    // Deck of Fate rewards.
+    if (startsWith(text, "+") && endsWith(text, " Might!")) return "힘 +" + between(text, "+", " Might!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Intellect!")) return "지능 +" + between(text, "+", " Intellect!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Personality!")) return "인격 +" + between(text, "+", " Personality!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Endurance!")) return "인내력 +" + between(text, "+", " Endurance!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Accuracy!")) return "정확도 +" + between(text, "+", " Accuracy!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Speed!")) return "속도 +" + between(text, "+", " Speed!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Luck!")) return "행운 +" + between(text, "+", " Luck!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Fire Resistance!")) return "화염 저항 +" + between(text, "+", " Fire Resistance!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Air Resistance!")) return "공기 저항 +" + between(text, "+", " Air Resistance!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Water Resistance!")) return "물 저항 +" + between(text, "+", " Water Resistance!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Earth Resistance!")) return "대지 저항 +" + between(text, "+", " Earth Resistance!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Body Resistance!")) return "육체 저항 +" + between(text, "+", " Body Resistance!") + "!";
 
     if (startsWith(text, "Your current fine is ") && endsWith(text, " gold.")) return "현재 벌금은 " + text.substr(21, text.size() - 21 - 6) + "골드입니다.";
     if (startsWith(text, "You need ") && endsWith(text, " gold to pay your fine.")) return "벌금을 납부하려면 " + between(text, "You need ", " gold to pay your fine.") + "골드가 필요합니다.";
