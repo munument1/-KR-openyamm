@@ -121,6 +121,14 @@ private:
                 }
             }
 
+            if (const SkillInspectEntry *pEntry = m_pGameData->characterInspectTable().getSkill(text))
+            {
+                if (!pEntry->name.empty())
+                {
+                    return pEntry->name;
+                }
+            }
+
             if (const ClassInspectEntry *pEntry = m_pGameData->characterInspectTable().getClass(text))
             {
                 if (!pEntry->name.empty())
@@ -128,6 +136,29 @@ private:
                     return pEntry->name;
                 }
             }
+        }
+
+        // Directly reviewed display-only race labels used by character creation.
+        if (text == "Human") return "인간";
+        if (text == "Vampire") return "뱀파이어";
+        if (text == "DarkElf" || text == "Dark Elf") return "다크 엘프";
+        if (text == "Minotaur") return "미노타우로스";
+        if (text == "Troll") return "트롤";
+        if (text == "Dragon") return "드래곤";
+        if (text == "Undead") return "언데드";
+        if (text == "Elf") return "엘프";
+        if (text == "Goblin") return "고블린";
+        if (text == "Dwarf") return "드워프";
+        if (text == "Zombie") return "좀비";
+
+        // Directly reviewed new-game-only status messages.
+        if (text == "Only two additional skills can be selected.")
+        {
+            return "추가 기술은 두 개까지만 선택할 수 있습니다.";
+        }
+        if (text == "Character name cannot be empty.")
+        {
+            return "캐릭터 이름은 비워 둘 수 없습니다.";
         }
 
         // Verified against MMMerge KO_GlobalTxt IDs 433, 432 and 225.
