@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "updated": "2026-09-04",
+  "entries": [
+    {
+      "source_file": "assets_dev/engine/data_tables/additional_ui.txt",
+      "status": "excluded_non_player_facing_config",
+      "reason": "The table contains LOD resource names, booleans, coordinates and developer Notes. GameDataLoader owns MergedAdditionalUiTable, but GameDataRepository does not bind or expose it to gameplay/UI runtime. No display path for the Notes field was found.",
+      "reviewed": true
+    },
+    {
+      "source_file": "assets_dev/engine/data_tables/arcomage_cards.txt",
+      "status": "included_reviewed_direct_translation",
+      "reason": "All 102 runtime card names were directly translated and context-reviewed against their card effects. Rock Stompers is fixed as '암석 분쇄자'.",
+      "reviewed": true
+    },
+    {
+      "source_file": "game/ui/screens/NewGameScreen.cpp",
+      "status": "partial_runtime_ui_localization",
+      "reason": "Primary stats, class names, skill names, race labels, mastery prefixes, the two-skill limit message and the empty-name message are localized through display-only paths. The long Create Party completion paragraph still needs a direct source-level replacement because it is wrapped before display localization.",
+      "reviewed": true
+    }
+  ]
+}
