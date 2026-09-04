@@ -161,7 +161,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 korean/tools/build_map_string_overlays.py \
-            --mmmerge-root _mmmerge
+            --mmmerge-root _mmmerge \
+            --fail-on-review
           python3 -m json.tool korean/translations/catalog.json >/dev/null
 
       - name: Add Korean fallback font to generated engine overlay
