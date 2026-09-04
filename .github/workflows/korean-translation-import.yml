@@ -5,41 +5,9 @@ on:
     branches:
       - korean-localization
     paths:
-      - "korean/tools/build_translation_catalog.py"
-      - "korean/tools/extend_npc_dialogue_catalog.py"
-      - "korean/tools/extend_npc_names_catalog.py"
-      - "korean/tools/extend_misc_catalog.py"
-      - "korean/tools/extend_legacy_text_catalog.py"
-      - "korean/tools/extend_house_catalog.py"
-      - "korean/tools/extend_npc_runtime_catalog.py"
-      - "korean/tools/extend_transition_history_catalog.py"
-      - "korean/tools/build_map_string_overlays.py"
-      - "korean/tools/apply_catalog_overrides.py"
-      - "korean/translations/**"
-      - "korean/build_patch.py"
-      - "korean/licenses/**"
-      - ".github/workflows/korean-translation-import.yml"
-      - "assets_dev/engine/data_tables/english/Global.txt"
-      - "assets_dev/engine/data_tables/english/quests.txt"
-      - "assets_dev/engine/data_tables/english/autonote.txt"
-      - "assets_dev/engine/data_tables/english/spells.txt"
-      - "assets_dev/engine/data_tables/english/awards.txt"
-      - "assets_dev/engine/data_tables/english/scroll.txt"
-      - "assets_dev/engine/data_tables/english/class.txt"
-      - "assets_dev/engine/data_tables/english/trans.txt"
-      - "assets_dev/engine/data_tables/english/mm7_history.txt"
-      - "assets_dev/engine/data_tables/english/history.txt"
-      - "assets_dev/engine/data_tables/items.txt"
-      - "assets_dev/engine/data_tables/npc.txt"
-      - "assets_dev/engine/data_tables/npc_names.txt"
-      - "assets_dev/engine/data_tables/npc_greet.txt"
-      - "assets_dev/engine/data_tables/npc_topic.txt"
-      - "assets_dev/engine/data_tables/npc_topic_text.txt"
-      - "assets_dev/engine/data_tables/npc_news.txt"
-      - "assets_dev/engine/data_tables/npc_professions.txt"
-      - "assets_dev/engine/data_tables/map_stats.txt"
-      - "assets_dev/engine/data_tables/monster_data.txt"
-      - "assets_dev/engine/data_tables/house_data.txt"
+      - "korean/**"
+      - "game/items/ItemEnchantTables.cpp"
+      - "assets_dev/engine/data_tables/**"
       - "assets_dev/worlds/mm6/_legacy/events/**"
       - "assets_dev/worlds/mm6/events/maps/**"
       - "assets_dev/worlds/mm7/_legacy/events/**"
@@ -47,6 +15,7 @@ on:
       - "assets_dev/worlds/mm8/_legacy/events/**"
       - "assets_dev/worlds/mm8/events/maps/**"
       - "assets_dev/worlds/mmmerge/events/maps/**"
+      - ".github/workflows/korean-translation-import.yml"
   workflow_dispatch:
 
 permissions:
@@ -67,27 +36,7 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /korean/**
-            /assets_dev/engine/data_tables/english/Global.txt
-            /assets_dev/engine/data_tables/english/quests.txt
-            /assets_dev/engine/data_tables/english/autonote.txt
-            /assets_dev/engine/data_tables/english/spells.txt
-            /assets_dev/engine/data_tables/english/awards.txt
-            /assets_dev/engine/data_tables/english/scroll.txt
-            /assets_dev/engine/data_tables/english/class.txt
-            /assets_dev/engine/data_tables/english/trans.txt
-            /assets_dev/engine/data_tables/english/mm7_history.txt
-            /assets_dev/engine/data_tables/english/history.txt
-            /assets_dev/engine/data_tables/items.txt
-            /assets_dev/engine/data_tables/npc.txt
-            /assets_dev/engine/data_tables/npc_names.txt
-            /assets_dev/engine/data_tables/npc_greet.txt
-            /assets_dev/engine/data_tables/npc_topic.txt
-            /assets_dev/engine/data_tables/npc_topic_text.txt
-            /assets_dev/engine/data_tables/npc_news.txt
-            /assets_dev/engine/data_tables/npc_professions.txt
-            /assets_dev/engine/data_tables/map_stats.txt
-            /assets_dev/engine/data_tables/monster_data.txt
-            /assets_dev/engine/data_tables/house_data.txt
+            /assets_dev/engine/data_tables/**
             /assets_dev/worlds/mm6/_legacy/events/**
             /assets_dev/worlds/mm6/events/maps/**
             /assets_dev/worlds/mm7/_legacy/events/**
@@ -106,30 +55,7 @@ jobs:
           persist-credentials: false
           sparse-checkout-cone-mode: false
           sparse-checkout: |
-            /Data/Text localization/KO_GlobalTxt.txt
-            /Data/Text localization/KO_QuestsTxt.txt
-            /Data/Text localization/KO_AutonoteTxt.txt
-            /Data/Text localization/KO_SpellsTxt.txt
-            /Data/Text localization/KO_ItemsTxt.txt
-            /Data/Text localization/KO_NPCData.txt
-            /Data/Text localization/KO_NPCNames.txt
-            /Data/Text localization/KO_NPCGreet1.txt
-            /Data/Text localization/KO_NPCGreet2.txt
-            /Data/Text localization/KO_NPCTopic.txt
-            /Data/Text localization/KO_NPCText.txt
-            /Data/Text localization/KO_NPCNews.txt
-            /Data/Text localization/KO_NPCProfessions.txt
-            /Data/Text localization/KO_AwardsTxt.txt
-            /Data/Text localization/KO_MapStats.txt
-            /Data/Text localization/KO_Monsters.txt
-            /Data/Text localization/KO_MessageScrolls.txt
-            /Data/Text localization/KO_ClassNames.txt
-            /Data/Text localization/KO_ClassDescriptions.txt
-            /Data/Text localization/KO_2DEvents.txt
-            /Data/Text localization/KO_TransTxt.txt
-            /Data/Text localization/MM7History_KO.txt
-            /Data/Text localization/MM8History_KO.txt
-            /Data/Text localization/KO_MapStrings.txt
+            /Data/Text localization/**
 
       - name: Generate base JSON catalog and native overlay tables
         run: |
@@ -205,6 +131,13 @@ jobs:
             --overrides korean/translations/transition_history_overrides.json \
             --fail-on-review
 
+      - name: Extend catalog with item enchant display text
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_item_enchant_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+
       - name: Generate Korean map event overlays
         run: |
           set -euo pipefail
@@ -250,7 +183,9 @@ jobs:
             data_tables/npc_professions.txt \
             data_tables/map_stats.txt \
             data_tables/monster_data.txt \
-            data_tables/house_data.txt; do
+            data_tables/house_data.txt \
+            data_tables/standard_item_enchants.txt \
+            data_tables/special_item_enchants.txt; do
             grep -Fxq "$required" dist/korean-translation-import/engine-contents.txt
           done
           for world in mm6 mm7 mm8 mmmerge; do
@@ -301,27 +236,7 @@ jobs:
           name: openyamm-korean-translation-import
           path: |
             korean/translations/catalog.json
-            korean/overlay/engine/data_tables/english/Global.txt
-            korean/overlay/engine/data_tables/english/quests.txt
-            korean/overlay/engine/data_tables/english/autonote.txt
-            korean/overlay/engine/data_tables/english/spells.txt
-            korean/overlay/engine/data_tables/english/awards.txt
-            korean/overlay/engine/data_tables/english/scroll.txt
-            korean/overlay/engine/data_tables/english/class.txt
-            korean/overlay/engine/data_tables/english/trans.txt
-            korean/overlay/engine/data_tables/english/mm7_history.txt
-            korean/overlay/engine/data_tables/english/history.txt
-            korean/overlay/engine/data_tables/items.txt
-            korean/overlay/engine/data_tables/npc.txt
-            korean/overlay/engine/data_tables/npc_names.txt
-            korean/overlay/engine/data_tables/npc_greet.txt
-            korean/overlay/engine/data_tables/npc_topic.txt
-            korean/overlay/engine/data_tables/npc_topic_text.txt
-            korean/overlay/engine/data_tables/npc_news.txt
-            korean/overlay/engine/data_tables/npc_professions.txt
-            korean/overlay/engine/data_tables/map_stats.txt
-            korean/overlay/engine/data_tables/monster_data.txt
-            korean/overlay/engine/data_tables/house_data.txt
+            korean/overlay/engine/**
             korean/overlay/worlds/mm6/events/maps/
             korean/overlay/worlds/mm7/events/maps/
             korean/overlay/worlds/mm8/events/maps/
