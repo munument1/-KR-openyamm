@@ -2,13 +2,16 @@
 """Import runtime-visible transition text and journal histories from MMMerge.
 
 Handled here:
-- KO_TransTxt.txt -> english/trans.txt Transition Description (ID mapping)
+- KO_TransTxt.txt -> english/trans.txt Transition Description
+  MMMerge IDs are logical non-empty row numbers, not OpenYAMM's sparse runtime IDs.
 - MM7History_KO.txt -> english/mm7_history.txt Text + Page Title
 - MM8History_KO.txt -> english/history.txt Text + Page Title
 
 Transition Note and history Time columns are runtime metadata/control tokens and are
-left untouched. Legacy history placeholders such as %31/%33/%34 are validated in
-addition to printf-style placeholders.
+left untouched. The Korean history files are legacy TSVs with unquoted embedded
+newlines, so they need record-block parsing rather than a normal csv.reader pass.
+Legacy history placeholders such as %31/%33/%34 are validated in addition to
+printf-style placeholders.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ PRINTF_TOKEN_RE = re.compile(
     r"%(?:\d+\$)?\d*(?:\.\d+)?(?:hh|h|ll|l|j|z|t|L)?[diuoxXfFeEgGaAcsn]"
 )
 LEGACY_HISTORY_TOKEN_RE = re.compile(r"%\d+(?![A-Za-z$])")
+HISTORY_RECORD_START_RE = re.compile(r"^(\d+)\t")
 
 
 def sha256_file(path: Path) -> str:
@@ -76,11 +80,49 @@ def parse_field_overlay(path: Path) -> tuple[dict[int, str], str]:
     return result, encoding
 
 
+def parse_legacy_history(path: Path) -> tuple[dict[int, list[str]], str]:
+    """Parse MMMerge history TSVs whose multiline text cells are not quoted."""
+    text, encoding = decode_text(path, ("utf-8-sig", "cp949"))
+    blocks: list[str] = []
+    current: list[str] = []
+
+    for line in text.splitlines():
+        if HISTORY_RECORD_START_RE.match(line):
+            if current:
+                blocks.append("\n".join(current))
+            current = [line]
+        elif current:
+            current.append(line)
+
+    if current:
+        blocks.append("\n".join(current))
+
+    result: dict[int, list[str]] = {}
+    for block in blocks:
+        parts = block.split("\t")
+        if len(parts) < 4 or not parts[0].strip().isdigit():
+            continue
+        record_id = int(parts[0].strip())
+        # The final two tab-separated fields are Time and Page Title. Any tabs
+        # before them are considered part of the legacy multiline text cell.
+        result[record_id] = [parts[0], "\t".join(parts[1:-2]), parts[-2], parts[-1]]
+
+    return result, encoding
+
+
 def rows_by_id(rows: list[list[str]]) -> dict[int, tuple[int, list[str]]]:
     result: dict[int, tuple[int, list[str]]] = {}
     for row_index, row in enumerate(rows):
         if row and row[0].strip().isdigit():
             result[int(row[0].strip())] = (row_index, row)
+    return result
+
+
+def numeric_rows_in_order(rows: list[list[str]]) -> list[tuple[int, int, list[str]]]:
+    result: list[tuple[int, int, list[str]]] = []
+    for row_index, row in enumerate(rows):
+        if row and row[0].strip().isdigit():
+            result.append((int(row[0].strip()), row_index, row))
     return result
 
 
@@ -160,18 +202,19 @@ def import_transitions(repo_root: Path, mmmerge_root: Path, overlay_root: Path) 
     translations, translation_encoding = parse_field_overlay(translation_path)
     output_rows = [list(row) for row in source_rows]
 
+    numeric_rows = numeric_rows_in_order(source_rows)
     entries: list[dict] = []
-    for record_id, (row_index, row) in rows_by_id(source_rows).items():
+    for logical_id, (record_id, row_index, row) in enumerate(numeric_rows, start=1):
         if len(row) < 2 or not row[1]:
             continue
-        translation = translations.get(record_id, "")
+        translation = translations.get(logical_id, "")
         entry = make_entry(
             source_relpath,
             record_id,
             "Description",
             row[1],
             translation,
-            "MMMerge KO_TransTxt direct ID mapping; source Note/title metadata is preserved.",
+            f"MMMerge KO_TransTxt logical row {logical_id}; OpenYAMM runtime ID {record_id}. Note metadata preserved.",
         )
         if entry["status"] == "translated":
             output_rows[row_index][1] = translation
@@ -179,7 +222,7 @@ def import_transitions(repo_root: Path, mmmerge_root: Path, overlay_root: Path) 
 
     output_path = overlay_root / Path(source_relpath).relative_to("assets_dev/engine")
     write_tsv(output_path, output_rows)
-    return entries, stats(
+    table = stats(
         repo_root,
         source_relpath,
         source_path,
@@ -188,8 +231,12 @@ def import_transitions(repo_root: Path, mmmerge_root: Path, overlay_root: Path) 
         translation_encoding,
         entries,
         output_path,
-        "KO_TransTxt ID -> trans.txt ID, Transition Description only",
+        "KO_TransTxt logical non-empty row order -> sparse trans.txt runtime IDs, Description only",
     )
+    table["logical_source_rows"] = len(numeric_rows)
+    table["translation_rows"] = len(translations)
+    table["unused_translation_ids"] = sorted(set(translations) - set(range(1, len(numeric_rows) + 1)))
+    return entries, table
 
 
 def import_history(
@@ -203,13 +250,13 @@ def import_history(
     source_path = repo_root / source_relpath
     translation_path = mmmerge_root / "Data" / "Text localization" / translation_name
     source_rows, source_encoding = read_tsv(source_path, ("utf-8-sig", "cp1252"))
-    translation_rows, translation_encoding = read_tsv(translation_path, ("utf-8-sig", "cp949"))
-    translations = rows_by_id(translation_rows)
+    translations, translation_encoding = parse_legacy_history(translation_path)
     output_rows = [list(row) for row in source_rows]
 
     entries: list[dict] = []
-    for record_id, (row_index, row) in rows_by_id(source_rows).items():
-        translated_row = translations.get(record_id, (-1, []))[1]
+    source_records = rows_by_id(source_rows)
+    for record_id, (row_index, row) in source_records.items():
+        translated_row = translations.get(record_id, [])
         for field_name, column in (("Text", 1), ("PageTitle", 3)):
             if column >= len(row) or not row[column]:
                 continue
@@ -220,7 +267,7 @@ def import_history(
                 field_name,
                 row[column],
                 translation,
-                f"{translation_name} direct ID mapping; history Time token is preserved.",
+                f"{translation_name} direct history ID mapping; Time token preserved.",
                 include_legacy_history=True,
             )
             if entry["status"] == "translated":
@@ -231,7 +278,7 @@ def import_history(
 
     output_path = overlay_root / Path(source_relpath).relative_to("assets_dev/engine")
     write_tsv(output_path, output_rows)
-    return entries, stats(
+    table = stats(
         repo_root,
         source_relpath,
         source_path,
@@ -240,8 +287,13 @@ def import_history(
         translation_encoding,
         entries,
         output_path,
-        f"{translation_name} ID -> {source_name} ID, Text and Page Title only",
+        f"{translation_name} legacy multiline records -> {source_name} IDs, Text and Page Title only",
     )
+    table["source_history_rows"] = len(source_records)
+    table["translation_history_rows"] = len(translations)
+    table["missing_translation_ids"] = sorted(set(source_records) - set(translations))
+    table["unused_translation_ids"] = sorted(set(translations) - set(source_records))
+    return entries, table
 
 
 def refresh_summary(catalog: dict) -> None:
@@ -302,6 +354,16 @@ def main() -> int:
             f"{table['untranslated']} untranslated, "
             f"{table['placeholder_mismatches']} placeholder mismatch(es)"
         )
+        for diagnostic in (
+            "logical_source_rows",
+            "translation_rows",
+            "source_history_rows",
+            "translation_history_rows",
+            "missing_translation_ids",
+            "unused_translation_ids",
+        ):
+            if diagnostic in table:
+                print(f"  {diagnostic}={table[diagnostic]}")
 
     if args.fail_on_review and (
         catalog["summary"]["untranslated"] or catalog["summary"]["needs_review"]
