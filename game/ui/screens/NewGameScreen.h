@@ -4,19 +4,71 @@
 #include "game/party/Party.h"
 #include "game/ui/MenuScreenBase.h"
 #include "game/ui/UiLayoutManager.h"
+#include "game/ui/Utf8Text.h"
 
 #include <SDL3/SDL.h>
 
 #include <array>
+#include <cctype>
 #include <functional>
 #include <optional>
 #include <random>
 #include <string>
+#include <string_view>
 #include <vector>
+
+#if defined(OPENYAMM_UTF8_NEW_GAME_NAMES)
+namespace std
+{
+inline int isalnum(unsigned char character)
+{
+    return ::isalnum(static_cast<int>(character)) != 0 || character >= 0x80u;
+}
+}
+#endif
 
 namespace OpenYAMM::Game
 {
 class GameAudioSystem;
+
+class Utf8NameEditBuffer : public std::string
+{
+public:
+    using std::string::string;
+    using std::string::operator=;
+
+    size_t size() const noexcept
+    {
+        const std::string_view text(data(), std::string::size());
+        size_t count = 0;
+        size_t byteOffset = 0;
+
+        while (byteOffset < text.size())
+        {
+            const Utf8CodePointSpan span = decodeUtf8CodePoint(text, byteOffset);
+            if (!span.valid || span.byteLength == 0)
+            {
+                break;
+            }
+
+            ++count;
+            byteOffset += span.byteLength;
+        }
+
+        return count;
+    }
+
+    void pop_back()
+    {
+        if (std::string::empty())
+        {
+            return;
+        }
+
+        const std::string_view text(data(), std::string::size());
+        std::string::resize(previousUtf8CodePointOffset(text, text.size()));
+    }
+};
 
 class NewGameScreen : public MenuScreenBase
 {
@@ -93,7 +145,7 @@ private:
         std::vector<std::string> optionalSkills;
         std::vector<std::string> selectedOptionalSkills;
         bool nameEditing = false;
-        std::string nameEditBuffer;
+        Utf8NameEditBuffer nameEditBuffer;
         std::string statusMessage;
     };
 
