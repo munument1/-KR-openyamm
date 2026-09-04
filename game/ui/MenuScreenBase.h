@@ -215,6 +215,18 @@ private:
     std::optional<std::string> resolveTexturePath(const std::string &textureName);
     std::optional<std::string> resolveFontPath(const std::string &fontName);
 
+    static void shutdownSharedResourcesLegacy();
+    const FontHandle *ensureFontLegacy(const std::string &fontName);
+    bool drawTextLegacy(
+        const std::string &fontName,
+        const std::string &text,
+        float pixelX,
+        float pixelY,
+        uint32_t colorAbgr,
+        float scale,
+        bool drawShadow);
+    float measureTextWidthLegacy(const std::string &fontName, const std::string &text, float scale);
+
     const Engine::AssetFileSystem *m_pAssetFileSystem = nullptr;
     const GameplayInputFrame *m_pInputFrame = nullptr;
     int m_frameWidth = 0;
