@@ -24,6 +24,7 @@ on:
       - "assets_dev/engine/data_tables/npc_topic.txt"
       - "assets_dev/engine/data_tables/npc_topic_text.txt"
       - "assets_dev/engine/data_tables/map_stats.txt"
+      - "assets_dev/engine/data_tables/monster_data.txt"
   workflow_dispatch:
 
 permissions:
@@ -55,6 +56,7 @@ jobs:
             /assets_dev/engine/data_tables/npc_topic.txt
             /assets_dev/engine/data_tables/npc_topic_text.txt
             /assets_dev/engine/data_tables/map_stats.txt
+            /assets_dev/engine/data_tables/monster_data.txt
 
       - name: Check out MMMerge Korean translation source
         uses: actions/checkout@v7
@@ -78,6 +80,7 @@ jobs:
             /Data/Text localization/KO_NPCText.txt
             /Data/Text localization/KO_AwardsTxt.txt
             /Data/Text localization/KO_MapStats.txt
+            /Data/Text localization/KO_Monsters.txt
 
       - name: Generate base JSON catalog and native overlay tables
         run: |
@@ -100,7 +103,7 @@ jobs:
             --overrides korean/translations/dialogue_overrides.json \
             --fail-on-review
 
-      - name: Extend catalog with awards and map names
+      - name: Extend catalog with awards map names and monsters
         run: |
           set -euo pipefail
           python3 korean/tools/extend_misc_catalog.py \
@@ -134,6 +137,7 @@ jobs:
           grep -Fxq 'data_tables/npc_topic.txt' dist/korean-translation-import/engine-contents.txt
           grep -Fxq 'data_tables/npc_topic_text.txt' dist/korean-translation-import/engine-contents.txt
           grep -Fxq 'data_tables/map_stats.txt' dist/korean-translation-import/engine-contents.txt
+          grep -Fxq 'data_tables/monster_data.txt' dist/korean-translation-import/engine-contents.txt
 
       - name: Print translation coverage and review queue
         run: |
@@ -144,12 +148,15 @@ jobs:
           data = json.loads(Path('korean/translations/catalog.json').read_text(encoding='utf-8'))
           print(json.dumps(data['summary'], ensure_ascii=False, indent=2))
           for table in data['tables']:
+              suffix = ''
+              if table.get('excluded'):
+                  suffix = f", {table['excluded']} out-of-scope row(s) excluded"
               print(
                   table['source_file'],
                   table['translated'], '/', table['entries'], 'translated,',
                   table['untranslated'], 'untranslated,',
                   table['placeholder_mismatches'], 'placeholder mismatch(es),',
-                  table['overrides'], 'override(s)'
+                  table['overrides'], 'override(s)' + suffix
               )
 
           review_entries = [
@@ -185,6 +192,7 @@ jobs:
             korean/overlay/engine/data_tables/npc_topic.txt
             korean/overlay/engine/data_tables/npc_topic_text.txt
             korean/overlay/engine/data_tables/map_stats.txt
+            korean/overlay/engine/data_tables/monster_data.txt
             dist/korean-translation-import/korean/engine.zip
             dist/korean-translation-import/manifest.json
             dist/korean-translation-import/SHA256SUMS.txt
