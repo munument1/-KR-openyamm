@@ -17,6 +17,7 @@ import re
 PRINTF_TOKEN_RE = re.compile(
     r"%(?:\d+\$)?\d*(?:\.\d+)?(?:hh|h|ll|l|j|z|t|L)?[diuoxXfFeEgGaAcsn]"
 )
+LEGACY_NUMERIC_TOKEN_RE = re.compile(r"%\d+(?![A-Za-z$])")
 
 FIELD_COLUMNS = {
     ("npc_greet.txt", "Greeting1"): 1,
@@ -26,11 +27,18 @@ FIELD_COLUMNS = {
     ("monster_data.txt", "Name"): 1,
     ("map_stats.txt", "Name"): 1,
     ("awards.txt", "Awards"): 1,
+    ("trans.txt", "Description"): 1,
+    ("mm7_history.txt", "Text"): 1,
+    ("mm7_history.txt", "PageTitle"): 3,
+    ("history.txt", "Text"): 1,
+    ("history.txt", "PageTitle"): 3,
 }
 
 
-def printf_tokens(text: str) -> Counter[str]:
-    return Counter(PRINTF_TOKEN_RE.findall(text))
+def placeholder_tokens(text: str) -> Counter[str]:
+    result = Counter(PRINTF_TOKEN_RE.findall(text))
+    result.update(LEGACY_NUMERIC_TOKEN_RE.findall(text))
+    return result
 
 
 def read_tsv(path: Path) -> list[list[str]]:
@@ -115,7 +123,7 @@ def main() -> int:
             raise ValueError(f"Override has no translation: {key}")
 
         entry = entries_by_key[key]
-        placeholder_ok = printf_tokens(entry["source"]) == printf_tokens(translation)
+        placeholder_ok = placeholder_tokens(entry["source"]) == placeholder_tokens(translation)
         if not placeholder_ok:
             raise ValueError(f"Override placeholder mismatch: {key}")
 
