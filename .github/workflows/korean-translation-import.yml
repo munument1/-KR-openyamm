@@ -12,6 +12,7 @@ on:
       - "korean/tools/extend_legacy_text_catalog.py"
       - "korean/tools/extend_house_catalog.py"
       - "korean/tools/extend_npc_runtime_catalog.py"
+      - "korean/tools/extend_transition_history_catalog.py"
       - "korean/tools/build_map_string_overlays.py"
       - "korean/tools/apply_catalog_overrides.py"
       - "korean/translations/**"
@@ -25,6 +26,9 @@ on:
       - "assets_dev/engine/data_tables/english/awards.txt"
       - "assets_dev/engine/data_tables/english/scroll.txt"
       - "assets_dev/engine/data_tables/english/class.txt"
+      - "assets_dev/engine/data_tables/english/trans.txt"
+      - "assets_dev/engine/data_tables/english/mm7_history.txt"
+      - "assets_dev/engine/data_tables/english/history.txt"
       - "assets_dev/engine/data_tables/items.txt"
       - "assets_dev/engine/data_tables/npc.txt"
       - "assets_dev/engine/data_tables/npc_names.txt"
@@ -70,6 +74,9 @@ jobs:
             /assets_dev/engine/data_tables/english/awards.txt
             /assets_dev/engine/data_tables/english/scroll.txt
             /assets_dev/engine/data_tables/english/class.txt
+            /assets_dev/engine/data_tables/english/trans.txt
+            /assets_dev/engine/data_tables/english/mm7_history.txt
+            /assets_dev/engine/data_tables/english/history.txt
             /assets_dev/engine/data_tables/items.txt
             /assets_dev/engine/data_tables/npc.txt
             /assets_dev/engine/data_tables/npc_names.txt
@@ -119,6 +126,9 @@ jobs:
             /Data/Text localization/KO_ClassNames.txt
             /Data/Text localization/KO_ClassDescriptions.txt
             /Data/Text localization/KO_2DEvents.txt
+            /Data/Text localization/KO_TransTxt.txt
+            /Data/Text localization/MM7History_KO.txt
+            /Data/Text localization/MM8History_KO.txt
             /Data/Text localization/KO_MapStrings.txt
 
       - name: Generate base JSON catalog and native overlay tables
@@ -182,6 +192,13 @@ jobs:
             --mmmerge-root _mmmerge \
             --fail-on-review
 
+      - name: Extend catalog with transitions and histories
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_transition_history_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+
       - name: Generate Korean map event overlays
         run: |
           set -euo pipefail
@@ -214,6 +231,9 @@ jobs:
             data_tables/english/awards.txt \
             data_tables/english/scroll.txt \
             data_tables/english/class.txt \
+            data_tables/english/trans.txt \
+            data_tables/english/mm7_history.txt \
+            data_tables/english/history.txt \
             data_tables/items.txt \
             data_tables/npc.txt \
             data_tables/npc_names.txt \
@@ -282,6 +302,9 @@ jobs:
             korean/overlay/engine/data_tables/english/awards.txt
             korean/overlay/engine/data_tables/english/scroll.txt
             korean/overlay/engine/data_tables/english/class.txt
+            korean/overlay/engine/data_tables/english/trans.txt
+            korean/overlay/engine/data_tables/english/mm7_history.txt
+            korean/overlay/engine/data_tables/english/history.txt
             korean/overlay/engine/data_tables/items.txt
             korean/overlay/engine/data_tables/npc.txt
             korean/overlay/engine/data_tables/npc_names.txt
