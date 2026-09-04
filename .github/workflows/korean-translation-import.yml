@@ -64,7 +64,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 korean/tools/build_translation_catalog.py \
-            --mmmerge-root _mmmerge
+            --mmmerge-root _mmmerge \
+            --fail-on-placeholder-mismatch
           python3 -m json.tool korean/translations/catalog.json >/dev/null
 
       - name: Add Korean fallback font to generated engine overlay
@@ -87,14 +88,10 @@ jobs:
           grep -Fxq 'data_tables/english/quests.txt' dist/korean-translation-import/engine-contents.txt
           grep -Fxq 'data_tables/english/autonote.txt' dist/korean-translation-import/engine-contents.txt
           grep -Fxq 'data_tables/english/spells.txt' dist/korean-translation-import/engine-contents.txt
-          if test -f korean/overlay/engine/data_tables/items.txt; then
-            grep -Fxq 'data_tables/items.txt' dist/korean-translation-import/engine-contents.txt
-          fi
-          if test -f korean/overlay/engine/data_tables/npc.txt; then
-            grep -Fxq 'data_tables/npc.txt' dist/korean-translation-import/engine-contents.txt
-          fi
+          grep -Fxq 'data_tables/items.txt' dist/korean-translation-import/engine-contents.txt
+          grep -Fxq 'data_tables/npc.txt' dist/korean-translation-import/engine-contents.txt
 
-      - name: Print translation coverage and review queue
+      - name: Enforce translation coverage
         run: |
           python3 - <<'PY'
           import json
@@ -116,15 +113,15 @@ jobs:
               if entry['status'] in {'untranslated', 'needs_review'}
           ]
           print(f'REVIEW_QUEUE={len(review_entries)}')
-          for entry in review_entries[:200]:
-              print('---')
-              print('key:', entry['key'])
-              print('status:', entry['status'])
-              print('source:', entry['source'])
-              print('translation:', entry['translation'])
-              print('placeholder_ok:', entry['placeholder_ok'])
-          if len(review_entries) > 200:
-              print(f'... {len(review_entries) - 200} additional review entries are available in catalog.json')
+          if review_entries:
+              for entry in review_entries[:200]:
+                  print('---')
+                  print('key:', entry['key'])
+                  print('status:', entry['status'])
+                  print('source:', entry['source'])
+                  print('translation:', entry['translation'])
+                  print('placeholder_ok:', entry['placeholder_ok'])
+              raise SystemExit('Korean translation coverage is incomplete')
           PY
 
       - name: Upload translation import artifact
@@ -143,5 +140,5 @@ jobs:
             dist/korean-translation-import/manifest.json
             dist/korean-translation-import/SHA256SUMS.txt
             dist/korean-translation-import/engine-contents.txt
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
