@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 from collections import Counter
 from dataclasses import dataclass
@@ -69,9 +70,20 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def read_tsv(path: Path) -> list[list[str]]:
-    with path.open("r", encoding="utf-8-sig", newline="") as stream:
-        return list(csv.reader(stream, delimiter="\t", quotechar='"'))
+def decode_text(path: Path) -> tuple[str, str]:
+    raw = path.read_bytes()
+    for encoding in ("utf-8-sig", "cp1252"):
+        try:
+            return raw.decode(encoding), encoding
+        except UnicodeDecodeError:
+            continue
+    raise UnicodeDecodeError("utf-8", raw, 0, len(raw), f"unsupported text encoding: {path}")
+
+
+def read_tsv(path: Path) -> tuple[list[list[str]], str]:
+    text, encoding = decode_text(path)
+    stream = io.StringIO(text, newline="")
+    return list(csv.reader(stream, delimiter="\t", quotechar='"')), encoding
 
 
 def write_tsv(path: Path, rows: Iterable[list[str]]) -> None:
@@ -87,8 +99,8 @@ def write_tsv(path: Path, rows: Iterable[list[str]]) -> None:
         writer.writerows(rows)
 
 
-def parse_mmmerge_overlay(path: Path) -> dict[tuple[int, str], str]:
-    rows = read_tsv(path)
+def parse_mmmerge_overlay(path: Path) -> tuple[dict[tuple[int, str], str], str]:
+    rows, encoding = read_tsv(path)
     result: dict[tuple[int, str], str] = {}
     for row in rows[1:]:
         if len(row) < 4:
@@ -97,7 +109,7 @@ def parse_mmmerge_overlay(path: Path) -> dict[tuple[int, str], str]:
         if not raw_id.isdigit():
             continue
         result[(int(raw_id), row[2].strip())] = row[3]
-    return result
+    return result, encoding
 
 
 def source_rows_by_id(rows: list[list[str]]) -> dict[int, int]:
@@ -128,10 +140,10 @@ def build_table(
     if not mmmerge_path.is_file():
         raise FileNotFoundError(mmmerge_path)
 
-    source_rows = read_tsv(source_path)
+    source_rows, source_encoding = read_tsv(source_path)
     output_rows = [list(row) for row in source_rows]
     row_lookup = source_rows_by_id(source_rows)
-    translations = parse_mmmerge_overlay(mmmerge_path)
+    translations, mmmerge_encoding = parse_mmmerge_overlay(mmmerge_path)
 
     entries: list[dict] = []
     translated_count = 0
@@ -183,12 +195,15 @@ def build_table(
         "overlay_source": f"Data/Text localization/{spec.overlay_name}",
         "source_file": spec.source_relpath,
         "source_sha256": sha256_file(source_path),
+        "source_encoding": source_encoding,
         "mmmerge_sha256": sha256_file(mmmerge_path),
+        "mmmerge_encoding": mmmerge_encoding,
         "entries": len(entries),
         "translated": translated_count,
         "untranslated": missing_count,
         "placeholder_mismatches": placeholder_mismatches,
         "output_file": output_path.relative_to(repo_root).as_posix(),
+        "output_encoding": "utf-8",
     }
     return entries, stats
 
@@ -259,7 +274,8 @@ def main() -> int:
             f"{Path(table['source_file']).name}: "
             f"{table['translated']}/{table['entries']} translated, "
             f"{table['untranslated']} untranslated, "
-            f"{table['placeholder_mismatches']} placeholder mismatch(es)"
+            f"{table['placeholder_mismatches']} placeholder mismatch(es), "
+            f"source encoding={table['source_encoding']}"
         )
 
     if args.fail_on_placeholder_mismatch and summary["needs_review"]:
