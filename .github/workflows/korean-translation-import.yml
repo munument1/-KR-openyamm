@@ -1,0 +1,111 @@
+name: Korean translation import
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - "korean/tools/build_translation_catalog.py"
+      - "korean/build_patch.py"
+      - "korean/licenses/**"
+      - ".github/workflows/korean-translation-import.yml"
+      - "assets_dev/engine/data_tables/english/Global.txt"
+      - "assets_dev/engine/data_tables/english/quests.txt"
+      - "assets_dev/engine/data_tables/english/autonote.txt"
+      - "assets_dev/engine/data_tables/english/spells.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  import-translations:
+    name: Build Korean translation catalog and overlay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out OpenYAMM Korean branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /korean/
+            /assets_dev/engine/data_tables/english/Global.txt
+            /assets_dev/engine/data_tables/english/quests.txt
+            /assets_dev/engine/data_tables/english/autonote.txt
+            /assets_dev/engine/data_tables/english/spells.txt
+
+      - name: Check out MMMerge Korean translation source
+        uses: actions/checkout@v7
+        with:
+          repository: munument1/-KR-MMMerge
+          ref: main
+          path: _mmmerge
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /Data/Text localization/KO_GlobalTxt.txt
+            /Data/Text localization/KO_QuestsTxt.txt
+            /Data/Text localization/KO_AutonoteTxt.txt
+            /Data/Text localization/KO_SpellsTxt.txt
+
+      - name: Generate JSON catalog and native OpenYAMM overlay tables
+        run: |
+          set -euo pipefail
+          python3 korean/tools/build_translation_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-placeholder-mismatch
+          python3 -m json.tool korean/translations/catalog.json >/dev/null
+
+      - name: Add Korean fallback font to generated engine overlay
+        run: |
+          set -euo pipefail
+          mkdir -p korean/overlay/engine/fonts
+          curl --fail --location --retry 3 \
+            --output korean/overlay/engine/fonts/KoreanFallback.ttf \
+            https://raw.githubusercontent.com/IBM/plex/master/packages/plex-sans-kr/fonts/complete/ttf/hinted/IBMPlexSansKR-Regular.ttf
+          test -s korean/overlay/engine/fonts/KoreanFallback.ttf
+          cp korean/licenses/IBM-Plex-OFL.txt korean/overlay/engine/fonts/IBM-Plex-OFL.txt
+
+      - name: Build overlay-only patch package
+        run: |
+          set -euo pipefail
+          python3 korean/build_patch.py --output dist/korean-translation-import
+          unzip -Z1 dist/korean-translation-import/korean/engine.zip > dist/korean-translation-import/engine-contents.txt
+          grep -Fxq 'fonts/KoreanFallback.ttf' dist/korean-translation-import/engine-contents.txt
+          grep -Fxq 'data_tables/english/Global.txt' dist/korean-translation-import/engine-contents.txt
+          grep -Fxq 'data_tables/english/quests.txt' dist/korean-translation-import/engine-contents.txt
+          grep -Fxq 'data_tables/english/autonote.txt' dist/korean-translation-import/engine-contents.txt
+          grep -Fxq 'data_tables/english/spells.txt' dist/korean-translation-import/engine-contents.txt
+
+      - name: Print translation coverage
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('korean/translations/catalog.json').read_text(encoding='utf-8'))
+          print(json.dumps(data['summary'], ensure_ascii=False, indent=2))
+          for table in data['tables']:
+              print(table['source_file'], table['translated'], '/', table['entries'], 'translated')
+          PY
+
+      - name: Upload translation import artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openyamm-korean-translation-import
+          path: |
+            korean/translations/catalog.json
+            korean/overlay/engine/data_tables/english/Global.txt
+            korean/overlay/engine/data_tables/english/quests.txt
+            korean/overlay/engine/data_tables/english/autonote.txt
+            korean/overlay/engine/data_tables/english/spells.txt
+            dist/korean-translation-import/korean/engine.zip
+            dist/korean-translation-import/manifest.json
+            dist/korean-translation-import/SHA256SUMS.txt
+            dist/korean-translation-import/engine-contents.txt
+          if-no-files-found: error
+          retention-days: 7
