@@ -134,9 +134,19 @@ jobs:
           english_lines = english_text.splitlines()
           korean_lines = korean_text.splitlines()
 
-          if len(english_lines) != len(korean_lines):
+          if not english_lines or english_lines[0].split('\t')[:2] != ['Male', 'Female']:
+              raise SystemExit('Unexpected English NPC name header')
+          if not korean_lines or korean_lines[0].split('\t')[:2] != ['Male', 'Female']:
+              raise SystemExit('Unexpected Korean NPC name header')
+          if len(english_lines) not in (len(korean_lines), len(korean_lines) + 1):
               raise SystemExit(
                   f'NPC name row count mismatch: English={len(english_lines)} Korean={len(korean_lines)}')
+          if len(english_lines) == len(korean_lines) + 1:
+              trailing_cells = english_lines[-1].split('\t')
+              if not trailing_cells or trailing_cells[0].strip() != 'Zyggie':
+                  raise SystemExit(
+                      f'Unexpected unmatched English NPC row: {english_lines[-1]!r}')
+              print('legacy_missing_trailing_source=', trailing_cells[0].strip())
 
           print('english_npc_names_encoding=', english_encoding)
           print('korean_npc_names_encoding=', korean_encoding)
