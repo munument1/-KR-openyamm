@@ -44,6 +44,17 @@ struct GameplayHudFontGlyphMetricsData
     int rightSpacing = 0;
 };
 
+struct GameplayHudUnicodeGlyphData
+{
+    int atlasX = 0;
+    int atlasY = 0;
+    int width = 0;
+    int height = 0;
+    int offsetX = 0;
+    int offsetY = 0;
+    int advance = 0;
+};
+
 struct GameplayHudFontData
 {
     std::string fontName;
@@ -54,9 +65,11 @@ struct GameplayHudFontData
     int atlasWidth = 0;
     int atlasHeight = 0;
     std::array<GameplayHudFontGlyphMetricsData, 256> glyphMetrics = {{}};
+    std::unordered_map<uint32_t, GameplayHudUnicodeGlyphData> unicodeGlyphs;
     std::vector<uint8_t> mainAtlasPixels;
     bgfx::TextureHandle mainTextureHandle = BGFX_INVALID_HANDLE;
     bgfx::TextureHandle shadowTextureHandle = BGFX_INVALID_HANDLE;
+    bool unicodeFallbackLoaded = false;
 };
 
 struct GameplayHudFontColorTextureData
@@ -243,6 +256,37 @@ public:
         float fontScale,
         const SubmitTexturedQuadFn &submitTexturedQuad);
     static void renderLayoutLabel(
+        const UiLayoutManager::LayoutElement &layout,
+        const GameplayResolvedHudLayoutElement &resolved,
+        const std::string &label,
+        const FindHudFontFn &findHudFont,
+        const EnsureHudFontColorFn &ensureHudFontColor,
+        const RenderHudFontLayerFn &renderHudFontLayer);
+
+private:
+    static bool loadHudFontLegacy(
+        const Engine::AssetFileSystem *pAssetFileSystem,
+        GameplayAssetLoadCache &cache,
+        const std::string &fontName,
+        std::vector<GameplayHudFontData> &fonts);
+    static float measureHudTextWidthLegacy(const GameplayHudFontData &font, const std::string &text);
+    static std::string clampHudTextToWidthLegacy(
+        const GameplayHudFontData &font,
+        const std::string &text,
+        float maxWidth);
+    static std::vector<std::string> wrapHudTextToWidthLegacy(
+        const GameplayHudFontData &font,
+        const std::string &text,
+        float maxWidth);
+    static void renderHudFontLayerLegacy(
+        const GameplayHudFontData &font,
+        bgfx::TextureHandle textureHandle,
+        const std::string &text,
+        float textX,
+        float textY,
+        float fontScale,
+        const SubmitTexturedQuadFn &submitTexturedQuad);
+    static void renderLayoutLabelLegacy(
         const UiLayoutManager::LayoutElement &layout,
         const GameplayResolvedHudLayoutElement &resolved,
         const std::string &label,
