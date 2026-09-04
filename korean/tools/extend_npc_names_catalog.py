@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Append random NPC names to the Korean translation catalog and overlay."""
+"""Append reviewed random NPC names and character-creation names to the Korean catalog."""
 
 from __future__ import annotations
 
@@ -53,17 +53,6 @@ def write_tsv(path: Path, rows: list[list[str]]) -> None:
         writer.writerows(rows)
 
 
-def rows_by_id(rows: list[list[str]], id_column: int = 0) -> dict[int, tuple[int, list[str]]]:
-    result: dict[int, tuple[int, list[str]]] = {}
-    for row_index, row in enumerate(rows):
-        if id_column >= len(row):
-            continue
-        raw_id = row[id_column].strip()
-        if raw_id.isdigit():
-            result[int(raw_id)] = (row_index, row)
-    return result
-
-
 def refresh_summary(catalog: dict) -> None:
     entries = catalog["entries"]
     catalog["summary"] = {
@@ -82,6 +71,10 @@ def main() -> int:
     parser.add_argument("--mmmerge-root", required=True)
     parser.add_argument("--catalog", default="korean/translations/catalog.json")
     parser.add_argument("--overlay-engine-root", default="korean/overlay/engine")
+    parser.add_argument(
+        "--direct-overrides",
+        default="korean/translations/npc_names_direct_reviewed.json",
+    )
     parser.add_argument("--fail-on-review", action="store_true")
     args = parser.parse_args()
 
@@ -93,6 +86,7 @@ def main() -> int:
     mmmerge_root = Path(args.mmmerge_root).resolve()
     catalog_path = repo_root / args.catalog
     overlay_root = repo_root / args.overlay_engine_root
+    direct_path = repo_root / args.direct_overrides
 
     source_relpath = "assets_dev/engine/data_tables/npc_names.txt"
     source_path = repo_root / source_relpath
@@ -100,35 +94,85 @@ def main() -> int:
 
     source_rows, source_encoding = read_tsv(source_path, ("utf-8-sig", "cp1252"))
     ko_rows, ko_encoding = read_tsv(ko_path, ("utf-8-sig", "cp949"))
+    direct = json.loads(direct_path.read_text(encoding="utf-8"))
+
+    if direct.get("source_file") != source_relpath or direct.get("review_status") != "reviewed":
+        raise ValueError("Random NPC direct-review metadata is invalid")
+    direct_entries = direct.get("entries", {})
+    if set(direct_entries) != {"Zyggie"}:
+        raise ValueError(f"Unexpected direct random-NPC name set: {sorted(direct_entries)}")
+    zyggie_spec = direct_entries["Zyggie"]
+    if (
+        not zyggie_spec.get("reviewed")
+        or zyggie_spec.get("source") != "Zyggie"
+        or not str(zyggie_spec.get("translation", "")).strip()
+    ):
+        raise ValueError("Zyggie direct review is incomplete")
+
+    if not source_rows or source_rows[0][:2] != ["Male", "Female"]:
+        raise ValueError("Unexpected npc_names.txt header")
+    if not ko_rows or ko_rows[0][:2] != ["Male", "Female"]:
+        raise ValueError("Unexpected KO_NPCNames.txt header")
+    if len(source_rows) != 541 or len(ko_rows) != 540:
+        raise ValueError(
+            f"Random NPC name row count drift: source={len(source_rows)}, Korean={len(ko_rows)}"
+        )
+    if not source_rows[-1] or source_rows[-1][0].strip() != "Zyggie":
+        raise ValueError(f"Unexpected final random NPC source row: {source_rows[-1]!r}")
+
     output_rows = [list(row) for row in source_rows]
-
-    source_lookup = rows_by_id(source_rows)
-    ko_lookup = rows_by_id(ko_rows)
-
     entries: list[dict] = []
-    for record_id, (row_index, source_row) in sorted(source_lookup.items()):
-        if len(source_row) < 2 or not source_row[1]:
-            continue
-        source_text = source_row[1]
-        ko_row = ko_lookup.get(record_id, (-1, []))[1]
-        translation = ko_row[1] if len(ko_row) >= 2 else ""
-        status = "translated" if translation else "untranslated"
-        if translation:
-            output_rows[row_index][1] = translation
-        entries.append(
-            {
-                "key": f"engine:npc_names.txt:{record_id}:Name",
-                "scope": "engine",
-                "source_file": source_relpath,
-                "record_id": record_id,
-                "field": "Name",
-                "source": source_text,
-                "translation": translation,
-                "translation_origin": "mmmerge" if translation else "none",
-                "status": status,
-                "placeholder_ok": True,
-                "note": "",
-            }
+    translated_from_mmmerge = 0
+    translated_direct = 0
+
+    for row_index, source_row in enumerate(source_rows[1:], start=1):
+        ko_row = ko_rows[row_index] if row_index < len(ko_rows) else []
+        for column, field in ((0, "Male"), (1, "Female")):
+            source_text = source_row[column].strip() if column < len(source_row) else ""
+            if not source_text:
+                continue
+
+            translation = ko_row[column].strip() if column < len(ko_row) else ""
+            origin = "mmmerge"
+            note = "Random NPC name; row-aligned reviewed MMMerge Korean name."
+            if not translation:
+                spec = direct_entries.get(source_text)
+                if spec:
+                    translation = str(spec["translation"]).strip()
+                    origin = "reviewed_direct"
+                    note = "Random NPC name missing from MMMerge source; directly transliterated and reviewed."
+                else:
+                    raise ValueError(
+                        f"Missing reviewed random NPC name at row={row_index}, column={column}: {source_text!r}"
+                    )
+
+            output_rows[row_index][column] = translation
+            if origin == "mmmerge":
+                translated_from_mmmerge += 1
+            else:
+                translated_direct += 1
+
+            entries.append(
+                {
+                    "key": f"engine:npc_names.txt:{row_index}:{column}:{field}",
+                    "scope": "engine",
+                    "source_file": source_relpath,
+                    "record_id": row_index,
+                    "field": field,
+                    "source": source_text,
+                    "translation": translation,
+                    "translation_origin": origin,
+                    "status": "translated",
+                    "placeholder_ok": True,
+                    "note": note,
+                }
+            )
+
+    if len(entries) != 850:
+        raise ValueError(f"Random NPC name entry count drift: expected 850, got {len(entries)}")
+    if translated_from_mmmerge != 849 or translated_direct != 1:
+        raise ValueError(
+            f"Random NPC name source count drift: MMMerge={translated_from_mmmerge}, direct={translated_direct}"
         )
 
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
@@ -143,23 +187,26 @@ def main() -> int:
 
     table = {
         "overlay_source": "Data/Text localization/KO_NPCNames.txt",
-        "overlay_format": "direct-id-row",
+        "overlay_format": "row-aligned Male/Female columns plus one reviewed direct tail entry",
         "source_file": source_relpath,
         "source_sha256": sha256_file(source_path),
         "source_encoding": source_encoding,
         "mmmerge_sha256": sha256_file(ko_path),
         "mmmerge_encoding": ko_encoding,
+        "direct_review_sha256": sha256_file(direct_path),
         "entries": len(entries),
-        "translated": sum(entry["status"] == "translated" for entry in entries),
-        "untranslated": sum(entry["status"] == "untranslated" for entry in entries),
+        "translated": len(entries),
+        "untranslated": 0,
         "placeholder_mismatches": 0,
         "overrides": 0,
+        "reviewed_mmmerge_entries": translated_from_mmmerge,
+        "reviewed_direct_entries": translated_direct,
         "output_file": output_path.relative_to(repo_root).as_posix(),
         "output_encoding": "utf-8",
     }
     catalog["entries"].extend(entries)
     catalog["tables"].append(table)
-    catalog["format"] = max(int(catalog.get("format", 1)), 7)
+    catalog["format"] = max(int(catalog.get("format", 1)), 12)
     refresh_summary(catalog)
     catalog_path.write_text(
         json.dumps(catalog, ensure_ascii=False, indent=2) + "\n",
@@ -168,8 +215,8 @@ def main() -> int:
 
     print(json.dumps(catalog["summary"], ensure_ascii=False))
     print(
-        f"npc_names.txt: {table['translated']}/{table['entries']} translated, "
-        f"{table['untranslated']} untranslated"
+        f"npc_names.txt: {len(entries)}/{len(entries)} translated "
+        f"({translated_from_mmmerge} MMMerge, {translated_direct} direct)"
     )
 
     pc_names_command = [
