@@ -28,6 +28,21 @@ inline std::string between(const std::string &text, const std::string &prefix, c
     return text.substr(prefix.size(), text.size() - prefix.size() - suffix.size());
 }
 
+inline void replaceAll(std::string &text, const std::string &from, const std::string &to)
+{
+    if (from.empty())
+    {
+        return;
+    }
+
+    size_t position = 0;
+    while ((position = text.find(from, position)) != std::string::npos)
+    {
+        text.replace(position, from.size(), to);
+        position += to.size();
+    }
+}
+
 inline std::string className(const std::string &name)
 {
     static const std::unordered_map<std::string, std::string> Names = {
@@ -348,6 +363,72 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Save name already exists.", "같은 이름의 저장 파일이 이미 있습니다."},
         {"Press New Game again to abandon current progress.", "현재 진행을 포기하고 새 게임을 시작하려면 다시 누르십시오."},
         {"Press Quit again to exit.", "종료하려면 다시 누르십시오."},
+        {"OK", "확인"},
+        {"Close", "닫기"},
+        {"Yes", "예"},
+        {"No", "아니요"},
+        {"Join", "합류"},
+        {"Dismiss", "해산"},
+        {"Back", "뒤로"},
+        {"Talk", "대화"},
+        {"Loot", "전리품 획득"},
+        {"Enter", "들어가기"},
+        {"Press", "누르기"},
+        {"Use", "사용"},
+        {"Exit", "나가기"},
+        {"Travel", "이동"},
+        {"Passage", "통로"},
+        {"Teleport", "순간이동"},
+        {"Fountain", "분수"},
+        {"Well", "우물"},
+        {"Shrine", "성소"},
+        {"Obelisk", "오벨리스크"},
+        {"Boost", "강화"},
+        {"Read", "읽기"},
+        {"News", "소식"},
+        {"Profession", "직업"},
+        {"Done!", "완료했습니다!"},
+        {"You already have enough followers.", "이미 충분한 동료가 있습니다."},
+        {"Enter/Space/E/Esc close", "Enter/Space/E/Esc 닫기"},
+        {"Up/Down select  Enter/Space accept  E/Esc close", "위/아래 선택  Enter/Space 확인  E/Esc 닫기"},
+        {"Type amount  Enter accept  E/Esc cancel", "금액 입력  Enter 확인  E/Esc 취소"},
+        {"Unavailable.", "이용할 수 없습니다."},
+        {"Fountains", "분수"},
+        {"Miscellaneous", "기타"},
+        {"Notes", "기록"},
+        {"Story", "이야기"},
+        {"Available", "사용 가능"},
+        {"Empty", "비어 있음"},
+        {"Stolen", "훔친 물건"},
+        {"Broken", "파손됨"},
+        {"Bricks", "벽돌"},
+        {"Gems", "보석"},
+        {"Recruits", "신병"},
+        {"Free", "무료"},
+        {"Autosave", "자동 저장"},
+        {"Quicksave", "빠른 저장"},
+        {"None", "없음"},
+        {"N/A", "해당 없음"},
+        {"Wand", "마법봉"},
+        {"INF", "무한"},
+        {"Grand", "그랜드"},
+        {"Good", "양호"},
+        {"Eradicated", "소멸"},
+        {"Petrified", "석화"},
+        {"Dead", "사망"},
+        {"Unconscious", "의식불명"},
+        {"Paralyzed", "마비"},
+        {"Asleep", "수면"},
+        {"Insane", "광기"},
+        {"Afraid", "공포"},
+        {"Diseased", "질병"},
+        {"Poisoned", "중독"},
+        {"Weak", "쇠약"},
+        {"Cursed", "저주"},
+        {"Drunk", "만취"},
+        {"Only two additional skills can be selected.", "추가 기술은 두 개만 선택할 수 있습니다."},
+        {"Character name cannot be empty.", "캐릭터 이름을 입력해야 합니다."},
+        {"Pick", "줍기"},
         {"Pick Up", "줍기"},
         {"Open Chest", "상자 열기"},
         {"Open Door", "문 열기"},
@@ -493,6 +574,37 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (endsWith(text, " joined the party.")) return text.substr(0, text.size() - 18) + "이(가) 파티에 합류했습니다.";
     if (endsWith(text, " is already following you.")) return text.substr(0, text.size() - 26) + "은(는) 이미 당신을 따라다니고 있습니다.";
     if (endsWith(text, " joined the followers.")) return text.substr(0, text.size() - 22) + "이(가) 동료로 합류했습니다.";
+    if (startsWith(text, "Pick (") && endsWith(text, ")"))
+        return "줍기 (" + between(text, "Pick (", ")") + ")";
+    if (startsWith(text, "Loot (") && endsWith(text, ")"))
+        return "전리품 획득 (" + between(text, "Loot (", ")") + ")";
+    if (startsWith(text, "Drop ")) return "버리기: " + text.substr(5);
+    if (startsWith(text, "Dropped ")) return "버렸습니다: " + text.substr(8);
+    if (startsWith(text, "Cast ")) return "시전: " + text.substr(5);
+    if (startsWith(text, "Identified ") && endsWith(text, "."))
+        return "감정 완료: " + between(text, "Identified ", ".") + ".";
+    if (startsWith(text, "Repaired ") && endsWith(text, "."))
+        return "수리 완료: " + between(text, "Repaired ", ".") + ".";
+    if (startsWith(text, "Stole ") && endsWith(text, "."))
+        return "훔쳤습니다: " + between(text, "Stole ", ".") + ".";
+    if (startsWith(text, "Sold ") && endsWith(text, " gold."))
+    {
+        const size_t price = text.rfind(" for ");
+        if (price != std::string::npos)
+        {
+            return "판매 완료: " + text.substr(5, price - 5) + " ("
+                + text.substr(price + 5, text.size() - (price + 5) - 6) + "골드).";
+        }
+    }
+    if (startsWith(text, "You found something (") && endsWith(text, ")!"))
+        return "무언가를 발견했습니다 (" + between(text, "You found something (", ")!") + ")!";
+    if (startsWith(text, "You have won ") && endsWith(text, " gold!"))
+        return between(text, "You have won ", " gold!") + "골드를 획득해 승리했습니다!";
+    if (startsWith(text, "House #")) return "건물 #" + text.substr(7);
+    if (startsWith(text, "NPC #")) return "NPC #" + text.substr(5);
+    if (startsWith(text, "Save ")) return "저장 " + text.substr(5);
+    if (startsWith(text, "Beacon ")) return "봉화 " + text.substr(7);
+    if (endsWith(text, " remaining")) return text.substr(0, text.size() - 10) + " 남음";
     if (startsWith(text, "The follower ") && endsWith(text, " left the followers."))
         return text.substr(13, text.size() - 13 - 20) + "이(가) 동료에서 떠났습니다.";
 
@@ -724,10 +836,61 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "Awards earned: ")) return "획득한 업적: " + text.substr(15);
     if (startsWith(text, "Skill Points: ")) return "기술 점수: " + text.substr(14);
 
+    if (startsWith(text, "Normal: ")) return "일반: " + text.substr(8);
+    if (startsWith(text, "Expert: ")) return "전문가: " + text.substr(8);
+    if (startsWith(text, "Master: ")) return "마스터: " + text.substr(8);
+    if (startsWith(text, "Grandmaster: ")) return "그랜드마스터: " + text.substr(13);
+    if (startsWith(text, "Power: ")) return "위력: " + text.substr(7);
+    if (startsWith(text, "Value: ")) return "가치: " + text.substr(7);
+    if (startsWith(text, "Duration:"))
+    {
+        std::string result = "지속 시간:" + text.substr(9);
+        replaceAll(result, ":yr", "년");
+        replaceAll(result, ":mo", "개월");
+        replaceAll(result, ":dy", "일");
+        replaceAll(result, ":hr", "시간");
+        replaceAll(result, ":mn", "분");
+        return result;
+    }
+    if (startsWith(text, "Attack: ") || startsWith(text, "Shoot: ") || startsWith(text, "Charges: ")
+        || startsWith(text, "Armor: ") || startsWith(text, "Broken   "))
+    {
+        std::string result = text;
+        replaceAll(result, "Broken", "파손");
+        replaceAll(result, "Attack: ", "공격: ");
+        replaceAll(result, "Shoot: ", "사격: ");
+        replaceAll(result, "Damage: ", "피해: ");
+        replaceAll(result, "Charges: ", "충전 횟수: ");
+        replaceAll(result, "Armor: ", "방어력: ");
+        return result;
+    }
+
     if (startsWith(text, "Your score: ")) return "점수: " + text.substr(12);
     if (startsWith(text, "Total Time: ")) return "총 시간: " + text.substr(12);
     if (startsWith(text, "Quick save failed: ")) return "빠른 저장 실패: " + text.substr(19);
     if (startsWith(text, "Quick load failed: ")) return "빠른 불러오기 실패: " + text.substr(19);
+    if ((endsWith(text, " AM") || endsWith(text, " PM")) && text.find(':') != std::string::npos)
+    {
+        const bool afternoon = endsWith(text, " PM");
+        return std::string(afternoon ? "오후 " : "오전 ") + text.substr(0, text.size() - 3);
+    }
+    static constexpr const char *MonthNames[] = {
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    };
+    for (size_t monthIndex = 0; monthIndex < 12; ++monthIndex)
+    {
+        const std::string marker = " " + std::string(MonthNames[monthIndex]) + " ";
+        const size_t month = text.find(marker);
+        if (month != std::string::npos
+            && text.find(' ') == month
+            && text.find(' ', month + marker.size()) == std::string::npos)
+        {
+            return text.substr(month + marker.size()) + "년 " + std::to_string(monthIndex + 1)
+                + "월 " + text.substr(0, month) + "일";
+        }
+    }
+    if (endsWith(text, " Gold")) return text.substr(0, text.size() - 5) + "골드";
 
     return std::nullopt;
 }
