@@ -459,7 +459,7 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
 
     if (startsWith(text, "To confirm ") && endsWith(text, " dismissal press the button again..."))
     {
-        const std::string name = text.substr(11, text.size() - 11 - 38);
+        const std::string name = text.substr(11, text.size() - 11 - 36);
         return name + "을(를) 해산하려면 버튼을 다시 누르십시오...";
     }
     if (endsWith(text, " dismissed.")) return text.substr(0, text.size() - 11) + "을(를) 해산했습니다.";
@@ -494,14 +494,14 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "You don't have the skill to learn ")) return text.substr(34) + "을(를) 배우기 위한 기술이 부족합니다";
     if (startsWith(text, "You already know the ")) return "이미 " + text.substr(21) + "을(를) 알고 있습니다";
     if (startsWith(text, "You already know one or more skills in ")) return text.substr(39) + " 계열의 기술을 이미 하나 이상 알고 있습니다";
-    if (startsWith(text, "This character cannot learn the skills in ")) return "이 캐릭터는 " + text.substr(41) + " 계열 기술을 배울 수 없습니다";
+    if (startsWith(text, "This character cannot learn the skills in ")) return "이 캐릭터는 " + text.substr(42) + " 계열 기술을 배울 수 없습니다";
     if (startsWith(text, "Learned the skills in ")) return text.substr(22) + " 계열 기술을 배웠습니다";
 
     if (startsWith(text, "Your current fine is ") && endsWith(text, " gold.")) return "현재 벌금은 " + text.substr(21, text.size() - 21 - 6) + "골드입니다.";
     if (startsWith(text, "Welcome to ")) return text.substr(11) + "에 오신 것을 환영합니다.";
 
     if (startsWith(text, "You have to be promoted to ") && endsWith(text, " to learn this skill."))
-        return "이 기술을 배우려면 " + className(text.substr(27, text.size() - 27 - 20)) + "(으)로 승급해야 합니다.";
+        return "이 기술을 배우려면 " + className(text.substr(27, text.size() - 27 - 21)) + "(으)로 승급해야 합니다.";
     if (startsWith(text, "This skill level can not be learned by the "))
         return text.substr(43) + "은(는) 이 숙련 등급을 배울 수 없습니다.";
     if (text.find(" is now a ") != std::string::npos)
