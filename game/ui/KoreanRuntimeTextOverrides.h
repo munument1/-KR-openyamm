@@ -298,16 +298,16 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Finish current action", "현재 행동을 먼저 끝내십시오"},
         {"Unknown quick spell", "알 수 없는 빠른 주문"},
         {"No valid target exists!", "유효한 대상이 없습니다!"},
-        {"Town Portal data missing", "마을 이동 주문 데이터가 없습니다"},
-        {"Choose Town Portal destination", "마을 이동 목적지를 선택하십시오"},
+        {"Town Portal data missing", "도시 귀환 주문 데이터가 없습니다"},
+        {"Choose Town Portal destination", "도시 귀환 목적지를 선택하십시오"},
         {"Choose Dimension Door destination", "차원문 목적지를 선택하십시오"},
-        {"Set or recall beacon", "표식을 설치하거나 귀환하십시오"},
+        {"Set or recall beacon", "봉화를 설치하거나 귀환하십시오"},
         {"Spell cancelled", "주문이 취소되었습니다"},
         {"Dimension Door", "차원문"},
-        {"Town Portal destinations unavailable", "마을 이동 목적지를 사용할 수 없습니다"},
+        {"Town Portal destinations unavailable", "도시 귀환 목적지를 사용할 수 없습니다"},
         {"Dimension Door destinations unavailable", "차원문 목적지를 사용할 수 없습니다"},
         {"current location", "현재 위치"},
-        {"Setting beacon", "표식 설치"},
+        {"Setting beacon", "봉화 설치"},
         {"Spell not learned", "배우지 않은 주문입니다"},
         {"Can't set quick spell", "빠른 주문으로 지정할 수 없습니다"},
         {"Quick spell cleared", "빠른 주문을 해제했습니다"},
@@ -352,8 +352,8 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Can not cast Fly indoors!", "실내에서는 비행을 시전할 수 없습니다!"},
         {"Can't cast Armageddon indoors!", "실내에서는 아마겟돈을 시전할 수 없습니다!"},
         {"Can't cast Inferno outdoors!", "실외에서는 지옥불을 시전할 수 없습니다!"},
-        {"Can't cast Prismatic Light outdoors!", "실외에서는 무지갯빛을 시전할 수 없습니다!"},
-        {"Divine Intervention is blocked by equipped gear", "장착한 장비 때문에 신의 개입을 시전할 수 없습니다"},
+        {"Can't cast Prismatic Light outdoors!", "실외에서는 프리즘 광선을 시전할 수 없습니다!"},
+        {"Divine Intervention is blocked by equipped gear", "장착한 장비 때문에 신성한 개입을 시전할 수 없습니다"},
         {"Not skilled enough", "기술 수준이 부족합니다"},
         {"Not enough spell points", "주문 포인트가 부족합니다"},
         {"Need character target", "캐릭터 대상을 선택해야 합니다"},
@@ -372,8 +372,8 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Pain Reflection", "고통 반사"},
         {"Press Input", "입력하십시오"},
         {"Current Quests", "현재 퀘스트"},
-        {"Lloyd's Beacon", "로이드의 표식"},
-        {"Set beacon here", "여기에 표식 설치"},
+        {"Lloyd's Beacon", "로이드의 봉화"},
+        {"Set beacon here", "여기에 봉화 설치"},
         {"Broken item", "파손된 아이템"},
         {"SP Cost", "주문 포인트 소모"},
         {"Active Spells:", "활성 주문:"},
@@ -451,9 +451,9 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "Select item for ")) return "아이템 대상 선택: " + text.substr(16);
 
     if (startsWith(text, "Dimension Door to ")) return text.substr(18) + "(으)로 차원문 이동";
-    if (startsWith(text, "Town Portal to ")) return text.substr(15) + "(으)로 마을 이동";
+    if (startsWith(text, "Town Portal to ")) return text.substr(15) + "(으)로 도시 귀환";
     if (startsWith(text, "Recall to ")) return text.substr(10) + "(으)로 귀환";
-    if (startsWith(text, "Set beacon to ")) return text.substr(14) + "에 표식 설치";
+    if (startsWith(text, "Set beacon to ")) return text.substr(14) + "에 봉화 설치";
     if (startsWith(text, "Quick spell set to ")) return "빠른 주문 지정: " + text.substr(19);
     if (startsWith(text, "Attack spell set to ")) return "공격 주문 지정: " + text.substr(20);
 

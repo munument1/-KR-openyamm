@@ -15,6 +15,7 @@
 #undef loadHudFont
 
 #include "game/ui/Utf8Text.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
 
 #define STBTT_STATIC
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -167,6 +168,11 @@ std::string localizedGameplayHudText(const std::string &text)
     if (text.empty())
     {
         return text;
+    }
+
+    if (const std::optional<std::string> overrideText = KoreanRuntimeText::koreanRuntimeTextOverride(text))
+    {
+        return *overrideText;
     }
 
     if (endsWith(text, " [disabled]"))

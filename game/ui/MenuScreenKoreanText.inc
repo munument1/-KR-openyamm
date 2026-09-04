@@ -467,9 +467,10 @@ const MenuScreenBase::FontHandle *MenuScreenBase::ensureFont(const std::string &
 
 float MenuScreenBase::measureTextWidth(const std::string &fontName, const std::string &text, float scale)
 {
-    if (!menuTextNeedsUnicode(text))
+    const std::string localizedText = KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
+    if (!menuTextNeedsUnicode(localizedText))
     {
-        return measureTextWidthLegacy(fontName, text, scale);
+        return measureTextWidthLegacy(fontName, localizedText, scale);
     }
 
     const FontHandle *pFont = ensureFontLegacy(fontName);
@@ -480,7 +481,7 @@ float MenuScreenBase::measureTextWidth(const std::string &fontName, const std::s
 
     MenuKoreanAtlas *pKoreanAtlas = buildMenuKoreanAtlas(assetFileSystem(), pFont->fontHeight);
     float widthPixels = 0.0f;
-    const std::vector<uint32_t> codePoints = decodeMenuTextCodePoints(text);
+    const std::vector<uint32_t> codePoints = decodeMenuTextCodePoints(localizedText);
 
     for (uint32_t codePoint : codePoints)
     {
@@ -528,9 +529,10 @@ bool MenuScreenBase::drawText(
     float scale,
     bool drawShadow)
 {
-    if (!menuTextNeedsUnicode(text))
+    const std::string localizedText = KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
+    if (!menuTextNeedsUnicode(localizedText))
     {
-        return drawTextLegacy(fontName, text, pixelX, pixelY, colorAbgr, scale, drawShadow);
+        return drawTextLegacy(fontName, localizedText, pixelX, pixelY, colorAbgr, scale, drawShadow);
     }
 
     const FontHandle *pFont = ensureFontLegacy(fontName);
@@ -540,7 +542,7 @@ bool MenuScreenBase::drawText(
     }
 
     MenuKoreanAtlas *pKoreanAtlas = buildMenuKoreanAtlas(assetFileSystem(), pFont->fontHeight);
-    const std::vector<uint32_t> codePoints = decodeMenuTextCodePoints(text);
+    const std::vector<uint32_t> codePoints = decodeMenuTextCodePoints(localizedText);
 
     const auto advanceForCodePoint =
         [pFont, pKoreanAtlas](uint32_t codePoint) -> float
