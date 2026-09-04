@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "entries": {
+    "engine:Global.txt:750:text": {
+      "translation": "이 대상을 되살릴 기술이 부족합니다.",
+      "note": "OpenYAMM-only Global text not present in the MMMerge localization source."
+    }
+  }
+}
