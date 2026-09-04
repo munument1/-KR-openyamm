@@ -237,6 +237,15 @@ private:
     std::string classNameForState(const CreationState &state) const;
     std::vector<int> availableVoiceIdsForSelectedCandidate() const;
     std::vector<std::string> wrapTextToWidth(const std::string &fontName, const std::string &text, float maxWidth, float scale);
+    std::vector<std::string> wrapTextToWidth(const std::string &fontName, const char *pText, float maxWidth, float scale)
+    {
+        std::string text = pText != nullptr ? pText : "";
+        if (text == "Create Party cannot be completed unless you have assigned all characters 2 extra skills and have spent all of your bonus points.")
+        {
+            text = "모든 캐릭터에게 추가 기술 2개를 선택하고 보너스 포인트를 모두 사용해야 파티 생성을 완료할 수 있습니다.";
+        }
+        return wrapTextToWidth(fontName, text, maxWidth, scale);
+    }
     const CharacterDollEntry *selectedCharacterEntry() const;
     const CharacterDollEntry *characterEntryForState(const CreationState &state) const;
     const CreationCandidate &selectedCandidate() const;
