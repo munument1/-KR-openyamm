@@ -1,0 +1,36 @@
+{
+  "format": 1,
+  "description": "Audited KO_MapStrings rows whose MMMerge source table no longer matches OpenYAMM legacy MapFile/StringId data. These rows must not be applied by literal guessing.",
+  "entries": [
+    {
+      "map_file": "out10.str",
+      "string_id": 0,
+      "translation": "툴라리안 숲",
+      "reason": "MMMerge source drift: OpenYAMM out10 StringId 0 is whitespace, not the source text represented by this Korean row."
+    },
+    {
+      "map_file": "out10.str",
+      "string_id": 1,
+      "translation": "에라시아",
+      "reason": "MMMerge source drift: OpenYAMM MM6/MM7 out10 StringId 1 is 'Chest ' and the MM8 entry is empty."
+    },
+    {
+      "map_file": "out10.str",
+      "string_id": 5,
+      "translation": "하모데일 문",
+      "reason": "MMMerge source drift: OpenYAMM MM6/MM7 out10 StringId 5 is 'Fountain' and the MM8 entry is empty."
+    },
+    {
+      "map_file": "out10.str",
+      "string_id": 13,
+      "translation": "어드벤처러 인",
+      "reason": "MMMerge source drift: OpenYAMM MM6/MM7 out10 StringId 13 is 'Dock' and the MM8 entry is empty."
+    },
+    {
+      "map_file": "out10.str",
+      "string_id": 38,
+      "translation": "원광 광산",
+      "reason": "MMMerge source drift: OpenYAMM MM6/MM7 out10 StringId 38 is 'Docks' and the MM8 entry is empty."
+    }
+  ]
+}
