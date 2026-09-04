@@ -6,6 +6,7 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/party/SkillData.h"
 #include "game/party/SpeechIds.h"
+#include "game/ui/Utf8Text.h"
 
 #include <algorithm>
 #include <array>
@@ -15,6 +16,7 @@
 #include <cstdio>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -884,12 +886,37 @@ std::string portraitTextureNameForEntry(const CharacterDollEntry &entry)
     return buffer;
 }
 
-bool isPrintableNameCharacter(char character)
+bool isPrintableNameCodePoint(uint32_t codePoint)
 {
-    return std::isalnum(static_cast<unsigned char>(character)) != 0
+    if (isHangulCodePoint(codePoint))
+    {
+        return true;
+    }
+
+    if (codePoint > 0x7fu)
+    {
+        return false;
+    }
+
+    const unsigned char character = static_cast<unsigned char>(codePoint);
+    return std::isalnum(character) != 0
         || character == ' '
         || character == '\''
         || character == '-';
+}
+
+size_t utf8CodePointCount(std::string_view text)
+{
+    size_t count = 0;
+    size_t byteOffset = 0;
+
+    while (byteOffset < text.size())
+    {
+        byteOffset = nextUtf8CodePointOffset(text, byteOffset);
+        ++count;
+    }
+
+    return count;
 }
 
 std::string characterCreationSkillDisplayName(const std::string &skillName)
@@ -1012,12 +1039,21 @@ void NewGameScreen::handleSdlEvent(const SDL_Event &event)
             return;
         }
 
-        for (size_t i = 0; pText[i] != '\0' && m_state.nameEditBuffer.size() < MaximumNameLength; ++i)
+        const std::string_view inputText(pText);
+        size_t byteOffset = 0;
+        size_t nameLength = utf8CodePointCount(m_state.nameEditBuffer);
+
+        while (byteOffset < inputText.size() && nameLength < MaximumNameLength)
         {
-            if (isPrintableNameCharacter(pText[i]))
+            const Utf8CodePointSpan span = decodeUtf8CodePoint(inputText, byteOffset);
+
+            if (span.valid && isPrintableNameCodePoint(span.codePoint))
             {
-                m_state.nameEditBuffer.push_back(pText[i]);
+                m_state.nameEditBuffer.append(inputText.data() + span.byteOffset, span.byteLength);
+                ++nameLength;
             }
+
+            byteOffset = nextUtf8CodePointOffset(inputText, byteOffset);
         }
 
         return;
@@ -1512,7 +1548,9 @@ void NewGameScreen::deleteNameEditCharacter()
 {
     if (m_state.nameEditing && !m_state.nameEditBuffer.empty())
     {
-        m_state.nameEditBuffer.pop_back();
+        const size_t previousOffset =
+            previousUtf8CodePointOffset(m_state.nameEditBuffer, m_state.nameEditBuffer.size());
+        m_state.nameEditBuffer.resize(previousOffset);
     }
 }
 
