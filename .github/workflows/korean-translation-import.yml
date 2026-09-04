@@ -7,6 +7,7 @@ on:
     paths:
       - "korean/tools/build_translation_catalog.py"
       - "korean/tools/extend_npc_dialogue_catalog.py"
+      - "korean/tools/extend_npc_names_catalog.py"
       - "korean/tools/extend_misc_catalog.py"
       - "korean/tools/extend_legacy_text_catalog.py"
       - "korean/tools/extend_house_catalog.py"
@@ -25,6 +26,7 @@ on:
       - "assets_dev/engine/data_tables/english/class.txt"
       - "assets_dev/engine/data_tables/items.txt"
       - "assets_dev/engine/data_tables/npc.txt"
+      - "assets_dev/engine/data_tables/npc_names.txt"
       - "assets_dev/engine/data_tables/npc_greet.txt"
       - "assets_dev/engine/data_tables/npc_topic.txt"
       - "assets_dev/engine/data_tables/npc_topic_text.txt"
@@ -67,6 +69,7 @@ jobs:
             /assets_dev/engine/data_tables/english/class.txt
             /assets_dev/engine/data_tables/items.txt
             /assets_dev/engine/data_tables/npc.txt
+            /assets_dev/engine/data_tables/npc_names.txt
             /assets_dev/engine/data_tables/npc_greet.txt
             /assets_dev/engine/data_tables/npc_topic.txt
             /assets_dev/engine/data_tables/npc_topic_text.txt
@@ -97,6 +100,7 @@ jobs:
             /Data/Text localization/KO_SpellsTxt.txt
             /Data/Text localization/KO_ItemsTxt.txt
             /Data/Text localization/KO_NPCData.txt
+            /Data/Text localization/KO_NPCNames.txt
             /Data/Text localization/KO_NPCGreet1.txt
             /Data/Text localization/KO_NPCGreet2.txt
             /Data/Text localization/KO_NPCTopic.txt
@@ -116,6 +120,13 @@ jobs:
           python3 korean/tools/build_translation_catalog.py \
             --mmmerge-root _mmmerge \
             --fail-on-placeholder-mismatch
+
+      - name: Extend catalog with random NPC names
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_npc_names_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
 
       - name: Extend catalog with NPC dialogue
         run: |
@@ -191,6 +202,7 @@ jobs:
             data_tables/english/class.txt \
             data_tables/items.txt \
             data_tables/npc.txt \
+            data_tables/npc_names.txt \
             data_tables/npc_greet.txt \
             data_tables/npc_topic.txt \
             data_tables/npc_topic_text.txt \
@@ -256,6 +268,7 @@ jobs:
             korean/overlay/engine/data_tables/english/class.txt
             korean/overlay/engine/data_tables/items.txt
             korean/overlay/engine/data_tables/npc.txt
+            korean/overlay/engine/data_tables/npc_names.txt
             korean/overlay/engine/data_tables/npc_greet.txt
             korean/overlay/engine/data_tables/npc_topic.txt
             korean/overlay/engine/data_tables/npc_topic_text.txt
