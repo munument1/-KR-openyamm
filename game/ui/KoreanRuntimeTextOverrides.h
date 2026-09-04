@@ -583,6 +583,97 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "+") && endsWith(text, " Earth Resistance!")) return "대지 저항 +" + between(text, "+", " Earth Resistance!") + "!";
     if (startsWith(text, "+") && endsWith(text, " Body Resistance!")) return "육체 저항 +" + between(text, "+", " Body Resistance!") + "!";
 
+    // House, temple, tavern, training and transport display text.
+    if (text == "Selected: no character") return "선택된 캐릭터: 없음";
+    if (startsWith(text, "Selected: ") && text.find(" the ") != std::string::npos)
+    {
+        const size_t split = text.find(" the ", 10);
+        return "선택: " + text.substr(10, split - 10) + " (" + className(text.substr(split + 5)) + ")";
+    }
+    if (startsWith(text, "This place is open from ") && text.find(" to ") != std::string::npos)
+    {
+        const size_t split = text.find(" to ", 24);
+        const std::string open = text.substr(24, split - 24);
+        const std::string close = text.substr(split + 4);
+        const auto koreanTime = [](const std::string &value)
+        {
+            if (endsWith(value, "AM")) return std::string("오전 ") + value.substr(0, value.size() - 2) + "시";
+            if (endsWith(value, "PM")) return std::string("오후 ") + value.substr(0, value.size() - 2) + "시";
+            return value;
+        };
+        return "영업시간: " + koreanTime(open) + " ~ " + koreanTime(close);
+    }
+    if (text == "Well, If Loretta's got a new scheme, count me in!\nBut you better get all the other companies to sign up!")
+        return "로레타에게 새 계획이 있다면 나도 끼지!\n하지만 다른 회사들도 전부 참여하게 해야 해!";
+    if (text == "Refreshing!") return "상쾌하군요!";
+    if (startsWith(text, "Heal ") && endsWith(text, " gold")) return "치료 - " + between(text, "Heal ", " gold") + "골드";
+    if (startsWith(text, "Donate ") && endsWith(text, " gold")) return "기부 - " + between(text, "Donate ", " gold") + "골드";
+    if (startsWith(text, "Rent room for ") && endsWith(text, " gold")) return "숙박 - " + between(text, "Rent room for ", " gold") + "골드";
+    if (startsWith(text, "Fill packs to ") && text.find(" days for ") != std::string::npos && endsWith(text, " gold"))
+    {
+        const size_t split = text.find(" days for ", 14);
+        return "식량 " + text.substr(14, split - 14) + "일분 채우기 - " + text.substr(split + 10, text.size() - (split + 10) - 5) + "골드";
+    }
+    if (text == "With your skills, you should be working here as a teacher\n\nSorry, but we are unable to train you.")
+        return "당신 정도의 실력이라면 여기서 교관으로 일해야겠군요.\n\n죄송하지만 더 이상 훈련해 드릴 수 없습니다.";
+    if (startsWith(text, "You need ") && text.find(" more experience to train to level ") != std::string::npos)
+    {
+        const std::string middle = " more experience to train to level ";
+        const size_t split = text.find(middle, 9);
+        return "레벨 " + text.substr(split + middle.size()) + " 훈련까지 경험치 " + text.substr(9, split - 9) + "이 더 필요합니다.";
+    }
+    if (startsWith(text, "Train to level ") && text.find(" for ") != std::string::npos && endsWith(text, " gold"))
+    {
+        const size_t split = text.find(" for ", 15);
+        return "레벨 " + text.substr(15, split - 15) + " 훈련 - " + text.substr(split + 5, text.size() - (split + 5) - 5) + "골드";
+    }
+    if (startsWith(text, "Current Fine: ") && endsWith(text, " gold")) return "현재 벌금: " + between(text, "Current Fine: ", " gold") + "골드";
+    if (startsWith(text, "The temple staff cannot treat ") && endsWith(text, "'s condition.")) return "사원에서는 " + between(text, "The temple staff cannot treat ", "'s condition.") + "의 상태를 치료할 수 없습니다.";
+    if (startsWith(text, "The temple staff says ") && endsWith(text, " is already well.")) return between(text, "The temple staff says ", " is already well.") + ": 이미 치료가 필요하지 않습니다.";
+    if (startsWith(text, "You need ") && endsWith(text, " gold for healing.")) return "치료하려면 " + between(text, "You need ", " gold for healing.") + "골드가 필요합니다.";
+    if (startsWith(text, "The temple restores ") && text.find(" for ") != std::string::npos && endsWith(text, " gold."))
+    {
+        const size_t split = text.rfind(" for ");
+        return "치료 완료: " + text.substr(20, split - 20) + " (" + text.substr(split + 5, text.size() - (split + 5) - 6) + "골드)";
+    }
+    if (startsWith(text, "You need ") && endsWith(text, " gold to donate here.")) return "기부하려면 " + between(text, "You need ", " gold to donate here.") + "골드가 필요합니다.";
+    if (startsWith(text, "You need ") && endsWith(text, " gold to rent a room.")) return "방을 빌리려면 " + between(text, "You need ", " gold to rent a room.") + "골드가 필요합니다.";
+    if (startsWith(text, "You need ") && endsWith(text, " gold for provisions.")) return "식량을 구입하려면 " + between(text, "You need ", " gold for provisions.") + "골드가 필요합니다.";
+    if (startsWith(text, "The innkeeper fills your packs to ") && endsWith(text, " days.")) return "여관 주인이 식량을 " + between(text, "The innkeeper fills your packs to ", " days.") + "일분까지 채워 주었습니다.";
+    if (startsWith(text, "You need ") && endsWith(text, " gold for a drink.")) return "술을 마시려면 " + between(text, "You need ", " gold for a drink.") + "골드가 필요합니다.";
+    if (startsWith(text, "You need ") && endsWith(text, " gold for a tip.")) return "팁을 주려면 " + between(text, "You need ", " gold for a tip.") + "골드가 필요합니다.";
+    if (startsWith(text, "You need ") && endsWith(text, " gold for training.")) return "훈련하려면 " + between(text, "You need ", " gold for training.") + "골드가 필요합니다.";
+    if (text.find(" is now level ") != std::string::npos && text.find(" and has earned ") != std::string::npos && endsWith(text, " skill points!"))
+    {
+        const size_t level = text.find(" is now level ");
+        const size_t earned = text.find(" and has earned ", level + 14);
+        return text.substr(0, level) + ": 레벨 " + text.substr(level + 14, earned - (level + 14)) + " 달성, 기술 점수 " + text.substr(earned + 16, text.size() - (earned + 16) - 14) + " 획득!";
+    }
+    if (text.find(" cannot learn ") != std::string::npos && endsWith(text, " here."))
+    {
+        const size_t split = text.find(" cannot learn ");
+        return text.substr(0, split) + ": 여기서는 " + text.substr(split + 14, text.size() - (split + 14) - 6) + "을(를) 배울 수 없습니다.";
+    }
+    if (text.find(" learns ") != std::string::npos && text.find(" for ") != std::string::npos && endsWith(text, " gold."))
+    {
+        const size_t learns = text.find(" learns ");
+        const size_t price = text.rfind(" for ");
+        return text.substr(0, learns) + ": " + text.substr(learns + 8, price - (learns + 8)) + " 습득 (" + text.substr(price + 5, text.size() - (price + 5) - 6) + "골드)";
+    }
+    if (startsWith(text, "Learn ") && text.find(" for ") != std::string::npos && endsWith(text, " gold"))
+    {
+        const size_t price = text.rfind(" for ");
+        return text.substr(6, price - 6) + " 배우기 - " + text.substr(price + 5, text.size() - (price + 5) - 5) + "골드";
+    }
+    if (startsWith(text, "It will take ") && text.find(" to travel to ") != std::string::npos && endsWith(text, "."))
+    {
+        const size_t split = text.find(" to travel to ", 13);
+        std::string duration = text.substr(13, split - 13);
+        if (endsWith(duration, " day")) duration = duration.substr(0, duration.size() - 4) + "일";
+        else if (endsWith(duration, " days")) duration = duration.substr(0, duration.size() - 5) + "일";
+        return text.substr(split + 14, text.size() - (split + 14) - 1) + "까지 이동하는 데 " + duration + "이 걸립니다.";
+    }
+
     if (startsWith(text, "Your current fine is ") && endsWith(text, " gold.")) return "현재 벌금은 " + text.substr(21, text.size() - 21 - 6) + "골드입니다.";
     if (startsWith(text, "You need ") && endsWith(text, " gold to pay your fine.")) return "벌금을 납부하려면 " + between(text, "You need ", " gold to pay your fine.") + "골드가 필요합니다.";
     if (startsWith(text, "Welcome to ")) return text.substr(11) + "에 오신 것을 환영합니다.";
