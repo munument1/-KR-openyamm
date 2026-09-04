@@ -1,0 +1,39 @@
+name: Fix Korean visible UI patch assertion
+
+on:
+  push:
+    branches: [korean-localization]
+    paths:
+      - .github/workflows/fix-korean-visible-ui-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: korean-localization
+          fetch-depth: 0
+          sparse-checkout: .github/workflows/korean-visible-ui-residuals.yml
+          sparse-checkout-cone-mode: false
+      - name: Correct assertion
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('.github/workflows/korean-visible-ui-residuals.yml')
+          s = p.read_text(encoding='utf-8')
+          old = "expected = 2 if label == 'unidentified item' else 1"
+          new = "expected = 1"
+          if s.count(old) != 1:
+              raise SystemExit('expected assertion anchor missing')
+          p.write_text(s.replace(old, new), encoding='utf-8')
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/korean-visible-ui-residuals.yml
+          git commit -m "ci(korean): correct visible UI patch assertion"
+          git push origin HEAD:korean-localization
