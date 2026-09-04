@@ -137,15 +137,15 @@ std::string attackRecoveryInspectSupplement(
             mainHandAttackUsesBlasterRecovery(character, *context.itemTable())
                 ? profile.rangedRecoverySeconds
                 : profile.meleeRecoverySeconds;
-        return "Recovery time: " + std::to_string(recoveryTicksFromSeconds(recoverySeconds));
+        return "회복 시간: " + std::to_string(recoveryTicksFromSeconds(recoverySeconds));
     }
 
     if (!profile.canShoot)
     {
-        return "Recovery time: N/A";
+        return "회복 시간: 해당 없음";
     }
 
-    return "Recovery time: " + std::to_string(recoveryTicksFromSeconds(profile.rangedRecoverySeconds));
+    return "회복 시간: " + std::to_string(recoveryTicksFromSeconds(profile.rangedRecoverySeconds));
 }
 
 std::string formatRemainingDuration(float remainingSeconds)
@@ -159,23 +159,23 @@ std::string formatRemainingDuration(float remainingSeconds)
     {
         if (minutes > 0)
         {
-            return std::to_string(hours) + "h " + std::to_string(minutes) + "m";
+            return std::to_string(hours) + "시간 " + std::to_string(minutes) + "분";
         }
 
-        return std::to_string(hours) + "h";
+        return std::to_string(hours) + "시간";
     }
 
     if (minutes > 0)
     {
         if (seconds > 0 && minutes < 5)
         {
-            return std::to_string(minutes) + "m " + std::to_string(seconds) + "s";
+            return std::to_string(minutes) + "분 " + std::to_string(seconds) + "초";
         }
 
-        return std::to_string(minutes) + "m";
+        return std::to_string(minutes) + "분";
     }
 
-    return std::to_string(seconds) + "s";
+    return std::to_string(seconds) + "초";
 }
 
 std::string formatCharacterDetailDuration(float remainingSeconds)
@@ -188,22 +188,22 @@ std::string formatCharacterDetailDuration(float remainingSeconds)
 
     if (hours > 0)
     {
-        parts.push_back(std::to_string(hours) + (hours == 1 ? " Hour" : " Hours"));
+        parts.push_back(std::to_string(hours) + "시간");
     }
 
     if (minutes > 0)
     {
-        parts.push_back(std::to_string(minutes) + (minutes == 1 ? " Minute" : " Minutes"));
+        parts.push_back(std::to_string(minutes) + "분");
     }
 
     if (hours == 0 && seconds > 0)
     {
-        parts.push_back(std::to_string(seconds) + (seconds == 1 ? " Second" : " Seconds"));
+        parts.push_back(std::to_string(seconds) + "초");
     }
 
     if (parts.empty())
     {
-        return "0 Seconds";
+        return "0초";
     }
 
     std::string result;
@@ -773,12 +773,12 @@ void GameplayHudOverlaySupport::updateCharacterInspectOverlay(
                     && context.settingsSnapshot().blasterSkillScaling == BlasterSkillScalingMode::ScalingDamage)
                 {
                     overlay.body =
-                        "Blaster weapons provide an accurate ranged attack. With scaling damage enabled, only "
-                        "Grandmaster rank adds damage per skill point.";
-                    expertDescription = "Skill added to Attack Bonus (double effect)";
-                    masterDescription = "Skill added to Attack Bonus (triple effect)";
+                        "블래스터 무기는 정확한 원거리 공격을 제공합니다. 피해량 증가 설정에서는 "
+                        "그랜드마스터 등급에서만 기술 포인트당 피해가 증가합니다.";
+                    expertDescription = "기술 점수가 공격 보너스에 더해짐(2배 효과)";
+                    masterDescription = "기술 점수가 공격 보너스에 더해짐(3배 효과)";
                     grandmasterDescription =
-                        "Skill added to Attack Bonus (quintuple effect); +1 damage per skill point";
+                        "기술 점수가 공격 보너스에 더해짐(5배 효과); 기술 포인트당 피해 +1";
                 }
 
                 overlay.normal.text = "Normal: " + normalDescription;
@@ -889,98 +889,98 @@ void GameplayHudOverlaySupport::updateBuffInspectOverlay(
     };
 
     static constexpr PartyBuffInspectTarget BuffTargets[] = {
-        {"OutdoorFlyBuffIcon", "OutdoorStandardFlyBuffIcon", "Fly", PartyBuffId::Fly, true},
+        {"OutdoorFlyBuffIcon", "OutdoorStandardFlyBuffIcon", "비행", PartyBuffId::Fly, true},
         {
             "OutdoorBuffSkull_Torchlight",
             "OutdoorStandardBuffSkull_Torchlight",
-            "Torch Light",
+            "횃불",
             PartyBuffId::TorchLight,
             true
         },
         {
             "OutdoorBuffSkull_WizardEye",
             "OutdoorStandardBuffSkull_WizardEye",
-            "Wizard Eye",
+            "마법사의 눈",
             PartyBuffId::WizardEye,
             true
         },
         {
             "OutdoorBuffSkull_FeatherFall",
             "OutdoorStandardBuffSkull_FeatherFall",
-            "Feather Fall",
+            "깃털 낙하",
             PartyBuffId::FeatherFall,
             true
         },
         {
             "OutdoorBuffSkull_Stoneskin",
             "OutdoorStandardBuffSkull_Stoneskin",
-            "Stoneskin",
+            "돌가죽",
             PartyBuffId::Stoneskin,
             true
         },
         {
             "OutdoorBuffSkull_DayOfGods",
             "OutdoorStandardBuffSkull_DayOfGods",
-            "Day of the Gods",
+            "신들의 날",
             PartyBuffId::DayOfGods,
             true
         },
         {
             "OutdoorBuffSkull_ProtectionFromGods",
             "OutdoorStandardBuffSkull_ProtectionFromGods",
-            "Protection from Magic",
+            "마법 보호",
             PartyBuffId::ProtectionFromMagic,
             true
         },
         {
             "OutdoorBuffBody_FireResistance",
             "OutdoorStandardBuffBody_FireResistance",
-            "Fire Resistance",
+            "화염 저항",
             PartyBuffId::FireResistance,
             false
         },
         {
             "OutdoorBuffBody_WaterResistance",
             "OutdoorStandardBuffBody_WaterResistance",
-            "Water Resistance",
+            "물 저항",
             PartyBuffId::WaterResistance,
             false
         },
         {
             "OutdoorBuffBody_AirResistance",
             "OutdoorStandardBuffBody_AirResistance",
-            "Air Resistance",
+            "공기 저항",
             PartyBuffId::AirResistance,
             false
         },
         {
             "OutdoorBuffBody_EarthResistance",
             "OutdoorStandardBuffBody_EarthResistance",
-            "Earth Resistance",
+            "대지 저항",
             PartyBuffId::EarthResistance,
             false
         },
         {
             "OutdoorBuffBody_MindResistance",
             "OutdoorStandardBuffBody_MindResistance",
-            "Mind Resistance",
+            "정신 저항",
             PartyBuffId::MindResistance,
             false
         },
         {
             "OutdoorBuffBody_BodyResistance",
             "OutdoorStandardBuffBody_BodyResistance",
-            "Body Resistance",
+            "육체 저항",
             PartyBuffId::BodyResistance,
             false
         },
-        {"OutdoorBuffBody_Shield", "OutdoorStandardBuffBody_Shield", "Shield", PartyBuffId::Shield, false},
-        {"OutdoorBuffBody_Heroism", "OutdoorStandardBuffBody_Heroism", "Heroism", PartyBuffId::Heroism, false},
-        {"OutdoorBuffBody_Haste", "OutdoorStandardBuffBody_Haste", "Haste", PartyBuffId::Haste, false},
+        {"OutdoorBuffBody_Shield", "OutdoorStandardBuffBody_Shield", "방패", PartyBuffId::Shield, false},
+        {"OutdoorBuffBody_Heroism", "OutdoorStandardBuffBody_Heroism", "영웅심", PartyBuffId::Heroism, false},
+        {"OutdoorBuffBody_Haste", "OutdoorStandardBuffBody_Haste", "가속", PartyBuffId::Haste, false},
         {
             "OutdoorBuffBody_Immolation",
             "OutdoorStandardBuffBody_Immolation",
-            "Immolation",
+            "화염의 장막",
             PartyBuffId::Immolation,
             false
         },
@@ -1012,11 +1012,11 @@ void GameplayHudOverlaySupport::updateBuffInspectOverlay(
 
             if (body.empty())
             {
-                body = "No active buffs";
+                body = "활성 강화 효과 없음";
             }
 
             overlay.active = true;
-            overlay.title = "Active Buffs";
+            overlay.title = "활성 강화 효과";
             overlay.body = body;
             overlay.sourceX = rect.x;
             overlay.sourceY = rect.y;
@@ -1169,10 +1169,10 @@ void GameplayHudOverlaySupport::updateCharacterDetailOverlay(
         characterAttackTuningFromSettings(context.settingsSnapshot()));
 
     overlay.active = true;
-    const std::string characterName = pCharacter->name.empty() ? "Member" : pCharacter->name;
+    const std::string characterName = pCharacter->name.empty() ? "파티원" : pCharacter->name;
     const std::string characterClass =
         displayClassName(!pCharacter->className.empty() ? pCharacter->className : pCharacter->role);
-    overlay.title = characterClass.empty() ? characterName : characterName + " the " + characterClass;
+    overlay.title = characterClass.empty() ? characterName : characterName + " (" + characterClass + ")";
     overlay.body.clear();
     overlay.portraitTextureName = defaultCharacterPortraitTextureName(*pCharacter);
     overlay.hitPointsText = std::to_string(summary.health.current) + " / " + std::to_string(summary.health.maximum);
@@ -1189,16 +1189,16 @@ void GameplayHudOverlaySupport::updateCharacterDetailOverlay(
     };
 
     static constexpr CharacterBuffInspectLine CharacterBuffLines[] = {
-        {"Bless", CharacterBuffId::Bless},
-        {"Fate", CharacterBuffId::Fate},
-        {"Preservation", CharacterBuffId::Preservation},
-        {"Regeneration", CharacterBuffId::Regeneration},
-        {"Hammerhands", CharacterBuffId::Hammerhands},
-        {"Pain Reflection", CharacterBuffId::PainReflection},
-        {"Fire Aura", CharacterBuffId::FireAura},
-        {"Vampiric Weapon", CharacterBuffId::VampiricWeapon},
-        {"Mistform", CharacterBuffId::Mistform},
-        {"Glamour", CharacterBuffId::Glamour},
+        {"축복", CharacterBuffId::Bless},
+        {"운명", CharacterBuffId::Fate},
+        {"생명 보존", CharacterBuffId::Preservation},
+        {"재생", CharacterBuffId::Regeneration},
+        {"망치손", CharacterBuffId::Hammerhands},
+        {"고통 반사", CharacterBuffId::PainReflection},
+        {"화염 오라", CharacterBuffId::FireAura},
+        {"흡혈 무기", CharacterBuffId::VampiricWeapon},
+        {"미스트폼", CharacterBuffId::Mistform},
+        {"매혹", CharacterBuffId::Glamour},
     };
 
     if (memberIndex)

@@ -2402,52 +2402,52 @@ std::string actorInspectSpellDisplayName(const std::string &spellName)
 
     if (lowerName == "day of protection")
     {
-        return "Day of Protection";
+        return "보호의 날";
     }
 
     if (lowerName == "hour of power")
     {
-        return "Hour of Power";
+        return "힘의 시간";
     }
 
     if (lowerName == "pain reflection")
     {
-        return "Pain Reflection";
+        return "고통 반사";
     }
 
     if (lowerName == "hammerhands")
     {
-        return "Hammerhands";
+        return "망치손";
     }
 
     if (lowerName == "haste")
     {
-        return "Haste";
+        return "가속";
     }
 
     if (lowerName == "shield")
     {
-        return "Shield";
+        return "방패";
     }
 
     if (lowerName == "stoneskin")
     {
-        return "Stoneskin";
+        return "돌가죽";
     }
 
     if (lowerName == "bless")
     {
-        return "Bless";
+        return "축복";
     }
 
     if (lowerName == "fate")
     {
-        return "Fate";
+        return "운명";
     }
 
     if (lowerName == "heroism")
     {
-        return "Heroism";
+        return "영웅심";
     }
 
     return spellName;
@@ -2455,14 +2455,14 @@ std::string actorInspectSpellDisplayName(const std::string &spellName)
 
 std::string formatMonsterResistanceText(int value)
 {
-    return value >= 200 ? "Imm" : std::to_string(value);
+    return value >= 200 ? "면역" : std::to_string(value);
 }
 
 std::string resolveItemInspectTypeText(const InventoryItem *pItemState, const ItemDefinition &itemDefinition)
 {
     if (pItemState != nullptr && !pItemState->identified && ItemRuntime::requiresIdentification(itemDefinition))
     {
-        return "Not identified";
+        return "미감정";
     }
 
     if (!itemDefinition.unidentifiedName.empty()
@@ -6849,7 +6849,7 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
                     bonusTextureHandle = pFont->mainTextureHandle;
                 }
 
-                const std::string label = "Skill bonus: ";
+                const std::string label = "기술 보너스: ";
                 const std::string value = "+" + std::to_string(skillBonus);
                 const float labelX = std::round(baseResolved.x + baseLayout.textPadX * popupScale);
                 const float valueX = labelX + context.measureHudTextWidth(*pFont, label) * popupScale;
@@ -8003,7 +8003,7 @@ void GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(GameplayScreenRu
     float statsY = std::round(rootRect.y + 35.0f * popupScale);
     renderHudText(
         *pBodyFont,
-        "Hit Points : " + overlay.hitPointsText,
+        "생명력 : " + overlay.hitPointsText,
         statsX,
         statsY,
         bodyFontScale,
@@ -8011,7 +8011,7 @@ void GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(GameplayScreenRu
     statsY += statsLineAdvance;
     renderHudText(
         *pBodyFont,
-        "Spell Points : " + overlay.spellPointsText,
+        "주문력 : " + overlay.spellPointsText,
         statsX,
         statsY,
         bodyFontScale,
@@ -8019,7 +8019,7 @@ void GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(GameplayScreenRu
     statsY += statsLineAdvance;
     renderHudText(
         *pBodyFont,
-        "Condition: " + overlay.conditionText,
+        "상태: " + overlay.conditionText,
         statsX,
         statsY,
         bodyFontScale,
@@ -8027,7 +8027,7 @@ void GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(GameplayScreenRu
     statsY += statsLineAdvance;
     renderHudText(
         *pBodyFont,
-        "Quick Spell: " + overlay.quickSpellText,
+        "빠른 주문: " + overlay.quickSpellText,
         statsX,
         statsY,
         bodyFontScale,
@@ -8037,7 +8037,7 @@ void GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(GameplayScreenRu
     const float activeSpellsHeaderY = std::round(rootRect.y + 100.0f * popupScale);
     renderHudText(
         *pBodyFont,
-        "Active Spells:",
+        "활성 주문:",
         activeSpellsHeaderX,
         activeSpellsHeaderY,
         bodyFontScale,
@@ -8321,7 +8321,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
         canTrainToNextLevel = summary.canTrainToNextLevel;
         attackValue = std::to_string(summary.combat.attack);
         meleeDamageValue = summary.combat.meleeDamageText;
-        shootValue = summary.combat.shoot ? std::to_string(*summary.combat.shoot) : "N/A";
+        shootValue = summary.combat.shoot ? std::to_string(*summary.combat.shoot) : "해당 없음";
         rangedDamageValue = summary.combat.rangedDamageText;
         fireResistanceValue = formatSheetValue(summary.fireResistance);
         airResistanceValue = formatSheetValue(summary.airResistance);
@@ -8340,7 +8340,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                       return context.isAutonoteUnlocked(autonoteId);
                   })
             : pCharacter->awards.size();
-        awards = "Awards earned: " + std::to_string(awardCount);
+        awards = "획득한 업적: " + std::to_string(awardCount);
 
         if (context.rosterTable() != nullptr && pCharacter->rosterId != 0)
         {
@@ -9419,7 +9419,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             label = replaceAllText(
                 label,
                 "{stats_skill_points}",
-                pCharacter != nullptr ? "Skill Points: " + std::to_string(pCharacter->skillPoints) : "Skill Points: 0");
+                pCharacter != nullptr ? "기술 점수: " + std::to_string(pCharacter->skillPoints) : "기술 점수: 0");
             label = replaceAllText(
                 label,
                 "{stats_skill_points_value}",

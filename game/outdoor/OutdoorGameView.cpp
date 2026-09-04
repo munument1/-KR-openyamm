@@ -1237,7 +1237,7 @@ std::string resolveItemInspectTypeText(const InventoryItem *pItemState, const It
 {
     if (pItemState != nullptr && !pItemState->identified && ItemRuntime::requiresIdentification(itemDefinition))
     {
-        return "Not identified";
+        return "미감정";
     }
 
     if (!itemDefinition.skillGroup.empty()
@@ -1331,7 +1331,7 @@ std::string formatFoundItemStatusText(int goldAmount, const std::string &itemNam
 
     if (goldAmount > 0)
     {
-        return "You found " + std::to_string(goldAmount) + " gold and an item (" + resolvedItemName + ")!";
+        return std::to_string(goldAmount) + "골드와 아이템 (" + resolvedItemName + ")을 발견했습니다!";
     }
 
     return "You found an item (" + resolvedItemName + ")!";
