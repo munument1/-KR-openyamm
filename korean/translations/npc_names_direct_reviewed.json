@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "source_file": "assets_dev/engine/data_tables/npc_names.txt",
+  "review_status": "reviewed",
+  "review_note": "The MMMerge Korean NPC-name table is missing only the final OpenYAMM source name Zyggie. This one name was directly transliterated and reviewed.",
+  "entries": {
+    "Zyggie": {
+      "source": "Zyggie",
+      "translation": "지기",
+      "reviewed": true
+    }
+  }
+}
