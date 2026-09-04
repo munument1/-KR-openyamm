@@ -152,12 +152,6 @@ jobs:
             --mmmerge-root _mmmerge \
             --fail-on-review
 
-      - name: Extend catalog with reviewed Arcomage card names
-        run: |
-          set -euo pipefail
-          python3 korean/tools/extend_arcomage_catalog.py \
-            --fail-on-review
-
       - name: Generate Korean map event overlays
         run: |
           set -euo pipefail
@@ -208,8 +202,7 @@ jobs:
             data_tables/monster_data.txt \
             data_tables/house_data.txt \
             data_tables/standard_item_enchants.txt \
-            data_tables/special_item_enchants.txt \
-            data_tables/arcomage_cards.txt; do
+            data_tables/special_item_enchants.txt; do
             grep -Fxq "$required" dist/korean-translation-import/engine-contents.txt
           done
           for world in mm6 mm7 mm8 mmmerge; do
