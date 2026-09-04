@@ -97,6 +97,55 @@ private:
         std::string statusMessage;
     };
 
+    std::string localizedNewGameDisplayText(const std::string &text) const
+    {
+        const bool isPrimaryStat =
+            text == "Might"
+            || text == "Intellect"
+            || text == "Personality"
+            || text == "Endurance"
+            || text == "Accuracy"
+            || text == "Speed"
+            || text == "Luck";
+
+        if (isPrimaryStat && m_pGameData != nullptr)
+        {
+            if (const StatInspectEntry *pEntry = m_pGameData->characterInspectTable().getStat(text))
+            {
+                if (!pEntry->name.empty())
+                {
+                    return pEntry->name;
+                }
+            }
+        }
+
+        return text;
+    }
+
+    bool drawText(
+        const std::string &fontName,
+        const std::string &text,
+        float pixelX,
+        float pixelY,
+        uint32_t colorAbgr = 0xffffffffu,
+        float scale = 1.0f,
+        bool drawShadow = true)
+    {
+        return MenuScreenBase::drawText(
+            fontName,
+            localizedNewGameDisplayText(text),
+            pixelX,
+            pixelY,
+            colorAbgr,
+            scale,
+            drawShadow);
+    }
+
+    float measureTextWidth(const std::string &fontName, const std::string &text, float scale = 1.0f)
+    {
+        return MenuScreenBase::measureTextWidth(fontName, localizedNewGameDisplayText(text), scale);
+    }
+
     void drawScreen(float deltaSeconds) override;
     void drawContinentSelection(float deltaSeconds);
     void selectContinent(const std::string &continentKey);
