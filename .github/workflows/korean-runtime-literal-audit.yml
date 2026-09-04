@@ -1,0 +1,105 @@
+name: Korean runtime literal audit
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - .github/workflows/korean-runtime-literal-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Scan likely player-facing English literals
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+
+          roots = [Path('game')]
+          exts = {'.cpp', '.h', '.hpp', '.inc'}
+          literal_re = re.compile(r'"((?:\\.|[^"\\])*)"')
+          word_re = re.compile(r'[A-Za-z]+')
+          likely_context = re.compile(
+              r'(message|status|title|label|text|dialog|tooltip|description|fallback|push_back|return\s+"|drawText|wrapText|error|warning|offer|prompt|caption|notification)',
+              re.I)
+          ignore_context = re.compile(
+              r'(TRACE|DEBUG|assert|path|Path|texture|sprite|shader|asset|fileName|canonical|lookup|key|idName|enum|json|yaml|\.png|\.bmp|\.lod|\.txt|\.lua|\.yml|\.odm|\.blv|\.wav|\.smk|\.vid|\.icons)',
+              re.I)
+          ignore_literal = re.compile(
+              r'^(none|unknown|true|false|engine|default|normal|expert|master|grandmaster|yes|no|ok|cancel|close|back|none)$',
+              re.I)
+
+          rows = []
+          for root in roots:
+              for path in root.rglob('*'):
+                  if path.suffix.lower() not in exts or not path.is_file():
+                      continue
+                  try:
+                      lines = path.read_text(encoding='utf-8').splitlines()
+                  except UnicodeDecodeError:
+                      continue
+                  for lineno, line in enumerate(lines, 1):
+                      if not likely_context.search(line):
+                          continue
+                      for m in literal_re.finditer(line):
+                          lit = bytes(m.group(1), 'utf-8').decode('unicode_escape', errors='ignore')
+                          words = word_re.findall(lit)
+                          if len(words) < 2:
+                              continue
+                          if ignore_literal.fullmatch(lit.strip()):
+                              continue
+                          # Keep prose-like strings; down-rank obvious implementation strings.
+                          score = 0
+                          if len(words) >= 4: score += 3
+                          elif len(words) >= 2: score += 1
+                          if any(ch in lit for ch in '.!?'): score += 2
+                          if ' ' in lit: score += 1
+                          if likely_context.search(line): score += 2
+                          if ignore_context.search(line) or ignore_context.search(lit): score -= 3
+                          if lit.startswith('[') or lit.startswith('{'): score -= 2
+                          if score < 3:
+                              continue
+                          rows.append({
+                              'file': path.as_posix(),
+                              'line': lineno,
+                              'literal': lit,
+                              'source_line': line.strip(),
+                              'score': score,
+                          })
+
+          # Deduplicate exact file/line/literal and sort strongest first.
+          unique = {(r['file'], r['line'], r['literal']): r for r in rows}
+          rows = sorted(unique.values(), key=lambda r: (-r['score'], r['file'], r['line']))
+          Path('runtime-literal-audit.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(f'CANDIDATE_COUNT={len(rows)}')
+          by_file = {}
+          for r in rows:
+              by_file[r['file']] = by_file.get(r['file'], 0) + 1
+          print('FILES_WITH_CANDIDATES=', len(by_file))
+          for file, count in sorted(by_file.items(), key=lambda kv: (-kv[1], kv[0]))[:80]:
+              print(f'FILE {count:4d} {file}')
+          print('--- CANDIDATES ---')
+          for r in rows[:800]:
+              print(f"{r['score']}\t{r['file']}:{r['line']}\t{r['literal']}")
+          PY
+
+      - name: Upload audit
+        uses: actions/upload-artifact@v7
+        with:
+          name: korean-runtime-literal-audit
+          path: runtime-literal-audit.json
+          retention-days: 3
