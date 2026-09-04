@@ -118,6 +118,11 @@ jobs:
             --mmmerge-root _mmmerge \
             --fail-on-review
 
+      - name: Preserve class logic keys and localized display names
+        run: |
+          set -euo pipefail
+          python3 korean/tools/normalize_class_overlay.py
+
       - name: Extend catalog with 2D event house text
         run: |
           set -euo pipefail
