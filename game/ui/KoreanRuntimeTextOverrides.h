@@ -678,6 +678,30 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "You need ") && endsWith(text, " gold to pay your fine.")) return "벌금을 납부하려면 " + between(text, "You need ", " gold to pay your fine.") + "골드가 필요합니다.";
     if (startsWith(text, "Welcome to ")) return text.substr(11) + "에 오신 것을 환영합니다.";
 
+    if (text == "You failed to steal it.") return "훔치기에 실패했습니다.";
+    if (text == "Sorry, come back another day.") return "죄송하지만 다른 날 다시 오십시오.";
+    if (text == "MM9 dialogue action 0 is unresolved.") return "MM9 대화 동작 0은 아직 처리되지 않았습니다.";
+    if (text == "You do not have enough gold.") return "골드가 부족합니다.";
+    if (startsWith(text, "Become ") && text.find(" in ") != std::string::npos && text.find(" for ") != std::string::npos && endsWith(text, " gold"))
+    {
+        const size_t inPos = text.find(" in ", 7);
+        const size_t forPos = text.rfind(" for ");
+        const std::string rank = text.substr(7, inPos - 7);
+        const std::string rankKo = rank == "Expert" ? "전문가" : rank == "Master" ? "마스터" : rank == "Grandmaster" ? "그랜드마스터" : rank;
+        return text.substr(inPos + 4, forPos - (inPos + 4)) + " " + rankKo + " 승급 - " + text.substr(forPos + 5, text.size() - (forPos + 5) - 5) + "골드";
+    }
+    if (text.find(" is now a ") != std::string::npos && text.find(" in ") != std::string::npos && endsWith(text, "."))
+    {
+        const size_t rankPos = text.find(" is now a ");
+        const size_t inPos = text.find(" in ", rankPos + 10);
+        const std::string rank = text.substr(rankPos + 10, inPos - (rankPos + 10));
+        if (rank == "Expert" || rank == "Master" || rank == "Grandmaster")
+        {
+            const std::string rankKo = rank == "Expert" ? "전문가" : rank == "Master" ? "마스터" : "그랜드마스터";
+            return text.substr(0, rankPos) + ": " + text.substr(inPos + 4, text.size() - (inPos + 4) - 1) + " " + rankKo + " 승급 완료.";
+        }
+    }
+
     if (startsWith(text, "You have to be promoted to ") && endsWith(text, " to learn this skill."))
         return "이 기술을 배우려면 " + className(text.substr(27, text.size() - 27 - 21)) + "(으)로 승급해야 합니다.";
     if (startsWith(text, "This skill level can not be learned by the "))
