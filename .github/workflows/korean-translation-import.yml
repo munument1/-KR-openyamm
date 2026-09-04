@@ -9,6 +9,7 @@ on:
       - "korean/tools/extend_npc_dialogue_catalog.py"
       - "korean/tools/extend_misc_catalog.py"
       - "korean/tools/extend_legacy_text_catalog.py"
+      - "korean/tools/extend_house_catalog.py"
       - "korean/tools/apply_catalog_overrides.py"
       - "korean/translations/**"
       - "korean/build_patch.py"
@@ -28,6 +29,7 @@ on:
       - "assets_dev/engine/data_tables/npc_topic_text.txt"
       - "assets_dev/engine/data_tables/map_stats.txt"
       - "assets_dev/engine/data_tables/monster_data.txt"
+      - "assets_dev/engine/data_tables/house_data.txt"
   workflow_dispatch:
 
 permissions:
@@ -62,6 +64,7 @@ jobs:
             /assets_dev/engine/data_tables/npc_topic_text.txt
             /assets_dev/engine/data_tables/map_stats.txt
             /assets_dev/engine/data_tables/monster_data.txt
+            /assets_dev/engine/data_tables/house_data.txt
 
       - name: Check out MMMerge Korean translation source
         uses: actions/checkout@v7
@@ -89,6 +92,7 @@ jobs:
             /Data/Text localization/KO_MessageScrolls.txt
             /Data/Text localization/KO_ClassNames.txt
             /Data/Text localization/KO_ClassDescriptions.txt
+            /Data/Text localization/KO_2DEvents.txt
 
       - name: Generate base JSON catalog and native overlay tables
         run: |
@@ -127,6 +131,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 korean/tools/extend_legacy_text_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+
+      - name: Extend catalog with 2D event house text
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_house_catalog.py \
             --mmmerge-root _mmmerge
           python3 -m json.tool korean/translations/catalog.json >/dev/null
 
@@ -160,7 +171,8 @@ jobs:
             data_tables/npc_topic.txt \
             data_tables/npc_topic_text.txt \
             data_tables/map_stats.txt \
-            data_tables/monster_data.txt; do
+            data_tables/monster_data.txt \
+            data_tables/house_data.txt; do
             grep -Fxq "$required" dist/korean-translation-import/engine-contents.txt
           done
 
@@ -189,15 +201,15 @@ jobs:
               if entry['status'] in {'untranslated', 'needs_review'}
           ]
           print(f'REVIEW_QUEUE={len(review_entries)}')
-          for entry in review_entries[:200]:
+          for entry in review_entries[:250]:
               print('---')
               print('key:', entry['key'])
               print('status:', entry['status'])
               print('source:', entry['source'])
               print('translation:', entry['translation'])
               print('placeholder_ok:', entry['placeholder_ok'])
-          if len(review_entries) > 200:
-              print(f'... {len(review_entries) - 200} additional review entries are in catalog.json')
+          if len(review_entries) > 250:
+              print(f'... {len(review_entries) - 250} additional review entries are in catalog.json')
           PY
 
       - name: Upload translation import artifact
@@ -220,6 +232,7 @@ jobs:
             korean/overlay/engine/data_tables/npc_topic_text.txt
             korean/overlay/engine/data_tables/map_stats.txt
             korean/overlay/engine/data_tables/monster_data.txt
+            korean/overlay/engine/data_tables/house_data.txt
             dist/korean-translation-import/korean/engine.zip
             dist/korean-translation-import/manifest.json
             dist/korean-translation-import/SHA256SUMS.txt
