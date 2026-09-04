@@ -59,7 +59,7 @@ jobs:
           grep -Fxq 'fonts/KoreanFallback.ttf' dist/korean-smoke/contents.txt
           grep -Fxq 'fonts/IBM-Plex-OFL.txt' dist/korean-smoke/contents.txt
           grep -Fxq 'data_tables/english/pc_names.txt' dist/korean-smoke/contents.txt
-          sha256sum dist/korean-smoke/engine.zip > dist/korean-smoke/engine.zip.sha256
+          (cd dist/korean-smoke && sha256sum engine.zip > engine.zip.sha256)
 
       - name: Upload Korean smoke overlay
         uses: actions/upload-artifact@v7
