@@ -97,6 +97,13 @@ jobs:
             --overrides korean/translations/misc_overrides.json \
             --fail-on-review
 
+      - name: Extend catalog with placed monster names
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_place_mon_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+
       - name: Extend catalog with scrolls and classes
         run: |
           set -euo pipefail
@@ -179,6 +186,7 @@ jobs:
             data_tables/english/trans.txt \
             data_tables/english/mm7_history.txt \
             data_tables/english/history.txt \
+            data_tables/english/place_mon.txt \
             data_tables/items.txt \
             data_tables/npc.txt \
             data_tables/npc_names.txt \
