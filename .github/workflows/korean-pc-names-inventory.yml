@@ -6,22 +6,39 @@ on:
       - korean-localization
     paths:
       - .github/workflows/korean-pc-names-inventory.yml
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   inventory:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out OpenYAMM Korean branch
+        uses: actions/checkout@v7
         with:
           ref: korean-localization
-          fetch-depth: 0
+          fetch-depth: 1
+          persist-credentials: false
 
-      - name: Build source-only PC name inventory
+      - name: Check out MMMerge Korean name source
+        uses: actions/checkout@v7
+        with:
+          repository: munument1/-KR-MMMerge
+          ref: main
+          path: _mmmerge
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /Data/Text localization/KO_NPCNames.txt
+
+      - name: Rebuild and verify source-only PC name inventory
         shell: bash
         run: |
+          set -euo pipefail
+          cp korean/translations/pc_names_inventory.json /tmp/pc_names_inventory.tracked.json
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -69,20 +86,120 @@ jobs:
               'entries': entries,
               'unique_sources': unique,
           }
-          path = Path('korean/translations/pc_names_inventory.json')
-          path.write_text(json.dumps(out, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          Path('korean/translations/pc_names_inventory.json').write_text(
+              json.dumps(out, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
           print('entry_count=', len(entries))
           print('unique_source_count=', len(unique))
           print('counts=', counts)
           PY
+          cmp -s /tmp/pc_names_inventory.tracked.json korean/translations/pc_names_inventory.json || {
+            echo 'Tracked PC name inventory is stale.' >&2
+            diff -u /tmp/pc_names_inventory.tracked.json korean/translations/pc_names_inventory.json | head -200
+            exit 1
+          }
 
-      - name: Verify and commit inventory
+      - name: Build verified reuse candidates
         shell: bash
         run: |
-          python3 -m json.tool korean/translations/pc_names_inventory.json >/dev/null
-          git diff --check
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add korean/translations/pc_names_inventory.json
-          git commit -m "chore(korean): inventory character creation name sources"
-          git push origin HEAD:korean-localization
+          set -euo pipefail
+          mkdir -p dist/pc-name-review
+          python3 - <<'PY'
+          import json
+          from collections import defaultdict
+          from pathlib import Path
+
+          inventory = json.loads(Path('korean/translations/pc_names_inventory.json').read_text(encoding='utf-8'))
+          english_lines = Path('assets_dev/engine/data_tables/npc_names.txt').read_text(encoding='utf-8-sig').splitlines()
+          korean_lines = Path('_mmmerge/Data/Text localization/KO_NPCNames.txt').read_text(encoding='utf-8-sig').splitlines()
+
+          if len(english_lines) != len(korean_lines):
+              raise SystemExit(
+                  f'NPC name row count mismatch: English={len(english_lines)} Korean={len(korean_lines)}')
+
+          evidence = defaultdict(list)
+          for row_index, (english_line, korean_line) in enumerate(zip(english_lines[1:], korean_lines[1:]), start=1):
+              english_cells = english_line.split('\t')
+              korean_cells = korean_line.split('\t')
+              english_cells += [''] * max(0, 2 - len(english_cells))
+              korean_cells += [''] * max(0, 2 - len(korean_cells))
+              for column, sex in ((0, 'male'), (1, 'female')):
+                  source = english_cells[column].strip()
+                  translation = korean_cells[column].strip()
+                  if not source or not translation:
+                      continue
+                  evidence[source].append({
+                      'translation': translation,
+                      'row': row_index,
+                      'column': column,
+                      'sex': sex,
+                  })
+
+          resolved = {}
+          conflicts = {}
+          for source, items in evidence.items():
+              translations = sorted({item['translation'] for item in items})
+              if len(translations) == 1:
+                  resolved[source] = {
+                      'translation': translations[0],
+                      'evidence': items,
+                  }
+              else:
+                  conflicts[source] = {
+                      'translations': translations,
+                      'evidence': items,
+                  }
+
+          entries = {}
+          reused = 0
+          pending = 0
+          for source in inventory['unique_sources']:
+              if source in resolved:
+                  reused += 1
+                  entries[source] = {
+                      'source': source,
+                      'translation': resolved[source]['translation'],
+                      'reviewed': True,
+                      'origin': 'verified_mmmerge_npc_name_exact',
+                      'evidence': resolved[source]['evidence'],
+                  }
+              else:
+                  pending += 1
+                  entries[source] = {
+                      'source': source,
+                      'translation': '',
+                      'reviewed': False,
+                      'origin': 'direct_review_pending',
+                  }
+
+          out = {
+              'format': 1,
+              'source_file': inventory['source_file'],
+              'review_status': 'candidate',
+              'review_note': 'Exact English-name matches reuse the already reviewed MMMerge KO_NPCNames rendering. Unmatched names require direct Korean transliteration and review.',
+              'unique_source_count': inventory['unique_source_count'],
+              'reused_verified_count': reused,
+              'direct_review_pending_count': pending,
+              'conflicting_verified_source_count': len(conflicts),
+              'conflicts': conflicts,
+              'entries': entries,
+          }
+          out_path = Path('dist/pc-name-review/pc_names_review_candidates.json')
+          out_path.write_text(json.dumps(out, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          print('unique_source_count=', inventory['unique_source_count'])
+          print('reused_verified_count=', reused)
+          print('direct_review_pending_count=', pending)
+          print('conflicting_verified_source_count=', len(conflicts))
+          print('pending_sources:')
+          for source, spec in entries.items():
+              if not spec['reviewed']:
+                  print(source)
+          PY
+          python3 -m json.tool dist/pc-name-review/pc_names_review_candidates.json >/dev/null
+
+      - name: Upload PC name review candidates
+        uses: actions/upload-artifact@v7
+        with:
+          name: openyamm-pc-name-review-candidates
+          path: dist/pc-name-review/pc_names_review_candidates.json
+          if-no-files-found: error
+          retention-days: 7
