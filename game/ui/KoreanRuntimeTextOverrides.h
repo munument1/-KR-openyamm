@@ -266,6 +266,30 @@ inline std::optional<std::string> shopPhrase(const std::string &text)
     return std::nullopt;
 }
 
+inline std::string localizedTargetControlSuffix(const std::string &text)
+{
+    struct ControlSuffix
+    {
+        const char *english;
+        const char *korean;
+    };
+    static constexpr ControlSuffix Suffixes[] = {
+        {"  LMB cast  Esc cancel", "  좌클릭 시전  Esc 취소"},
+        {"  Drag target  Spell button cast  Pause cancel", "  대상 드래그  주문 버튼 시전  일시정지 버튼 취소"},
+        {"  Tap portrait  Pause cancel", "  초상화 탭  일시정지 버튼 취소"},
+        {"  Tap target  Pause cancel", "  대상 탭  일시정지 버튼 취소"},
+    };
+    for (const ControlSuffix &suffix : Suffixes)
+    {
+        const std::string english = suffix.english;
+        if (endsWith(text, english))
+        {
+            return text.substr(0, text.size() - english.size()) + suffix.korean;
+        }
+    }
+    return text;
+}
+
 inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &text)
 {
     if (text.empty())
@@ -303,6 +327,8 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Choose Dimension Door destination", "차원문 목적지를 선택하십시오"},
         {"Set or recall beacon", "봉화를 설치하거나 귀환하십시오"},
         {"Spell cancelled", "주문이 취소되었습니다"},
+        {"Spell canceled", "주문이 취소되었습니다"},
+        {"Unknown attack spell", "알 수 없는 공격 주문입니다"},
         {"Dimension Door", "차원문"},
         {"Town Portal destinations unavailable", "도시 귀환 목적지를 사용할 수 없습니다"},
         {"Dimension Door destinations unavailable", "차원문 목적지를 사용할 수 없습니다"},
@@ -444,11 +470,11 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         return shop;
     }
 
-    if (startsWith(text, "Select actor for ")) return "대상 몬스터 선택: " + text.substr(17);
-    if (startsWith(text, "Select character for ")) return "대상 캐릭터 선택: " + text.substr(21);
-    if (startsWith(text, "Select ground point for ")) return "지면 대상 선택: " + text.substr(24);
-    if (startsWith(text, "Select target for ")) return "대상 선택: " + text.substr(18);
-    if (startsWith(text, "Select item for ")) return "아이템 대상 선택: " + text.substr(16);
+    if (startsWith(text, "Select actor for ")) return localizedTargetControlSuffix("대상 몬스터 선택: " + text.substr(17));
+    if (startsWith(text, "Select character for ")) return localizedTargetControlSuffix("대상 캐릭터 선택: " + text.substr(21));
+    if (startsWith(text, "Select ground point for ")) return localizedTargetControlSuffix("지면 대상 선택: " + text.substr(24));
+    if (startsWith(text, "Select target for ")) return localizedTargetControlSuffix("대상 선택: " + text.substr(18));
+    if (startsWith(text, "Select item for ")) return localizedTargetControlSuffix("아이템 대상 선택: " + text.substr(16));
 
     if (startsWith(text, "Dimension Door to ")) return text.substr(18) + "(으)로 차원문 이동";
     if (startsWith(text, "Town Portal to ")) return text.substr(15) + "(으)로 도시 귀환";
@@ -498,6 +524,7 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "Learned the skills in ")) return text.substr(22) + " 계열 기술을 배웠습니다";
 
     if (startsWith(text, "Your current fine is ") && endsWith(text, " gold.")) return "현재 벌금은 " + text.substr(21, text.size() - 21 - 6) + "골드입니다.";
+    if (startsWith(text, "You need ") && endsWith(text, " gold to pay your fine.")) return "벌금을 납부하려면 " + between(text, "You need ", " gold to pay your fine.") + "골드가 필요합니다.";
     if (startsWith(text, "Welcome to ")) return text.substr(11) + "에 오신 것을 환영합니다.";
 
     if (startsWith(text, "You have to be promoted to ") && endsWith(text, " to learn this skill."))
