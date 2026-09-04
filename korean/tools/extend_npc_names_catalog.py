@@ -8,6 +8,8 @@ import csv
 import hashlib
 import io
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -170,8 +172,23 @@ def main() -> int:
         f"{table['untranslated']} untranslated"
     )
 
+    pc_names_command = [
+        sys.executable,
+        str(repo_root / "korean" / "tools" / "extend_pc_names_catalog.py"),
+        "--repo-root",
+        str(repo_root),
+        "--catalog",
+        args.catalog,
+        "--overlay-engine-root",
+        args.overlay_engine_root,
+    ]
+    if args.fail_on_review:
+        pc_names_command.append("--fail-on-review")
+    subprocess.run(pc_names_command, check=True)
+
+    final_catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
     if args.fail_on_review and (
-        catalog["summary"]["untranslated"] or catalog["summary"]["needs_review"]
+        final_catalog["summary"]["untranslated"] or final_catalog["summary"]["needs_review"]
     ):
         return 2
     return 0
