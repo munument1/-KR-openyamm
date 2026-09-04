@@ -249,6 +249,7 @@ bool CharacterInspectTable::loadClassRows(const std::vector<std::vector<std::str
     {
         const std::string canonicalClass = canonicalClassName(cellValue(row, 0));
         const std::string description = cellValue(row, 1);
+        const std::string localizedName = cellValue(row, 3);
 
         if (canonicalClass.empty() || description.empty())
         {
@@ -256,7 +257,7 @@ bool CharacterInspectTable::loadClassRows(const std::vector<std::vector<std::str
         }
 
         ClassInspectEntry entry = {};
-        entry.name = displayClassName(canonicalClass);
+        entry.name = localizedName.empty() ? displayClassName(canonicalClass) : localizedName;
         entry.description = description;
         m_classes[canonicalClass] = std::move(entry);
     }
