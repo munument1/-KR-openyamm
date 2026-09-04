@@ -37,6 +37,7 @@ on:
       - "assets_dev/worlds/mm7/events/maps/**"
       - "assets_dev/worlds/mm8/_legacy/events/**"
       - "assets_dev/worlds/mm8/events/maps/**"
+      - "assets_dev/worlds/mmmerge/events/maps/**"
   workflow_dispatch:
 
 permissions:
@@ -56,7 +57,7 @@ jobs:
           persist-credentials: false
           sparse-checkout-cone-mode: false
           sparse-checkout: |
-            /korean/
+            /korean/**
             /assets_dev/engine/data_tables/english/Global.txt
             /assets_dev/engine/data_tables/english/quests.txt
             /assets_dev/engine/data_tables/english/autonote.txt
@@ -72,12 +73,13 @@ jobs:
             /assets_dev/engine/data_tables/map_stats.txt
             /assets_dev/engine/data_tables/monster_data.txt
             /assets_dev/engine/data_tables/house_data.txt
-            /assets_dev/worlds/mm6/_legacy/events/
-            /assets_dev/worlds/mm6/events/maps/
-            /assets_dev/worlds/mm7/_legacy/events/
-            /assets_dev/worlds/mm7/events/maps/
-            /assets_dev/worlds/mm8/_legacy/events/
-            /assets_dev/worlds/mm8/events/maps/
+            /assets_dev/worlds/mm6/_legacy/events/**
+            /assets_dev/worlds/mm6/events/maps/**
+            /assets_dev/worlds/mm7/_legacy/events/**
+            /assets_dev/worlds/mm7/events/maps/**
+            /assets_dev/worlds/mm8/_legacy/events/**
+            /assets_dev/worlds/mm8/events/maps/**
+            /assets_dev/worlds/mmmerge/events/maps/**
 
       - name: Check out MMMerge Korean translation source
         uses: actions/checkout@v7
@@ -196,8 +198,9 @@ jobs:
             data_tables/house_data.txt; do
             grep -Fxq "$required" dist/korean-translation-import/engine-contents.txt
           done
-          for world in mm6 mm7 mm8; do
+          for world in mm6 mm7 mm8 mmmerge; do
             test -s "dist/korean-translation-import/korean/worlds/${world}.zip"
+            echo "${world}: $(unzip -Z1 "dist/korean-translation-import/korean/worlds/${world}.zip" | wc -l) overlay file(s)"
           done
           unzip -Z1 dist/korean-translation-import/korean/worlds/mm6.zip | grep -Fxq 'events/maps/6d02.lua'
 
@@ -261,6 +264,7 @@ jobs:
             korean/overlay/worlds/mm6/events/maps/
             korean/overlay/worlds/mm7/events/maps/
             korean/overlay/worlds/mm8/events/maps/
+            korean/overlay/worlds/mmmerge/events/maps/
             dist/korean-translation-import/korean/engine.zip
             dist/korean-translation-import/korean/worlds/*.zip
             dist/korean-translation-import/manifest.json
