@@ -73,6 +73,8 @@ House interaction runtime text follows the same final-display rule. Reviewed dyn
 
 Generic actor fallback names such as `Lizardman Peasant` and `Dark Elf Guard` are also preserved in `resolveGenericNpcName()` because that function feeds `findNpcIdByName()` as an NPC lookup key; the resolved string itself is not copied into the final dialog resolution.
 
+Mastery-teacher result text is disambiguated from class-promotion text before the generic `is now a` pattern. Expert, Master, and Grandmaster skill promotions use the reviewed Korean mastery terms 전문가, 마스터, and 그랜드마스터; small confirmed dialog residuals such as stealing failure and unavailable-day notices are handled at the same final display layer.
+
 ## Base-version rule
 
 Any runtime binary patch must record the exact upstream OpenYAMM version/commit it targets. A binary patch must fail rather than silently apply to an unknown executable or APK.
