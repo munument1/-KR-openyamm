@@ -69,6 +69,10 @@ Character detail, buff inspection, recovery-time, item-identification, and outdo
 
 Inventory item-use results keep their English gameplay logic strings intact and are localized only at the shared final display override, including inactive-character conditions, spell/skill learning results, Genie Lamp rewards, and Deck of Fate rewards. Reviewed stat and resistance terms reuse the existing Korean catalog terminology.
 
+House interaction runtime text follows the same final-display rule. Reviewed dynamic patterns cover opening hours, selected-character summaries, temple healing and donations, tavern room/food costs, training requirements and results, skill lessons, and transport travel time. House type names such as `Weapon Shop` or `Fire Guild` remain English when they are used only as service-routing keys.
+
+Generic actor fallback names such as `Lizardman Peasant` and `Dark Elf Guard` are also preserved in `resolveGenericNpcName()` because that function feeds `findNpcIdByName()` as an NPC lookup key; the resolved string itself is not copied into the final dialog resolution.
+
 ## Base-version rule
 
 Any runtime binary patch must record the exact upstream OpenYAMM version/commit it targets. A binary patch must fail rather than silently apply to an unknown executable or APK.
