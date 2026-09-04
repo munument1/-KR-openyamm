@@ -1,0 +1,85 @@
+name: Korean UTF-8 name input self-patch
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - .github/workflows/korean-utf8-selfpatch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-new-game-name-input:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out localization branch
+        uses: actions/checkout@v4
+        with:
+          ref: korean-localization
+          fetch-depth: 0
+
+      - name: Apply reviewed UTF-8 name input patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("game/ui/screens/NewGameScreen.cpp")
+          text = path.read_text(encoding="utf-8")
+
+          def replace_once(old: str, new: str, label: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly 1 match, found {count}")
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              '#include "game/party/SpeechIds.h"\n\n#include <algorithm>',
+              '#include "game/party/SpeechIds.h"\n#include "game/ui/Utf8Text.h"\n\n#include <algorithm>',
+              "Utf8Text include",
+          )
+
+          replace_once(
+              '#include <optional>\n#include <string>\n#include <unordered_set>',
+              '#include <optional>\n#include <string>\n#include <string_view>\n#include <unordered_set>',
+              "string_view include",
+          )
+
+          replace_once(
+              '''bool isPrintableNameCharacter(char character)\n{\n    return std::isalnum(static_cast<unsigned char>(character)) != 0\n        || character == ' '\n        || character == '\\''\n        || character == '-';\n}\n''',
+              '''bool isPrintableNameCodePoint(uint32_t codePoint)\n{\n    if (isHangulCodePoint(codePoint))\n    {\n        return true;\n    }\n\n    if (codePoint > 0x7fu)\n    {\n        return false;\n    }\n\n    const unsigned char character = static_cast<unsigned char>(codePoint);\n    return std::isalnum(character) != 0\n        || character == ' '\n        || character == '\\''\n        || character == '-';\n}\n\nsize_t utf8CodePointCount(std::string_view text)\n{\n    size_t count = 0;\n    size_t byteOffset = 0;\n\n    while (byteOffset < text.size())\n    {\n        byteOffset = nextUtf8CodePointOffset(text, byteOffset);\n        ++count;\n    }\n\n    return count;\n}\n''',
+              "name character helper",
+          )
+
+          replace_once(
+              '''        for (size_t i = 0; pText[i] != '\\0' && m_state.nameEditBuffer.size() < MaximumNameLength; ++i)\n        {\n            if (isPrintableNameCharacter(pText[i]))\n            {\n                m_state.nameEditBuffer.push_back(pText[i]);\n            }\n        }\n''',
+              '''        const std::string_view inputText(pText);\n        size_t byteOffset = 0;\n        size_t nameLength = utf8CodePointCount(m_state.nameEditBuffer);\n\n        while (byteOffset < inputText.size() && nameLength < MaximumNameLength)\n        {\n            const Utf8CodePointSpan span = decodeUtf8CodePoint(inputText, byteOffset);\n\n            if (span.valid && isPrintableNameCodePoint(span.codePoint))\n            {\n                m_state.nameEditBuffer.append(inputText.data() + span.byteOffset, span.byteLength);\n                ++nameLength;\n            }\n\n            byteOffset = nextUtf8CodePointOffset(inputText, byteOffset);\n        }\n''',
+              "SDL text input loop",
+          )
+
+          replace_once(
+              '''void NewGameScreen::deleteNameEditCharacter()\n{\n    if (m_state.nameEditing && !m_state.nameEditBuffer.empty())\n    {\n        m_state.nameEditBuffer.pop_back();\n    }\n}\n''',
+              '''void NewGameScreen::deleteNameEditCharacter()\n{\n    if (m_state.nameEditing && !m_state.nameEditBuffer.empty())\n    {\n        const size_t previousOffset =\n            previousUtf8CodePointOffset(m_state.nameEditBuffer, m_state.nameEditBuffer.size());\n        m_state.nameEditBuffer.resize(previousOffset);\n    }\n}\n''',
+              "UTF-8 backspace",
+          )
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Verify targeted diff only
+        shell: bash
+        run: |
+          git diff --check
+          git diff -- game/ui/screens/NewGameScreen.cpp
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/ui/screens/NewGameScreen.cpp
+          git commit -m "fix(korean): support UTF-8 character names"
+          git push origin HEAD:korean-localization
