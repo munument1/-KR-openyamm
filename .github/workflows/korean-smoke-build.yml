@@ -9,6 +9,7 @@ on:
       - "engine/**"
       - "cmake/**"
       - "android/**"
+      - "korean/**"
       - "CMakeLists.txt"
       - ".github/workflows/korean-smoke-build.yml"
   workflow_dispatch:
@@ -21,6 +22,56 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  korean-overlay:
+    name: Korean smoke overlay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out Korean patch sources
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /korean/
+
+      - name: Fetch IBM Plex Sans KR
+        run: |
+          set -euo pipefail
+          mkdir -p build-korean-overlay/fonts
+          curl --fail --location --retry 3 \
+            --output build-korean-overlay/fonts/KoreanFallback.ttf \
+            https://raw.githubusercontent.com/IBM/plex/master/packages/plex-sans-kr/fonts/complete/ttf/hinted/IBMPlexSansKR-Regular.ttf
+          test -s build-korean-overlay/fonts/KoreanFallback.ttf
+          cp korean/licenses/IBM-Plex-OFL.txt build-korean-overlay/fonts/IBM-Plex-OFL.txt
+
+      - name: Build smoke engine overlay
+        run: |
+          set -euo pipefail
+          mkdir -p build-korean-overlay/data_tables/english
+          cp korean/smoke/engine/data_tables/english/pc_names.txt \
+            build-korean-overlay/data_tables/english/pc_names.txt
+          mkdir -p dist/korean-smoke
+          (cd build-korean-overlay && zip -9 -r ../dist/korean-smoke/engine.zip .)
+          unzip -Z1 dist/korean-smoke/engine.zip > dist/korean-smoke/contents.txt
+          grep -Fxq 'fonts/KoreanFallback.ttf' dist/korean-smoke/contents.txt
+          grep -Fxq 'fonts/IBM-Plex-OFL.txt' dist/korean-smoke/contents.txt
+          grep -Fxq 'data_tables/english/pc_names.txt' dist/korean-smoke/contents.txt
+          sha256sum dist/korean-smoke/engine.zip > dist/korean-smoke/engine.zip.sha256
+
+      - name: Upload Korean smoke overlay
+        uses: actions/upload-artifact@v7
+        with:
+          name: openyamm-korean-smoke-overlay
+          path: |
+            dist/korean-smoke/engine.zip
+            dist/korean-smoke/engine.zip.sha256
+            dist/korean-smoke/contents.txt
+          if-no-files-found: error
+          retention-days: 3
+
   windows-x64:
     name: Windows x64 compile
     runs-on: windows-latest
