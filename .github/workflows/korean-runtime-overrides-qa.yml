@@ -63,7 +63,7 @@ jobs:
               expect("To confirm Alice dismissal press the button again...",
                   "Alice을(를) 해산하려면 버튼을 다시 누르십시오...");
               expect("This character cannot learn the skills in Fire Magic",
-                  "이 캐릭터는 Fire Magic 계열 기술을 배울 수 없습니다");
+                  "이 캐릭터는 해당 기술을 배울 수 없습니다: Fire Magic");
               expect("You have to be promoted to Knight to learn this skill.",
                   "이 기술을 배우려면 기사(으)로 승급해야 합니다.");
               expect("Good tidings. I am Robin, skilled Knight. I'd love to see the world and taste the adventure, but it'd be foolish to go alone. Perhaps I could come with you?",
