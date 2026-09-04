@@ -67,6 +67,8 @@ Hard-coded runtime display overrides are added only after the English string is 
 
 Character detail, buff inspection, recovery-time, item-identification, and outdoor pickup text that is constructed directly by a renderer is localized at that display-construction site after the underlying logic keys have already been resolved.
 
+Inventory item-use results keep their English gameplay logic strings intact and are localized only at the shared final display override, including inactive-character conditions, spell/skill learning results, Genie Lamp rewards, and Deck of Fate rewards. Reviewed stat and resistance terms reuse the existing Korean catalog terminology.
+
 ## Base-version rule
 
 Any runtime binary patch must record the exact upstream OpenYAMM version/commit it targets. A binary patch must fail rather than silently apply to an unknown executable or APK.
