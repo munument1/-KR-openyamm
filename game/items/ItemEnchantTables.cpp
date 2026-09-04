@@ -7,6 +7,9 @@ namespace OpenYAMM::Game
 {
 namespace
 {
+constexpr size_t LocalizedDisplayTextColumn = 20;
+constexpr size_t LocalizedDisplaySuffixColumn = 21;
+
 std::string toLowerCopy(const std::string &value)
 {
     std::string result = value;
@@ -597,8 +600,10 @@ bool StandardItemEnchantTable::load(const std::vector<std::vector<std::string>> 
 
         StandardItemEnchantEntry entry = {};
         entry.kind = parseStandardEnchantKind(statName);
-        entry.statName = statName;
-        entry.suffix = suffix;
+        const std::string localizedStatName = getCell(row, LocalizedDisplayTextColumn);
+        const std::string localizedSuffix = getCell(row, LocalizedDisplaySuffixColumn);
+        entry.statName = localizedStatName.empty() ? statName : localizedStatName;
+        entry.suffix = localizedSuffix.empty() ? suffix : localizedSuffix;
 
         for (size_t index = 0; index < entry.slotValues.size(); ++index)
         {
@@ -644,7 +649,9 @@ bool SpecialItemEnchantTable::load(const std::vector<std::vector<std::string>> &
         SpecialItemEnchantEntry entry = {};
         entry.kind = parseSpecialEnchantKind(suffix);
         entry.name = name;
-        entry.suffix = suffix;
+        const std::string localizedDescription = getCell(row, LocalizedDisplayTextColumn);
+        const std::string localizedSuffix = getCell(row, LocalizedDisplaySuffixColumn);
+        entry.suffix = localizedSuffix.empty() ? suffix : localizedSuffix;
 
         for (size_t index = 0; index < entry.slotWeights.size(); ++index)
         {
@@ -654,8 +661,11 @@ bool SpecialItemEnchantTable::load(const std::vector<std::vector<std::string>> &
         entry.priceModifier = parsePriceModifier(getCell(row, 14));
         const std::string rarityText = getCell(row, 15);
         entry.rarityLevel = rarityText.empty() ? 0 : rarityText[0];
-        entry.description = getCell(row, 16);
-        entry.displayAsPrefix = !toLowerCopy(entry.suffix).starts_with("of ");
+        const std::string sourceDescription = getCell(row, 16);
+        entry.description = localizedDescription.empty() ? sourceDescription : localizedDescription;
+        // Prefix/suffix grammar is determined from the stable English logic key,
+        // not from localized display text (which may use language-specific brackets).
+        entry.displayAsPrefix = !toLowerCopy(suffix).starts_with("of ");
         m_entries.push_back(std::move(entry));
     }
 
