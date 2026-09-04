@@ -11,16 +11,25 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: korean-pc-names-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   inventory:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out OpenYAMM Korean branch
+      - name: Check out OpenYAMM Korean name sources
         uses: actions/checkout@v7
         with:
           ref: korean-localization
           fetch-depth: 1
           persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /assets_dev/engine/data_tables/english/pc_names.txt
+            /assets_dev/engine/data_tables/npc_names.txt
+            /korean/translations/pc_names_inventory.json
 
       - name: Check out MMMerge Korean name source
         uses: actions/checkout@v7
