@@ -1,0 +1,89 @@
+name: Korean runtime override QA
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - .github/workflows/korean-runtime-overrides-qa.yml
+
+permissions:
+  contents: write
+
+jobs:
+  qa:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 0
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/ui/KoreanRuntimeTextOverrides.h
+
+      - name: Fix and test dynamic translation boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('game/ui/KoreanRuntimeTextOverrides.h')
+          text = path.read_text(encoding='utf-8')
+          fixes = {
+              'text.size() - 11 - 38': 'text.size() - 11 - 36',
+              'text.substr(41) + " 계열 기술을 배울 수 없습니다"': 'text.substr(42) + " 계열 기술을 배울 수 없습니다"',
+              'text.size() - 27 - 20)) + "(으)로 승급해야 합니다."': 'text.size() - 27 - 21)) + "(으)로 승급해야 합니다."',
+          }
+          for old, new in fixes.items():
+              if old not in text:
+                  raise SystemExit(f'Expected QA fix target missing: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          cat >/tmp/runtime_override_test.cpp <<'CPP'
+          #include "game/ui/KoreanRuntimeTextOverrides.h"
+          #include <cassert>
+          #include <iostream>
+          #include <string>
+
+          using OpenYAMM::Game::KoreanRuntimeText::koreanRuntimeTextOverride;
+
+          static std::string tr(const std::string &value)
+          {
+              auto translated = koreanRuntimeTextOverride(value);
+              assert(translated.has_value());
+              return *translated;
+          }
+
+          int main()
+          {
+              assert(tr("To confirm Alice dismissal press the button again...") ==
+                  "Alice을(를) 해산하려면 버튼을 다시 누르십시오...");
+              assert(tr("This character cannot learn the skills in Fire Magic") ==
+                  "Fire Magic 계열 기술을 배울 수 없습니다");
+              assert(tr("You have to be promoted to Knight to learn this skill.") ==
+                  "이 기술을 배우려면 기사(으)로 승급해야 합니다.");
+              assert(tr("Good tidings. I am Robin, skilled Knight. I'd love to see the world and taste the adventure, but it'd be foolish to go alone. Perhaps I could come with you?") ==
+                  "반갑습니다. 나는 Robin, 숙련 기사입니다. 세상을 보고 모험을 맛보고 싶지만 혼자 떠나는 건 어리석겠지요. 당신들과 함께해도 될까요?");
+              assert(tr("I'll tell you what it is for 125 gold pieces.") == "125골드에 감정해 드리겠습니다.");
+              assert(tr("Can't cast Prismatic Light outdoors!") == "실외에서는 프리즘 광선을 시전할 수 없습니다!");
+              assert(tr("Lloyd's Beacon") == "로이드의 봉화");
+              assert(tr("Town Portal to Ravenshore") == "Ravenshore(으)로 도시 귀환");
+              std::cout << "runtime override QA passed\n";
+          }
+          CPP
+          g++ -std=c++20 -Wall -Wextra -Werror -I. /tmp/runtime_override_test.cpp -o /tmp/runtime_override_test
+          /tmp/runtime_override_test
+          git diff --check
+
+      - name: Commit QA fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/ui/KoreanRuntimeTextOverrides.h
+          git commit -m "fix(korean): correct runtime translation slicing"
+          git push origin HEAD:korean-localization
