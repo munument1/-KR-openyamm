@@ -108,15 +108,40 @@ private:
             || text == "Speed"
             || text == "Luck";
 
-        if (isPrimaryStat && m_pGameData != nullptr)
+        if (m_pGameData != nullptr)
         {
-            if (const StatInspectEntry *pEntry = m_pGameData->characterInspectTable().getStat(text))
+            if (isPrimaryStat)
+            {
+                if (const StatInspectEntry *pEntry = m_pGameData->characterInspectTable().getStat(text))
+                {
+                    if (!pEntry->name.empty())
+                    {
+                        return pEntry->name;
+                    }
+                }
+            }
+
+            if (const ClassInspectEntry *pEntry = m_pGameData->characterInspectTable().getClass(text))
             {
                 if (!pEntry->name.empty())
                 {
                     return pEntry->name;
                 }
             }
+        }
+
+        // Verified against MMMerge KO_GlobalTxt IDs 433, 432 and 225.
+        if (text.rfind("Expert: ", 0) == 0)
+        {
+            return "전문가: " + text.substr(8);
+        }
+        if (text.rfind("Master: ", 0) == 0)
+        {
+            return "마스터: " + text.substr(8);
+        }
+        if (text.rfind("Grandmaster: ", 0) == 0)
+        {
+            return "그랜드마스터: " + text.substr(13);
         }
 
         return text;
