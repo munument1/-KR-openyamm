@@ -108,13 +108,29 @@ jobs:
           from collections import defaultdict
           from pathlib import Path
 
+          def read_text_with_encodings(path, encodings):
+              raw = Path(path).read_bytes()
+              for encoding in encodings:
+                  try:
+                      return raw.decode(encoding), encoding
+                  except UnicodeDecodeError:
+                      pass
+              raise SystemExit(f'Could not decode {path} with {encodings}')
+
           inventory = json.loads(Path('korean/translations/pc_names_inventory.json').read_text(encoding='utf-8'))
-          english_lines = Path('assets_dev/engine/data_tables/npc_names.txt').read_text(encoding='utf-8-sig').splitlines()
-          korean_lines = Path('_mmmerge/Data/Text localization/KO_NPCNames.txt').read_text(encoding='utf-8-sig').splitlines()
+          english_text, english_encoding = read_text_with_encodings(
+              'assets_dev/engine/data_tables/npc_names.txt', ('utf-8-sig', 'cp1252'))
+          korean_text, korean_encoding = read_text_with_encodings(
+              '_mmmerge/Data/Text localization/KO_NPCNames.txt', ('utf-8-sig', 'cp949'))
+          english_lines = english_text.splitlines()
+          korean_lines = korean_text.splitlines()
 
           if len(english_lines) != len(korean_lines):
               raise SystemExit(
                   f'NPC name row count mismatch: English={len(english_lines)} Korean={len(korean_lines)}')
+
+          print('english_npc_names_encoding=', english_encoding)
+          print('korean_npc_names_encoding=', korean_encoding)
 
           evidence = defaultdict(list)
           for row_index, (english_line, korean_line) in enumerate(zip(english_lines[1:], korean_lines[1:]), start=1):
