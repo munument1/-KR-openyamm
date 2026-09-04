@@ -1,0 +1,145 @@
+name: Apply confirmed Korean runtime text gaps
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - .github/workflows/korean-confirmed-runtime-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: korean-localization
+          fetch-depth: 0
+
+      - name: Apply confirmed display-only translations
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('game/ui/KoreanRuntimeTextOverrides.h')
+          text = path.read_text(encoding='utf-8')
+
+          anchor = '''inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &text)
+          {
+          '''
+          helper = '''inline std::string localizedTargetControlSuffix(const std::string &text)
+          {
+              struct ControlSuffix
+              {
+                  const char *english;
+                  const char *korean;
+              };
+              static constexpr ControlSuffix Suffixes[] = {
+                  {"  LMB cast  Esc cancel", "  좌클릭 시전  Esc 취소"},
+                  {"  Drag target  Spell button cast  Pause cancel", "  대상 드래그  주문 버튼 시전  일시정지 버튼 취소"},
+                  {"  Tap portrait  Pause cancel", "  초상화 탭  일시정지 버튼 취소"},
+                  {"  Tap target  Pause cancel", "  대상 탭  일시정지 버튼 취소"},
+              };
+              for (const ControlSuffix &suffix : Suffixes)
+              {
+                  const std::string english = suffix.english;
+                  if (endsWith(text, english))
+                  {
+                      return text.substr(0, text.size() - english.size()) + suffix.korean;
+                  }
+              }
+              return text;
+          }
+
+          inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &text)
+          {
+          '''
+          if anchor not in text:
+              raise SystemExit('runtime override function anchor missing')
+          if 'localizedTargetControlSuffix' not in text:
+              text = text.replace(anchor, helper, 1)
+
+          exact_anchor = '''        {"Spell cancelled", "주문이 취소되었습니다"},
+          '''
+          exact_replacement = '''        {"Spell cancelled", "주문이 취소되었습니다"},
+                  {"Spell canceled", "주문이 취소되었습니다"},
+                  {"Unknown attack spell", "알 수 없는 공격 주문입니다"},
+          '''
+          if exact_anchor not in text:
+              raise SystemExit('spell exact-map anchor missing')
+          if '        {"Spell canceled", "주문이 취소되었습니다"},' not in text:
+              text = text.replace(exact_anchor, exact_replacement, 1)
+
+          old_select = '''    if (startsWith(text, "Select actor for ")) return "대상 몬스터 선택: " + text.substr(17);
+              if (startsWith(text, "Select character for ")) return "대상 캐릭터 선택: " + text.substr(21);
+              if (startsWith(text, "Select ground point for ")) return "지면 대상 선택: " + text.substr(24);
+              if (startsWith(text, "Select target for ")) return "대상 선택: " + text.substr(18);
+              if (startsWith(text, "Select item for ")) return "아이템 대상 선택: " + text.substr(16);
+          '''
+          new_select = '''    if (startsWith(text, "Select actor for ")) return localizedTargetControlSuffix("대상 몬스터 선택: " + text.substr(17));
+              if (startsWith(text, "Select character for ")) return localizedTargetControlSuffix("대상 캐릭터 선택: " + text.substr(21));
+              if (startsWith(text, "Select ground point for ")) return localizedTargetControlSuffix("지면 대상 선택: " + text.substr(24));
+              if (startsWith(text, "Select target for ")) return localizedTargetControlSuffix("대상 선택: " + text.substr(18));
+              if (startsWith(text, "Select item for ")) return localizedTargetControlSuffix("아이템 대상 선택: " + text.substr(16));
+          '''
+          if old_select not in text:
+              raise SystemExit('target selection block missing or already changed unexpectedly')
+          text = text.replace(old_select, new_select, 1)
+
+          fine_anchor = '''    if (startsWith(text, "Your current fine is ") && endsWith(text, " gold.")) return "현재 벌금은 " + text.substr(21, text.size() - 21 - 6) + "골드입니다.";
+          '''
+          fine_replacement = '''    if (startsWith(text, "Your current fine is ") && endsWith(text, " gold.")) return "현재 벌금은 " + text.substr(21, text.size() - 21 - 6) + "골드입니다.";
+              if (startsWith(text, "You need ") && endsWith(text, " gold to pay your fine.")) return "벌금을 납부하려면 " + between(text, "You need ", " gold to pay your fine.") + "골드가 필요합니다.";
+          '''
+          if fine_anchor not in text:
+              raise SystemExit('fine text anchor missing')
+          if 'gold to pay your fine.' not in text:
+              text = text.replace(fine_anchor, fine_replacement, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Verify focused runtime translations
+        shell: bash
+        run: |
+          cat >/tmp/korean_runtime_gap_test.cpp <<'EOF'
+          #include <cassert>
+          #include <string>
+          #include "game/ui/KoreanRuntimeTextOverrides.h"
+
+          int main()
+          {
+              using OpenYAMM::Game::KoreanRuntimeText::koreanRuntimeTextOverride;
+              auto tr = [](const std::string &s) {
+                  auto value = koreanRuntimeTextOverride(s);
+                  assert(value.has_value());
+                  return *value;
+              };
+
+              assert(tr("Unknown attack spell") == "알 수 없는 공격 주문입니다");
+              assert(tr("Spell canceled") == "주문이 취소되었습니다");
+              assert(tr("Select actor for Fire Bolt  LMB cast  Esc cancel") == "대상 몬스터 선택: Fire Bolt  좌클릭 시전  Esc 취소");
+              assert(tr("Select character for Heal  Tap portrait  Pause cancel") == "대상 캐릭터 선택: Heal  초상화 탭  일시정지 버튼 취소");
+              assert(tr("Select target for Telekinesis  Tap target  Pause cancel") == "대상 선택: Telekinesis  대상 탭  일시정지 버튼 취소");
+              assert(tr("Select ground point for Meteor Shower  Drag target  Spell button cast  Pause cancel") == "지면 대상 선택: Meteor Shower  대상 드래그  주문 버튼 시전  일시정지 버튼 취소");
+              assert(tr("You need 1234 gold to pay your fine.") == "벌금을 납부하려면 1234골드가 필요합니다.");
+          }
+          EOF
+          g++ -std=c++17 -I. /tmp/korean_runtime_gap_test.cpp -o /tmp/korean_runtime_gap_test
+          /tmp/korean_runtime_gap_test
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet -- game/ui/KoreanRuntimeTextOverrides.h; then
+            echo "No runtime gap changes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/ui/KoreanRuntimeTextOverrides.h
+          git commit -m "fix(korean): cover confirmed runtime display gaps"
+          git push origin HEAD:korean-localization
