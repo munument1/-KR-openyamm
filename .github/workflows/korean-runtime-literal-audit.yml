@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Scan likely player-facing English literals
+      - name: Scan player-facing English literals against Korean display coverage
         shell: bash
         run: |
           set -euo pipefail
@@ -29,72 +29,222 @@ jobs:
           from pathlib import Path
           import json, re
 
-          roots = [Path('game')]
-          exts = {'.cpp', '.h', '.hpp', '.inc'}
+          # Files whose strings can reach normal gameplay/UI surfaces. Parser, debug,
+          # scenario and headless-diagnostic sources are deliberately excluded.
+          files = [
+              'game/app/GameApplication.cpp',
+              'game/events/EventDialogContent.cpp',
+              'game/gameplay/BountyHuntRuntime.cpp',
+              'game/gameplay/CorpseLootRuntime.cpp',
+              'game/gameplay/GameplayDialogController.cpp',
+              'game/gameplay/GameplayInputController.cpp',
+              'game/gameplay/GameplayInteractionController.cpp',
+              'game/gameplay/GameplayItemService.cpp',
+              'game/gameplay/GameplayOverlayInputController.cpp',
+              'game/gameplay/GameplayPartyOverlayInputController.cpp',
+              'game/gameplay/GameplayScreenRuntime.cpp',
+              'game/gameplay/GameplayScreenRuntime.h',
+              'game/gameplay/GameplaySpellService.cpp',
+              'game/gameplay/GameplayWorldItemPolicy.cpp',
+              'game/gameplay/HouseInteraction.cpp',
+              'game/gameplay/HouseServiceRuntime.cpp',
+              'game/gameplay/MasteryTeacherDialog.cpp',
+              'game/indoor/IndoorPartyRuntime.cpp',
+              'game/indoor/IndoorWorldRuntime.cpp',
+              'game/items/InventoryItemMixingRuntime.cpp',
+              'game/items/InventoryItemUseRuntime.cpp',
+              'game/mm9/Mm9BarrelRuntime.cpp',
+              'game/outdoor/OutdoorGameView.cpp',
+              'game/outdoor/OutdoorInteractionController.cpp',
+              'game/outdoor/OutdoorPartyRuntime.cpp',
+              'game/outdoor/OutdoorWorldRuntime.cpp',
+              'game/party/Party.cpp',
+              'game/party/PartySpellSystem.cpp',
+              'game/ui/GameplayDialogueRenderer.cpp',
+              'game/ui/GameplayHudCommon.cpp',
+              'game/ui/GameplayPartyOverlayRenderer.cpp',
+              'game/ui/screens/ArcomageScreen.cpp',
+              'game/ui/screens/LoadGameScreen.cpp',
+              'game/ui/screens/LoadingOverlayScreen.cpp',
+              'game/ui/screens/MainMenuScreen.cpp',
+              'game/ui/screens/NewGameScreen.cpp',
+              'game/ui/screens/NewGameScreen.h',
+              'game/ui/screens/WinGameScreen.cpp',
+          ]
+
           literal_re = re.compile(r'"((?:\\.|[^"\\])*)"')
           word_re = re.compile(r'[A-Za-z]+')
-          likely_context = re.compile(
-              r'(message|status|title|label|text|dialog|tooltip|description|fallback|push_back|return\s+"|drawText|wrapText|error|warning|offer|prompt|caption|notification)',
-              re.I)
-          ignore_context = re.compile(
-              r'(TRACE|DEBUG|assert|path|Path|texture|sprite|shader|asset|fileName|canonical|lookup|key|idName|enum|json|yaml|\.png|\.bmp|\.lod|\.txt|\.lua|\.yml|\.odm|\.blv|\.wav|\.smk|\.vid|\.icons)',
-              re.I)
-          ignore_literal = re.compile(
-              r'^(none|unknown|true|false|engine|default|normal|expert|master|grandmaster|yes|no|ok|cancel|close|back|none)$',
-              re.I)
+          localizer = Path('game/ui/GameplayHudCommon.cpp').read_text(encoding='utf-8')
+
+          # Exact-map source keys. This intentionally only accepts pairs whose value
+          # contains Korean so ordinary C++ maps elsewhere cannot become false coverage.
+          exact = set()
+          pair_re = re.compile(r'\{\s*"((?:\\.|[^"\\])*)"\s*,\s*"((?:\\.|[^"\\])*)"\s*\}')
+          for m in pair_re.finditer(localizer):
+              key = bytes(m.group(1), 'utf-8').decode('unicode_escape', errors='ignore')
+              value = m.group(2)
+              if re.search(r'[가-힣]', value):
+                  exact.add(key)
+
+          dedicated = {
+              'Only two additional skills can be selected.',
+              'Character name cannot be empty.',
+              'Create Party cannot be completed unless you have assigned all characters 2 extra skills and have spent all of your bonus points.',
+          }
+
+          def covered_by_pattern(text):
+              if text.endswith(' [disabled]'):
+                  return True
+              if text.startswith('Balance: '):
+                  return True
+              if text.startswith('This place is open from '):
+                  return True
+              if text.startswith('Learn ') and text.endswith(' gold'):
+                  return True
+              if text.startswith('Heal ') and text.endswith(' gold'):
+                  return True
+              if text.startswith('Donate ') and text.endswith(' gold'):
+                  return True
+              if text.startswith('Rent room for ') and text.endswith(' gold'):
+                  return True
+              if text.startswith('Fill packs to ') and text.endswith(' gold'):
+                  return True
+              if text.startswith('Current Fine: ') and text.endswith(' gold'):
+                  return True
+              if text.startswith('Train to level ') and text.endswith(' gold'):
+                  return True
+              if text.startswith('You need ') and ' more experience to train to level ' in text:
+                  return True
+              if text.startswith('You need ') and any(text.endswith(s) for s in (
+                  ' gold for healing.', ' gold to donate here.', ' gold to rent a room.',
+                  ' gold for provisions.', ' gold for a drink.', ' gold for a tip.',
+                  ' gold for training.')):
+                  return True
+              if text.startswith('The temple staff cannot treat ') and text.endswith("'s condition."):
+                  return True
+              if text.startswith('The temple staff says ') and text.endswith(' is already well.'):
+                  return True
+              if text.startswith('The temple restores ') and text.endswith(' gold.'):
+                  return True
+              if text.startswith('The innkeeper fills your packs to ') and text.endswith(' days.'):
+                  return True
+              if ' is now level ' in text and text.endswith(' skill points!'):
+                  return True
+              if ' cannot learn ' in text and text.endswith(' here.'):
+                  return True
+              if ' learns ' in text and text.endswith(' gold.'):
+                  return True
+              if text.startswith('Deposited ') and text.endswith(' gold.'):
+                  return True
+              if text.startswith('Withdrew ') and text.endswith(' gold.'):
+                  return True
+              if text.startswith('It will take ') and text.endswith('.') and ' to travel to ' in text:
+                  return True
+              if text.endswith(' gold') and ' to ' in text and ' for ' in text:
+                  return True
+              return False
+
+          def implementation_literal(text):
+              t = text.strip()
+              if len(t) < 3:
+                  return True
+              if '/' in t or '\\' in t:
+                  return True
+              if re.search(r'\.(cpp|h|hpp|inc|txt|lua|yml|yaml|png|bmp|lod|odm|blv|wav|smk|vid)$', t, re.I):
+                  return True
+              if re.fullmatch(r'[A-Za-z0-9_:\-.]+', t) and ' ' not in t:
+                  return True
+              if t.startswith('game/') or t.startswith('ui/') or t.startswith('engine/'):
+                  return True
+              return False
+
+          # Obvious trace/log/config phrases that occur in otherwise player-facing files.
+          internal_markers = (
+              ' reason=', ' item_id=', ' source_id=', ' actor_', ' status=',
+              'GameApplication:', ' failed to ', 'Failed to ', 'Unable to ',
+              'runtime init', 'runtime apply', 'held_item_changed', 'dialogue_',
+              'actor_dialog_', 'item_inspect ', 'bgfx ', 'SDL_', 'avcodec_',
+              'avformat_', 'settings.ini', 'Usage:', 'Known regression',
+          )
 
           rows = []
-          for root in roots:
-              for path in root.rglob('*'):
-                  if path.suffix.lower() not in exts or not path.is_file():
+          for filename in files:
+              path = Path(filename)
+              if not path.exists():
+                  continue
+              lines = path.read_text(encoding='utf-8').splitlines()
+              for lineno, line in enumerate(lines, 1):
+                  stripped = line.strip()
+                  if stripped.startswith('#include') or 'GAMEPLAY_DEBUG_TRACE' in line:
                       continue
-                  try:
-                      lines = path.read_text(encoding='utf-8').splitlines()
-                  except UnicodeDecodeError:
-                      continue
-                  for lineno, line in enumerate(lines, 1):
-                      if not likely_context.search(line):
+                  for m in literal_re.finditer(line):
+                      raw = m.group(1)
+                      text = bytes(raw, 'utf-8').decode('unicode_escape', errors='ignore')
+                      words = word_re.findall(text)
+                      if len(words) < 2 or implementation_literal(text):
                           continue
-                      for m in literal_re.finditer(line):
-                          lit = bytes(m.group(1), 'utf-8').decode('unicode_escape', errors='ignore')
-                          words = word_re.findall(lit)
-                          if len(words) < 2:
-                              continue
-                          if ignore_literal.fullmatch(lit.strip()):
-                              continue
-                          # Keep prose-like strings; down-rank obvious implementation strings.
-                          score = 0
-                          if len(words) >= 4: score += 3
-                          elif len(words) >= 2: score += 1
-                          if any(ch in lit for ch in '.!?'): score += 2
-                          if ' ' in lit: score += 1
-                          if likely_context.search(line): score += 2
-                          if ignore_context.search(line) or ignore_context.search(lit): score -= 3
-                          if lit.startswith('[') or lit.startswith('{'): score -= 2
-                          if score < 3:
-                              continue
-                          rows.append({
-                              'file': path.as_posix(),
-                              'line': lineno,
-                              'literal': lit,
-                              'source_line': line.strip(),
-                              'score': score,
-                          })
+                      if any(marker in text for marker in internal_markers):
+                          continue
+                      # Human-language likelihood: whitespace or sentence punctuation.
+                      if ' ' not in text and not any(ch in text for ch in '.!?'):
+                          continue
+                      coverage = 'uncovered'
+                      if text in exact:
+                          coverage = 'hud_exact'
+                      elif text in dedicated:
+                          coverage = 'dedicated_display'
+                      elif covered_by_pattern(text):
+                          coverage = 'hud_pattern'
+                      rows.append({
+                          'file': filename,
+                          'line': lineno,
+                          'literal': text,
+                          'coverage': coverage,
+                          'source_line': stripped,
+                      })
 
-          # Deduplicate exact file/line/literal and sort strongest first.
-          unique = {(r['file'], r['line'], r['literal']): r for r in rows}
-          rows = sorted(unique.values(), key=lambda r: (-r['score'], r['file'], r['line']))
-          Path('runtime-literal-audit.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(f'CANDIDATE_COUNT={len(rows)}')
+          unique_occ = {(r['file'], r['line'], r['literal']): r for r in rows}
+          rows = sorted(unique_occ.values(), key=lambda r: (r['coverage'] != 'uncovered', r['file'], r['line']))
+          uncovered = [r for r in rows if r['coverage'] == 'uncovered']
+          unique_uncovered = sorted({r['literal'] for r in uncovered})
+          covered = [r for r in rows if r['coverage'] != 'uncovered']
+
+          # Fallback-like strings are kept in the list but reported separately when the
+          # source line itself advertises fallback semantics.
+          fallback_occ = [r for r in uncovered if 'fallback' in r['source_line'].lower()]
+
+          result = {
+              'format': 2,
+              'scanned_files': len([f for f in files if Path(f).exists()]),
+              'candidate_occurrences': len(rows),
+              'covered_occurrences': len(covered),
+              'uncovered_occurrences': len(uncovered),
+              'unique_uncovered_literals': len(unique_uncovered),
+              'fallback_occurrences': len(fallback_occ),
+              'rows': rows,
+          }
+          Path('runtime-literal-audit.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+
+          print(f"SCANNED_FILES={result['scanned_files']}")
+          print(f"PLAYER_CANDIDATE_OCCURRENCES={result['candidate_occurrences']}")
+          print(f"ALREADY_DISPLAY_LOCALIZED={result['covered_occurrences']}")
+          print(f"UNCOVERED_OCCURRENCES={result['uncovered_occurrences']}")
+          print(f"UNIQUE_UNCOVERED_LITERALS={result['unique_uncovered_literals']}")
+          print(f"FALLBACK_OCCURRENCES={result['fallback_occurrences']}")
+
           by_file = {}
-          for r in rows:
+          for r in uncovered:
               by_file[r['file']] = by_file.get(r['file'], 0) + 1
-          print('FILES_WITH_CANDIDATES=', len(by_file))
-          for file, count in sorted(by_file.items(), key=lambda kv: (-kv[1], kv[0]))[:80]:
-              print(f'FILE {count:4d} {file}')
-          print('--- CANDIDATES ---')
-          for r in rows[:800]:
-              print(f"{r['score']}\t{r['file']}:{r['line']}\t{r['literal']}")
+          print('--- UNCOVERED BY FILE ---')
+          for file, count in sorted(by_file.items(), key=lambda kv: (-kv[1], kv[0])):
+              print(f'{count:4d}\t{file}')
+          print('--- UNCOVERED LITERALS ---')
+          seen = set()
+          for r in uncovered:
+              if r['literal'] in seen:
+                  continue
+              seen.add(r['literal'])
+              print(f"{r['file']}:{r['line']}\t{r['literal']}")
           PY
 
       - name: Upload audit
