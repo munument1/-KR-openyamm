@@ -158,8 +158,13 @@ jobs:
       - name: Collect arm64 native library
         run: |
           mkdir -p dist/android-arm64
-          library="$(find android/app/.cxx -type f -path '*/arm64-v8a/libmain.so' | head -n 1)"
-          test -n "$library"
+          library="$(find android -type f -path '*/arm64-v8a/libmain.so' | head -n 1)"
+          if [[ -z "$library" ]]; then
+            echo "::error::arm64-v8a libmain.so was not found after a successful native build"
+            find android -type f -name 'libmain.so' -print || true
+            exit 1
+          fi
+          echo "Found Android native library: $library"
           cp "$library" dist/android-arm64/libmain.so
 
       - name: Upload arm64 smoke artifact
