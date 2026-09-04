@@ -138,7 +138,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 korean/tools/extend_house_catalog.py \
-            --mmmerge-root _mmmerge
+            --mmmerge-root _mmmerge \
+            --fail-on-review
           python3 -m json.tool korean/translations/catalog.json >/dev/null
 
       - name: Add Korean fallback font to generated engine overlay
@@ -176,7 +177,7 @@ jobs:
             grep -Fxq "$required" dist/korean-translation-import/engine-contents.txt
           done
 
-      - name: Print translation coverage and review queue
+      - name: Enforce complete supported-scope coverage
         run: |
           python3 - <<'PY'
           import json
@@ -201,15 +202,15 @@ jobs:
               if entry['status'] in {'untranslated', 'needs_review'}
           ]
           print(f'REVIEW_QUEUE={len(review_entries)}')
-          for entry in review_entries[:250]:
-              print('---')
-              print('key:', entry['key'])
-              print('status:', entry['status'])
-              print('source:', entry['source'])
-              print('translation:', entry['translation'])
-              print('placeholder_ok:', entry['placeholder_ok'])
-          if len(review_entries) > 250:
-              print(f'... {len(review_entries) - 250} additional review entries are in catalog.json')
+          if review_entries:
+              for entry in review_entries[:250]:
+                  print('---')
+                  print('key:', entry['key'])
+                  print('status:', entry['status'])
+                  print('source:', entry['source'])
+                  print('translation:', entry['translation'])
+                  print('placeholder_ok:', entry['placeholder_ok'])
+              raise SystemExit('Korean translation coverage is incomplete')
           PY
 
       - name: Upload translation import artifact
