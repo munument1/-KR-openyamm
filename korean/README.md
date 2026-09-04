@@ -65,6 +65,8 @@ Korean runtime source changes must remain narrowly scoped and smoke-tested on bo
 
 Hard-coded runtime display overrides are added only after the English string is confirmed to reach a player-visible UI or status-message path. English logic keys remain unchanged; Korean text is substituted at the final display layer and covered by focused runtime QA before native smoke builds.
 
+Character detail, buff inspection, recovery-time, item-identification, and outdoor pickup text that is constructed directly by a renderer is localized at that display-construction site after the underlying logic keys have already been resolved.
+
 ## Base-version rule
 
 Any runtime binary patch must record the exact upstream OpenYAMM version/commit it targets. A binary patch must fail rather than silently apply to an unknown executable or APK.
