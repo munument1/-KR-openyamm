@@ -23,6 +23,9 @@ FIELD_COLUMNS = {
     ("npc_greet.txt", "Greeting2"): 2,
     ("npc_topic.txt", "Topic"): 1,
     ("npc_topic_text.txt", "Text"): 1,
+    ("monster_data.txt", "Name"): 1,
+    ("map_stats.txt", "Name"): 1,
+    ("awards.txt", "Awards"): 1,
 }
 
 
@@ -79,6 +82,7 @@ def refresh_counts(catalog: dict) -> None:
         "untranslated": sum(1 for entry in entries if entry["status"] == "untranslated"),
         "needs_review": sum(1 for entry in entries if entry["status"] == "needs_review"),
         "overrides": sum(1 for entry in entries if entry.get("translation_origin") == "override"),
+        "excluded": sum(int(table.get("excluded", 0)) for table in catalog["tables"]),
     }
 
 
