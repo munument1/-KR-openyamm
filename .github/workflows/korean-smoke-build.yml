@@ -22,6 +22,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  utf8-name-input-guard:
+    name: UTF-8 name input guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out UTF-8 name input sources
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/ui/screens/NewGameScreen.cpp
+            /game/ui/screens/NewGameScreen.h
+            /game/CMakeLists.txt
+
+      - name: Verify native UTF-8 name editing
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'utf8CodePointCount(m_state.nameEditBuffer)' game/ui/screens/NewGameScreen.cpp
+          grep -Fq 'isPrintableNameCodePoint(span.codePoint)' game/ui/screens/NewGameScreen.cpp
+          grep -Fq 'previousUtf8CodePointOffset(m_state.nameEditBuffer, m_state.nameEditBuffer.size())' game/ui/screens/NewGameScreen.cpp
+          grep -Fq 'std::string nameEditBuffer;' game/ui/screens/NewGameScreen.h
+          if grep -Fq 'OPENYAMM_UTF8_NEW_GAME_NAMES' game/ui/screens/NewGameScreen.h game/CMakeLists.txt; then
+            echo '::error::temporary OPENYAMM_UTF8_NEW_GAME_NAMES workaround must not return'
+            exit 1
+          fi
+          if grep -Fq 'Utf8NameEditBuffer' game/ui/screens/NewGameScreen.h; then
+            echo '::error::temporary Utf8NameEditBuffer workaround must not return'
+            exit 1
+          fi
+
   korean-overlay:
     name: Korean smoke overlay
     runs-on: ubuntu-24.04
