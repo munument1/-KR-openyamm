@@ -1,0 +1,158 @@
+name: Korean connect runtime overrides
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - .github/workflows/korean-connect-runtime-overrides.yml
+
+permissions:
+  contents: write
+
+jobs:
+  connect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 0
+
+      - name: Connect runtime translations at display boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          hud_path = Path('game/ui/GameplayHudCommon.cpp')
+          hud = hud_path.read_text(encoding='utf-8')
+          include_anchor = '#include "game/ui/Utf8Text.h"\n'
+          include_line = '#include "game/ui/KoreanRuntimeTextOverrides.h"\n'
+          if include_line not in hud:
+              if include_anchor not in hud:
+                  raise SystemExit('GameplayHudCommon include anchor missing')
+              hud = hud.replace(include_anchor, include_anchor + include_line, 1)
+
+          function_anchor = '''std::string localizedGameplayHudText(const std::string &text)
+          {
+              if (text.empty())
+              {
+                  return text;
+              }
+
+          '''
+          function_replacement = '''std::string localizedGameplayHudText(const std::string &text)
+          {
+              if (text.empty())
+              {
+                  return text;
+              }
+
+              if (const std::optional<std::string> overrideText = KoreanRuntimeText::koreanRuntimeTextOverride(text))
+              {
+                  return *overrideText;
+              }
+
+          '''
+          if 'KoreanRuntimeText::koreanRuntimeTextOverride(text)' not in hud:
+              if function_anchor not in hud:
+                  raise SystemExit('localizedGameplayHudText anchor missing')
+              hud = hud.replace(function_anchor, function_replacement, 1)
+          hud_path.write_text(hud, encoding='utf-8')
+
+          menu_cpp_path = Path('game/ui/MenuScreenBaseKorean.cpp')
+          menu_cpp = menu_cpp_path.read_text(encoding='utf-8')
+          menu_include_anchor = '#include "game/ui/Utf8Text.h"\n'
+          if include_line not in menu_cpp:
+              if menu_include_anchor not in menu_cpp:
+                  raise SystemExit('MenuScreenBaseKorean include anchor missing')
+              menu_cpp = menu_cpp.replace(menu_include_anchor, menu_include_anchor + include_line, 1)
+          menu_cpp_path.write_text(menu_cpp, encoding='utf-8')
+
+          inc_path = Path('game/ui/MenuScreenKoreanText.inc')
+          inc = inc_path.read_text(encoding='utf-8')
+
+          measure_anchor = '''float MenuScreenBase::measureTextWidth(const std::string &fontName, const std::string &text, float scale)
+          {
+              if (!menuTextNeedsUnicode(text))
+          '''
+          measure_replacement = '''float MenuScreenBase::measureTextWidth(const std::string &fontName, const std::string &text, float scale)
+          {
+              const std::string localizedText = KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
+              if (!menuTextNeedsUnicode(localizedText))
+          '''
+          if 'const std::string localizedText = KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);' not in inc:
+              if measure_anchor not in inc:
+                  raise SystemExit('Menu measureTextWidth anchor missing')
+              inc = inc.replace(measure_anchor, measure_replacement, 1)
+
+              old = 'return measureTextWidthLegacy(fontName, text, scale);'
+              new = 'return measureTextWidthLegacy(fontName, localizedText, scale);'
+              if old not in inc:
+                  raise SystemExit('Menu measure legacy call missing')
+              inc = inc.replace(old, new, 1)
+
+              old = 'const std::vector<uint32_t> codePoints = decodeMenuTextCodePoints(text);'
+              new = 'const std::vector<uint32_t> codePoints = decodeMenuTextCodePoints(localizedText);'
+              if inc.count(old) < 2:
+                  raise SystemExit('Expected two menu decode calls')
+              inc = inc.replace(old, new, 1)
+
+              draw_anchor = '''bool MenuScreenBase::drawText(
+              const std::string &fontName,
+              const std::string &text,
+              float pixelX,
+              float pixelY,
+              uint32_t colorAbgr,
+              float scale,
+              bool drawShadow)
+          {
+              if (!menuTextNeedsUnicode(text))
+          '''
+              draw_replacement = '''bool MenuScreenBase::drawText(
+              const std::string &fontName,
+              const std::string &text,
+              float pixelX,
+              float pixelY,
+              uint32_t colorAbgr,
+              float scale,
+              bool drawShadow)
+          {
+              const std::string localizedText = KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
+              if (!menuTextNeedsUnicode(localizedText))
+          '''
+              if draw_anchor not in inc:
+                  raise SystemExit('Menu drawText anchor missing')
+              inc = inc.replace(draw_anchor, draw_replacement, 1)
+
+              old = 'return drawTextLegacy(fontName, text, pixelX, pixelY, colorAbgr, scale, drawShadow);'
+              new = 'return drawTextLegacy(fontName, localizedText, pixelX, pixelY, colorAbgr, scale, drawShadow);'
+              if old not in inc:
+                  raise SystemExit('Menu draw legacy call missing')
+              inc = inc.replace(old, new, 1)
+
+          inc_path.write_text(inc, encoding='utf-8')
+
+          # Verify the helper is now used by both gameplay HUD and MenuScreen paths.
+          hud = hud_path.read_text(encoding='utf-8')
+          inc = inc_path.read_text(encoding='utf-8')
+          if hud.count('KoreanRuntimeText::koreanRuntimeTextOverride(text)') != 1:
+              raise SystemExit('HUD runtime override connection count is unexpected')
+          if inc.count('KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text)') != 2:
+              raise SystemExit('Menu runtime override connection count is unexpected')
+          if 'decodeMenuTextCodePoints(text)' in inc:
+              raise SystemExit('Menu Unicode decoding still bypasses localized text')
+          PY
+          git diff --check
+
+      - name: Commit display-boundary connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/ui/GameplayHudCommon.cpp game/ui/MenuScreenBaseKorean.cpp game/ui/MenuScreenKoreanText.inc
+          git commit -m "feat(korean): localize hardcoded runtime display text"
+          git push origin HEAD:korean-localization
