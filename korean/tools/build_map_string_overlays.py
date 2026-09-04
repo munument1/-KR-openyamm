@@ -5,6 +5,10 @@ Runtime Lua ownership determines the destination world. The English StringId
 source is recovered from MM6/MM7/MM8 legacy STR files and matched against the
 actual generated Lua literal. This also supports MMerge-only Lua maps, which do
 not have their own legacy STR tree.
+
+A small audited exclusion list handles MMMerge MapStrings rows whose source
+MapFile/StringId data drifted away from OpenYAMM. Such rows are never applied by
+literal guessing because that could translate an unrelated runtime string.
 """
 
 from __future__ import annotations
@@ -98,6 +102,24 @@ def index_files(root: Path, suffix: str) -> dict[str, Path]:
     return result
 
 
+def load_audited_exclusions(path: Path) -> dict[tuple[str, int], dict]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    result: dict[tuple[str, int], dict] = {}
+    for entry in data.get("entries", []):
+        map_file = Path(str(entry["map_file"])).name.lower()
+        string_id = int(entry["string_id"])
+        runtime_world = str(entry.get("runtime_world", "mm7"))
+        if runtime_world not in WORLDS:
+            raise ValueError(f"Invalid runtime_world in {path}: {runtime_world}")
+        key = (map_file, string_id)
+        if key in result:
+            raise ValueError(f"Duplicate map string exclusion in {path}: {key}")
+        normalized = dict(entry)
+        normalized["runtime_world"] = runtime_world
+        result[key] = normalized
+    return result
+
+
 def make_review(
     *,
     key: str,
@@ -142,6 +164,7 @@ def main() -> int:
     parser.add_argument("--mmmerge-root", required=True)
     parser.add_argument("--catalog", default="korean/translations/catalog.json")
     parser.add_argument("--overlay-worlds-root", default="korean/overlay/worlds")
+    parser.add_argument("--exclusions", default="korean/translations/map_string_exclusions.json")
     parser.add_argument("--fail-on-review", action="store_true")
     args = parser.parse_args()
 
@@ -149,6 +172,9 @@ def main() -> int:
     mmmerge_root = Path(args.mmmerge_root).resolve()
     catalog_path = repo_root / args.catalog
     output_root = repo_root / args.overlay_worlds_root
+    exclusions_path = repo_root / args.exclusions
+    audited_exclusions = load_audited_exclusions(exclusions_path)
+    used_exclusions: set[tuple[str, int]] = set()
     ko_path = mmmerge_root / "Data" / "Text localization" / "KO_MapStrings.txt"
     ko_rows, ko_encoding = read_tsv(ko_path, ("utf-8-sig", "cp949"))
 
@@ -199,6 +225,32 @@ def main() -> int:
         map_name = Path(map_file).name
         str_name = map_name.lower()
         lua_name = Path(map_file).stem.lower() + ".lua"
+
+        exclusion_key = (str_name, string_id)
+        audited = audited_exclusions.get(exclusion_key)
+        if audited is not None:
+            expected_translation = str(audited["translation"])
+            if translation != expected_translation:
+                raise ValueError(
+                    f"Audited exclusion changed for {map_name}:{string_id}: "
+                    f"expected {expected_translation!r}, got {translation!r}"
+                )
+            runtime_world = str(audited["runtime_world"])
+            excluded_details.append(
+                {
+                    "key": f"world:{runtime_world}:{map_name}:{string_id}",
+                    "world": runtime_world,
+                    "map_file": map_name,
+                    "string_id": string_id,
+                    "source": "",
+                    "translation": translation,
+                    "reason": str(audited["reason"]),
+                    "exclusion_origin": exclusions_path.relative_to(repo_root).as_posix(),
+                }
+            )
+            used_exclusions.add(exclusion_key)
+            continue
+
         target_worlds = [world for world in WORLDS if lua_name in lua_indexes[world]]
 
         source_candidates: list[tuple[str, Path, str, str]] = []
@@ -400,6 +452,10 @@ def main() -> int:
             }
         )
 
+    unused_exclusions = sorted(set(audited_exclusions) - used_exclusions)
+    if unused_exclusions:
+        raise ValueError(f"Audited map string exclusions were not found in KO_MapStrings: {unused_exclusions}")
+
     generated_by_world: dict[str, list[str]] = defaultdict(list)
     for (world_id, lua_name), literal_map in replacements.items():
         text = lua_cache[(world_id, lua_name)][0]
@@ -443,7 +499,10 @@ def main() -> int:
             "placeholder_mismatches": sum(entry["status"] == "needs_review" for entry in world_entries),
             "overrides": 0,
             "excluded": len(world_excluded),
-            "exclusion_reason": "Valid KO STR rows not emitted by current runtime Lua are excluded from coverage.",
+            "exclusion_reason": (
+                "Valid KO STR rows not emitted by current runtime Lua, or explicitly audited MMMerge source-drift "
+                "rows, are excluded from current runtime coverage."
+            ),
             "excluded_details": world_excluded,
             "generated_overlay_files": sorted(generated_by_world.get(world_id, [])),
             "output_encoding": "utf-8",
@@ -477,6 +536,7 @@ def main() -> int:
 
     print(json.dumps(catalog["summary"], ensure_ascii=False))
     print(f"KO_MapStrings rows={processed_rows}, classified={classified_rows}")
+    print(f"audited source-drift exclusions={len(used_exclusions)}")
     for world_id, stats in table_stats:
         print(
             f"{world_id}: {stats['translated']}/{stats['entries']} emitted translated, "
