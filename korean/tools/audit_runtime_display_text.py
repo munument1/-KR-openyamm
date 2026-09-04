@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 from collections import Counter
@@ -46,8 +47,8 @@ DEDICATED_DISPLAY = {
 
 def decode_cpp(raw: str) -> str:
     try:
-        return bytes(raw, 'utf-8').decode('unicode_escape')
-    except UnicodeDecodeError:
+        return ast.literal_eval('"' + raw + '"')
+    except (SyntaxError, ValueError):
         return raw
 
 
