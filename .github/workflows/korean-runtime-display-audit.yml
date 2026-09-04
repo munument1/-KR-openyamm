@@ -1,0 +1,40 @@
+name: Korean runtime display audit
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - .github/workflows/korean-runtime-display-audit.yml
+      - korean/tools/audit_runtime_display_text.py
+      - game/ui/KoreanRuntimeTextOverrides.h
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Scan runtime display literals
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 korean/tools/audit_runtime_display_text.py
+
+      - name: Upload runtime display audit
+        uses: actions/upload-artifact@v7
+        with:
+          name: korean-runtime-display-audit
+          path: |
+            runtime-display-audit.json
+            runtime-display-audit.tsv
+          retention-days: 7
