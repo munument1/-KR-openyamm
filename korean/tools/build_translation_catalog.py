@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Build an auditable Korean translation catalog and OpenYAMM overlay files.
 
-The source of truth for reusable Korean text is the user's MMMerge Korean
-localization repository. OpenYAMM runtime files remain in their native TSV/TXT
-formats; JSON is only the review/coverage layer used to detect omissions and
-source drift. OpenYAMM-only or deliberately corrected strings live in a small
-JSON override file keyed by stable catalog keys.
+Reusable Korean text comes from the user's MMMerge Korean localization repo.
+OpenYAMM runtime files remain in their native TSV/TXT formats; JSON is the
+review/coverage layer used to detect omissions, placeholder damage, and source
+drift. OpenYAMM-only or deliberately corrected strings live in a small JSON
+override file keyed by stable catalog keys.
 """
 
 from __future__ import annotations
@@ -21,39 +21,48 @@ from pathlib import Path
 import re
 from typing import Iterable
 
-# Deliberately do not accept the printf space flag here. Legacy game prose often
-# contains ordinary percentages such as "10% per point"; treating "% p" as a
-# printf token creates false positives. The game tables we localize use compact
-# tokens such as %d, %s, %lu, etc.
+# Do not accept the printf space flag here. Legacy prose contains ordinary
+# percentages such as "10% per point"; accepting the space flag would treat
+# "% p" as a placeholder. The relevant game tables use compact forms such as
+# %d, %s and %lu.
 PRINTF_TOKEN_RE = re.compile(
     r"%(?:\d+\$)?[-+#0]*\d*(?:\.\d+)?(?:hh|h|ll|l|j|z|t|L)?[diuoxXfFeEgGaAcspn]"
 )
 
 
 @dataclass(frozen=True)
-class TableSpec:
+class FieldOverlaySpec:
     overlay_name: str
     source_relpath: str
     fields: dict[str, int]
 
 
-TABLE_SPECS = (
-    TableSpec(
+@dataclass(frozen=True)
+class DirectRowSpec:
+    overlay_name: str
+    source_relpath: str
+    # field -> (OpenYAMM target column, MMMerge translation column)
+    fields: dict[str, tuple[int, int]]
+    minimum_id: int = 0
+
+
+FIELD_OVERLAY_SPECS = (
+    FieldOverlaySpec(
         overlay_name="KO_GlobalTxt.txt",
         source_relpath="assets_dev/engine/data_tables/english/Global.txt",
         fields={"": 1},
     ),
-    TableSpec(
+    FieldOverlaySpec(
         overlay_name="KO_QuestsTxt.txt",
         source_relpath="assets_dev/engine/data_tables/english/quests.txt",
         fields={"": 1},
     ),
-    TableSpec(
+    FieldOverlaySpec(
         overlay_name="KO_AutonoteTxt.txt",
         source_relpath="assets_dev/engine/data_tables/english/autonote.txt",
         fields={"": 1},
     ),
-    TableSpec(
+    FieldOverlaySpec(
         overlay_name="KO_SpellsTxt.txt",
         source_relpath="assets_dev/engine/data_tables/english/spells.txt",
         fields={
@@ -65,6 +74,24 @@ TABLE_SPECS = (
             "Master": 8,
             "GrandMaster": 9,
         },
+    ),
+    FieldOverlaySpec(
+        overlay_name="KO_NPCData.txt",
+        source_relpath="assets_dev/engine/data_tables/npc.txt",
+        fields={"Name": 1},
+    ),
+)
+
+DIRECT_ROW_SPECS = (
+    DirectRowSpec(
+        overlay_name="KO_ItemsTxt.txt",
+        source_relpath="assets_dev/engine/data_tables/items.txt",
+        fields={
+            "Name": (2, 1),
+            "NotIdentifiedName": (10, 2),
+            "Notes": (16, 3),
+        },
+        minimum_id=1,
     ),
 )
 
@@ -109,7 +136,7 @@ def write_tsv(path: Path, rows: Iterable[list[str]]) -> None:
         writer.writerows(rows)
 
 
-def parse_mmmerge_overlay(path: Path) -> tuple[dict[tuple[int, str], str], str]:
+def parse_field_overlay(path: Path) -> tuple[dict[tuple[int, str], str], str]:
     rows, encoding = read_tsv(path, ("utf-8-sig", "cp949"))
     result: dict[tuple[int, str], str] = {}
     for row in rows[1:]:
@@ -119,6 +146,18 @@ def parse_mmmerge_overlay(path: Path) -> tuple[dict[tuple[int, str], str], str]:
         if not raw_id.isdigit():
             continue
         result[(int(raw_id), row[2].strip())] = row[3]
+    return result, encoding
+
+
+def parse_direct_rows(path: Path) -> tuple[dict[int, list[str]], str]:
+    rows, encoding = read_tsv(path, ("utf-8-sig", "cp949"))
+    result: dict[int, list[str]] = {}
+    for row in rows[1:]:
+        if not row:
+            continue
+        raw_id = row[0].strip()
+        if raw_id.isdigit():
+            result[int(raw_id)] = row
     return result, encoding
 
 
@@ -155,11 +194,40 @@ def load_overrides(path: Path) -> dict[str, dict]:
     return result
 
 
-def build_table(
+def resolve_translation(
+    key: str,
+    source_text: str,
+    inherited_translation: str,
+    overrides: dict[str, dict],
+) -> tuple[str, str, str, str, bool]:
+    override = overrides.get(key)
+    if override is not None:
+        translation = override["translation"]
+        origin = "override"
+        note = str(override.get("note", ""))
+    else:
+        translation = inherited_translation
+        origin = "mmmerge" if translation else "none"
+        note = ""
+
+    if not translation:
+        return translation, origin, note, "untranslated", True
+
+    placeholder_ok = printf_tokens(source_text) == printf_tokens(translation)
+    return (
+        translation,
+        origin,
+        note,
+        "translated" if placeholder_ok else "needs_review",
+        placeholder_ok,
+    )
+
+
+def build_field_overlay_table(
     repo_root: Path,
     mmmerge_root: Path,
     overlay_engine_root: Path,
-    spec: TableSpec,
+    spec: FieldOverlaySpec,
     overrides: dict[str, dict],
 ) -> tuple[list[dict], dict]:
     source_path = repo_root / spec.source_relpath
@@ -172,7 +240,7 @@ def build_table(
     source_rows, source_encoding = read_tsv(source_path, ("utf-8-sig", "cp1252"))
     output_rows = [list(row) for row in source_rows]
     row_lookup = source_rows_by_id(source_rows)
-    translations, mmmerge_encoding = parse_mmmerge_overlay(mmmerge_path)
+    translations, mmmerge_encoding = parse_field_overlay(mmmerge_path)
 
     entries: list[dict] = []
     translated_count = 0
@@ -190,27 +258,19 @@ def build_table(
                 continue
 
             key = f"engine:{Path(spec.source_relpath).name}:{record_id}:{field_name or 'text'}"
-            override = overrides.get(key)
-            if override is not None:
-                translation = override["translation"]
-                translation_origin = "override"
-                note = str(override.get("note", ""))
+            translation, origin, note, status, placeholder_ok = resolve_translation(
+                key,
+                source_text,
+                translations.get((record_id, field_name), ""),
+                overrides,
+            )
+            if origin == "override":
                 override_count += 1
-            else:
-                translation = translations.get((record_id, field_name), "")
-                translation_origin = "mmmerge" if translation else "none"
-                note = ""
-
-            status = "translated" if translation else "untranslated"
-            placeholder_ok = True
-            if translation:
-                placeholder_ok = printf_tokens(source_text) == printf_tokens(translation)
-                if placeholder_ok:
-                    output_rows[row_index][column_index] = translation
-                    translated_count += 1
-                else:
-                    status = "needs_review"
-                    placeholder_mismatches += 1
+            if status == "translated":
+                output_rows[row_index][column_index] = translation
+                translated_count += 1
+            elif status == "needs_review":
+                placeholder_mismatches += 1
             else:
                 missing_count += 1
 
@@ -223,7 +283,7 @@ def build_table(
                     "field": field_name or "text",
                     "source": source_text,
                     "translation": translation,
-                    "translation_origin": translation_origin,
+                    "translation_origin": origin,
                     "status": status,
                     "placeholder_ok": placeholder_ok,
                     "note": note,
@@ -236,6 +296,107 @@ def build_table(
 
     stats = {
         "overlay_source": f"Data/Text localization/{spec.overlay_name}",
+        "overlay_format": "id-field-text",
+        "source_file": spec.source_relpath,
+        "source_sha256": sha256_file(source_path),
+        "source_encoding": source_encoding,
+        "mmmerge_sha256": sha256_file(mmmerge_path),
+        "mmmerge_encoding": mmmerge_encoding,
+        "entries": len(entries),
+        "translated": translated_count,
+        "untranslated": missing_count,
+        "placeholder_mismatches": placeholder_mismatches,
+        "overrides": override_count,
+        "output_file": output_path.relative_to(repo_root).as_posix(),
+        "output_encoding": "utf-8",
+    }
+    return entries, stats
+
+
+def build_direct_row_table(
+    repo_root: Path,
+    mmmerge_root: Path,
+    overlay_engine_root: Path,
+    spec: DirectRowSpec,
+    overrides: dict[str, dict],
+) -> tuple[list[dict], dict]:
+    source_path = repo_root / spec.source_relpath
+    mmmerge_path = mmmerge_root / "Data" / "Text localization" / spec.overlay_name
+    if not source_path.is_file():
+        raise FileNotFoundError(source_path)
+    if not mmmerge_path.is_file():
+        raise FileNotFoundError(mmmerge_path)
+
+    source_rows, source_encoding = read_tsv(source_path, ("utf-8-sig", "cp1252"))
+    output_rows = [list(row) for row in source_rows]
+    row_lookup = source_rows_by_id(source_rows)
+    translations, mmmerge_encoding = parse_direct_rows(mmmerge_path)
+
+    entries: list[dict] = []
+    translated_count = 0
+    missing_count = 0
+    placeholder_mismatches = 0
+    override_count = 0
+
+    for record_id, row_index in sorted(row_lookup.items()):
+        if record_id < spec.minimum_id:
+            continue
+        row = source_rows[row_index]
+        translated_row = translations.get(record_id, [])
+
+        for field_name, columns in spec.fields.items():
+            target_column, translation_column = columns
+            if target_column >= len(row):
+                continue
+            source_text = row[target_column]
+            if source_text == "":
+                continue
+
+            inherited_translation = (
+                translated_row[translation_column]
+                if translation_column < len(translated_row)
+                else ""
+            )
+            key = f"engine:{Path(spec.source_relpath).name}:{record_id}:{field_name}"
+            translation, origin, note, status, placeholder_ok = resolve_translation(
+                key,
+                source_text,
+                inherited_translation,
+                overrides,
+            )
+            if origin == "override":
+                override_count += 1
+            if status == "translated":
+                output_rows[row_index][target_column] = translation
+                translated_count += 1
+            elif status == "needs_review":
+                placeholder_mismatches += 1
+            else:
+                missing_count += 1
+
+            entries.append(
+                {
+                    "key": key,
+                    "scope": "engine",
+                    "source_file": spec.source_relpath,
+                    "record_id": record_id,
+                    "field": field_name,
+                    "source": source_text,
+                    "translation": translation,
+                    "translation_origin": origin,
+                    "status": status,
+                    "placeholder_ok": placeholder_ok,
+                    "note": note,
+                }
+            )
+
+    output_relpath = Path(spec.source_relpath).relative_to("assets_dev/engine")
+    output_path = overlay_engine_root / output_relpath
+    write_tsv(output_path, output_rows)
+
+    stats = {
+        "overlay_source": f"Data/Text localization/{spec.overlay_name}",
+        "overlay_format": "direct-id-row",
         "source_file": spec.source_relpath,
         "source_sha256": sha256_file(source_path),
         "source_encoding": source_encoding,
@@ -256,22 +417,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=None)
     parser.add_argument("--mmmerge-root", required=True)
-    parser.add_argument(
-        "--catalog-output",
-        default="korean/translations/catalog.json",
-    )
-    parser.add_argument(
-        "--overrides",
-        default="korean/translations/overrides.json",
-    )
-    parser.add_argument(
-        "--overlay-engine-root",
-        default="korean/overlay/engine",
-    )
-    parser.add_argument(
-        "--fail-on-placeholder-mismatch",
-        action="store_true",
-    )
+    parser.add_argument("--catalog-output", default="korean/translations/catalog.json")
+    parser.add_argument("--overrides", default="korean/translations/overrides.json")
+    parser.add_argument("--overlay-engine-root", default="korean/overlay/engine")
+    parser.add_argument("--fail-on-placeholder-mismatch", action="store_true")
     args = parser.parse_args()
 
     repo_root = (
@@ -287,13 +436,17 @@ def main() -> int:
 
     all_entries: list[dict] = []
     tables: list[dict] = []
-    for spec in TABLE_SPECS:
-        entries, stats = build_table(
-            repo_root,
-            mmmerge_root,
-            overlay_engine_root,
-            spec,
-            overrides,
+
+    for spec in FIELD_OVERLAY_SPECS:
+        entries, stats = build_field_overlay_table(
+            repo_root, mmmerge_root, overlay_engine_root, spec, overrides
+        )
+        all_entries.extend(entries)
+        tables.append(stats)
+
+    for spec in DIRECT_ROW_SPECS:
+        entries, stats = build_direct_row_table(
+            repo_root, mmmerge_root, overlay_engine_root, spec, overrides
         )
         all_entries.extend(entries)
         tables.append(stats)
@@ -311,7 +464,7 @@ def main() -> int:
         "overrides": sum(1 for entry in all_entries if entry["translation_origin"] == "override"),
     }
     catalog = {
-        "format": 1,
+        "format": 2,
         "purpose": "OpenYAMM Korean translation coverage and source-drift tracking",
         "runtime_format": "native OpenYAMM TSV/TXT overlay",
         "translation_source": "munument1/-KR-MMMerge plus OpenYAMM-specific overrides",
