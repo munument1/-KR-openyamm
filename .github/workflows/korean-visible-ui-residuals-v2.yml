@@ -1,0 +1,133 @@
+name: Patch confirmed Korean visible UI residuals v2
+
+on:
+  push:
+    branches: [korean-localization]
+    paths:
+      - .github/workflows/korean-visible-ui-residuals-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: korean-localization
+          fetch-depth: 0
+          sparse-checkout: |
+            game/ui/GameplayHudOverlaySupport.cpp
+            game/ui/GameplayPartyOverlayRenderer.cpp
+            game/outdoor/OutdoorGameView.cpp
+          sparse-checkout-cone-mode: false
+
+      - name: Apply reviewed display-only translations
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def patch(path, pairs):
+              text = Path(path).read_text(encoding='utf-8')
+              for old, new, label in pairs:
+                  count = text.count(old)
+                  if count != 1:
+                      raise SystemExit(f'{path}: {label}: expected 1 match, found {count}')
+                  text = text.replace(old, new, 1)
+              Path(path).write_text(text, encoding='utf-8')
+
+          patch('game/ui/GameplayHudOverlaySupport.cpp', [
+              ('"Recovery time: " + std::to_string(recoveryTicksFromSeconds(recoverySeconds))', '"회복 시간: " + std::to_string(recoveryTicksFromSeconds(recoverySeconds))', 'melee recovery'),
+              ('"Recovery time: N/A"', '"회복 시간: 해당 없음"', 'no ranged recovery'),
+              ('"Recovery time: " + std::to_string(recoveryTicksFromSeconds(profile.rangedRecoverySeconds))', '"회복 시간: " + std::to_string(recoveryTicksFromSeconds(profile.rangedRecoverySeconds))', 'ranged recovery'),
+              ('std::to_string(hours) + "h " + std::to_string(minutes) + "m"', 'std::to_string(hours) + "시간 " + std::to_string(minutes) + "분"', 'short hours minutes'),
+              ('std::to_string(hours) + "h"', 'std::to_string(hours) + "시간"', 'short hours'),
+              ('std::to_string(minutes) + "m " + std::to_string(seconds) + "s"', 'std::to_string(minutes) + "분 " + std::to_string(seconds) + "초"', 'short minutes seconds'),
+              ('std::to_string(minutes) + "m"', 'std::to_string(minutes) + "분"', 'short minutes'),
+              ('std::to_string(seconds) + "s"', 'std::to_string(seconds) + "초"', 'short seconds'),
+              ('std::to_string(hours) + (hours == 1 ? " Hour" : " Hours")', 'std::to_string(hours) + "시간"', 'detail hours'),
+              ('std::to_string(minutes) + (minutes == 1 ? " Minute" : " Minutes")', 'std::to_string(minutes) + "분"', 'detail minutes'),
+              ('std::to_string(seconds) + (seconds == 1 ? " Second" : " Seconds")', 'std::to_string(seconds) + "초"', 'detail seconds'),
+              ('return "0 Seconds";', 'return "0초";', 'zero duration'),
+              ('"Blaster weapons provide an accurate ranged attack. With scaling damage enabled, only "\n                        "Grandmaster rank adds damage per skill point."', '"블래스터 무기는 정확한 원거리 공격을 제공합니다. 피해량 증가 설정에서는 "\n                        "그랜드마스터 등급에서만 기술 포인트당 피해가 증가합니다."', 'blaster description'),
+              ('"Skill added to Attack Bonus (double effect)"', '"기술 점수가 공격 보너스에 더해짐(2배 효과)"', 'blaster expert'),
+              ('"Skill added to Attack Bonus (triple effect)"', '"기술 점수가 공격 보너스에 더해짐(3배 효과)"', 'blaster master'),
+              ('"Skill added to Attack Bonus (quintuple effect); +1 damage per skill point"', '"기술 점수가 공격 보너스에 더해짐(5배 효과); 기술 포인트당 피해 +1"', 'blaster grandmaster'),
+              ('{"OutdoorFlyBuffIcon", "OutdoorStandardFlyBuffIcon", "Fly", PartyBuffId::Fly, true}', '{"OutdoorFlyBuffIcon", "OutdoorStandardFlyBuffIcon", "비행", PartyBuffId::Fly, true}', 'fly'),
+              ('"Torch Light",\n            PartyBuffId::TorchLight', '"횃불",\n            PartyBuffId::TorchLight', 'torch'),
+              ('"Wizard Eye",\n            PartyBuffId::WizardEye', '"마법사의 눈",\n            PartyBuffId::WizardEye', 'wizard eye'),
+              ('"Feather Fall",\n            PartyBuffId::FeatherFall', '"깃털 낙하",\n            PartyBuffId::FeatherFall', 'feather fall'),
+              ('"Stoneskin",\n            PartyBuffId::Stoneskin', '"돌가죽",\n            PartyBuffId::Stoneskin', 'stoneskin'),
+              ('"Day of the Gods",\n            PartyBuffId::DayOfGods', '"신들의 날",\n            PartyBuffId::DayOfGods', 'day of gods'),
+              ('"Protection from Magic",\n            PartyBuffId::ProtectionFromMagic', '"마법 보호",\n            PartyBuffId::ProtectionFromMagic', 'magic protection'),
+              ('"Fire Resistance",\n            PartyBuffId::FireResistance', '"화염 저항",\n            PartyBuffId::FireResistance', 'fire resistance'),
+              ('"Water Resistance",\n            PartyBuffId::WaterResistance', '"물 저항",\n            PartyBuffId::WaterResistance', 'water resistance'),
+              ('"Air Resistance",\n            PartyBuffId::AirResistance', '"공기 저항",\n            PartyBuffId::AirResistance', 'air resistance'),
+              ('"Earth Resistance",\n            PartyBuffId::EarthResistance', '"대지 저항",\n            PartyBuffId::EarthResistance', 'earth resistance'),
+              ('"Mind Resistance",\n            PartyBuffId::MindResistance', '"정신 저항",\n            PartyBuffId::MindResistance', 'mind resistance'),
+              ('"Body Resistance",\n            PartyBuffId::BodyResistance', '"육체 저항",\n            PartyBuffId::BodyResistance', 'body resistance'),
+              ('{"OutdoorBuffBody_Shield", "OutdoorStandardBuffBody_Shield", "Shield", PartyBuffId::Shield, false}', '{"OutdoorBuffBody_Shield", "OutdoorStandardBuffBody_Shield", "방패", PartyBuffId::Shield, false}', 'shield'),
+              ('{"OutdoorBuffBody_Heroism", "OutdoorStandardBuffBody_Heroism", "Heroism", PartyBuffId::Heroism, false}', '{"OutdoorBuffBody_Heroism", "OutdoorStandardBuffBody_Heroism", "영웅심", PartyBuffId::Heroism, false}', 'heroism'),
+              ('{"OutdoorBuffBody_Haste", "OutdoorStandardBuffBody_Haste", "Haste", PartyBuffId::Haste, false}', '{"OutdoorBuffBody_Haste", "OutdoorStandardBuffBody_Haste", "가속", PartyBuffId::Haste, false}', 'haste'),
+              ('"Immolation",\n            PartyBuffId::Immolation', '"화염의 장막",\n            PartyBuffId::Immolation', 'immolation'),
+              ('body = "No active buffs";', 'body = "활성 강화 효과 없음";', 'no buffs'),
+              ('overlay.title = "Active Buffs";', 'overlay.title = "활성 강화 효과";', 'buff title'),
+              ('pCharacter->name.empty() ? "Member" : pCharacter->name', 'pCharacter->name.empty() ? "파티원" : pCharacter->name', 'member fallback'),
+              ('overlay.title = characterClass.empty() ? characterName : characterName + " the " + characterClass;', 'overlay.title = characterClass.empty() ? characterName : characterName + " (" + characterClass + ")";', 'character title'),
+              ('{"Bless", CharacterBuffId::Bless}', '{"축복", CharacterBuffId::Bless}', 'char bless'),
+              ('{"Fate", CharacterBuffId::Fate}', '{"운명", CharacterBuffId::Fate}', 'char fate'),
+              ('{"Preservation", CharacterBuffId::Preservation}', '{"생명 보존", CharacterBuffId::Preservation}', 'char preservation'),
+              ('{"Regeneration", CharacterBuffId::Regeneration}', '{"재생", CharacterBuffId::Regeneration}', 'char regeneration'),
+              ('{"Hammerhands", CharacterBuffId::Hammerhands}', '{"망치손", CharacterBuffId::Hammerhands}', 'char hammerhands'),
+              ('{"Pain Reflection", CharacterBuffId::PainReflection}', '{"고통 반사", CharacterBuffId::PainReflection}', 'char reflection'),
+              ('{"Fire Aura", CharacterBuffId::FireAura}', '{"화염 오라", CharacterBuffId::FireAura}', 'char fire aura'),
+              ('{"Vampiric Weapon", CharacterBuffId::VampiricWeapon}', '{"흡혈 무기", CharacterBuffId::VampiricWeapon}', 'char vampiric'),
+              ('{"Mistform", CharacterBuffId::Mistform}', '{"미스트폼", CharacterBuffId::Mistform}', 'char mistform'),
+              ('{"Glamour", CharacterBuffId::Glamour}', '{"매혹", CharacterBuffId::Glamour}', 'char glamour'),
+          ])
+
+          patch('game/ui/GameplayPartyOverlayRenderer.cpp', [
+              ('return "Day of Protection";', 'return "보호의 날";', 'day protection'),
+              ('return "Hour of Power";', 'return "힘의 시간";', 'hour power'),
+              ('return "Pain Reflection";', 'return "고통 반사";', 'pain reflection'),
+              ('return "Hammerhands";', 'return "망치손";', 'hammerhands'),
+              ('return "Haste";', 'return "가속";', 'haste'),
+              ('return "Shield";', 'return "방패";', 'shield'),
+              ('return "Stoneskin";', 'return "돌가죽";', 'stoneskin'),
+              ('return "Bless";', 'return "축복";', 'bless'),
+              ('return "Fate";', 'return "운명";', 'fate'),
+              ('return "Heroism";', 'return "영웅심";', 'heroism'),
+              ('return value >= 200 ? "Imm" : std::to_string(value);', 'return value >= 200 ? "면역" : std::to_string(value);', 'immunity'),
+              ('return "Not identified";', 'return "미감정";', 'unidentified'),
+              ('const std::string label = "Skill bonus: ";', 'const std::string label = "기술 보너스: ";', 'skill bonus'),
+              ('"Hit Points : " + overlay.hitPointsText', '"생명력 : " + overlay.hitPointsText', 'hit points'),
+              ('"Spell Points : " + overlay.spellPointsText', '"주문력 : " + overlay.spellPointsText', 'spell points'),
+              ('"Condition: " + overlay.conditionText', '"상태: " + overlay.conditionText', 'condition'),
+              ('"Quick Spell: " + overlay.quickSpellText', '"빠른 주문: " + overlay.quickSpellText', 'quick spell'),
+              ('"Active Spells:"', '"활성 주문:"', 'active spells'),
+              ('summary.combat.shoot ? std::to_string(*summary.combat.shoot) : "N/A"', 'summary.combat.shoot ? std::to_string(*summary.combat.shoot) : "해당 없음"', 'shoot n/a'),
+              ('awards = "Awards earned: " + std::to_string(awardCount);', 'awards = "획득한 업적: " + std::to_string(awardCount);', 'awards'),
+              ('pCharacter != nullptr ? "Skill Points: " + std::to_string(pCharacter->skillPoints) : "Skill Points: 0"', 'pCharacter != nullptr ? "기술 점수: " + std::to_string(pCharacter->skillPoints) : "기술 점수: 0"', 'skill points'),
+          ])
+
+          patch('game/outdoor/OutdoorGameView.cpp', [
+              ('return "Not identified";', 'return "미감정";', 'outdoor unidentified'),
+              ('return "You found " + std::to_string(goldAmount) + " gold and an item (" + resolvedItemName + ")!";', 'return std::to_string(goldAmount) + "골드와 아이템 (" + resolvedItemName + ")을 발견했습니다!";', 'outdoor find'),
+          ])
+
+      - name: Verify reviewed Korean strings
+        run: |
+          grep -q '활성 강화 효과' game/ui/GameplayHudOverlaySupport.cpp
+          grep -q '회복 시간:' game/ui/GameplayHudOverlaySupport.cpp
+          grep -q '획득한 업적:' game/ui/GameplayPartyOverlayRenderer.cpp
+          grep -q '기술 보너스:' game/ui/GameplayPartyOverlayRenderer.cpp
+          grep -q '미감정' game/outdoor/OutdoorGameView.cpp
+
+      - name: Commit source patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/ui/GameplayHudOverlaySupport.cpp game/ui/GameplayPartyOverlayRenderer.cpp game/outdoor/OutdoorGameView.cpp
+          git commit -m "fix(korean): localize confirmed inspect overlays"
+          git push origin HEAD:korean-localization
