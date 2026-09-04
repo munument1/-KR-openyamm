@@ -1,0 +1,88 @@
+name: Korean PC names inventory
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - .github/workflows/korean-pc-names-inventory.yml
+
+permissions:
+  contents: write
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: korean-localization
+          fetch-depth: 0
+
+      - name: Build source-only PC name inventory
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          source_path = Path('assets_dev/engine/data_tables/english/pc_names.txt')
+          lines = source_path.read_text(encoding='utf-8-sig').splitlines()
+          if not lines:
+              raise SystemExit('pc_names.txt is empty')
+
+          categories = [
+              'human_male', 'human_female', 'dark_elf_male', 'dark_elf_female',
+              'troll_minotaur', 'vampire_female', 'vampire_male', 'dragon'
+          ]
+          entries = []
+          unique = []
+          seen = set()
+          counts = {category: 0 for category in categories}
+
+          for row_index, line in enumerate(lines[1:], start=1):
+              cells = line.split('\t')
+              cells += [''] * max(0, 8 - len(cells))
+              for column, category in enumerate(categories):
+                  source = cells[column].strip()
+                  if not source or source == '*end':
+                      continue
+                  entries.append({
+                      'row': row_index,
+                      'column': column,
+                      'category': category,
+                      'source': source,
+                  })
+                  counts[category] += 1
+                  if source not in seen:
+                      seen.add(source)
+                      unique.append(source)
+
+          out = {
+              'format': 1,
+              'source_file': str(source_path),
+              'source_blob_sha256_note': 'source drift is validated by exact row/column/source in the final importer',
+              'categories': categories,
+              'counts': counts,
+              'entry_count': len(entries),
+              'unique_source_count': len(unique),
+              'entries': entries,
+              'unique_sources': unique,
+          }
+          path = Path('korean/translations/pc_names_inventory.json')
+          path.write_text(json.dumps(out, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          print('entry_count=', len(entries))
+          print('unique_source_count=', len(unique))
+          print('counts=', counts)
+          PY
+
+      - name: Verify and commit inventory
+        shell: bash
+        run: |
+          python3 -m json.tool korean/translations/pc_names_inventory.json >/dev/null
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add korean/translations/pc_names_inventory.json
+          git commit -m "chore(korean): inventory character creation name sources"
+          git push origin HEAD:korean-localization
