@@ -203,7 +203,7 @@ add_library(openyamm_game STATIC
     ui/GameplayUiOverlayOrchestrator.cpp
     ui/GameplayUiRuntime.cpp
     ui/KeyboardScreenLayout.cpp
-    ui/MenuScreenBase.cpp
+    ui/MenuScreenBaseKorean.cpp
     ui/GameplayUiController.cpp
     ui/UiLayoutManager.cpp
     ui/screens/MainMenuScreen.cpp
