@@ -826,7 +826,8 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
 
     if (startsWith(text, "Do you wish to leave ") && endsWith(text, "?")) return text.substr(21, text.size() - 22) + "을(를) 떠나시겠습니까?";
     if (startsWith(text, "Do you wish to enter ") && endsWith(text, "?")) return text.substr(21, text.size() - 22) + "에 들어가시겠습니까?";
-    if (startsWith(text, "Join guild for ")) return "길드 가입: " + text.substr(15);
+    if (startsWith(text, "Join guild for ") && endsWith(text, " gold"))
+        return "길드 가입: " + between(text, "Join guild for ", " gold") + "골드";
 
     if (startsWith(text, "Skill bonus: +")) return "기술 보너스: +" + text.substr(14);
     if (startsWith(text, "Skill bonus: ")) return "기술 보너스: " + text.substr(13);
@@ -890,6 +891,8 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
                 + "월 " + text.substr(0, month) + "일";
         }
     }
+    if (startsWith(text, "Talk ") && endsWith(text, " Gold"))
+        return "대화 " + between(text, "Talk ", " Gold") + "골드";
     if (endsWith(text, " Gold")) return text.substr(0, text.size() - 5) + "골드";
 
     return std::nullopt;
