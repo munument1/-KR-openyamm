@@ -21,12 +21,12 @@ from pathlib import Path
 import re
 from typing import Iterable
 
-# Do not accept the printf space flag here. Legacy prose contains ordinary
-# percentages such as "10% per point"; accepting the space flag would treat
-# "% p" as a placeholder. The relevant game tables use compact forms such as
-# %d, %s and %lu.
+# Translation tables overwhelmingly use compact printf placeholders such as
+# %s, %d, %lu, %02d and %.2f. Do not accept printf flags or %p here because
+# legacy prose also contains literal percentages followed by English words,
+# for example "10% per point" and "70%-point".
 PRINTF_TOKEN_RE = re.compile(
-    r"%(?:\d+\$)?[-+#0]*\d*(?:\.\d+)?(?:hh|h|ll|l|j|z|t|L)?[diuoxXfFeEgGaAcspn]"
+    r"%(?:\d+\$)?\d*(?:\.\d+)?(?:hh|h|ll|l|j|z|t|L)?[diuoxXfFeEgGaAcsn]"
 )
 
 
