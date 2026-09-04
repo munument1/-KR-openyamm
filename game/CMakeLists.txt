@@ -238,6 +238,13 @@ set_property(
         ${OPENYAMM_BGFX_FETCH_SOURCE_DIR}/3rdparty
 )
 
+set_property(
+    SOURCE ui/screens/NewGameScreen.cpp
+    APPEND
+    PROPERTY COMPILE_DEFINITIONS
+        OPENYAMM_UTF8_NEW_GAME_NAMES
+)
+
 if (NOT OPENYAMM_RUNTIME_SHADER_PATH STREQUAL "")
     set(openyammBgfxShaderDir "${OPENYAMM_RUNTIME_SHADER_PATH}")
 elseif (ANDROID OR WIN32)
