@@ -157,6 +157,12 @@ jobs:
             --mmmerge-root _mmmerge \
             --fail-on-review
 
+      - name: Extend catalog with reviewed Arcomage card names
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_arcomage_catalog.py \
+            --fail-on-review
+
       - name: Generate Korean map event overlays
         run: |
           set -euo pipefail
@@ -182,6 +188,7 @@ jobs:
           unzip -Z1 dist/korean-translation-import/korean/engine.zip > dist/korean-translation-import/engine-contents.txt
           for required in \
             fonts/KoreanFallback.ttf \
+            data_tables/arcomage_cards.txt \
             data_tables/english/Global.txt \
             data_tables/english/quests.txt \
             data_tables/english/autonote.txt \
