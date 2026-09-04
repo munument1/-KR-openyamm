@@ -196,7 +196,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 korean/tools/extend_transition_history_catalog.py \
-            --mmmerge-root _mmmerge \
+            --mmmerge-root _mmmerge
+
+      - name: Apply audited transition and history overrides
+        run: |
+          set -euo pipefail
+          python3 korean/tools/apply_catalog_overrides.py \
+            --overrides korean/translations/transition_history_overrides.json \
             --fail-on-review
 
       - name: Generate Korean map event overlays
