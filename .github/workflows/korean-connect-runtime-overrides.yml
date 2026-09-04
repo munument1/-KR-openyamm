@@ -26,6 +26,25 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
+          # Keep runtime terminology aligned with the reviewed MMMerge spell names.
+          helper_path = Path('game/ui/KoreanRuntimeTextOverrides.h')
+          helper = helper_path.read_text(encoding='utf-8')
+          terminology = {
+              '마을 이동 주문 데이터가 없습니다': '도시 귀환 주문 데이터가 없습니다',
+              '마을 이동 목적지를 선택하십시오': '도시 귀환 목적지를 선택하십시오',
+              '마을 이동 목적지를 사용할 수 없습니다': '도시 귀환 목적지를 사용할 수 없습니다',
+              '(으)로 마을 이동': '(으)로 도시 귀환',
+              '표식을 설치하거나 귀환하십시오': '봉화를 설치하거나 귀환하십시오',
+              '표식 설치': '봉화 설치',
+              '에 표식 설치': '에 봉화 설치',
+              '로이드의 표식': '로이드의 봉화',
+              '실외에서는 무지갯빛을 시전할 수 없습니다!': '실외에서는 프리즘 광선을 시전할 수 없습니다!',
+              '장착한 장비 때문에 신의 개입을 시전할 수 없습니다': '장착한 장비 때문에 신성한 개입을 시전할 수 없습니다',
+          }
+          for old, new in terminology.items():
+              helper = helper.replace(old, new)
+          helper_path.write_text(helper, encoding='utf-8')
+
           hud_path = Path('game/ui/GameplayHudCommon.cpp')
           hud = hud_path.read_text(encoding='utf-8')
           include_anchor = '#include "game/ui/Utf8Text.h"\n'
@@ -97,8 +116,8 @@ jobs:
               old = 'const std::vector<uint32_t> codePoints = decodeMenuTextCodePoints(text);'
               new = 'const std::vector<uint32_t> codePoints = decodeMenuTextCodePoints(localizedText);'
               if inc.count(old) < 2:
-                  raise SystemExit('Expected two menu decode calls')
-              inc = inc.replace(old, new, 1)
+                  raise SystemExit('Expected at least two menu display decode calls')
+              inc = inc.replace(old, new, 2)
 
               draw_anchor = '''bool MenuScreenBase::drawText(
               const std::string &fontName,
@@ -135,15 +154,15 @@ jobs:
 
           inc_path.write_text(inc, encoding='utf-8')
 
-          # Verify the helper is now used by both gameplay HUD and MenuScreen paths.
+          # Verify only the two MenuScreen display entrypoints use the override.
           hud = hud_path.read_text(encoding='utf-8')
           inc = inc_path.read_text(encoding='utf-8')
           if hud.count('KoreanRuntimeText::koreanRuntimeTextOverride(text)') != 1:
               raise SystemExit('HUD runtime override connection count is unexpected')
           if inc.count('KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text)') != 2:
               raise SystemExit('Menu runtime override connection count is unexpected')
-          if 'decodeMenuTextCodePoints(text)' in inc:
-              raise SystemExit('Menu Unicode decoding still bypasses localized text')
+          if inc.count('decodeMenuTextCodePoints(localizedText)') < 2:
+              raise SystemExit('Menu display decoding is not using localized text')
           PY
           git diff --check
 
@@ -153,6 +172,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add game/ui/GameplayHudCommon.cpp game/ui/MenuScreenBaseKorean.cpp game/ui/MenuScreenKoreanText.inc
+          git add game/ui/KoreanRuntimeTextOverrides.h game/ui/GameplayHudCommon.cpp game/ui/MenuScreenBaseKorean.cpp game/ui/MenuScreenKoreanText.inc
           git commit -m "feat(korean): localize hardcoded runtime display text"
           git push origin HEAD:korean-localization
