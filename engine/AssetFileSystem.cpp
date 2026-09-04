@@ -118,7 +118,7 @@ constexpr std::array<TieredAssetDirectory, 13> TieredAssetDirectories = {
     TieredAssetDirectory{"Data/icons", AssetScaleCategory::Icons},
     TieredAssetDirectory{"Data/ui", AssetScaleCategory::Ui},
     TieredAssetDirectory{"bitmaps", AssetScaleCategory::Textures},
-    TieredAssetDirectory{"textures", AssetScaleCategory::Terrain},
+    TieredAssetDirectory{"textures", AssetScaleCategory::Textures},
     TieredAssetDirectory{"terrain", AssetScaleCategory::Terrain},
     TieredAssetDirectory{"sprites", AssetScaleCategory::Sprites},
     TieredAssetDirectory{"icons", AssetScaleCategory::Icons},
