@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-"""Generate Korean world event Lua overlays from KO_MapStrings.
+"""Generate Korean map-event Lua overlays from KO_MapStrings.
 
-Runtime Lua ownership determines the destination world. The English StringId
-source is recovered from MM6/MM7/MM8 legacy STR files and matched against the
-actual generated Lua literal. This also supports MMerge-only Lua maps, which do
-not have their own legacy STR tree.
-
-A small audited exclusion list handles MMMerge MapStrings rows whose source
-MapFile/StringId data drifted away from OpenYAMM. Such rows are never applied by
-literal guessing because that could translate an unrelated runtime string.
+Canonical generated Lua is never edited in-place. For MM6/MM7/MM8, the target
+world's own legacy STR file is authoritative for MapFile/StringId. This avoids
+false matches against duplicated legacy corpora or another world's empty STR
+entries. MMerge has no local STR tree, so its source is resolved by exact
+non-empty literal matching against MM6/MM7/MM8 candidates.
 """
 
 from __future__ import annotations
@@ -44,8 +41,7 @@ def decode_text(path: Path, encodings: tuple[str, ...]) -> tuple[str, str]:
 
 def read_tsv(path: Path, encodings: tuple[str, ...]) -> tuple[list[list[str]], str]:
     text, encoding = decode_text(path, encodings)
-    rows = list(csv.reader(io.StringIO(text, newline=""), delimiter="\t", quotechar='"'))
-    return rows, encoding
+    return list(csv.reader(io.StringIO(text, newline=""), delimiter="\t", quotechar='"')), encoding
 
 
 def legacy_str_entries(path: Path) -> tuple[list[str], str]:
@@ -102,34 +98,9 @@ def index_files(root: Path, suffix: str) -> dict[str, Path]:
     return result
 
 
-def load_audited_exclusions(path: Path) -> dict[tuple[str, int], dict]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    result: dict[tuple[str, int], dict] = {}
-    for entry in data.get("entries", []):
-        map_file = Path(str(entry["map_file"])).name.lower()
-        string_id = int(entry["string_id"])
-        runtime_world = str(entry.get("runtime_world", "mm7"))
-        if runtime_world not in WORLDS:
-            raise ValueError(f"Invalid runtime_world in {path}: {runtime_world}")
-        key = (map_file, string_id)
-        if key in result:
-            raise ValueError(f"Duplicate map string exclusion in {path}: {key}")
-        normalized = dict(entry)
-        normalized["runtime_world"] = runtime_world
-        result[key] = normalized
-    return result
-
-
-def make_review(
-    *,
-    key: str,
-    scope: str,
-    source_file: str,
-    record_id: int | str,
-    source: str,
-    translation: str,
-    note: str,
-    placeholder_ok: bool = True,
+def review_entry(
+    *, key: str, scope: str, source_file: str, record_id: int | str,
+    source: str, translation: str, note: str, placeholder_ok: bool = True,
 ) -> dict:
     return {
         "key": key,
@@ -164,7 +135,6 @@ def main() -> int:
     parser.add_argument("--mmmerge-root", required=True)
     parser.add_argument("--catalog", default="korean/translations/catalog.json")
     parser.add_argument("--overlay-worlds-root", default="korean/overlay/worlds")
-    parser.add_argument("--exclusions", default="korean/translations/map_string_exclusions.json")
     parser.add_argument("--fail-on-review", action="store_true")
     args = parser.parse_args()
 
@@ -172,9 +142,6 @@ def main() -> int:
     mmmerge_root = Path(args.mmmerge_root).resolve()
     catalog_path = repo_root / args.catalog
     output_root = repo_root / args.overlay_worlds_root
-    exclusions_path = repo_root / args.exclusions
-    audited_exclusions = load_audited_exclusions(exclusions_path)
-    used_exclusions: set[tuple[str, int]] = set()
     ko_path = mmmerge_root / "Data" / "Text localization" / "KO_MapStrings.txt"
     ko_rows, ko_encoding = read_tsv(ko_path, ("utf-8-sig", "cp949"))
 
@@ -197,6 +164,19 @@ def main() -> int:
     excluded_details: list[dict] = []
     processed_rows = 0
 
+    def source_candidates(str_name: str, string_id: int) -> list[tuple[str, Path, str, str]]:
+        result: list[tuple[str, Path, str, str]] = []
+        for source_world in LEGACY_WORLDS:
+            source_path = str_indexes[source_world].get(str_name)
+            if source_path is None:
+                continue
+            if source_path not in str_cache:
+                str_cache[source_path] = legacy_str_entries(source_path)
+            entries, source_encoding = str_cache[source_path]
+            if string_id < len(entries):
+                result.append((source_world, source_path, entries[string_id], source_encoding))
+        return result
+
     for row_number, row in enumerate(ko_rows[1:], start=2):
         if len(row) < 3:
             continue
@@ -209,13 +189,9 @@ def main() -> int:
 
         if not raw_string_id.isdigit():
             unresolved_entries.append(
-                make_review(
-                    key=f"world:unknown:{map_file}:{raw_string_id}",
-                    scope="world",
-                    source_file=map_file,
-                    record_id=raw_string_id,
-                    source="",
-                    translation=translation,
+                review_entry(
+                    key=f"world:unknown:{map_file}:{raw_string_id}", scope="world",
+                    source_file=map_file, record_id=raw_string_id, source="", translation=translation,
                     note=f"KO_MapStrings row {row_number} has a non-numeric StringId.",
                 )
             )
@@ -225,236 +201,188 @@ def main() -> int:
         map_name = Path(map_file).name
         str_name = map_name.lower()
         lua_name = Path(map_file).stem.lower() + ".lua"
-
-        exclusion_key = (str_name, string_id)
-        audited = audited_exclusions.get(exclusion_key)
-        if audited is not None:
-            expected_translation = str(audited["translation"])
-            if translation != expected_translation:
-                raise ValueError(
-                    f"Audited exclusion changed for {map_name}:{string_id}: "
-                    f"expected {expected_translation!r}, got {translation!r}"
-                )
-            runtime_world = str(audited["runtime_world"])
-            excluded_details.append(
-                {
-                    "key": f"world:{runtime_world}:{map_name}:{string_id}",
-                    "world": runtime_world,
-                    "map_file": map_name,
-                    "string_id": string_id,
-                    "source": "",
-                    "translation": translation,
-                    "reason": str(audited["reason"]),
-                    "exclusion_origin": exclusions_path.relative_to(repo_root).as_posix(),
-                }
-            )
-            used_exclusions.add(exclusion_key)
-            continue
-
+        candidates = source_candidates(str_name, string_id)
         target_worlds = [world for world in WORLDS if lua_name in lua_indexes[world]]
-
-        source_candidates: list[tuple[str, Path, str, str]] = []
-        for source_world in LEGACY_WORLDS:
-            source_path = str_indexes[source_world].get(str_name)
-            if source_path is None:
-                continue
-            if source_path not in str_cache:
-                str_cache[source_path] = legacy_str_entries(source_path)
-            entries, source_encoding = str_cache[source_path]
-            if string_id < len(entries):
-                source_candidates.append((source_world, source_path, entries[string_id], source_encoding))
 
         if len(target_worlds) > 1:
             unresolved_entries.append(
-                make_review(
-                    key=f"world:unknown:{map_name}:{string_id}",
-                    scope="world",
-                    source_file=map_file,
-                    record_id=string_id,
-                    source="",
-                    translation=translation,
+                review_entry(
+                    key=f"world:unknown:{map_name}:{string_id}", scope="world",
+                    source_file=map_file, record_id=string_id, source="", translation=translation,
                     note=f"Generated Lua ownership is ambiguous; candidate worlds={target_worlds}.",
                 )
             )
             continue
 
         if not target_worlds:
-            distinct_sources = {candidate[2] for candidate in source_candidates}
-            if source_candidates and len(distinct_sources) == 1:
-                source_world, _, source_text, _ = source_candidates[0]
-                excluded_details.append(
-                    {
-                        "key": f"world:{source_world}:{map_name}:{string_id}",
-                        "world": source_world,
-                        "map_file": map_name,
-                        "string_id": string_id,
-                        "source": source_text,
-                        "translation": translation,
-                        "reason": "No generated map Lua exists in any current runtime world.",
-                    }
+            distinct_nonblank = {candidate[2] for candidate in candidates if candidate[2].strip()}
+            if candidates and len(distinct_nonblank) <= 1:
+                source_world, _, source_text, _ = next(
+                    (candidate for candidate in candidates if candidate[2].strip()), candidates[0]
                 )
+                excluded_details.append({
+                    "key": f"world:{source_world}:{map_name}:{string_id}",
+                    "world": source_world,
+                    "map_file": map_name,
+                    "string_id": string_id,
+                    "source": source_text,
+                    "translation": translation,
+                    "reason": "No generated map Lua exists in any current runtime world.",
+                })
             else:
                 unresolved_entries.append(
-                    make_review(
-                        key=f"world:unknown:{map_name}:{string_id}",
-                        scope="world",
-                        source_file=map_file,
-                        record_id=string_id,
-                        source="",
-                        translation=translation,
-                        note=(
-                            "No generated Lua exists and legacy STR source is not unique; "
-                            f"candidate worlds={[candidate[0] for candidate in source_candidates]}."
-                        ),
+                    review_entry(
+                        key=f"world:unknown:{map_name}:{string_id}", scope="world",
+                        source_file=map_file, record_id=string_id, source="", translation=translation,
+                        note=("No generated Lua exists and legacy STR source is ambiguous; "
+                              f"candidate worlds={[candidate[0] for candidate in candidates]}.")
                     )
                 )
             continue
 
         world_id = target_worlds[0]
         key = f"world:{world_id}:{map_name}:{string_id}"
-        lua_path = lua_indexes[world_id][lua_name]
         map_key = (world_id, lua_name)
+        lua_path = lua_indexes[world_id][lua_name]
         if map_key not in lua_cache:
-            # Canonical generated Lua is not uniformly UTF-8; some files retain
-            # CP1252 bytes from the original game data. Korean overlays are
-            # always written back as UTF-8.
             lua_cache[map_key] = decode_text(lua_path, ("utf-8-sig", "cp1252"))
         lua_text, lua_encoding = lua_cache[map_key]
 
-        if not source_candidates:
-            unresolved_entries.append(
-                make_review(
-                    key=key,
-                    scope=f"world:{world_id}",
-                    source_file=map_file,
-                    record_id=string_id,
-                    source="",
-                    translation=translation,
-                    note="No MM6/MM7/MM8 legacy STR candidate contains this MapFile/StringId.",
-                )
-            )
-            continue
+        chosen: tuple[str, Path, str, str] | None = None
 
-        matching = [candidate for candidate in source_candidates if lua_quoted(candidate[2]) in lua_text]
-        matching_texts = {candidate[2] for candidate in matching}
-        all_texts = {candidate[2] for candidate in source_candidates}
-
-        if len(matching_texts) == 1:
-            source_text = next(iter(matching_texts))
-            compatible = [candidate for candidate in matching if candidate[2] == source_text]
-        elif not matching:
-            own = [candidate for candidate in source_candidates if candidate[0] == world_id]
+        # For native MM6/MM7/MM8 maps, the target world's own STR is the only
+        # authoritative StringId source. Other world trees contain duplicate
+        # filenames and many blank entries that can otherwise match "" in Lua.
+        if world_id in LEGACY_WORLDS:
+            own = [candidate for candidate in candidates if candidate[0] == world_id]
             if len(own) == 1:
-                compatible = own
-                source_text = own[0][2]
-            elif len(all_texts) == 1:
-                compatible = source_candidates
-                source_text = source_candidates[0][2]
+                chosen = own[0]
+            elif len(own) > 1:
+                unresolved_entries.append(
+                    review_entry(
+                        key=key, scope=f"world:{world_id}", source_file=map_file,
+                        record_id=string_id, source="", translation=translation,
+                        note="Target world has multiple legacy STR candidates for one MapFile/StringId.",
+                    )
+                )
+                continue
             else:
                 unresolved_entries.append(
-                    make_review(
-                        key=key,
-                        scope=f"world:{world_id}",
-                        source_file=map_file,
-                        record_id=string_id,
-                        source="",
-                        translation=translation,
-                        note=(
-                            "Legacy STR source is ambiguous and no candidate literal is emitted; "
-                            f"candidate worlds={[candidate[0] for candidate in source_candidates]}."
-                        ),
+                    review_entry(
+                        key=key, scope=f"world:{world_id}", source_file=map_file,
+                        record_id=string_id, source="", translation=translation,
+                        note="Target world's own legacy STR does not contain this MapFile/StringId.",
+                    )
+                )
+                continue
+        else:
+            # MMerge owns runtime Lua but has no legacy STR tree. Resolve only
+            # meaningful, exact literals. Empty/whitespace STR entries are never
+            # valid translation sources because quoted empty strings are common.
+            matching = [
+                candidate for candidate in candidates
+                if candidate[2].strip() and lua_quoted(candidate[2]) in lua_text
+            ]
+            matching_texts = {candidate[2] for candidate in matching}
+            if len(matching_texts) == 1:
+                source_text = next(iter(matching_texts))
+                chosen = next(candidate for candidate in matching if candidate[2] == source_text)
+            elif not matching:
+                distinct_nonblank = {candidate[2] for candidate in candidates if candidate[2].strip()}
+                if len(distinct_nonblank) <= 1 and candidates:
+                    source_text = next(iter(distinct_nonblank), "")
+                    excluded_details.append({
+                        "key": key,
+                        "world": world_id,
+                        "map_file": map_name,
+                        "string_id": string_id,
+                        "source": source_text,
+                        "translation": translation,
+                        "reason": "Legacy STR entry is not emitted as a Lua string literal by the current exporter.",
+                    })
+                    continue
+                unresolved_entries.append(
+                    review_entry(
+                        key=key, scope=f"world:{world_id}", source_file=map_file,
+                        record_id=string_id, source="", translation=translation,
+                        note=("MMerge has no local STR and no unique emitted source literal; "
+                              f"candidate worlds={[candidate[0] for candidate in candidates]}.")
+                    )
+                )
+                continue
+            else:
+                unresolved_entries.append(
+                    review_entry(
+                        key=key, scope=f"world:{world_id}", source_file=map_file,
+                        record_id=string_id, source="", translation=translation,
+                        note=("Multiple different non-empty legacy STR texts match MMerge Lua; "
+                              f"matching worlds={[candidate[0] for candidate in matching]}.")
                     )
                 )
                 continue
 
-            excluded_details.append(
-                {
-                    "key": key,
-                    "world": world_id,
-                    "map_file": map_name,
-                    "string_id": string_id,
-                    "source": source_text,
-                    "translation": translation,
-                    "reason": "Legacy STR entry is not emitted as a Lua string literal by the current exporter.",
-                }
-            )
-            continue
-        else:
-            unresolved_entries.append(
-                make_review(
-                    key=key,
-                    scope=f"world:{world_id}",
-                    source_file=map_file,
-                    record_id=string_id,
-                    source="",
-                    translation=translation,
-                    note=(
-                        "Multiple different legacy STR texts match the target Lua; "
-                        f"matching worlds={[candidate[0] for candidate in matching]}."
-                    ),
-                )
-            )
+        assert chosen is not None
+        source_world, source_path, source_text, source_encoding = chosen
+        source_literal = lua_quoted(source_text)
+
+        # A valid StringId can be intentionally unused by the current exporter.
+        # Do not turn it into a false translation miss or guess another world's
+        # source just because that other literal happens to occur in this Lua.
+        if not source_text.strip() or source_literal not in lua_text:
+            excluded_details.append({
+                "key": key,
+                "world": world_id,
+                "map_file": map_name,
+                "string_id": string_id,
+                "source": source_text,
+                "translation": translation,
+                "reason": "Target-world legacy STR entry is not emitted as a Lua string literal by the current exporter.",
+            })
             continue
 
-        preferred = next((candidate for candidate in compatible if candidate[0] == world_id), compatible[0])
-        source_world, source_path, source_text, source_encoding = preferred
         placeholder_ok = printf_tokens(source_text) == printf_tokens(translation)
         if not placeholder_ok:
             unresolved_entries.append(
-                make_review(
-                    key=key,
-                    scope=f"world:{world_id}",
-                    source_file=source_path.relative_to(repo_root).as_posix(),
-                    record_id=string_id,
-                    source=source_text,
-                    translation=translation,
-                    note="KO_MapStrings placeholder mismatch.",
-                    placeholder_ok=False,
+                review_entry(
+                    key=key, scope=f"world:{world_id}",
+                    source_file=source_path.relative_to(repo_root).as_posix(), record_id=string_id,
+                    source=source_text, translation=translation,
+                    note="KO_MapStrings placeholder mismatch.", placeholder_ok=False,
                 )
             )
             continue
 
-        source_literal = lua_quoted(source_text)
         target_literal = lua_quoted(translation)
-        occurrence_count = lua_text.count(source_literal)
         previous = replacements[map_key].get(source_literal)
         if previous is not None and previous != target_literal:
             unresolved_entries.append(
-                make_review(
-                    key=key,
-                    scope=f"world:{world_id}",
-                    source_file=source_path.relative_to(repo_root).as_posix(),
-                    record_id=string_id,
-                    source=source_text,
-                    translation=translation,
-                    note="Same English Lua literal maps to conflicting Korean translations in one map.",
+                review_entry(
+                    key=key, scope=f"world:{world_id}",
+                    source_file=source_path.relative_to(repo_root).as_posix(), record_id=string_id,
+                    source=source_text, translation=translation,
+                    note="Same emitted English Lua literal maps to conflicting Korean translations in one map.",
                 )
             )
             continue
 
         replacements[map_key][source_literal] = target_literal
-        emitted_entries.append(
-            {
-                "key": key,
-                "scope": f"world:{world_id}",
-                "source_file": source_path.relative_to(repo_root).as_posix(),
-                "record_id": string_id,
-                "field": "Text",
-                "source": source_text,
-                "translation": translation,
-                "translation_origin": "mmmerge",
-                "status": "translated",
-                "placeholder_ok": True,
-                "note": (
-                    f"Target {world_id}/{lua_name} ({lua_encoding}); source {source_world}/{source_path.name} "
-                    f"StringId {string_id} ({source_encoding}); literal occurs {occurrence_count} time(s)."
-                ),
-            }
-        )
-
-    unused_exclusions = sorted(set(audited_exclusions) - used_exclusions)
-    if unused_exclusions:
-        raise ValueError(f"Audited map string exclusions were not found in KO_MapStrings: {unused_exclusions}")
+        emitted_entries.append({
+            "key": key,
+            "scope": f"world:{world_id}",
+            "source_file": source_path.relative_to(repo_root).as_posix(),
+            "record_id": string_id,
+            "field": "Text",
+            "source": source_text,
+            "translation": translation,
+            "translation_origin": "mmmerge",
+            "status": "translated",
+            "placeholder_ok": True,
+            "note": (
+                f"Target {world_id}/{lua_name} ({lua_encoding}); authoritative source "
+                f"{source_world}/{source_path.name} StringId {string_id} ({source_encoding}); "
+                f"literal occurs {lua_text.count(source_literal)} time(s)."
+            ),
+        })
 
     generated_by_world: dict[str, list[str]] = defaultdict(list)
     for (world_id, lua_name), literal_map in replacements.items():
@@ -489,7 +417,7 @@ def main() -> int:
         world_excluded = [detail for detail in excluded_details if detail["world"] == world_id]
         stats = {
             "overlay_source": "Data/Text localization/KO_MapStrings.txt",
-            "overlay_format": "runtime Lua ownership + legacy STR StringId -> UTF-8 Lua overlay",
+            "overlay_format": "runtime world + authoritative legacy STR StringId -> UTF-8 Lua overlay",
             "source_file": f"assets_dev/worlds/{world_id}/events/maps/*.lua",
             "source_encoding": "utf-8/cp1252 Lua; legacy STR utf-8/cp1252",
             "mmmerge_encoding": ko_encoding,
@@ -499,10 +427,7 @@ def main() -> int:
             "placeholder_mismatches": sum(entry["status"] == "needs_review" for entry in world_entries),
             "overrides": 0,
             "excluded": len(world_excluded),
-            "exclusion_reason": (
-                "Valid KO STR rows not emitted by current runtime Lua, or explicitly audited MMMerge source-drift "
-                "rows, are excluded from current runtime coverage."
-            ),
+            "exclusion_reason": "Valid KO STR rows not emitted by current runtime Lua are excluded from runtime coverage.",
             "excluded_details": world_excluded,
             "generated_overlay_files": sorted(generated_by_world.get(world_id, [])),
             "output_encoding": "utf-8",
@@ -512,23 +437,21 @@ def main() -> int:
 
     unknown_entries = [entry for entry in unresolved_entries if entry["scope"] == "world"]
     if unknown_entries:
-        catalog["tables"].append(
-            {
-                "overlay_source": "Data/Text localization/KO_MapStrings.txt",
-                "overlay_format": "unresolved map ownership/source diagnostics",
-                "source_file": "KO_MapStrings unresolved",
-                "source_encoding": "mixed",
-                "mmmerge_encoding": ko_encoding,
-                "entries": len(unknown_entries),
-                "translated": 0,
-                "untranslated": 0,
-                "placeholder_mismatches": len(unknown_entries),
-                "overrides": 0,
-                "excluded": 0,
-                "generated_overlay_files": [],
-                "output_encoding": "utf-8",
-            }
-        )
+        catalog["tables"].append({
+            "overlay_source": "Data/Text localization/KO_MapStrings.txt",
+            "overlay_format": "unresolved map ownership/source diagnostics",
+            "source_file": "KO_MapStrings unresolved",
+            "source_encoding": "mixed",
+            "mmmerge_encoding": ko_encoding,
+            "entries": len(unknown_entries),
+            "translated": 0,
+            "untranslated": 0,
+            "placeholder_mismatches": len(unknown_entries),
+            "overrides": 0,
+            "excluded": 0,
+            "generated_overlay_files": [],
+            "output_encoding": "utf-8",
+        })
 
     catalog["format"] = max(int(catalog.get("format", 1)), 10)
     refresh_summary(catalog)
@@ -536,7 +459,6 @@ def main() -> int:
 
     print(json.dumps(catalog["summary"], ensure_ascii=False))
     print(f"KO_MapStrings rows={processed_rows}, classified={classified_rows}")
-    print(f"audited source-drift exclusions={len(used_exclusions)}")
     for world_id, stats in table_stats:
         print(
             f"{world_id}: {stats['translated']}/{stats['entries']} emitted translated, "
