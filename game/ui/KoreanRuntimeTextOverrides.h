@@ -65,6 +65,27 @@ inline std::string className(const std::string &name)
     return it != Names.end() ? it->second : name;
 }
 
+inline std::string promotionClassList(const std::string &names)
+{
+    std::string result;
+    size_t start = 0;
+    while (start < names.size())
+    {
+        const size_t comma = names.find(", ", start);
+        const size_t alternative = names.find(" or ", start);
+        const size_t end = comma < alternative ? comma : alternative;
+        if (end == std::string::npos)
+        {
+            result += className(names.substr(start));
+            break;
+        }
+        result += className(names.substr(start, end - start));
+        result += end == alternative ? " 또는 " : ", ";
+        start = end + (end == alternative ? 4 : 2);
+    }
+    return result;
+}
+
 inline std::string merchantProfession(const std::string &name)
 {
     if (name == "armorer") return "갑옷 상인";
@@ -619,6 +640,13 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     {
         return it->second;
     }
+    // Translate known display terms inside generated UI sentences, without
+    // interpreting player names or recursively rewriting arbitrary prose.
+    const auto displayTerm = [](const std::string &term)
+    {
+        const auto it = Exact.find(term);
+        return it != Exact.end() ? it->second : term;
+    };
 
     if (const std::optional<std::string> mercenary = generatedMercenary(text))
     {
@@ -689,11 +717,23 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "Can't drop ")) return text.substr(11) + "은(는) 버릴 수 없습니다";
     if (startsWith(text, "picked up ")) return text.substr(10) + "을(를) 주웠습니다";
 
-    if (startsWith(text, "This month's bounty is ")) return "이번 달 현상금 대상은 " + text.substr(23);
-    if (startsWith(text, "You eliminated ") && text.find(". Your reward is ") != std::string::npos)
+    if (startsWith(text, "This month's bounty is ") && endsWith(text, " gold."))
     {
-        const size_t marker = text.find(". Your reward is ");
-        return text.substr(15, marker - 15) + "을(를) 처치했습니다. 보상은 " + text.substr(marker + 17);
+        const size_t reward = text.rfind(" for ");
+        if (reward != std::string::npos && reward > 23)
+        {
+            return "이번 달 현상금 대상: " + text.substr(23, reward - 23) + " (보상: "
+                + text.substr(reward + 5, text.size() - (reward + 5) - 6) + "골드)";
+        }
+    }
+    if (startsWith(text, "You eliminated ") && endsWith(text, " gold."))
+    {
+        const size_t reward = text.rfind(". Your reward is ");
+        if (reward != std::string::npos && reward > 15)
+        {
+            return text.substr(15, reward - 15) + " 처치 완료. 보상: "
+                + text.substr(reward + 17, text.size() - (reward + 17) - 6) + "골드.";
+        }
     }
     if (startsWith(text, "You found ") && endsWith(text, " gold!")) return text.substr(10, text.size() - 10 - 6) + "골드를 발견했습니다!";
     if (startsWith(text, "You found an item (") && endsWith(text, ")!")) return "아이템을 발견했습니다 (" + text.substr(19, text.size() - 21) + ")!";
@@ -883,18 +923,21 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (text.find(" cannot learn ") != std::string::npos && endsWith(text, " here."))
     {
         const size_t split = text.find(" cannot learn ");
-        return text.substr(0, split) + ": 여기서는 " + text.substr(split + 14, text.size() - (split + 14) - 6) + "을(를) 배울 수 없습니다.";
+        return text.substr(0, split) + ": 여기서는 배울 수 없는 기술입니다: "
+            + displayTerm(text.substr(split + 14, text.size() - (split + 14) - 6));
     }
     if (text.find(" learns ") != std::string::npos && text.find(" for ") != std::string::npos && endsWith(text, " gold."))
     {
         const size_t learns = text.find(" learns ");
         const size_t price = text.rfind(" for ");
-        return text.substr(0, learns) + ": " + text.substr(learns + 8, price - (learns + 8)) + " 습득 (" + text.substr(price + 5, text.size() - (price + 5) - 6) + "골드)";
+        return text.substr(0, learns) + ": " + displayTerm(text.substr(learns + 8, price - (learns + 8)))
+            + " 습득 (" + text.substr(price + 5, text.size() - (price + 5) - 6) + "골드)";
     }
     if (startsWith(text, "Learn ") && text.find(" for ") != std::string::npos && endsWith(text, " gold"))
     {
         const size_t price = text.rfind(" for ");
-        return text.substr(6, price - 6) + " 배우기 - " + text.substr(price + 5, text.size() - (price + 5) - 5) + "골드";
+        return displayTerm(text.substr(6, price - 6)) + " 배우기 - "
+            + text.substr(price + 5, text.size() - (price + 5) - 5) + "골드";
     }
     if (startsWith(text, "It will take ") && text.find(" to travel to ") != std::string::npos && endsWith(text, "."))
     {
@@ -919,7 +962,8 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         const size_t forPos = text.rfind(" for ");
         const std::string rank = text.substr(7, inPos - 7);
         const std::string rankKo = rank == "Expert" ? "전문가" : rank == "Master" ? "마스터" : rank == "Grandmaster" ? "그랜드마스터" : rank;
-        return text.substr(inPos + 4, forPos - (inPos + 4)) + " " + rankKo + " 승급 - " + text.substr(forPos + 5, text.size() - (forPos + 5) - 5) + "골드";
+        return displayTerm(text.substr(inPos + 4, forPos - (inPos + 4))) + " " + rankKo + " 승급 - "
+            + text.substr(forPos + 5, text.size() - (forPos + 5) - 5) + "골드";
     }
     if (text.find(" is now a ") != std::string::npos && text.find(" in ") != std::string::npos && endsWith(text, "."))
     {
@@ -929,14 +973,18 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         if (rank == "Expert" || rank == "Master" || rank == "Grandmaster")
         {
             const std::string rankKo = rank == "Expert" ? "전문가" : rank == "Master" ? "마스터" : "그랜드마스터";
-            return text.substr(0, rankPos) + ": " + text.substr(inPos + 4, text.size() - (inPos + 4) - 1) + " " + rankKo + " 승급 완료.";
+            return text.substr(0, rankPos) + ": "
+                + displayTerm(text.substr(inPos + 4, text.size() - (inPos + 4) - 1))
+                + " " + rankKo + " 승급 완료.";
         }
     }
 
     if (startsWith(text, "You have to be promoted to ") && endsWith(text, " to learn this skill."))
-        return "이 기술을 배우려면 " + className(text.substr(27, text.size() - 27 - 21)) + "(으)로 승급해야 합니다.";
-    if (startsWith(text, "This skill level can not be learned by the "))
-        return text.substr(43) + "은(는) 이 숙련 등급을 배울 수 없습니다.";
+        return "이 기술을 배우려면 다음 직업으로 승급해야 합니다: "
+            + promotionClassList(between(text, "You have to be promoted to ", " to learn this skill."));
+    if (startsWith(text, "This skill level can not be learned by the ") && endsWith(text, " class."))
+        return className(between(text, "This skill level can not be learned by the ", " class."))
+            + ": 이 직업은 해당 숙련 등급을 배울 수 없습니다.";
     if (text.find(" is now a ") != std::string::npos)
     {
         const size_t marker = text.find(" is now a ");
