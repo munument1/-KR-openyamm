@@ -20,6 +20,8 @@ from collections import Counter
 from pathlib import Path
 import re
 
+from text_localization import read_field_overlay
+
 PRINTF_TOKEN_RE = re.compile(
     r"%(?:\d+\$)?\d*(?:\.\d+)?(?:hh|h|ll|l|j|z|t|L)?[diuoxXfFeEgGaAcsn]"
 )
@@ -73,15 +75,6 @@ def write_tsv(path: Path, rows: list[list[str]]) -> None:
             lineterminator="\n",
         )
         writer.writerows(rows)
-
-
-def parse_overlay(path: Path) -> tuple[dict[tuple[int, str], str], str]:
-    rows, encoding = read_tsv(path, ("utf-8-sig", "cp949"))
-    result: dict[tuple[int, str], str] = {}
-    for row in rows[1:]:
-        if len(row) >= 4 and row[1].strip().isdigit():
-            result[(int(row[1].strip()), row[2].strip())] = row[3]
-    return result, encoding
 
 
 def printf_tokens(text: str) -> Counter[str]:
@@ -166,7 +159,7 @@ def import_scrolls(
     translation_path = mmmerge_root / "Data" / "Text localization" / "KO_MessageScrolls.txt"
     rows, source_encoding = read_tsv(source_path, ("utf-8-sig", "cp1252"))
     output_rows = [list(row) for row in rows]
-    translations, translation_encoding = parse_overlay(translation_path)
+    translations, translation_encoding = read_field_overlay(translation_path)
 
     entries: list[dict] = []
     unmapped_source_ids: list[int] = []
@@ -226,8 +219,8 @@ def import_classes(
     descriptions_path = mmmerge_root / "Data" / "Text localization" / "KO_ClassDescriptions.txt"
     rows, source_encoding = read_tsv(source_path, ("utf-8-sig", "cp1252"))
     output_rows = [list(row) for row in rows]
-    names, names_encoding = parse_overlay(names_path)
-    descriptions, descriptions_encoding = parse_overlay(descriptions_path)
+    names, names_encoding = read_field_overlay(names_path)
+    descriptions, descriptions_encoding = read_field_overlay(descriptions_path)
 
     entries: list[dict] = []
     logical_id = 0

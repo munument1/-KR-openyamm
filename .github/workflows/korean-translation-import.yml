@@ -58,6 +58,9 @@ jobs:
           sparse-checkout: |
             /Data/Text localization/**
 
+      - name: Test multiline NPC dialogue import
+        run: python3 -m unittest discover -s korean/tools -p test_npc_dialogue_import.py
+
       - name: Generate base JSON catalog and native overlay tables
         run: |
           set -euo pipefail

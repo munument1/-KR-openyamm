@@ -4,6 +4,8 @@ set -euo pipefail
 mmmerge_root="${1:-_mmmerge}"
 output_root="${2:-dist/korean-release-overlay}"
 
+python3 -m unittest discover -s korean/tools -p test_npc_dialogue_import.py
+
 python3 korean/tools/build_translation_catalog.py \
     --mmmerge-root "$mmmerge_root" \
     --fail-on-placeholder-mismatch

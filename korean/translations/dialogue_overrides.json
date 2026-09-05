@@ -2,8 +2,8 @@
   "format": 1,
   "entries": {
     "engine:npc_greet.txt:332:Greeting1": {
-      "translation": "(소년이 당신에게 달려온다)",
-      "note": "OpenYAMM greeting text absent from the MMMerge Korean source."
+      "translation": "(소년이 당신에게 달려온다)\n저기요! 나리들! 곧 큰 대회가 열린대요!\n(당신의 손에 종이를 쥐여 주고는 달아난다)",
+      "note": "OpenYAMM-only greeting: translated the complete three-line runtime record after joining legacy continuations."
     },
     "engine:npc_topic_text.txt:1746:Text": {
       "translation": "지금은 %s, %s의 달입니다.\n%s의 성소로 가서 기도하면 보상을 받을 수 있습니다.",

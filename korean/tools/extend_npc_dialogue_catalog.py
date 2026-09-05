@@ -17,6 +17,8 @@ from collections import Counter
 from pathlib import Path
 import re
 
+from text_localization import read_field_overlay
+
 PRINTF_TOKEN_RE = re.compile(
     r"%(?:\d+\$)?\d*(?:\.\d+)?(?:hh|h|ll|l|j|z|t|L)?[diuoxXfFeEgGaAcsn]"
 )
@@ -69,14 +71,31 @@ def source_rows_by_id(rows: list[list[str]]) -> dict[int, int]:
     return result
 
 
-def parse_field_overlay(path: Path) -> tuple[dict[tuple[int, str], str], str]:
-    rows, encoding = read_tsv(path, ("utf-8-sig", "cp949"))
-    result: dict[tuple[int, str], str] = {}
-    for row in rows[1:]:
-        if len(row) < 4 or not row[1].strip().isdigit():
-            continue
-        result[(int(row[1].strip()), row[2].strip())] = row[3]
-    return result, encoding
+def merge_runtime_continuations(
+    rows: list[list[str]], continuation_column: int | None
+) -> list[list[str]]:
+    """Resolve legacy unquoted line breaks using NpcDialogTable's record boundaries.
+
+    Greetings continue the last cell and may introduce later columns. NPC text
+    records continue only their text cell. Quoted newlines are already handled
+    by csv.reader and must not be split again.
+    """
+    result: list[list[str]] = []
+    pending: list[str] | None = None
+    for row in rows:
+        if row and row[0].strip().isdigit():
+            pending = list(row)
+            result.append(pending)
+        elif pending is None:
+            result.append(list(row))
+        elif row:
+            column = len(pending) - 1 if continuation_column is None else continuation_column
+            while len(pending) <= column:
+                pending.append("")
+            pending[column] += ("\n" if pending[column] else "") + row[0]
+            if continuation_column is None:
+                pending.extend(row[1:])
+    return result
 
 
 def printf_tokens(text: str) -> Counter[str]:
@@ -122,8 +141,10 @@ def append_simple_table(
     source_path = repo_root / source_relpath
     translation_path = mmmerge_root / "Data" / "Text localization" / overlay_name
     source_rows, source_encoding = read_tsv(source_path, ("utf-8-sig", "cp1252"))
+    if field_name == "Text":
+        source_rows = merge_runtime_continuations(source_rows, 1)
     output_rows = [list(row) for row in source_rows]
-    translations, translation_encoding = parse_field_overlay(translation_path)
+    translations, translation_encoding = read_field_overlay(translation_path)
     row_lookup = source_rows_by_id(source_rows)
 
     entries: list[dict] = []
@@ -165,9 +186,10 @@ def append_greetings(
     greet1_path = mmmerge_root / "Data" / "Text localization" / "KO_NPCGreet1.txt"
     greet2_path = mmmerge_root / "Data" / "Text localization" / "KO_NPCGreet2.txt"
     source_rows, source_encoding = read_tsv(source_path, ("utf-8-sig", "cp1252"))
+    source_rows = merge_runtime_continuations(source_rows, None)
     output_rows = [list(row) for row in source_rows]
-    greet1, greet1_encoding = parse_field_overlay(greet1_path)
-    greet2, greet2_encoding = parse_field_overlay(greet2_path)
+    greet1, greet1_encoding = read_field_overlay(greet1_path)
+    greet2, greet2_encoding = read_field_overlay(greet2_path)
     row_lookup = source_rows_by_id(source_rows)
 
     entries: list[dict] = []
@@ -177,6 +199,8 @@ def append_greetings(
     )
     for record_id, row_index in sorted(row_lookup.items()):
         row = source_rows[row_index]
+        if len(row) < 5:
+            raise ValueError(f"Incomplete runtime greeting record {record_id}: {row!r}")
         for field_name, target_column, translations, translation_field in field_specs:
             if target_column >= len(row) or not row[target_column]:
                 continue
