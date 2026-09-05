@@ -10,6 +10,7 @@ add_executable(openyamm_unit_tests
     UnitTestMain.cpp
     KoreanTextLayoutTests.cpp
     KoreanServiceTextTests.cpp
+    Utf8LabelLayoutTests.cpp
     CharacterSheetRegressionTests.cpp
     CombatActorHealthBarPolicyTests.cpp
     GameplayActorAiSystemTests.cpp

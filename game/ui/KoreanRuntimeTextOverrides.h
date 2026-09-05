@@ -684,6 +684,8 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         return "줍기 (" + between(text, "Pick (", ")") + ")";
     if (startsWith(text, "Loot (") && endsWith(text, ")"))
         return "전리품 획득 (" + between(text, "Loot (", ")") + ")";
+    if (startsWith(text, "Open Chest (") && endsWith(text, ")"))
+        return "상자 열기 (" + between(text, "Open Chest (", ")") + ")";
     if (startsWith(text, "Drop ")) return "버리기: " + text.substr(5);
     if (startsWith(text, "Dropped ")) return "버렸습니다: " + text.substr(8);
     if (startsWith(text, "Cast ")) return "시전: " + text.substr(5);
