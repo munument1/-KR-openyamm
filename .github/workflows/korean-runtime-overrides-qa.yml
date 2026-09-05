@@ -8,6 +8,7 @@ on:
       - .github/workflows/korean-runtime-overrides-qa.yml
       - game/ui/KoreanRuntimeTextOverrides.h
       - game/ui/screens/NewGameScreen.cpp
+      - game/ui/screens/WinGameScreen.cpp
       - game/ui/Utf8Text*.h
       - game/ui/KoreanFontMetrics.h
       - tests/KoreanTextLayoutTests.cpp

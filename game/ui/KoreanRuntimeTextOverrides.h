@@ -59,6 +59,7 @@ inline std::string className(const std::string &name)
         {"Vampire", "뱀파이어"}, {"Nosferatu", "노스페라투"}, {"Sorcerer", "소서러"}, {"Wizard", "마법사"},
         {"Necromancer", "강령술사"}, {"Lich", "리치"}, {"Arch Mage", "대마법사"}, {"Master Necromancer", "대강령술사"},
         {"High Priest", "대사제"}, {"Master Wizard", "마스터 위저드"}, {"Peasant", "농민"},
+        {"Adventurer", "모험가"},
     };
     const auto it = Names.find(name);
     return it != Names.end() ? it->second : name;
@@ -602,6 +603,7 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Your fine has been paid.", "벌금을 모두 납부했습니다."},
         {"Excellent work! By thwarting the Destroyer of Worlds, you have pulled your world from the brink of unending oblivion. Not only may life continue, but a new peace reigns over Jadame. The mighty alliance you forged will see to the land's restoration and eventual prosperity.",
             "훌륭합니다! 세계의 파괴자를 저지하여 당신은 세계를 끝없는 망각의 벼랑에서 구해 냈습니다. 생명은 계속 이어질 수 있게 되었고 자데임에는 새로운 평화가 찾아왔습니다. 당신이 이룬 강력한 동맹은 이 땅을 복구하고 마침내 번영으로 이끌 것입니다."},
+        {"Congratulations!", "축하합니다!"},
         {"Adventurer the Level 1 Adventurer", "모험가 - 레벨 1 모험가"},
         {"You feel high magic presence here.", "이곳에서 강한 마법의 기운이 느껴집니다."},
         {"Advanced time by 1 hour", "시간을 1시간 진행했습니다"},
@@ -1000,8 +1002,33 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         return result;
     }
 
+    // WinGameCertificate uses NAME the Level NUMBER CLASS. Match the final marker
+    // so a player-created name containing the same words remains intact.
+    const size_t certificateLevel = text.rfind(" the Level ");
+    if (certificateLevel != std::string::npos && certificateLevel > 0)
+    {
+        const size_t levelStart = certificateLevel + 11;
+        const size_t levelEnd = text.find_first_not_of("0123456789", levelStart);
+        if (levelEnd != std::string::npos && levelEnd > levelStart
+            && text[levelEnd] == ' ' && levelEnd + 1 < text.size())
+        {
+            return text.substr(0, certificateLevel) + " - 레벨 " + text.substr(levelStart, levelEnd - levelStart)
+                + " " + className(text.substr(levelEnd + 1));
+        }
+    }
     if (startsWith(text, "Your score: ")) return "점수: " + text.substr(12);
-    if (startsWith(text, "Total Time: ")) return "총 시간: " + text.substr(12);
+    if (startsWith(text, "Total Time: "))
+    {
+        std::string result = "총 시간: " + text.substr(12);
+        // Plurals must be replaced before singulars, or an English trailing 's' survives.
+        replaceAll(result, " Years", "년");
+        replaceAll(result, " Year", "년");
+        replaceAll(result, " Months", "개월");
+        replaceAll(result, " Month", "개월");
+        replaceAll(result, " Days", "일");
+        replaceAll(result, " Day", "일");
+        return result;
+    }
     if (startsWith(text, "Quick save failed: ")) return "빠른 저장 실패: " + text.substr(19);
     if (startsWith(text, "Quick load failed: ")) return "빠른 불러오기 실패: " + text.substr(19);
     if ((endsWith(text, " AM") || endsWith(text, " PM")) && text.find(':') != std::string::npos)

@@ -1,10 +1,11 @@
 #include "game/ui/screens/WinGameScreen.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
+#include "game/ui/Utf8TextWrapping.h"
 
 #include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <cmath>
-#include <sstream>
 #include <string>
 
 namespace OpenYAMM::Game
@@ -77,32 +78,11 @@ std::vector<std::string> WinGameScreen::wrapText(
     float maxWidth,
     float scale)
 {
-    std::vector<std::string> lines;
-    std::istringstream input(text);
-    std::string word;
-    std::string currentLine;
-
-    while (input >> word)
+    const std::string localizedText = KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
+    return wrapUtf8Text(localizedText, maxWidth, [this, &fontName, scale](const std::string &line)
     {
-        const std::string candidate = currentLine.empty() ? word : currentLine + " " + word;
-
-        if (!currentLine.empty() && measureTextWidth(fontName, candidate, scale) > maxWidth)
-        {
-            lines.push_back(currentLine);
-            currentLine = word;
-        }
-        else
-        {
-            currentLine = candidate;
-        }
-    }
-
-    if (!currentLine.empty())
-    {
-        lines.push_back(currentLine);
-    }
-
-    return lines;
+        return measureTextWidth(fontName, line, scale);
+    });
 }
 
 void WinGameScreen::drawScreen(float)

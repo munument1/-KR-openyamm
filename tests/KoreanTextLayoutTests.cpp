@@ -67,3 +67,41 @@ TEST_CASE("Galmuri11 uses native integer pixel grids without overflowing its lin
         CHECK(koreanFontEmPixels(height) * 14.0f / 12.0f <= doctest::Approx(height));
     }
 }
+
+TEST_CASE("Victory certificate localizes names, classes, score and singular or plural time units")
+{
+    using KoreanRuntimeText::koreanRuntimeTextOverride;
+    CHECK(koreanRuntimeTextOverride("Congratulations!") == "축하합니다!");
+    CHECK(koreanRuntimeTextOverride("Alice the Level 50 Master Archer") == "Alice - 레벨 50 명궁");
+    CHECK(koreanRuntimeTextOverride("미나 the Level 1 Adventurer") == "미나 - 레벨 1 모험가");
+    CHECK(koreanRuntimeTextOverride("the Level Song the Level 12 Knight") == "the Level Song - 레벨 12 기사");
+    CHECK(koreanRuntimeTextOverride("미나 the Level 10 기사") == "미나 - 레벨 10 기사");
+    CHECK_FALSE(koreanRuntimeTextOverride("Alice the Level high Knight").has_value());
+    CHECK_FALSE(koreanRuntimeTextOverride("Alice the Level 12").has_value());
+    CHECK(koreanRuntimeTextOverride("Your score: 12345") == "점수: 12345");
+    CHECK(koreanRuntimeTextOverride("Total Time: 0 Years, 0 Months, 0 Days") == "총 시간: 0년, 0개월, 0일");
+    CHECK(koreanRuntimeTextOverride("Total Time: 1 Year, 1 Month, 1 Day") == "총 시간: 1년, 1개월, 1일");
+    CHECK(koreanRuntimeTextOverride("Total Time: 2 Years, 1 Month, 27 Days") == "총 시간: 2년, 1개월, 27일");
+}
+
+TEST_CASE("The complete translated ending fits above the certificate time line")
+{
+    const std::string source =
+        "Excellent work! By thwarting the Destroyer of Worlds, you have pulled your world from the brink of "
+        "unending oblivion. Not only may life continue, but a new peace reigns over Jadame. The mighty alliance "
+        "you forged will see to the land's restoration and eventual prosperity.";
+    const std::optional<std::string> translated = KoreanRuntimeText::koreanRuntimeTextOverride(source);
+    REQUIRE(translated.has_value());
+    const std::vector<std::string> lines = wrapUtf8Text(*translated, 520.0f, codePointWidth);
+    REQUIRE_FALSE(lines.empty());
+    // ENDGAME has 20-pixel lines with 3-pixel leading; text starts at 230, time at 355.
+    CHECK(lines.size() * 23 <= 355 - 230);
+    std::string reconstructed;
+    for (const std::string &line : lines)
+    {
+        CHECK(codePointWidth(line) <= 520.0f);
+        CHECK(line.find_first_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz") == std::string::npos);
+        reconstructed += (reconstructed.empty() ? "" : " ") + line;
+    }
+    CHECK(reconstructed == *translated);
+}
