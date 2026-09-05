@@ -617,7 +617,7 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"This character already knows that mastery.", "이 캐릭터는 이미 해당 숙련 등급을 익혔습니다."},
         {"You must have at least 50 base Intellect to learn Master Learning.", "학습을 마스터하려면 기본 지능이 50 이상이어야 합니다."},
         {"You must have at least 50 base Personality to learn Master Merchant.", "상술을 마스터하려면 기본 인격이 50 이상이어야 합니다."},
-        {"You must have at least 50 base Endurance to learn Master Bodybuilding.", "체력 단련을 마스터하려면 기본 인내력이 50 이상이어야 합니다."},
+        {"You must have at least 50 base Endurance to learn Master Bodybuilding.", "체력 단련을 마스터하려면 기본 체력이 50 이상이어야 합니다."},
         {"The requirements for this training are unmet.", "이 훈련의 요구 조건을 충족하지 못했습니다."},
         {"Do you wish to leave this area?", "이 지역을 떠나시겠습니까?"},
         {"Serve Sentence", "형기 복역"},

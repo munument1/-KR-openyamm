@@ -40,6 +40,9 @@ TEST_CASE("Skill service sentences translate embedded display names without chan
 
 TEST_CASE("Mastery restrictions translate every offered promotion class")
 {
+    CHECK(koreanRuntimeTextOverride("Endurance") == "체력");
+    CHECK(koreanRuntimeTextOverride("You must have at least 50 base Endurance to learn Master Bodybuilding.")
+        == "체력 단련을 마스터하려면 기본 체력이 50 이상이어야 합니다.");
     CHECK(koreanRuntimeTextOverride("This skill level can not be learned by the Knight class.")
         == "기사: 이 직업은 해당 숙련 등급을 배울 수 없습니다.");
     CHECK(koreanRuntimeTextOverride("This skill level can not be learned by the Master class.")
