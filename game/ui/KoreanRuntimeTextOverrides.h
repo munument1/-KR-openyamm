@@ -477,6 +477,18 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Stealing", "소매치기"},
         {"Alchemy", "연금술"},
         {"Learning", "학습"},
+        {"Lizardman Peasant", "리자드맨 농민"},
+        {"Lizardman Guard", "리자드맨 경비병"},
+        {"Dark Elf Peasant", "다크 엘프 농민"},
+        {"Dark Elf Guard", "다크 엘프 경비병"},
+        {"Ogre Peasant", "오우거 농민"},
+        {"Wererat Peasants", "웨어랫 농민"},
+        {"Troll Peasant", "트롤 농민"},
+        {"Dragon Hunter", "드래곤 사냥꾼"},
+        {"Necromancer Peasant", "강령술사 농민"},
+        {"Cleric Peasant", "성직자 농민"},
+        {"Regnan Peasant", "레그나 농민"},
+        {"Minotaur Peasant", "미노타우로스 농민"},
         {"Pick", "줍기"},
         {"Pick Up", "줍기"},
         {"Open Chest", "상자 열기"},
@@ -676,6 +688,47 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         return gold + "골드와 아이템을 발견했습니다 (" + item + ")!";
     }
 
+    if (text.find(" gains +2 ") != std::string::npos && endsWith(text, "!"))
+    {
+        const size_t marker = text.find(" gains +2 ");
+        static const std::unordered_map<std::string, std::string> Attributes = {
+            {"Might", "힘"}, {"Intellect", "지능"}, {"Personality", "인격"},
+            {"Endurance", "체력"}, {"Accuracy", "적중률"}, {"Speed", "속도"}, {"Luck", "운"},
+        };
+        const std::string attribute = text.substr(marker + 10, text.size() - (marker + 10) - 1);
+        if (const auto it = Attributes.find(attribute); it != Attributes.end())
+        {
+            return text.substr(0, marker) + "의 " + it->second + "이(가) 2 증가했습니다!";
+        }
+    }
+    if (endsWith(text, " becomes diseased, but gains an item!"))
+    {
+        return text.substr(0, text.size() - 37) + "은(는) 질병에 걸렸지만 아이템을 얻었습니다!";
+    }
+
+    if (endsWith(text, " (Permanent)"))
+    {
+        const size_t bonusMarker = text.rfind(" +");
+        if (bonusMarker != std::string::npos)
+        {
+            static const std::unordered_map<std::string, std::string> PermanentAttributes = {
+                {"Might", "힘"}, {"Intellect", "지능"}, {"Personality", "인격"},
+                {"Endurance", "체력"}, {"Accuracy", "적중률"}, {"Speed", "속도"}, {"Luck", "운"},
+                {"Fire Resistance", "화염 저항"}, {"Air Resistance", "대기 저항"},
+                {"Water Resistance", "물 저항"}, {"Earth Resistance", "대지 저항"},
+                {"Spirit Resistance", "영혼 저항"}, {"Mind Resistance", "정신 저항"},
+                {"Body Resistance", "신체 저항"}, {"Light Resistance", "빛 저항"},
+                {"Dark Resistance", "어둠 저항"}, {"Magic Resistance", "마법 저항"},
+                {"Physical Resistance", "물리 저항"},
+            };
+            const std::string attribute = text.substr(0, bonusMarker);
+            if (const auto it = PermanentAttributes.find(attribute); it != PermanentAttributes.end())
+            {
+                return it->second + text.substr(bonusMarker, text.size() - bonusMarker - 12) + " (영구)";
+            }
+        }
+    }
+
     if (startsWith(text, "That player is "))
     {
         static const std::unordered_map<std::string, std::string> Conditions = {
@@ -715,34 +768,34 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "+") && endsWith(text, " Might Permanent")) return "힘 +" + between(text, "+", " Might Permanent") + " (영구)";
     if (startsWith(text, "+") && endsWith(text, " Intellect Permanent")) return "지능 +" + between(text, "+", " Intellect Permanent") + " (영구)";
     if (startsWith(text, "+") && endsWith(text, " Personality Permanent")) return "인격 +" + between(text, "+", " Personality Permanent") + " (영구)";
-    if (startsWith(text, "+") && endsWith(text, " Endurance Permanent")) return "인내력 +" + between(text, "+", " Endurance Permanent") + " (영구)";
-    if (startsWith(text, "+") && endsWith(text, " Accuracy Permanent")) return "정확도 +" + between(text, "+", " Accuracy Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Endurance Permanent")) return "체력 +" + between(text, "+", " Endurance Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Accuracy Permanent")) return "적중률 +" + between(text, "+", " Accuracy Permanent") + " (영구)";
     if (startsWith(text, "+") && endsWith(text, " Speed Permanent")) return "속도 +" + between(text, "+", " Speed Permanent") + " (영구)";
-    if (startsWith(text, "+") && endsWith(text, " Luck Permanent")) return "행운 +" + between(text, "+", " Luck Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Luck Permanent")) return "운 +" + between(text, "+", " Luck Permanent") + " (영구)";
     if (startsWith(text, "+") && endsWith(text, " Gold")) return "골드 +" + between(text, "+", " Gold");
     if (startsWith(text, "+") && endsWith(text, " Food")) return "식량 +" + between(text, "+", " Food");
     if (startsWith(text, "+") && endsWith(text, " Skill Points")) return "기술 점수 +" + between(text, "+", " Skill Points");
     if (startsWith(text, "+") && endsWith(text, " Experience")) return "경험치 +" + between(text, "+", " Experience");
     if (startsWith(text, "+") && endsWith(text, " Fire Permanent")) return "화염 저항 +" + between(text, "+", " Fire Permanent") + " (영구)";
-    if (startsWith(text, "+") && endsWith(text, " Air Permanent")) return "공기 저항 +" + between(text, "+", " Air Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Air Permanent")) return "대기 저항 +" + between(text, "+", " Air Permanent") + " (영구)";
     if (startsWith(text, "+") && endsWith(text, " Water Permanent")) return "물 저항 +" + between(text, "+", " Water Permanent") + " (영구)";
     if (startsWith(text, "+") && endsWith(text, " Earth Permanent")) return "대지 저항 +" + between(text, "+", " Earth Permanent") + " (영구)";
     if (startsWith(text, "+") && endsWith(text, " Mind Permanent")) return "정신 저항 +" + between(text, "+", " Mind Permanent") + " (영구)";
-    if (startsWith(text, "+") && endsWith(text, " Body Permanent")) return "육체 저항 +" + between(text, "+", " Body Permanent") + " (영구)";
+    if (startsWith(text, "+") && endsWith(text, " Body Permanent")) return "신체 저항 +" + between(text, "+", " Body Permanent") + " (영구)";
 
     // Deck of Fate rewards.
     if (startsWith(text, "+") && endsWith(text, " Might!")) return "힘 +" + between(text, "+", " Might!") + "!";
     if (startsWith(text, "+") && endsWith(text, " Intellect!")) return "지능 +" + between(text, "+", " Intellect!") + "!";
     if (startsWith(text, "+") && endsWith(text, " Personality!")) return "인격 +" + between(text, "+", " Personality!") + "!";
-    if (startsWith(text, "+") && endsWith(text, " Endurance!")) return "인내력 +" + between(text, "+", " Endurance!") + "!";
-    if (startsWith(text, "+") && endsWith(text, " Accuracy!")) return "정확도 +" + between(text, "+", " Accuracy!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Endurance!")) return "체력 +" + between(text, "+", " Endurance!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Accuracy!")) return "적중률 +" + between(text, "+", " Accuracy!") + "!";
     if (startsWith(text, "+") && endsWith(text, " Speed!")) return "속도 +" + between(text, "+", " Speed!") + "!";
-    if (startsWith(text, "+") && endsWith(text, " Luck!")) return "행운 +" + between(text, "+", " Luck!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Luck!")) return "운 +" + between(text, "+", " Luck!") + "!";
     if (startsWith(text, "+") && endsWith(text, " Fire Resistance!")) return "화염 저항 +" + between(text, "+", " Fire Resistance!") + "!";
-    if (startsWith(text, "+") && endsWith(text, " Air Resistance!")) return "공기 저항 +" + between(text, "+", " Air Resistance!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Air Resistance!")) return "대기 저항 +" + between(text, "+", " Air Resistance!") + "!";
     if (startsWith(text, "+") && endsWith(text, " Water Resistance!")) return "물 저항 +" + between(text, "+", " Water Resistance!") + "!";
     if (startsWith(text, "+") && endsWith(text, " Earth Resistance!")) return "대지 저항 +" + between(text, "+", " Earth Resistance!") + "!";
-    if (startsWith(text, "+") && endsWith(text, " Body Resistance!")) return "육체 저항 +" + between(text, "+", " Body Resistance!") + "!";
+    if (startsWith(text, "+") && endsWith(text, " Body Resistance!")) return "신체 저항 +" + between(text, "+", " Body Resistance!") + "!";
 
     // House, temple, tavern, training and transport display text.
     if (text == "Selected: no character") return "선택된 캐릭터: 없음";

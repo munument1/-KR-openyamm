@@ -118,6 +118,11 @@ jobs:
               expect("Fire Magic", "화염 마법");
               expect("Disarm Traps", "함정 해제");
               expect("Body Building", "체력 단련");
+              expect("Lizardman Guard", "리자드맨 경비병");
+              expect("Robin gains +2 Might!", "Robin의 힘이(가) 2 증가했습니다!");
+              expect("Robin becomes diseased, but gains an item!",
+                  "Robin은(는) 질병에 걸렸지만 아이템을 얻었습니다!");
+              expect("Spirit Resistance +3 (Permanent)", "영혼 저항 +3 (영구)");
               std::cout << "runtime override QA passed\n";
           }
           CPP
