@@ -543,8 +543,23 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Lloyd's Beacon", "로이드의 봉화"},
         {"Set beacon here", "여기에 봉화 설치"},
         {"Broken item", "파손된 아이템"},
+        {"Not identified", "미감정 아이템"},
         {"SP Cost", "주문 포인트 소모"},
         {"Active Spells:", "활성 주문:"},
+        {"Stunned", "기절"},
+        {"Slow", "둔화"},
+        {"Shrunk", "축소"},
+        {"Hammerhands", "망치손"},
+        {"Haste", "가속"},
+        {"Stoneskin", "돌 피부"},
+        {"Bless", "축복"},
+        {"Fate", "운명"},
+        {"Heroism", "영웅심"},
+        {"Charmed", "매혹"},
+        {"Berserk", "광폭화"},
+        {"Enslaved", "정신 지배"},
+        {"Controlled", "조종됨"},
+        {"Reanimated", "되살아남"},
         {"Select item target  LMB cast  Esc cancel", "아이템 대상 선택  좌클릭 시전  Esc 취소"},
         {"Dark Grasp", "어둠의 손아귀"},
         {"Right-click a card to discard.", "카드를 버리려면 우클릭하십시오."},
@@ -943,6 +958,23 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "Expert: ")) return "전문가: " + text.substr(8);
     if (startsWith(text, "Master: ")) return "마스터: " + text.substr(8);
     if (startsWith(text, "Grandmaster: ")) return "그랜드마스터: " + text.substr(13);
+    if (startsWith(text, "Grand Master: ")) return "그랜드마스터: " + text.substr(14);
+    if (startsWith(text, "Casting ")) return "시전 중: " + text.substr(8);
+    if (startsWith(text, "Special: "))
+    {
+        std::string result = "특수 효과: " + text.substr(9);
+        replaceAll(result, "\nSet: ", "\n세트: ");
+        replaceAll(result, ", active)", ", 활성)");
+        replaceAll(result, ", inactive)", ", 비활성)");
+        return result;
+    }
+    if (startsWith(text, "Set: "))
+    {
+        std::string result = "세트: " + text.substr(5);
+        replaceAll(result, ", active)", ", 활성)");
+        replaceAll(result, ", inactive)", ", 비활성)");
+        return result;
+    }
     if (startsWith(text, "Power: ")) return "위력: " + text.substr(7);
     if (startsWith(text, "Value: ")) return "가치: " + text.substr(7);
     if (startsWith(text, "Duration:"))
