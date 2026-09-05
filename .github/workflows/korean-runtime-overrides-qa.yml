@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/korean-runtime-overrides-qa.yml
       - game/ui/KoreanRuntimeTextOverrides.h
+      - game/ui/screens/NewGameScreen.cpp
 
 permissions:
   contents: read
@@ -22,6 +23,7 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /game/ui/KoreanRuntimeTextOverrides.h
+            /game/ui/screens/NewGameScreen.cpp
 
       - name: Compile and test runtime display overrides
         shell: bash
@@ -109,6 +111,13 @@ jobs:
               expect("2:30 PM", "오후 2:30");
               expect("Talk 100 Gold", "대화 100골드");
               expect("Join guild for 500 gold", "길드 가입: 500골드");
+              expect("Might", "힘");
+              expect("Endurance", "체력");
+              expect("Staff", "스태프");
+              expect("Leather", "가죽 갑옷");
+              expect("Fire Magic", "화염 마법");
+              expect("Disarm Traps", "함정 해제");
+              expect("Body Building", "체력 단련");
               std::cout << "runtime override QA passed\n";
           }
           CPP

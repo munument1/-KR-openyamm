@@ -6,6 +6,7 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/party/SkillData.h"
 #include "game/party/SpeechIds.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
 #include "game/ui/Utf8Text.h"
 
 #include <algorithm>
@@ -54,8 +55,7 @@ constexpr float CreationCompletionErrorBoxWidth = 360.0f;
 constexpr size_t MaximumOptionalSkillSelections = 2;
 constexpr size_t MaximumNameLength = 15;
 constexpr const char *CreationCompletionErrorText =
-    "Create Party cannot be completed unless you have assigned all characters 2 extra skills and have spent all of "
-    "your bonus points.";
+    "파티를 생성하려면 모든 캐릭터에게 추가 기술 2개를 지정하고 보너스 점수를 모두 사용해야 합니다.";
 constexpr uint32_t WhiteColor = 0xffffffffu;
 constexpr uint32_t YellowColor = 0xff00ffffu;
 constexpr uint32_t BlueColor = 0xffffd830u;
@@ -3229,7 +3229,7 @@ void NewGameScreen::drawScreen(float deltaSeconds)
         drawText(fontName, "_", cursorX, cursorY, WhiteColor, scale);
     }
 
-    const std::string displayedClassName = displayClassName(selectedClassName());
+    const std::string displayedClassName = KoreanRuntimeText::className(displayClassName(selectedClassName()));
     drawText(
         fontName,
         displayedClassName,

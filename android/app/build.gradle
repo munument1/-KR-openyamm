@@ -189,6 +189,14 @@ def registerOpenYammApkAssetsTask = { taskName, nativeBuildTaskName, shaderBuild
             [zip: file("${rootDir}/../assets/worlds/mmmerge.zip"), into: "worlds/mmmerge"]
         ]
 
+        def koreanOverlayRoots = [
+            [zip: file("${koreanOverlayRoot}/engine.zip"), into: "engine"],
+            [zip: file("${koreanOverlayRoot}/worlds/mm6.zip"), into: "worlds/mm6"],
+            [zip: file("${koreanOverlayRoot}/worlds/mm7.zip"), into: "worlds/mm7"],
+            [zip: file("${koreanOverlayRoot}/worlds/mm8.zip"), into: "worlds/mm8"],
+            [zip: file("${koreanOverlayRoot}/worlds/mmmerge.zip"), into: "worlds/mmmerge"]
+        ]
+
         inputs.files(packagedAssetRoots.collect { it.zip })
         if (koreanOverlayRoot.isDirectory()) {
             inputs.dir(koreanOverlayRoot)
@@ -219,6 +227,17 @@ def registerOpenYammApkAssetsTask = { taskName, nativeBuildTaskName, shaderBuild
             }
 
             if (koreanOverlayRoot.isDirectory()) {
+                koreanOverlayRoots.each { overlayRoot ->
+                    if (!overlayRoot.zip.isFile()) {
+                        throw new GradleException("Missing Korean runtime overlay ${overlayRoot.zip}.")
+                    }
+
+                    copy {
+                        from(zipTree(overlayRoot.zip))
+                        into(file("${generatedAssetsRoot}/${overlayRoot.into}"))
+                    }
+                }
+
                 copy {
                     from(koreanOverlayRoot)
                     into(file("${generatedAssetsRoot}/korean"))

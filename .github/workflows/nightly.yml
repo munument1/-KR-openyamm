@@ -299,6 +299,10 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "dist/$output"
           unzip -Z1 "dist/$output" > android-package-contents.txt
           grep -Fxq "lib/arm64-v8a/libmain.so" android-package-contents.txt
+          grep -Fxq "assets/engine/fonts/KoreanFallback.ttf" android-package-contents.txt
+          grep -Fxq "assets/engine/data_tables/english/Global.txt" android-package-contents.txt
+          unzip -p "dist/$output" assets/engine/data_tables/english/Global.txt \
+            | grep -q '[가-힣]'
           grep -Fxq "assets/korean/engine.zip" android-package-contents.txt
           grep -Fxq "assets/korean/worlds/mm6.zip" android-package-contents.txt
           grep -Fxq "assets/korean/worlds/mm7.zip" android-package-contents.txt

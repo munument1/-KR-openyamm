@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "updated": "2026-09-04",
+  "updated": "2026-09-05",
   "entries": [
     {
       "source_file": "assets_dev/engine/data_tables/additional_ui.txt",
@@ -16,8 +16,8 @@
     },
     {
       "source_file": "game/ui/screens/NewGameScreen.cpp",
-      "status": "partial_runtime_ui_localization",
-      "reason": "Primary stats, class names, skill names, race labels, mastery prefixes, the two-skill limit message and the empty-name message are localized through display-only paths. The long Create Party completion paragraph still needs a direct source-level replacement because it is wrapped before display localization.",
+      "status": "complete_runtime_ui_localization",
+      "reason": "Primary stats, class names, skill names, race labels, mastery prefixes, validation messages and the wrapped Create Party completion paragraph are localized through display-only paths or a reviewed direct source replacement.",
       "reviewed": true
     }
   ]
