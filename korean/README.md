@@ -1,82 +1,95 @@
-# Korean patch workspace
+# 한국어 패치 작업 디렉터리
 
-This directory contains only Korean-localization sources and patch tooling. It must not contain copies of the complete upstream OpenYAMM game packages.
+이 디렉터리에는 한국어화 소스와 패치 도구만 보관합니다. 원본 OpenYAMM 게임 패키지 전체를 복사해 넣지 않습니다.
 
-## Authoring layout
+## 번역 파일 배치
 
-Place changed or translated files under:
+수정하거나 번역한 파일은 다음 경로에 배치합니다.
 
 ```text
 korean/overlay/
   engine/
-    ... files that override engine.zip ...
+    ... engine.zip에서 교체할 파일 ...
   worlds/
     mm6/
-      ... files that override worlds/mm6.zip ...
+      ... worlds/mm6.zip에서 교체할 파일 ...
     mm7/
-      ... files that override worlds/mm7.zip ...
+      ... worlds/mm7.zip에서 교체할 파일 ...
     mm8/
-      ... files that override worlds/mm8.zip ...
+      ... worlds/mm8.zip에서 교체할 파일 ...
     mmmerge/
-      ... files that override worlds/mmmerge.zip ...
+      ... worlds/mmmerge.zip에서 교체할 파일 ...
 ```
 
-The path inside each overlay directory must match the path inside the corresponding upstream runtime package.
+각 오버레이 안의 상대 경로는 대응하는 원본 런타임 패키지 내부 경로와 일치해야 합니다.
 
-Do not copy unchanged upstream files into the overlay tree.
+변경하지 않은 원본 파일은 오버레이에 복사하지 않습니다.
 
-## Build patch archives
+## 패치 압축 파일 만들기
 
-From the repository root:
+저장소 루트에서 실행합니다.
 
 ```sh
 python korean/build_patch.py
 ```
 
-Output:
+출력 파일:
 
 ```text
 dist/korean-patch/
   manifest.json
   SHA256SUMS.txt
   korean/
-    engine.zip                  # only when engine overrides exist
+    engine.zip                  # 엔진 교체 파일이 있을 때만 생성
     worlds/
-      mm6.zip                   # only when MM6 overrides exist
-      mm7.zip                   # only when MM7 overrides exist
-      mm8.zip                   # only when MM8 overrides exist
-      mmmerge.zip               # only when MMMerge overrides exist
+      mm6.zip                   # MM6 교체 파일이 있을 때만 생성
+      mm7.zip                   # MM7 교체 파일이 있을 때만 생성
+      mm8.zip                   # MM8 교체 파일이 있을 때만 생성
+      mmmerge.zip               # MMMerge 교체 파일이 있을 때만 생성
 ```
 
-Empty overlay packages are not generated.
+교체 파일이 없는 빈 오버레이 패키지는 만들지 않습니다.
 
-## Release targets
+## 배포 대상
 
-Only these targets are release targets for this localization:
+한국어화 네이티브 스모크 빌드는 다음 두 대상을 검사합니다.
 
 - Windows x64
 - Android arm64
 
-No Linux/Flatpak Korean release artifact should be generated.
+현재 정식 패키지 워크플로는 Windows ZIP, Android 릴리즈 APK와 Linux x86_64 Flatpak을 만듭니다.
+배포 파일과 설치 방법은 저장소 루트의 [README](../README.md)를 참고하세요.
 
-## Runtime source patches
+## 런타임 소스 수정
 
-Korean runtime source changes must remain narrowly scoped and smoke-tested on both release targets. Character creation name entry is UTF-8 aware: Hangul input is accepted by code point, the 15-character limit counts Unicode code points rather than UTF-8 bytes, and Backspace removes one complete UTF-8 code point.
+한국어화 소스 수정은 필요한 표시·입력 경로로 제한하고 Windows와 Android에서 빌드 검증합니다.
+캐릭터 이름은 UTF-8 코드 포인트 단위로 입력합니다. 이름의 15자 제한은 바이트가 아닌 코드 포인트를 세며,
+Backspace는 완전한 코드 포인트 하나를 제거합니다.
 
-Hard-coded runtime display overrides are added only after the English string is confirmed to reach a player-visible UI or status-message path. English logic keys remain unchanged; Korean text is substituted at the final display layer and covered by focused runtime QA before native smoke builds.
+하드코딩된 영어 문자열은 실제 플레이어 화면이나 상태 메시지에 도달하는 것을 확인한 뒤 번역합니다.
+영어로 된 로직 키는 유지하고 최종 표시 단계에서 한국어로 치환합니다. 집중 회귀 검사 후 네이티브 빌드를 확인합니다.
 
-Character detail, buff inspection, recovery-time, item-identification, and outdoor pickup text that is constructed directly by a renderer is localized at that display-construction site after the underlying logic keys have already been resolved.
+캐릭터 상세, 버프 정보, 회복 시간, 아이템 감정, 실외 아이템 줍기처럼 렌더러가 직접 만드는 문구는
+내부 키의 조회가 끝난 표시 문구 조립 지점에서 번역합니다.
 
-Inventory item-use results keep their English gameplay logic strings intact and are localized only at the shared final display override, including inactive-character conditions, spell/skill learning results, Genie Lamp rewards, and Deck of Fate rewards. Reviewed stat and resistance terms reuse the existing Korean catalog terminology.
+인벤토리의 아이템 사용 결과는 게임 로직의 영어 문자열을 유지하고 공통 최종 표시 단계에서만 번역합니다.
+행동 불가 상태, 주문·기술 습득, 요술 램프와 운명의 카드 보상 등이 대상입니다.
+능력치와 저항력 명칭은 검수된 한국어 카탈로그 용어를 재사용합니다.
 
-House interaction runtime text follows the same final-display rule. Reviewed dynamic patterns cover opening hours, selected-character summaries, temple healing and donations, tavern room/food costs, training requirements and results, skill lessons, and transport travel time. House type names such as `Weapon Shop` or `Fire Guild` remain English when they are used only as service-routing keys.
+건물 상호작용도 최종 표시 단계에서 번역합니다. 영업시간, 선택 캐릭터 요약, 사원의 치료·기부,
+여관의 숙박·식량 가격, 훈련 조건·결과, 기술 습득과 이동 소요 시간의 동적 문구를 검수합니다.
+`Weapon Shop`, `Fire Guild`처럼 서비스 종류를 선택하는 내부 키로만 쓰는 이름은 영어를 유지합니다.
 
-Generic actor fallback names such as `Lizardman Peasant` and `Dark Elf Guard` are also preserved in `resolveGenericNpcName()` because that function feeds `findNpcIdByName()` as an NPC lookup key; the resolved string itself is not copied into the final dialog resolution.
+`resolveGenericNpcName()`의 `Lizardman Peasant`, `Dark Elf Guard` 같은 기본 이름도 유지합니다.
+이 함수의 결과는 `findNpcIdByName()`의 NPC 조회 키로 사용되며 최종 대화에 그대로 복사되는 값이 아닙니다.
 
-Mastery-teacher result text is disambiguated from class-promotion text before the generic `is now a` pattern. Expert, Master, and Grandmaster skill promotions use the reviewed Korean mastery terms 전문가, 마스터, and 그랜드마스터; small confirmed dialog residuals such as stealing failure and unavailable-day notices are handled at the same final display layer.
+숙련도 교사의 결과 문구는 일반 `is now a` 패턴보다 먼저 처리해 직업 전직 문구와 구분합니다.
+Expert, Master, Grandmaster는 기술 숙련도 맥락에서 전문가, 마스터, 그랜드마스터로 표시합니다.
+도둑질 실패나 이용 불가 날짜 안내처럼 확인된 나머지 대화도 같은 최종 표시 단계에서 처리합니다.
 
-## Base-version rule
+## 기준 버전 관리
 
-Any runtime binary patch must record the exact upstream OpenYAMM version/commit it targets. A binary patch must fail rather than silently apply to an unknown executable or APK.
+런타임 바이너리 패치는 대상 원본 OpenYAMM의 정확한 버전과 커밋을 기록해야 합니다.
+알 수 없는 실행 파일이나 APK에는 조용히 적용하지 말고 오류로 중단해야 합니다.
 
-Text-only overlay updates should remain independent from the large upstream media packages whenever possible.
+텍스트 전용 오버레이 업데이트는 가능한 한 대용량 원본 미디어 패키지와 분리합니다.
