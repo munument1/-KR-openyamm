@@ -15,6 +15,7 @@
 #include "game/tables/RosterTable.h"
 #include "game/tables/SpellTable.h"
 #include "game/ui/GameplayHudCommon.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
 #include "game/ui/GameplayJournalMapUi.h"
 #include "game/party/SkillData.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
@@ -1533,7 +1534,7 @@ uint32_t quickReferenceConditionColor(const std::string &conditionText)
 std::string quickReferenceClassName(const Character &character)
 {
     const std::string className = character.className.empty() ? character.role : character.className;
-    return displayClassName(className);
+    return KoreanRuntimeText::className(displayClassName(className));
 }
 
 size_t quickReferenceSkillCount(const Character &character)
@@ -9428,7 +9429,8 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                 label,
                 "{character_class_race}",
                 pCharacter != nullptr
-                    ? displayClassName(!pCharacter->className.empty() ? pCharacter->className : pCharacter->role)
+                    ? KoreanRuntimeText::className(
+                        displayClassName(!pCharacter->className.empty() ? pCharacter->className : pCharacter->role))
                     : "");
             label = replaceAllText(
                 label,

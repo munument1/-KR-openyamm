@@ -95,6 +95,24 @@ TEST_CASE("Runtime YAML captions and tabs have complete Korean display translati
     }
 }
 
+TEST_CASE("Party overview distinguishes class names from mastery terms and translates reputation")
+{
+    using namespace KoreanRuntimeText;
+    CHECK(className("Knight") == "기사");
+    CHECK(className("Master") == "달인");
+    CHECK(className("Master Archer") == "명궁");
+    CHECK(className("Priest of the Light") == "빛의 사제");
+    CHECK(className("Custom Class") == "Custom Class");
+    CHECK(className("기사") == "기사");
+    CHECK(koreanRuntimeTextOverride("Reputation:") == "평판:");
+    CHECK(koreanRuntimeTextOverride("Saintly") == "고결함");
+    CHECK(koreanRuntimeTextOverride("Friendly") == "우호적");
+    CHECK(koreanRuntimeTextOverride("Neutral") == "중립");
+    CHECK(koreanRuntimeTextOverride("Unfriendly") == "비우호적");
+    CHECK(koreanRuntimeTextOverride("Notorious") == "악명 높음");
+    CHECK(koreanRuntimeTextOverride("Fame: 123456") == "명성: 123456");
+}
+
 TEST_CASE("Galmuri11 uses native integer pixel grids without overflowing its line")
 {
     CHECK(koreanFontEmPixels(14) == 12.0f);

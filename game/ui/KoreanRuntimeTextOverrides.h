@@ -503,6 +503,12 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Year", "년"},
         {"Set Beacon", "봉화 설치"},
         {"Recall Beacon", "봉화로 귀환"},
+        {"Reputation:", "평판:"},
+        {"Saintly", "고결함"},
+        {"Friendly", "우호적"},
+        {"Neutral", "중립"},
+        {"Unfriendly", "비우호적"},
+        {"Notorious", "악명 높음"},
         {"Staff", "스태프"},
         {"Sword", "검"},
         {"Dagger", "단검"},
@@ -708,6 +714,7 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "Skills: ")) return "기술: " + text.substr(8);
     if (startsWith(text, "Points: ")) return "기술 점수: " + text.substr(8);
     if (startsWith(text, "Dmg: ")) return "피해: " + text.substr(5);
+    if (startsWith(text, "Fame: ")) return "명성: " + text.substr(6);
 
     if (const std::optional<std::string> mercenary = generatedMercenary(text))
     {

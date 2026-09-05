@@ -6,6 +6,7 @@
 #include "game/party/SpellSchool.h"
 #include "game/tables/ItemTable.h"
 #include "game/ui/GameplayHudCommon.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/ui/SpellbookUiLayout.h"
 
@@ -1171,7 +1172,8 @@ void GameplayHudOverlaySupport::updateCharacterDetailOverlay(
     overlay.active = true;
     const std::string characterName = pCharacter->name.empty() ? "파티원" : pCharacter->name;
     const std::string characterClass =
-        displayClassName(!pCharacter->className.empty() ? pCharacter->className : pCharacter->role);
+        KoreanRuntimeText::className(
+            displayClassName(!pCharacter->className.empty() ? pCharacter->className : pCharacter->role));
     overlay.title = characterClass.empty() ? characterName : characterName + " (" + characterClass + ")";
     overlay.body.clear();
     overlay.portraitTextureName = defaultCharacterPortraitTextureName(*pCharacter);

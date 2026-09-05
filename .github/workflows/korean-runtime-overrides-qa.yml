@@ -11,6 +11,8 @@ on:
       - game/ui/screens/WinGameScreen.cpp
       - game/ui/Utf8*.h
       - game/ui/GameplayHudRenderer.cpp
+      - game/ui/GameplayPartyOverlayRenderer.cpp
+      - game/ui/GameplayHudOverlaySupport.cpp
       - game/ui/KoreanFontMetrics.h
       - game/ui/KoreanCalendarText.h
       - tests/KoreanTextLayoutTests.cpp
