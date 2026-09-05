@@ -57,6 +57,44 @@ TEST_CASE("Wrapping preserves UTF-8, word order and explicit blank lines")
         == std::vector<std::string>{"A", "B", "C", "D"});
 }
 
+TEST_CASE("Quick reference labels translate and fit their 60 pixel layout columns")
+{
+    const std::pair<const char *, const char *> labels[] = {
+        {"Name", "이름"}, {"Level", "레벨"}, {"Class", "직업"}, {"HP", "생명력"},
+        {"SP", "주문력"}, {"AC", "방어력"}, {"Attack", "공격"}, {"Dmg", "피해"},
+        {"Shoot", "사격"}, {"Skills", "기술"}, {"Points", "점수"}, {"Cond", "상태"},
+        {"QSpell", "빠른 주문"},
+    };
+    for (const auto &[source, target] : labels)
+    {
+        CAPTURE(source);
+        const std::optional<std::string> translated = KoreanRuntimeText::koreanRuntimeTextOverride(source);
+        REQUIRE(translated.has_value());
+        CHECK(*translated == target);
+        CHECK(codePointWidth(*translated) <= 60.0f);
+    }
+}
+
+TEST_CASE("Runtime YAML captions and tabs have complete Korean display translations")
+{
+    const std::pair<const char *, const char *> labels[] = {
+        {"Hit Points", "생명력"}, {"Spell Points", "주문력"}, {"Armor Class", "방어력"},
+        {"Skill Points:", "기술 점수:"}, {"Condition:", "상태:"}, {"Quick Spell:", "빠른 주문:"},
+        {"Age", "나이"}, {"Experience", "경험치"}, {"Resistances", "저항력"},
+        {"Fire", "화염"}, {"Air", "대기"}, {"Water", "물"}, {"Earth", "대지"}, {"Mind", "정신"},
+        {"Body", "신체"}, {"Spirit", "영혼"}, {"Light", "빛"}, {"Dark", "어둠"}, {"Physical", "물리"},
+        {"Weapons", "무기"}, {"Armor", "방어구"}, {"Magic", "마법"}, {"Misc", "기타"},
+        {"Effects", "효과"}, {"Spell", "주문"}, {"Damage", "피해"},
+        {"Day", "일"}, {"Month", "월"}, {"Year", "년"},
+        {"Set Beacon", "봉화 설치"}, {"Recall Beacon", "봉화로 귀환"},
+    };
+    for (const auto &[source, target] : labels)
+    {
+        CAPTURE(source);
+        CHECK(KoreanRuntimeText::koreanRuntimeTextOverride(source) == target);
+    }
+}
+
 TEST_CASE("Galmuri11 uses native integer pixel grids without overflowing its line")
 {
     CHECK(koreanFontEmPixels(14) == 12.0f);

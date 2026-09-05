@@ -4,6 +4,25 @@
 
 using OpenYAMM::Game::KoreanRuntimeText::koreanRuntimeTextOverride;
 
+TEST_CASE("Adventurers inn and item inspection captions localize after resolving game data")
+{
+    const std::pair<const char *, const char *> captions[] = {
+        {"Name: Sword", "이름: Sword"}, {"Name: 미나", "이름: 미나"},
+        {"Class: Master Archer", "직업: 명궁"}, {"Class: 기사", "직업: 기사"},
+        {"Type: Sword", "유형: 검"}, {"Type: Misc", "유형: 기타"}, {"Type: 가죽 갑옷", "유형: 가죽 갑옷"},
+        {"Cond: Good", "상태: 양호"}, {"Cond: Poisoned", "상태: 중독"},
+        {"QSpell: None", "빠른 주문: 없음"}, {"QSpell: 화염구", "빠른 주문: 화염구"},
+        {"HP: -5", "생명력: -5"}, {"SP: 100", "주문력: 100"}, {"AC: 20", "방어력: 20"},
+        {"Level: 50", "레벨: 50"}, {"Skills: 8", "기술: 8"}, {"Points: 13", "기술 점수: 13"},
+        {"Dmg: 10-20", "피해: 10-20"}, {"Attack: +5", "공격: +5"}, {"Shoot: -3", "사격: -3"},
+    };
+    for (const auto &[source, target] : captions)
+    {
+        CAPTURE(source);
+        CHECK(koreanRuntimeTextOverride(source) == target);
+    }
+}
+
 TEST_CASE("Skill service sentences translate embedded display names without changing character names")
 {
     const std::pair<const char *, const char *> skills[] = {

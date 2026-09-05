@@ -459,6 +459,50 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Accuracy", "적중률"},
         {"Speed", "속도"},
         {"Luck", "운"},
+        {"Name", "이름"},
+        {"Level", "레벨"},
+        {"Class", "직업"},
+        {"HP", "생명력"},
+        {"Hit Points", "생명력"},
+        {"SP", "주문력"},
+        {"Spell Points", "주문력"},
+        {"AC", "방어력"},
+        {"Armor Class", "방어력"},
+        {"Attack", "공격"},
+        {"Dmg", "피해"},
+        {"Damage", "피해"},
+        {"Shoot", "사격"},
+        {"Skills", "기술"},
+        {"Points", "점수"},
+        {"Skill Points:", "기술 점수:"},
+        {"Cond", "상태"},
+        {"Condition:", "상태:"},
+        {"QSpell", "빠른 주문"},
+        {"Quick Spell:", "빠른 주문:"},
+        {"Age", "나이"},
+        {"Experience", "경험치"},
+        {"Resistances", "저항력"},
+        {"Fire", "화염"},
+        {"Air", "대기"},
+        {"Water", "물"},
+        {"Earth", "대지"},
+        {"Mind", "정신"},
+        {"Body", "신체"},
+        {"Spirit", "영혼"},
+        {"Light", "빛"},
+        {"Dark", "어둠"},
+        {"Physical", "물리"},
+        {"Weapons", "무기"},
+        {"Armor", "방어구"},
+        {"Magic", "마법"},
+        {"Misc", "기타"},
+        {"Effects", "효과"},
+        {"Spell", "주문"},
+        {"Day", "일"},
+        {"Month", "월"},
+        {"Year", "년"},
+        {"Set Beacon", "봉화 설치"},
+        {"Recall Beacon", "봉화로 귀환"},
         {"Staff", "스태프"},
         {"Sword", "검"},
         {"Dagger", "단검"},
@@ -649,6 +693,21 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         const auto it = Exact.find(term);
         return it != Exact.end() ? it->second : term;
     };
+
+    // Item inspection and adventurers' inn captions are assembled after data lookup.
+    // Character names remain literal; only class/condition/type display fields are translated.
+    if (startsWith(text, "Name: ")) return "이름: " + text.substr(6);
+    if (startsWith(text, "Class: ")) return "직업: " + className(text.substr(7));
+    if (startsWith(text, "Type: ")) return "유형: " + displayTerm(text.substr(6));
+    if (startsWith(text, "Cond: ")) return "상태: " + displayTerm(text.substr(6));
+    if (startsWith(text, "QSpell: ")) return "빠른 주문: " + displayTerm(text.substr(8));
+    if (startsWith(text, "HP: ")) return "생명력: " + text.substr(4);
+    if (startsWith(text, "SP: ")) return "주문력: " + text.substr(4);
+    if (startsWith(text, "AC: ")) return "방어력: " + text.substr(4);
+    if (startsWith(text, "Level: ")) return "레벨: " + text.substr(7);
+    if (startsWith(text, "Skills: ")) return "기술: " + text.substr(8);
+    if (startsWith(text, "Points: ")) return "기술 점수: " + text.substr(8);
+    if (startsWith(text, "Dmg: ")) return "피해: " + text.substr(5);
 
     if (const std::optional<std::string> mercenary = generatedMercenary(text))
     {
