@@ -67,19 +67,19 @@ assets/
 
 한국어판 배포 버전은 [GitHub Releases](https://github.com/munument1/-KR-openyamm/releases)에서 받을 수 있습니다.
 
-`0.11-korean-r2`는 갈무리11과 캐릭터 생성 기술명 줄바꿈 수정에 이어, 기술 습득·승급 안내,
-현상금·엔딩 문구, 행동 버튼의 한글 잘림, 저장·불러오기 날짜 표시를 수정한 한국어판 업데이트입니다.
+`0.11-korean-r3`는 갈무리11과 이전 수정 사항에 이어, 여러 줄 NPC 대화의 번역 누락,
+파티·캐릭터 정보의 항목명과 직업명, 여관·아이템 상세·평판 표시를 수정한 한국어판 업데이트입니다.
 이전 릴리스는 보존하며, Android 버전 코드도 올려 기존 앱 위에 갱신할 수 있게 합니다.
 
-- `OpenYAMM-0.11-korean-r2-windows-x64.zip` — Windows x64
-- `OpenYAMM-0.11-korean-r2-x86_64.flatpak` — Linux x86_64 Flatpak
-- `OpenYAMM-0.11-korean-r2-android-arm64.apk` — Android arm64 서명 APK
+- `OpenYAMM-0.11-korean-r3-windows-x64.zip` — Windows x64
+- `OpenYAMM-0.11-korean-r3-x86_64.flatpak` — Linux x86_64 Flatpak
+- `OpenYAMM-0.11-korean-r3-android-arm64.apk` — Android arm64 서명 APK
 - 각 패키지의 `.sha256` 파일 — 다운로드 무결성 확인용 체크섬
 
 Windows에서는 ZIP을 푼 뒤 `openyamm.exe`를 실행합니다. Flatpak은 다음 명령으로 설치하거나 갱신합니다.
 
 ```sh
-flatpak install --user --reinstall OpenYAMM-0.11-korean-r2-x86_64.flatpak
+flatpak install --user --reinstall OpenYAMM-0.11-korean-r3-x86_64.flatpak
 ```
 
 Android 6.0 이상의 arm64 기기에서는 APK를 내려받아 실행합니다. 브라우저 또는 파일 관리자에서 앱 설치를
