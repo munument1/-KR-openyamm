@@ -1,5 +1,7 @@
 #pragma once
 
+#include "game/ui/KoreanCalendarText.h"
+
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -1081,26 +1083,13 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     }
     if (startsWith(text, "Quick save failed: ")) return "빠른 저장 실패: " + text.substr(19);
     if (startsWith(text, "Quick load failed: ")) return "빠른 불러오기 실패: " + text.substr(19);
-    if ((endsWith(text, " AM") || endsWith(text, " PM")) && text.find(':') != std::string::npos)
+    if (const std::optional<std::string> clock = koreanClockTextOverride(text))
     {
-        const bool afternoon = endsWith(text, " PM");
-        return std::string(afternoon ? "오후 " : "오전 ") + text.substr(0, text.size() - 3);
+        return clock;
     }
-    static constexpr const char *MonthNames[] = {
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December",
-    };
-    for (size_t monthIndex = 0; monthIndex < 12; ++monthIndex)
+    if (const std::optional<std::string> date = koreanDateTextOverride(text))
     {
-        const std::string marker = " " + std::string(MonthNames[monthIndex]) + " ";
-        const size_t month = text.find(marker);
-        if (month != std::string::npos
-            && text.find(' ') == month
-            && text.find(' ', month + marker.size()) == std::string::npos)
-        {
-            return text.substr(month + marker.size()) + "년 " + std::to_string(monthIndex + 1)
-                + "월 " + text.substr(0, month) + "일";
-        }
+        return date;
     }
     if (startsWith(text, "Talk ") && endsWith(text, " Gold"))
         return "대화 " + between(text, "Talk ", " Gold") + "골드";

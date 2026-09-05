@@ -9,6 +9,7 @@ add_executable(openyamm_unit_tests
     ScriptedMapRegressionTests.cpp
     UnitTestMain.cpp
     KoreanTextLayoutTests.cpp
+    KoreanCalendarTextTests.cpp
     KoreanServiceTextTests.cpp
     Utf8LabelLayoutTests.cpp
     CharacterSheetRegressionTests.cpp

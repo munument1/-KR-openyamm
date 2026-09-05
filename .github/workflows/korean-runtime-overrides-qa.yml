@@ -12,7 +12,9 @@ on:
       - game/ui/Utf8*.h
       - game/ui/GameplayHudRenderer.cpp
       - game/ui/KoreanFontMetrics.h
+      - game/ui/KoreanCalendarText.h
       - tests/KoreanTextLayoutTests.cpp
+      - tests/KoreanCalendarTextTests.cpp
       - tests/KoreanServiceTextTests.cpp
       - tests/Utf8LabelLayoutTests.cpp
 
@@ -32,7 +34,9 @@ jobs:
             /game/ui/screens/NewGameScreen.cpp
             /game/ui/Utf8*.h
             /game/ui/KoreanFontMetrics.h
+            /game/ui/KoreanCalendarText.h
             /tests/KoreanTextLayoutTests.cpp
+            /tests/KoreanCalendarTextTests.cpp
             /tests/KoreanServiceTextTests.cpp
             /tests/Utf8LabelLayoutTests.cpp
             /tests/UnitTestMain.cpp
@@ -42,7 +46,7 @@ jobs:
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -I. -Ithird_party/doctest \
             tests/UnitTestMain.cpp tests/KoreanTextLayoutTests.cpp tests/KoreanServiceTextTests.cpp \
-            tests/Utf8LabelLayoutTests.cpp \
+            tests/Utf8LabelLayoutTests.cpp tests/KoreanCalendarTextTests.cpp \
             -o /tmp/korean_layout_test
           /tmp/korean_layout_test
 
