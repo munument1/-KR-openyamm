@@ -329,6 +329,31 @@ inline std::string localizedTargetControlSuffix(const std::string &text)
     return text;
 }
 
+// Binding descriptions are display-only; do not translate serialized action or key names.
+inline std::string keyboardActionLabel(const std::string &text)
+{
+    static const std::unordered_map<std::string, std::string> Labels = {
+        {"Forward", "앞으로"}, {"Backward", "뒤로"}, {"Left", "왼쪽 이동"}, {"Right", "오른쪽 이동"},
+        {"Yell", "외치기"}, {"Jump", "점프"}, {"Combat", "전투 모드"}, {"Cast Ready", "빠른 주문 시전"},
+        {"Attack", "공격"}, {"Trigger", "상호작용"}, {"Cast", "주문 시전"}, {"Pass", "차례 넘기기"},
+        {"Char Cycle", "캐릭터 전환"}, {"Quest", "퀘스트"}, {"Quick Ref", "파티 요약"}, {"Rest", "휴식"},
+        {"History", "역사"}, {"Use", "사용"}, {"Map Book", "지도"}, {"Always Run", "항상 달리기"},
+        {"Look Up", "위 보기"}, {"Look Down", "아래 보기"}, {"Ctr. View", "시선 정면"},
+        {"Zoom In", "확대"}, {"Zoom Out", "축소"}, {"Fly Up", "비행 상승"}, {"Fly Down", "비행 하강"},
+        {"Land", "착륙"}, {"Double Speed", "두 배 속도"},
+    };
+    const auto found = Labels.find(text);
+    return found != Labels.end() ? found->second : text;
+}
+
+inline std::string keyboardBindingLabel(const std::string &text)
+{
+    if (text == "Unbound") return "미지정";
+    if (text == "LMB") return "마우스 1";
+    if (startsWith(text, "Mouse ")) return "마우스 " + text.substr(6);
+    return text;
+}
+
 inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &text)
 {
     if (text.empty())

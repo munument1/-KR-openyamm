@@ -4,6 +4,24 @@
 
 using OpenYAMM::Game::KoreanRuntimeText::koreanRuntimeTextOverride;
 
+TEST_CASE("Keyboard descriptions localize without changing physical key legends or unknown actions")
+{
+    using OpenYAMM::Game::KoreanRuntimeText::keyboardActionLabel;
+    using OpenYAMM::Game::KoreanRuntimeText::keyboardBindingLabel;
+    CHECK(keyboardActionLabel("Forward") == "앞으로");
+    CHECK(keyboardActionLabel("Char Cycle") == "캐릭터 전환");
+    CHECK(keyboardActionLabel("Quick Ref") == "파티 요약");
+    CHECK(keyboardActionLabel("Cast Ready") == "빠른 주문 시전");
+    CHECK(keyboardActionLabel("Custom Action") == "Custom Action");
+    CHECK(keyboardActionLabel("앞으로") == "앞으로");
+    CHECK(keyboardBindingLabel("Unbound") == "미지정");
+    CHECK(keyboardBindingLabel("LMB") == "마우스 1");
+    CHECK(keyboardBindingLabel("Mouse 5") == "마우스 5");
+    CHECK(keyboardBindingLabel("Page Down") == "Page Down");
+    CHECK(keyboardBindingLabel("Q") == "Q");
+    CHECK_FALSE(koreanRuntimeTextOverride("forward").has_value());
+}
+
 TEST_CASE("Adventurers inn and item inspection captions localize after resolving game data")
 {
     const std::pair<const char *, const char *> captions[] = {

@@ -3501,7 +3501,7 @@ void GameplayPartyOverlayRenderer::renderKeyboardOverlay(GameplayScreenRuntime &
             context,
             *font,
             labelColor,
-            std::vector<std::string>{std::string(definition.label)},
+            std::vector<std::string>{KoreanRuntimeText::keyboardActionLabel(std::string(definition.label))},
             labelX + keyboardLayout->textPaddingX,
             textY,
             fontScale);
@@ -3512,7 +3512,8 @@ void GameplayPartyOverlayRenderer::renderKeyboardOverlay(GameplayScreenRuntime &
             std::vector<std::string>{
                 highlighted
                     ? std::string("Press Input")
-                    : inputBindingDisplayName(settings.keyboard.binding(definition.action))
+                    : KoreanRuntimeText::keyboardBindingLabel(
+                        inputBindingDisplayName(settings.keyboard.binding(definition.action)))
             },
             valueX + keyboardLayout->textPaddingX,
             textY,

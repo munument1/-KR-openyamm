@@ -42,6 +42,24 @@ TEST_CASE("Character creation localizes complete skill names before wrapping")
     }
 }
 
+TEST_CASE("Keyboard action descriptions fit both label columns")
+{
+    const char *actions[] = {
+        "Forward", "Backward", "Left", "Right", "Yell", "Jump", "Combat", "Cast Ready", "Attack",
+        "Trigger", "Cast", "Pass", "Char Cycle", "Quest", "Quick Ref", "Rest", "History", "Use",
+        "Map Book", "Always Run", "Look Up", "Look Down", "Ctr. View", "Zoom In", "Zoom Out",
+        "Fly Up", "Fly Down", "Land", "Double Speed",
+    };
+    for (const char *pAction : actions)
+    {
+        CAPTURE(pAction);
+        const std::string label = KoreanRuntimeText::keyboardActionLabel(pAction);
+        CHECK(label != pAction);
+        // Right column is 112 logical pixels wide, including 8 pixels of text padding.
+        CHECK(codePointWidth(label) <= 104.0f);
+    }
+}
+
 TEST_CASE("Wrapping preserves UTF-8, word order and explicit blank lines")
 {
     CHECK(wrapUtf8Text("앞 아주긴한글단어 뒤", 36.0f, codePointWidth)
