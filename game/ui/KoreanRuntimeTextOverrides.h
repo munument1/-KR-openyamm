@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace OpenYAMM::Game
 {
@@ -354,11 +355,73 @@ inline std::string keyboardBindingLabel(const std::string &text)
     return text;
 }
 
+inline std::optional<std::string> combatStatusText(const std::string &text)
+{
+    const std::string evadeSuffix = " evades damage";
+    if (endsWith(text, evadeSuffix) && text.size() > evadeSuffix.size())
+    {
+        return text.substr(0, text.size() - evadeSuffix.size()) + ": 피해 회피";
+    }
+    for (const auto &[english, korean] : {
+        std::pair{" paralyzes ", " 마비"}, std::pair{" stuns ", " 기절"}})
+    {
+        const size_t marker = text.find(english);
+        const size_t targetStart = marker == std::string::npos ? text.size() : marker + std::string(english).size();
+        if (marker != std::string::npos && marker > 0 && targetStart < text.size())
+        {
+            return text.substr(0, marker) + ": " + text.substr(targetStart) + korean;
+        }
+    }
+    const auto isDamage = [](const std::string &value)
+    {
+        return !value.empty() && value.find_first_not_of("0123456789") == std::string::npos;
+    };
+    const size_t killMarker = text.find(" points killing ");
+    if (killMarker != std::string::npos)
+    {
+        const size_t inflictMarker = text.rfind(" inflicts ", killMarker);
+        if (inflictMarker != std::string::npos && inflictMarker > 0 && killMarker + 16 < text.size())
+        {
+            const std::string damage = text.substr(inflictMarker + 10, killMarker - inflictMarker - 10);
+            if (isDamage(damage))
+            {
+                return text.substr(0, inflictMarker) + ": " + text.substr(killMarker + 16)
+                    + " 처치 (피해 " + damage + ")";
+            }
+        }
+    }
+    const bool ranged = endsWith(text, " points");
+    if (ranged || endsWith(text, " damage"))
+    {
+        const size_t damageMarker = text.rfind(" for ");
+        if (damageMarker != std::string::npos && damageMarker + 5 < text.size() - 7)
+        {
+            const std::string damage = text.substr(damageMarker + 5, text.size() - 7 - damageMarker - 5);
+            const std::string attackMarker = ranged ? " shoots " : " hits ";
+            const size_t attackOffset = text.find(attackMarker);
+            if (isDamage(damage) && attackOffset != std::string::npos && attackOffset > 0
+                && attackOffset + attackMarker.size() < damageMarker)
+            {
+                const std::string target = text.substr(
+                    attackOffset + attackMarker.size(), damageMarker - attackOffset - attackMarker.size());
+                return text.substr(0, attackOffset) + ": " + target + (ranged ? " 사격" : " 공격")
+                    + " (피해 " + damage + ")";
+            }
+        }
+    }
+    return std::nullopt;
+}
+
 inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &text)
 {
     if (text.empty())
     {
         return std::nullopt;
+    }
+
+    if (const std::optional<std::string> combatText = combatStatusText(text))
+    {
+        return combatText;
     }
 
     static const std::unordered_map<std::string, std::string> Exact = {

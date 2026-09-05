@@ -4,6 +4,33 @@
 
 using OpenYAMM::Game::KoreanRuntimeText::koreanRuntimeTextOverride;
 
+TEST_CASE("Combat status reports translate outcomes while preserving participant names and damage")
+{
+    const std::pair<const char *, const char *> reports[] = {
+        {"Ariel evades damage", "Ariel: 피해 회피"},
+        {"미나 evades damage", "미나: 피해 회피"},
+        {"Ariel paralyzes 고블린", "Ariel: 고블린 마비"},
+        {"미나 stuns Goblin King", "미나: Goblin King 기절"},
+        {"미나 hits 고블린 for 0 damage", "미나: 고블린 공격 (피해 0)"},
+        {"Ariel shoots Goblin King for 125 points", "Ariel: Goblin King 사격 (피해 125)"},
+        {"미나 inflicts 1234 points killing Goblin King", "미나: Goblin King 처치 (피해 1234)"},
+        {"Ariel hits Guardian for Hire for 12 damage", "Ariel: Guardian for Hire 공격 (피해 12)"},
+    };
+    for (const auto &[source, target] : reports)
+    {
+        CAPTURE(source);
+        CHECK(koreanRuntimeTextOverride(source) == target);
+    }
+    for (const char *pInvalid : {
+        " evades damage", "Ariel hits Goblin for much damage", "Ariel shoots Goblin for -1 points",
+        "Ariel inflicts some points killing Goblin", "Ariel paralyzes ", "Ariel stuns ",
+        "Ariel hits for 12 damage", "Ariel: 피해 회피", "monster_attack_result result=evaded"})
+    {
+        CAPTURE(pInvalid);
+        CHECK_FALSE(OpenYAMM::Game::KoreanRuntimeText::combatStatusText(pInvalid).has_value());
+    }
+}
+
 TEST_CASE("Keyboard descriptions localize without changing physical key legends or unknown actions")
 {
     using OpenYAMM::Game::KoreanRuntimeText::keyboardActionLabel;
