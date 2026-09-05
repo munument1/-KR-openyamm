@@ -147,6 +147,25 @@ foreach(worldPackageDir IN LISTS worldPackageDirs)
     )
 endforeach()
 
+if (DEFINED OPENYAMM_RELEASE_KOREAN_OVERLAY_DIR
+    AND NOT OPENYAMM_RELEASE_KOREAN_OVERLAY_DIR STREQUAL "")
+    foreach(koreanOverlayPackage IN ITEMS
+        "engine.zip"
+        "worlds/mm6.zip"
+        "worlds/mm7.zip"
+        "worlds/mm8.zip"
+        "worlds/mmmerge.zip"
+    )
+        if (NOT EXISTS "${OPENYAMM_RELEASE_KOREAN_OVERLAY_DIR}/${koreanOverlayPackage}")
+            message(FATAL_ERROR "Missing Korean release overlay package: ${koreanOverlayPackage}")
+        endif()
+    endforeach()
+
+    file(MAKE_DIRECTORY "${OPENYAMM_RELEASE_STAGE_DIR}/assets/korean")
+    file(COPY "${OPENYAMM_RELEASE_KOREAN_OVERLAY_DIR}/"
+        DESTINATION "${OPENYAMM_RELEASE_STAGE_DIR}/assets/korean")
+endif()
+
 get_filename_component(openyammReleaseParentDir "${OPENYAMM_RELEASE_STAGE_DIR}" DIRECTORY)
 get_filename_component(openyammReleaseFolderName "${OPENYAMM_RELEASE_STAGE_DIR}" NAME)
 

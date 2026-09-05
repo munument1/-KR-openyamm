@@ -95,6 +95,11 @@ set(OPENYAMM_FLATPAK_OUTPUT_DIR
     CACHE PATH
     "Output directory for local Flatpak release builds."
 )
+set(OPENYAMM_KOREAN_OVERLAY_DIR
+    ""
+    CACHE PATH
+    "Optional packaged Korean overlay directory containing engine.zip and worlds/*.zip."
+)
 
 if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
     add_custom_target(openyamm_windows_release_zip
@@ -108,6 +113,7 @@ if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
             "-DOPENYAMM_RELEASE_RUNTIME_SEARCH_DIRS=${OPENYAMM_RELEASE_RUNTIME_SEARCH_DIRS}"
             "-DOPENYAMM_RELEASE_SHADER_DIR=${OPENYAMM_RUNTIME_SHADER_DIR}"
             "-DOPENYAMM_RELEASE_ASSET_DEV_DIR=${OPENYAMM_DEV_ASSETS_DIR}"
+            "-DOPENYAMM_RELEASE_KOREAN_OVERLAY_DIR=${OPENYAMM_KOREAN_OVERLAY_DIR}"
             "-DOPENYAMM_RELEASE_SETTINGS_TEMPLATE=${CMAKE_SOURCE_DIR}/settings_release.ini"
             -P "${CMAKE_SOURCE_DIR}/cmake/CreateOpenYammReleasePackage.cmake"
         DEPENDS openyamm openyamm_runtime_shaders

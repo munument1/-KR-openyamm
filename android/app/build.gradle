@@ -179,6 +179,8 @@ def registerOpenYammApkAssetsTask = { taskName, nativeBuildTaskName, shaderBuild
     tasks.register(taskName) {
         dependsOn(nativeBuildTaskName)
 
+        def koreanOverlayRoot = file("${rootDir}/../assets/korean")
+
         def packagedAssetRoots = [
             [zip: file("${rootDir}/../assets/engine.zip"), into: "engine"],
             [zip: file("${rootDir}/../assets/worlds/mm6.zip"), into: "worlds/mm6"],
@@ -188,6 +190,9 @@ def registerOpenYammApkAssetsTask = { taskName, nativeBuildTaskName, shaderBuild
         ]
 
         inputs.files(packagedAssetRoots.collect { it.zip })
+        if (koreanOverlayRoot.isDirectory()) {
+            inputs.dir(koreanOverlayRoot)
+        }
         inputs.file(file("${rootDir}/settings.ini"))
         inputs.files(shaderBuildDirectories.collect { shaderBuildDirectory ->
             fileTree(shaderBuildDirectory) {
@@ -210,6 +215,13 @@ def registerOpenYammApkAssetsTask = { taskName, nativeBuildTaskName, shaderBuild
                 copy {
                     from(zipTree(assetRoot.zip))
                     into(file("${generatedAssetsRoot}/${assetRoot.into}"))
+                }
+            }
+
+            if (koreanOverlayRoot.isDirectory()) {
+                copy {
+                    from(koreanOverlayRoot)
+                    into(file("${generatedAssetsRoot}/korean"))
                 }
             }
 
