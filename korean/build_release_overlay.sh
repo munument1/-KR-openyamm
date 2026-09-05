@@ -44,12 +44,7 @@ python3 korean/tools/build_map_string_overlays.py \
     --mmmerge-root "$mmmerge_root" \
     --fail-on-review
 
-mkdir -p korean/overlay/engine/fonts
-curl --fail --location --retry 3 \
-    --output korean/overlay/engine/fonts/KoreanFallback.ttf \
-    https://raw.githubusercontent.com/IBM/plex/master/packages/plex-sans-kr/fonts/complete/ttf/hinted/IBMPlexSansKR-Regular.ttf
-test -s korean/overlay/engine/fonts/KoreanFallback.ttf
-cp korean/licenses/IBM-Plex-OFL.txt korean/overlay/engine/fonts/IBM-Plex-OFL.txt
+python3 korean/tools/stage_korean_font.py --output korean/overlay/engine/fonts
 
 python3 korean/build_patch.py --output "$output_root"
 python3 -m json.tool korean/translations/catalog.json >/dev/null
@@ -78,6 +73,7 @@ done
 
 unzip -Z1 "$output_root/korean/engine.zip" > "$output_root/engine-contents.txt"
 grep -Fxq 'fonts/KoreanFallback.ttf' "$output_root/engine-contents.txt"
+grep -Fxq 'fonts/Galmuri-OFL.txt' "$output_root/engine-contents.txt"
 grep -Fxq 'data_tables/english/Global.txt' "$output_root/engine-contents.txt"
 grep -Fxq 'data_tables/english/quests.txt' "$output_root/engine-contents.txt"
 

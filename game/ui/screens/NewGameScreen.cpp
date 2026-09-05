@@ -8,6 +8,7 @@
 #include "game/party/SpeechIds.h"
 #include "game/ui/KoreanRuntimeTextOverrides.h"
 #include "game/ui/Utf8Text.h"
+#include "game/ui/Utf8TextWrapping.h"
 
 #include <algorithm>
 #include <array>
@@ -1785,102 +1786,11 @@ std::vector<std::string> NewGameScreen::wrapTextToWidth(
     float maxWidth,
     float scale)
 {
-    std::vector<std::string> lines;
-
-    if (text.empty())
+    const std::string localizedText = KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
+    return wrapUtf8Text(localizedText, maxWidth, [this, &fontName, scale](const std::string &line)
     {
-        return lines;
-    }
-
-    size_t paragraphStart = 0;
-
-    while (paragraphStart <= text.size())
-    {
-        const size_t paragraphEnd = text.find('\n', paragraphStart);
-        const std::string paragraph = paragraphEnd == std::string::npos
-            ? text.substr(paragraphStart)
-            : text.substr(paragraphStart, paragraphEnd - paragraphStart);
-
-        if (paragraph.empty())
-        {
-            lines.push_back({});
-        }
-        else
-        {
-            std::string currentLine;
-            size_t wordStart = 0;
-
-            while (wordStart < paragraph.size())
-            {
-                while (wordStart < paragraph.size() && paragraph[wordStart] == ' ')
-                {
-                    ++wordStart;
-                }
-
-                if (wordStart >= paragraph.size())
-                {
-                    break;
-                }
-
-                size_t wordEnd = paragraph.find(' ', wordStart);
-
-                if (wordEnd == std::string::npos)
-                {
-                    wordEnd = paragraph.size();
-                }
-
-                std::string word = paragraph.substr(wordStart, wordEnd - wordStart);
-
-                while (!word.empty() && measureTextWidth(fontName, word, scale) > maxWidth)
-                {
-                    size_t splitLength = 1;
-
-                    while (splitLength < word.size()
-                        && measureTextWidth(fontName, word.substr(0, splitLength + 1), scale) <= maxWidth)
-                    {
-                        ++splitLength;
-                    }
-
-                    lines.push_back(word.substr(0, splitLength));
-                    word.erase(0, splitLength);
-                }
-
-                if (word.empty())
-                {
-                    wordStart = wordEnd + 1;
-                    continue;
-                }
-
-                const std::string candidate = currentLine.empty() ? word : currentLine + " " + word;
-
-                if (!currentLine.empty() && measureTextWidth(fontName, candidate, scale) > maxWidth)
-                {
-                    lines.push_back(currentLine);
-                    currentLine = word;
-                }
-                else
-                {
-                    currentLine = candidate;
-                }
-
-                wordStart = wordEnd + 1;
-            }
-
-            if (!currentLine.empty())
-            {
-                lines.push_back(currentLine);
-            }
-        }
-
-        if (paragraphEnd == std::string::npos)
-        {
-            break;
-        }
-
-        paragraphStart = paragraphEnd + 1;
-    }
-
-    return lines;
+        return measureTextWidth(fontName, line, scale);
+    });
 }
 
 bool NewGameScreen::tryIncreaseStat(StatId statId)
@@ -3438,64 +3348,30 @@ void NewGameScreen::drawScreen(float deltaSeconds)
 
     auto drawCenteredSkillText =
         [this, &fontName, scale](
-            const std::string &text,
+            const std::string &sourceText,
             float centerX,
             float centerY,
             uint32_t color) -> MenuScreenBase::Rect
         {
-            const auto splitLabel =
-                [this, &fontName, scale](const std::string &label) -> std::vector<std::string>
+            // Translate the complete skill name, never individual English word fragments.
+            const std::string text = KoreanRuntimeText::koreanRuntimeTextOverride(sourceText).value_or(sourceText);
+            const std::vector<std::string> lines = wrapUtf8Text(text, 84.0f * scale,
+                [this, &fontName, scale](const std::string &line)
                 {
-                    const float multilineThreshold = measureTextWidth(fontName, "Body Building", scale);
-
-                    if (measureTextWidth(fontName, label, scale) < multilineThreshold)
-                    {
-                        return {label};
-                    }
-
-                    const size_t separator = label.find_last_of(" -");
-
-                    if (separator == std::string::npos || separator == 0 || separator + 1 >= label.size())
-                    {
-                        return {label};
-                    }
-
-                    std::string firstLine = trimCopy(label.substr(0, separator));
-                    std::string secondLine = trimCopy(label.substr(separator + 1));
-
-                    if (firstLine.empty() || secondLine.empty())
-                    {
-                        return {label};
-                    }
-
-                    return {std::move(firstLine), std::move(secondLine)};
-                };
-            const std::vector<std::string> lines = splitLabel(text);
-
-            if (lines.size() > 1)
+                    return measureTextWidth(fontName, line, scale);
+                });
+            const float lineHeight = static_cast<float>(fontHeight(fontName)) * scale;
+            const float totalHeight = lineHeight * static_cast<float>(lines.size());
+            const float y = centerY - totalHeight * 0.5f;
+            float width = 0.0f;
+            for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex)
             {
-                const float firstLineWidth = measureTextWidth(fontName, lines[0], scale);
-                const float secondLineWidth = measureTextWidth(fontName, lines[1], scale);
-                const float width = std::max(
-                    firstLineWidth,
-                    secondLineWidth);
-                const float lineHeight = static_cast<float>(fontHeight(fontName)) * scale;
-                const float lineGap = -2.0f * scale;
-                const float totalHeight = lineHeight * 2.0f + lineGap;
-                const float y = centerY - totalHeight * 0.5f;
-                const float firstLineX = centerX - firstLineWidth * 0.5f;
-                const float secondLineX = centerX - secondLineWidth * 0.5f;
-                drawText(fontName, lines[0], firstLineX, y, color, scale);
-                drawText(fontName, lines[1], secondLineX, y + lineHeight + lineGap, color, scale);
-                return {centerX - width * 0.5f, y, width, totalHeight};
+                const float lineWidth = measureTextWidth(fontName, lines[lineIndex], scale);
+                width = std::max(width, lineWidth);
+                drawText(fontName, lines[lineIndex], centerX - lineWidth * 0.5f,
+                    y + lineHeight * static_cast<float>(lineIndex), color, scale);
             }
-
-            const float width = measureTextWidth(fontName, text, scale);
-            const float height = static_cast<float>(fontHeight(fontName)) * scale;
-            const float x = centerX - width * 0.5f;
-            const float y = centerY - height * 0.5f;
-            drawText(fontName, text, x, y, color, scale);
-            return {x, y, width, height};
+            return {centerX - width * 0.5f, y, width, totalHeight};
         };
 
     for (size_t slotIndex = 0; slotIndex < SelectedSkillPositions.size(); ++slotIndex)

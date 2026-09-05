@@ -132,12 +132,14 @@ std::vector<RasterizedUnicodeGlyph> rasterizeKoreanGlyphs(
         return glyphs;
     }
 
-    const float scale = stbtt_ScaleForPixelHeight(&fontInfo, static_cast<float>(std::max(6, pixelHeight)));
+    const float scale = stbtt_ScaleForMappingEmToPixels(&fontInfo, koreanFontEmPixels(pixelHeight));
     int ascent = 0;
     int descent = 0;
     int lineGap = 0;
     stbtt_GetFontVMetrics(&fontInfo, &ascent, &descent, &lineGap);
-    const int baseline = static_cast<int>(std::round(static_cast<float>(ascent) * scale));
+    const float lineBoxHeight = static_cast<float>(ascent - descent) * scale;
+    const int baseline = static_cast<int>(std::round(
+        (static_cast<float>(pixelHeight) - lineBoxHeight) * 0.5f + static_cast<float>(ascent) * scale));
     (void)descent;
     (void)lineGap;
 

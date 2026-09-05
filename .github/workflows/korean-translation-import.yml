@@ -174,12 +174,7 @@ jobs:
       - name: Add Korean fallback font to generated engine overlay
         run: |
           set -euo pipefail
-          mkdir -p korean/overlay/engine/fonts
-          curl --fail --location --retry 3 \
-            --output korean/overlay/engine/fonts/KoreanFallback.ttf \
-            https://raw.githubusercontent.com/IBM/plex/master/packages/plex-sans-kr/fonts/complete/ttf/hinted/IBMPlexSansKR-Regular.ttf
-          test -s korean/overlay/engine/fonts/KoreanFallback.ttf
-          cp korean/licenses/IBM-Plex-OFL.txt korean/overlay/engine/fonts/IBM-Plex-OFL.txt
+          python3 korean/tools/stage_korean_font.py --output korean/overlay/engine/fonts
 
       - name: Build overlay-only patch package
         run: |

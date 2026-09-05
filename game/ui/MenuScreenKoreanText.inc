@@ -192,12 +192,14 @@ MenuKoreanAtlas *buildMenuKoreanAtlas(const Engine::AssetFileSystem &assetFileSy
         return nullptr;
     }
 
-    const float fontScale = stbtt_ScaleForPixelHeight(&fontInfo, static_cast<float>(resolvedPixelHeight));
+    const float fontScale = stbtt_ScaleForMappingEmToPixels(&fontInfo, koreanFontEmPixels(resolvedPixelHeight));
     int ascent = 0;
     int descent = 0;
     int lineGap = 0;
     stbtt_GetFontVMetrics(&fontInfo, &ascent, &descent, &lineGap);
-    const int baseline = static_cast<int>(std::round(static_cast<float>(ascent) * fontScale));
+    const float lineBoxHeight = static_cast<float>(ascent - descent) * fontScale;
+    const int baseline = static_cast<int>(std::round(
+        (static_cast<float>(resolvedPixelHeight) - lineBoxHeight) * 0.5f + static_cast<float>(ascent) * fontScale));
     (void)descent;
     (void)lineGap;
 

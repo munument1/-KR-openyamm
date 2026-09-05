@@ -71,15 +71,10 @@ jobs:
           sparse-checkout: |
             /korean/
 
-      - name: Fetch IBM Plex Sans KR
+      - name: Fetch Galmuri11
         run: |
           set -euo pipefail
-          mkdir -p build-korean-overlay/fonts
-          curl --fail --location --retry 3 \
-            --output build-korean-overlay/fonts/KoreanFallback.ttf \
-            https://raw.githubusercontent.com/IBM/plex/master/packages/plex-sans-kr/fonts/complete/ttf/hinted/IBMPlexSansKR-Regular.ttf
-          test -s build-korean-overlay/fonts/KoreanFallback.ttf
-          cp korean/licenses/IBM-Plex-OFL.txt build-korean-overlay/fonts/IBM-Plex-OFL.txt
+          python3 korean/tools/stage_korean_font.py --output build-korean-overlay/fonts
 
       - name: Build smoke engine overlay
         run: |
@@ -91,7 +86,7 @@ jobs:
           (cd build-korean-overlay && zip -9 -r ../dist/korean-smoke/engine.zip .)
           unzip -Z1 dist/korean-smoke/engine.zip > dist/korean-smoke/contents.txt
           grep -Fxq 'fonts/KoreanFallback.ttf' dist/korean-smoke/contents.txt
-          grep -Fxq 'fonts/IBM-Plex-OFL.txt' dist/korean-smoke/contents.txt
+          grep -Fxq 'fonts/Galmuri-OFL.txt' dist/korean-smoke/contents.txt
           grep -Fxq 'data_tables/english/pc_names.txt' dist/korean-smoke/contents.txt
           (cd dist/korean-smoke && sha256sum engine.zip > engine.zip.sha256)
 

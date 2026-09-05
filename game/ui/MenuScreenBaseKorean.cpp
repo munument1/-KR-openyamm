@@ -11,6 +11,7 @@
 #undef shutdownSharedResources
 
 #include "game/ui/Utf8Text.h"
+#include "game/ui/KoreanFontMetrics.h"
 #include "game/ui/KoreanRuntimeTextOverrides.h"
 
 #define STBTT_STATIC

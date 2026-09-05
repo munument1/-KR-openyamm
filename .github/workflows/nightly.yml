@@ -14,6 +14,7 @@ on:
     tags:
       - "[0-9]+.[0-9]+"
       - "[0-9]+.[0-9]+-korean"
+      - "[0-9]+.[0-9]+-korean-r[0-9]+"
   schedule:
     - cron: "27 3 * * *"
   workflow_dispatch:
@@ -68,21 +69,22 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             version="$GITHUB_REF_NAME"
 
-            if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-korean)?$ ]]; then
-              echo "::error::Release tags must use canonical X.Y or X.Y-korean versioning, for example 0.11-korean."
+            if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-korean(-r([1-9][0-9]*))?)?$ ]]; then
+              echo "::error::Release tags must use X.Y, X.Y-korean or X.Y-korean-rN (for example 0.11-korean-r1)."
               exit 1
             fi
 
             major="${BASH_REMATCH[1]}"
             minor="${BASH_REMATCH[2]}"
+            revision="${BASH_REMATCH[5]:-0}"
 
-            if (( minor > 99 )); then
-              echo "::error::The minor version must be between 0 and 99."
+            if (( minor > 99 || revision > 99 )); then
+              echo "::error::The minor version and Korean revision must be between 0 and 99."
               exit 1
             fi
 
             android_version_name="$version"
-            android_version_code=$((major * 10000 + minor * 100))
+            android_version_code=$((major * 10000 + minor * 100 + revision))
 
             if (( android_version_code <= 0 || android_version_code > 2100000000 )); then
               echo "::error::Tag $version produces an invalid Android version code: $android_version_code"

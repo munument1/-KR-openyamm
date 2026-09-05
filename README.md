@@ -10,6 +10,10 @@ Might and Magic VIII을 기반으로 시작한 엔진 위에서 동작합니다.
 한국어판은 게임 내 텍스트와 플레이어에게 표시되는 런타임 UI를 한국어로 제공하며, 한국어 입력과
 한글 글꼴 표시를 지원합니다.
 
+한글 글꼴은 [갈무리11](https://github.com/quiple/galmuri) 2.40.4를 사용합니다. 원본 12px 픽셀 격자에
+맞춰 메뉴와 게임 화면의 한글을 렌더링하며, 배포 패키지에 SIL Open Font License를 함께 포함합니다.
+이미지에 새겨진 영어 제목·장식 문구는 원본을 유지합니다.
+
 ## 현재 상태
 
 Might and Magic VI, VII, VIII을 플레이할 수 있으며 게임 간 대륙 이동도 지원합니다. Windows, Linux,
@@ -63,15 +67,18 @@ assets/
 
 한국어판 배포 버전은 [GitHub Releases](https://github.com/munument1/-KR-openyamm/releases)에서 받을 수 있습니다.
 
-- `OpenYAMM-0.11-korean-windows-x64.zip` — Windows x64
-- `OpenYAMM-0.11-korean-x86_64.flatpak` — Linux x86_64 Flatpak
-- `OpenYAMM-0.11-korean-android-arm64.apk` — Android arm64 서명 APK
+`0.11-korean-r1`은 갈무리11 글꼴과 캐릭터 생성 기술명 줄바꿈을 수정한 한국어판 업데이트입니다.
+기존 `0.11-korean` 릴리스는 보존하며, Android 버전 코드도 올려 기존 앱 위에 갱신할 수 있게 합니다.
+
+- `OpenYAMM-0.11-korean-r1-windows-x64.zip` — Windows x64
+- `OpenYAMM-0.11-korean-r1-x86_64.flatpak` — Linux x86_64 Flatpak
+- `OpenYAMM-0.11-korean-r1-android-arm64.apk` — Android arm64 서명 APK
 - 각 패키지의 `.sha256` 파일 — 다운로드 무결성 확인용 체크섬
 
 Windows에서는 ZIP을 푼 뒤 `openyamm.exe`를 실행합니다. Flatpak은 다음 명령으로 설치하거나 갱신합니다.
 
 ```sh
-flatpak install --user --reinstall OpenYAMM-0.11-korean-x86_64.flatpak
+flatpak install --user --reinstall OpenYAMM-0.11-korean-r1-x86_64.flatpak
 ```
 
 Android 6.0 이상의 arm64 기기에서는 APK를 내려받아 실행합니다. 브라우저 또는 파일 관리자에서 앱 설치를
