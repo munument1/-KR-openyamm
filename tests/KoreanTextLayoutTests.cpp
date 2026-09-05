@@ -57,6 +57,7 @@ TEST_CASE("Keyboard action descriptions fit both label columns")
         CHECK(label != pAction);
         // Right column is 112 logical pixels wide, including 8 pixels of text padding.
         CHECK(codePointWidth(label) <= 104.0f);
+        CHECK(codePointWidth(KoreanRuntimeText::keyboardActionLabel(pAction, true)) <= 104.0f);
     }
 }
 

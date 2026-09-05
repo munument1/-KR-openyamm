@@ -331,8 +331,16 @@ inline std::string localizedTargetControlSuffix(const std::string &text)
 }
 
 // Binding descriptions are display-only; do not translate serialized action or key names.
-inline std::string keyboardActionLabel(const std::string &text)
+inline std::string keyboardActionLabel(const std::string &text, bool classicControls = false)
 {
+    if (classicControls && text == "Left")
+    {
+        return "왼쪽 회전";
+    }
+    if (classicControls && text == "Right")
+    {
+        return "오른쪽 회전";
+    }
     static const std::unordered_map<std::string, std::string> Labels = {
         {"Forward", "앞으로"}, {"Backward", "뒤로"}, {"Left", "왼쪽 이동"}, {"Right", "오른쪽 이동"},
         {"Yell", "외치기"}, {"Jump", "점프"}, {"Combat", "전투 모드"}, {"Cast Ready", "빠른 주문 시전"},

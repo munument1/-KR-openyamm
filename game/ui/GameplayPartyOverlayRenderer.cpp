@@ -3501,7 +3501,8 @@ void GameplayPartyOverlayRenderer::renderKeyboardOverlay(GameplayScreenRuntime &
             context,
             *font,
             labelColor,
-            std::vector<std::string>{KoreanRuntimeText::keyboardActionLabel(std::string(definition.label))},
+            std::vector<std::string>{KoreanRuntimeText::keyboardActionLabel(
+                std::string(definition.label), settings.controlScheme == ControlScheme::Classic)},
             labelX + keyboardLayout->textPaddingX,
             textY,
             fontScale);

@@ -39,6 +39,11 @@ TEST_CASE("Keyboard descriptions localize without changing physical key legends 
     CHECK(keyboardActionLabel("Char Cycle") == "캐릭터 전환");
     CHECK(keyboardActionLabel("Quick Ref") == "파티 요약");
     CHECK(keyboardActionLabel("Cast Ready") == "빠른 주문 시전");
+    CHECK(keyboardActionLabel("Left", true) == "왼쪽 회전");
+    CHECK(keyboardActionLabel("Right", true) == "오른쪽 회전");
+    CHECK(keyboardActionLabel("Left", false) == "왼쪽 이동");
+    CHECK(keyboardActionLabel("Right", false) == "오른쪽 이동");
+    CHECK(keyboardActionLabel("Cast Ready", true) == "빠른 주문 시전");
     CHECK(keyboardActionLabel("Custom Action") == "Custom Action");
     CHECK(keyboardActionLabel("앞으로") == "앞으로");
     CHECK(keyboardBindingLabel("Unbound") == "미지정");
