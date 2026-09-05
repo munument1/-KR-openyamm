@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OpenYAMM VERSION 0.1.0 LANGUAGES C CXX)
+project(OpenYAMM VERSION 0.11.0 LANGUAGES C CXX)
 
 if (WIN32)
     enable_language(RC)
