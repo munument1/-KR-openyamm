@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace OpenYAMM::Game
 {
@@ -721,7 +722,7 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Shrunk", "축소"},
         {"Hammerhands", "망치손"},
         {"Haste", "가속"},
-        {"Stoneskin", "돌 피부"},
+        {"Stoneskin", "돌가죽"},
         {"Bless", "축복"},
         {"Fate", "운명"},
         {"Heroism", "영웅심"},
@@ -1258,6 +1259,52 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (endsWith(text, " Gold")) return text.substr(0, text.size() - 5) + "골드";
 
     return std::nullopt;
+}
+inline std::string skillMasteryLabel(const std::string &mastery)
+{
+    if (mastery == "Normal") return "일반";
+    if (mastery == "Expert") return "전문가";
+    if (mastery == "Master") return "마스터";
+    // The skill page uses a shortened Grandmaster label to leave room for the skill name.
+    if (mastery == "Grandmaster") return "그랜드";
+    if (mastery == "None") return "";
+    return mastery;
+}
+
+inline std::string characterSkillLabel(const std::string &skill, const std::string &mastery)
+{
+    const std::string name = koreanRuntimeTextOverride(skill).value_or(skill);
+    if (mastery.empty() || mastery == "None" || mastery == "Normal")
+    {
+        return name;
+    }
+    return name + " " + skillMasteryLabel(mastery);
+}
+
+inline std::string monsterAttackTypeLabel(const std::string &type)
+{
+    if (type == "Phys") return "물리";
+    if (type == "Pois") return "독";
+    if (type == "Ener") return "에너지";
+    return koreanRuntimeTextOverride(type).value_or(type);
+}
+
+inline std::string actorEffectsText(const std::vector<std::string> &effects)
+{
+    std::string result;
+    for (const std::string &effect : effects)
+    {
+        if (effect.empty() || effect == "-" || effect == "0")
+        {
+            continue;
+        }
+        if (!result.empty())
+        {
+            result += ", ";
+        }
+        result += koreanRuntimeTextOverride(effect).value_or(effect);
+    }
+    return result.empty() ? "없음" : result;
 }
 } // namespace KoreanRuntimeText
 } // namespace OpenYAMM::Game

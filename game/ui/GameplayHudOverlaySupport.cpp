@@ -285,18 +285,6 @@ constexpr std::array<CharacterStatRowDefinition, 26> CharacterStatRows = {{
     {"BodyResistance", "CharacterStatBodyResistanceLabel", "CharacterStatBodyResistanceValue"},
 }};
 
-std::string skillPageMasteryDisplayName(SkillMastery mastery)
-{
-    const std::string displayName = masteryDisplayName(mastery);
-
-    if (displayName == "Grandmaster")
-    {
-        return "Grand";
-    }
-
-    return displayName;
-}
-
 void appendCharacterSkillUiRows(
     const Character &character,
     std::vector<CharacterSkillUiRow> &rows,
@@ -316,12 +304,8 @@ void appendCharacterSkillUiRows(
 
         CharacterSkillUiRow row = {};
         row.canonicalName = canonicalName;
-        row.label = displaySkillName(pSkill->name);
-
-        if (pSkill->mastery != SkillMastery::None && pSkill->mastery != SkillMastery::Normal)
-        {
-            row.label += " " + skillPageMasteryDisplayName(pSkill->mastery);
-        }
+        row.label = KoreanRuntimeText::characterSkillLabel(
+            displaySkillName(pSkill->name), masteryDisplayName(pSkill->mastery));
 
         row.level = std::to_string(pSkill->level);
         rows.push_back(std::move(row));
@@ -420,12 +404,8 @@ CharacterSkillUiData buildCharacterSkillUiData(const Character *pCharacter)
 
         CharacterSkillUiRow row = {};
         row.canonicalName = skillName;
-        row.label = displaySkillName(skill.name);
-
-        if (skill.mastery != SkillMastery::None && skill.mastery != SkillMastery::Normal)
-        {
-            row.label += " " + skillPageMasteryDisplayName(skill.mastery);
-        }
+        row.label = KoreanRuntimeText::characterSkillLabel(
+            displaySkillName(skill.name), masteryDisplayName(skill.mastery));
 
         row.level = std::to_string(skill.level);
         extraMiscRows.push_back(std::move(row));

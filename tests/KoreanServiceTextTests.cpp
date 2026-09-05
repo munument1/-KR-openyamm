@@ -4,6 +4,83 @@
 
 using OpenYAMM::Game::KoreanRuntimeText::koreanRuntimeTextOverride;
 
+TEST_CASE("Compound item inspection details retain all values and translate every caption")
+{
+    const std::pair<const char *, const char *> details[] = {
+        {"Power: 25", "위력: 25"}, {"Value: 500", "가치: 500"},
+        {"Attack: +2   Damage: 2D6+2", "공격: +2   피해: 2D6+2"},
+        {"Shoot: +3   Damage: 3D4+3", "사격: +3   피해: 3D4+3"},
+        {"Broken   Attack: +2   Damage: 2D6+2", "파손   공격: +2   피해: 2D6+2"},
+        {"Charges: 2/20", "충전 횟수: 2/20"}, {"Armor: +12", "방어력: +12"},
+        {"Duration: 1:yr 2:mo 3:dy 4:hr 5:mn", "지속 시간: 1년 2개월 3일 4시간 5분"},
+        {"Duration: 0:mn", "지속 시간: 0분"},
+        {"Special: 힘 +10\nSet: Custom (2/3, inactive)", "특수 효과: 힘 +10\n세트: Custom (2/3, 비활성)"},
+        {"Set: Custom (3/3, active)", "세트: Custom (3/3, 활성)"},
+    };
+    for (const auto &[source, target] : details)
+    {
+        CAPTURE(source);
+        CHECK(koreanRuntimeTextOverride(source) == target);
+    }
+}
+
+TEST_CASE("Skill page translates skill and mastery separately without changing custom skill names")
+{
+    using OpenYAMM::Game::KoreanRuntimeText::characterSkillLabel;
+    using OpenYAMM::Game::KoreanRuntimeText::skillMasteryLabel;
+    CHECK(characterSkillLabel("Fire Magic", "Master") == "화염 마법 마스터");
+    CHECK(characterSkillLabel("Identify Monster", "Expert") == "몬스터 식별 전문가");
+    CHECK(characterSkillLabel("Vampire Ability", "Grandmaster") == "뱀파이어 능력 그랜드");
+    CHECK(characterSkillLabel("Sword", "Normal") == "검");
+    CHECK(characterSkillLabel("Sword", "None") == "검");
+    CHECK(characterSkillLabel("Custom Skill", "Expert") == "Custom Skill 전문가");
+    CHECK(characterSkillLabel("함정 해제", "Master") == "함정 해제 마스터");
+    CHECK(skillMasteryLabel("Normal") == "일반");
+    CHECK(skillMasteryLabel("None").empty());
+    CHECK(OpenYAMM::Game::KoreanRuntimeText::className("Master") == "달인");
+}
+
+TEST_CASE("Monster attack labels translate display aliases while preserving data tokens")
+{
+    using OpenYAMM::Game::KoreanRuntimeText::monsterAttackTypeLabel;
+    const std::pair<const char *, const char *> types[] = {
+        {"Phys", "물리"}, {"Pois", "독"}, {"Ener", "에너지"}, {"Fire", "화염"}, {"Air", "대기"},
+        {"Water", "물"}, {"Earth", "대지"}, {"Light", "빛"}, {"Dark", "어둠"},
+    };
+    for (const auto &[source, target] : types)
+    {
+        const std::string token = source;
+        CAPTURE(token);
+        CHECK(monsterAttackTypeLabel(token) == target);
+        CHECK(token == source);
+    }
+    CHECK(monsterAttackTypeLabel("0") == "0");
+    CHECK(monsterAttackTypeLabel("Custom damage") == "Custom damage");
+}
+
+TEST_CASE("Monster inspection translates each effect before joining the list")
+{
+    using OpenYAMM::Game::KoreanRuntimeText::actorEffectsText;
+    CHECK(actorEffectsText({}) == "없음");
+    CHECK(actorEffectsText({"", "-", "0"}) == "없음");
+    CHECK(actorEffectsText({"Haste"}) == "가속");
+    CHECK(actorEffectsText({"Haste", "Shield"}) == "가속, 방패");
+    CHECK(actorEffectsText({"Stoneskin", "Casting 가속", "Paralyzed"}) == "돌가죽, 시전 중: 가속, 마비");
+    CHECK(actorEffectsText({"Custom, Effect", "Haste"}) == "Custom, Effect, 가속");
+    CHECK(actorEffectsText({"가속", "방패"}) == "가속, 방패");
+
+    const char *effects[] = {
+        "Dead", "Stunned", "Paralyzed", "Slow", "Afraid", "Shrunk", "Dark Grasp", "Day of Protection",
+        "Hour of Power", "Pain Reflection", "Hammerhands", "Haste", "Shield", "Stoneskin", "Bless",
+        "Fate", "Heroism", "Charmed", "Berserk", "Enslaved", "Controlled", "Reanimated",
+    };
+    for (const char *pEffect : effects)
+    {
+        CAPTURE(pEffect);
+        CHECK(actorEffectsText({pEffect}) != pEffect);
+    }
+}
+
 TEST_CASE("Combat status reports translate outcomes while preserving participant names and damage")
 {
     const std::pair<const char *, const char *> reports[] = {

@@ -2324,24 +2324,6 @@ std::string formatMonsterDamageText(const MonsterTable::MonsterStatsEntry::Damag
     return text;
 }
 
-std::string monsterSpellMasteryAbbreviation(SkillMastery mastery)
-{
-    switch (mastery)
-    {
-        case SkillMastery::Grandmaster:
-            return "GM";
-        case SkillMastery::Master:
-            return "M";
-        case SkillMastery::Expert:
-            return "E";
-        case SkillMastery::Normal:
-            return "N";
-        case SkillMastery::None:
-        default:
-            return "";
-    }
-}
-
 std::string formatMonsterInspectSpellText(
     const std::string &spellName,
     uint32_t skillLevel,
@@ -2365,36 +2347,14 @@ std::string formatMonsterInspectSpellText(
         }
     }
 
-    const std::string mastery = monsterSpellMasteryAbbreviation(skillMastery);
+    const std::string mastery = KoreanRuntimeText::skillMasteryLabel(masteryDisplayName(skillMastery));
 
     if (skillLevel == 0 || mastery.empty())
     {
         return displayName;
     }
 
-    return displayName + " " + mastery + std::to_string(skillLevel);
-}
-
-std::string joinNonEmptyTexts(const std::vector<std::string> &parts)
-{
-    std::string result;
-
-    for (const std::string &part : parts)
-    {
-        if (part.empty() || part == "-" || part == "0")
-        {
-            continue;
-        }
-
-        if (!result.empty())
-        {
-            result += ", ";
-        }
-
-        result += part;
-    }
-
-    return result.empty() ? "-" : result;
+    return displayName + " " + mastery + " " + std::to_string(skillLevel);
 }
 
 std::string actorInspectSpellDisplayName(const std::string &spellName)
@@ -9993,8 +9953,9 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
     }
 
     const std::vector<std::string> attackRows = {
-        pStats->attack1Type,
-        (actorState.attack2Chance > 0 || !pStats->attack2Type.empty()) ? pStats->attack2Type : std::string()};
+        KoreanRuntimeText::monsterAttackTypeLabel(pStats->attack1Type),
+        (actorState.attack2Chance > 0 || !pStats->attack2Type.empty())
+            ? KoreanRuntimeText::monsterAttackTypeLabel(pStats->attack2Type) : std::string()};
     const std::vector<std::string> damageRows = {
         formatMonsterDamageText(actorState.attack1Damage),
         (actorState.attack2Chance > 0 || actorState.attack2Damage.diceRolls > 0)
@@ -10544,7 +10505,7 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
         }
     }
 
-    const std::string effectsText = activeEffects.empty() ? "None" : joinNonEmptyTexts(activeEffects);
+    const std::string effectsText = KoreanRuntimeText::actorEffectsText(activeEffects);
     const float dynamicStatLineAdvance = compactStatLineAdvance * popupScale;
     const auto renderTextForLayout =
         [&context, &resolveLayout](const char *pLayoutId, const std::string &text, float yOffset = 0.0f)
