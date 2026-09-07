@@ -91,6 +91,34 @@ TEST_CASE("Stealing failure feedback remains localized")
     CHECK(koreanRuntimeTextOverride("Failed to steal.") == "훔치지 못했습니다.");
 }
 
+TEST_CASE("House service results localize every fixed player message")
+{
+    const std::pair<const char *, const char *> messages[] = {
+        {"Healing is not offered here.", "이곳에서는 치료를 받을 수 없습니다."},
+        {"No character is selected.", "선택된 캐릭터가 없습니다."},
+        {"Donations are not accepted here.", "이곳에서는 기부를 받지 않습니다."},
+        {"Thank You", "감사합니다."},
+        {"Your packs are already full enough.", "식량이 이미 충분합니다."},
+        {"You do not owe a fine.", "납부할 벌금이 없습니다."},
+        {"You have served one year in prison.", "감옥에서 1년을 복역했습니다."},
+        {"No character is selected for training.", "훈련할 캐릭터가 선택되지 않았습니다."},
+        {"Training is not available right now.", "지금은 훈련할 수 없습니다."},
+        {"That lesson is not available.", "이 기술 수업은 이용할 수 없습니다."},
+        {"This service is not implemented yet.", "이 서비스는 아직 구현되지 않았습니다."},
+        {"Travel is unavailable right now.", "지금은 이동할 수 없습니다."},
+        {"Arcomage play is not implemented yet.", "아르코메이지 게임은 아직 구현되지 않았습니다."},
+        {"You are not carrying any gold.", "가지고 있는 골드가 없습니다."},
+        {"You do not have any gold in the bank.", "은행에 맡긴 골드가 없습니다."},
+        {"Sorry, come back another day", "죄송하지만 다른 날 다시 오십시오."},
+    };
+
+    for (const auto &[source, target] : messages)
+    {
+        CAPTURE(source);
+        CHECK(koreanRuntimeTextOverride(source) == target);
+    }
+}
+
 TEST_CASE("Monster inspection translates each effect before joining the list")
 {
     using OpenYAMM::Game::KoreanRuntimeText::actorEffectsText;
