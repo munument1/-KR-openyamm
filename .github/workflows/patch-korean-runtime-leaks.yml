@@ -1,0 +1,130 @@
+name: One-shot patch Korean runtime leaks
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/patch-korean-runtime-leaks.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Add one-shot Korean runtime leak patcher'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out patch targets
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/ui/KoreanRuntimeTextOverrides.h
+            /game/ui/GameplayPartyOverlayRenderer.cpp
+
+      - name: Patch runtime display leaks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          override_path = Path('game/ui/KoreanRuntimeTextOverrides.h')
+          text = override_path.read_text(encoding='utf-8')
+          anchor = '''    if (startsWith(text, "You need ") && text.find(" more experience to train to level ") != std::string::npos)
+          {
+              const std::string middle = " more experience to train to level ";
+              const size_t split = text.find(middle, 9);
+              return "레벨 " + text.substr(split + middle.size()) + " 훈련까지 경험치 " + text.substr(9, split - 9) + "이 더 필요합니다.";
+          }
+          '''
+          replacement = '''    if (text.find(" needs ") != std::string::npos
+              && text.find(" more experience to train to level ") != std::string::npos
+              && endsWith(text, "."))
+          {
+              const std::string needsMarker = " needs ";
+              const std::string levelMarker = " more experience to train to level ";
+              const size_t needs = text.find(needsMarker);
+              const size_t level = text.find(levelMarker, needs + needsMarker.size());
+              if (needs != std::string::npos && level != std::string::npos)
+              {
+                  const std::string subject = text.substr(0, needs);
+                  const std::string experience = text.substr(
+                      needs + needsMarker.size(),
+                      level - (needs + needsMarker.size()));
+                  const std::string targetLevel = text.substr(
+                      level + levelMarker.size(),
+                      text.size() - (level + levelMarker.size()) - 1);
+                  return (subject == "This character" ? std::string("이 캐릭터") : subject)
+                      + ": 레벨 " + targetLevel + " 훈련까지 경험치 " + experience + "이 더 필요합니다.";
+              }
+          }
+          if (text.find(" is eligible to train up to level ") != std::string::npos && endsWith(text, "."))
+          {
+              const std::string marker = " is eligible to train up to level ";
+              const size_t split = text.find(marker);
+              if (split != std::string::npos)
+              {
+                  const std::string subject = text.substr(0, split);
+                  const std::string targetLevel = text.substr(
+                      split + marker.size(),
+                      text.size() - (split + marker.size()) - 1);
+                  return (subject == "This character" ? std::string("이 캐릭터") : subject)
+                      + ": 레벨 " + targetLevel + "까지 훈련할 수 있습니다.";
+              }
+          }
+          if (startsWith(text, "You need ") && text.find(" more experience to train to level ") != std::string::npos)
+          {
+              const std::string middle = " more experience to train to level ";
+              const size_t split = text.find(middle, 9);
+              return "레벨 " + text.substr(split + middle.size()) + " 훈련까지 경험치 " + text.substr(9, split - 9) + "이 더 필요합니다.";
+          }
+          '''
+          if text.count(anchor) != 1:
+              raise SystemExit('experience-localization anchor did not match exactly once')
+          override_path.write_text(text.replace(anchor, replacement), encoding='utf-8')
+
+          party_path = Path('game/ui/GameplayPartyOverlayRenderer.cpp')
+          text = party_path.read_text(encoding='utf-8')
+          old = '''    const char *pMeridiem = hour24 >= 12 ? "pm" : "am";
+
+              char timeText[16] = {};
+              std::snprintf(timeText, sizeof(timeText), "%d:%02d %s", hour12, minute, pMeridiem);
+              return timeText;
+          '''
+          # Preserve the source indentation exactly as it appears in the file.
+          old = old.replace('      char timeText', '    char timeText').replace('      std::snprintf', '    std::snprintf').replace('      return timeText', '    return timeText')
+          new = '''    const char *pMeridiem = hour24 >= 12 ? "오후" : "오전";
+
+          char timeText[24] = {};
+          std::snprintf(timeText, sizeof(timeText), "%s %d:%02d", pMeridiem, hour12, minute);
+          return timeText;
+          '''
+          new = new.replace('  char timeText', '    char timeText').replace('  std::snprintf', '    std::snprintf').replace('  return timeText', '    return timeText')
+          if text.count(old) != 1:
+              raise SystemExit('rest-time localization anchor did not match exactly once')
+          party_path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+
+          grep -Fq 'is eligible to train up to level' game/ui/KoreanRuntimeTextOverrides.h
+          grep -Fq '레벨 " + targetLevel + "까지 훈련할 수 있습니다.' game/ui/KoreanRuntimeTextOverrides.h
+          grep -Fq 'hour24 >= 12 ? "오후" : "오전"' game/ui/GameplayPartyOverlayRenderer.cpp
+          grep -Fq '"%s %d:%02d"' game/ui/GameplayPartyOverlayRenderer.cpp
+          if grep -Fq 'hour24 >= 12 ? "pm" : "am"' game/ui/GameplayPartyOverlayRenderer.cpp; then
+            echo '::error::English rest meridiem remains in runtime producer'
+            exit 1
+          fi
+          git diff --check
+
+      - name: Commit source fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/ui/KoreanRuntimeTextOverrides.h game/ui/GameplayPartyOverlayRenderer.cpp
+          git commit -m "Localize experience inspect and rest time text"
+          git push origin HEAD:korean-localization
