@@ -954,6 +954,12 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         return "무언가를 발견했습니다 (" + between(text, "You found something (", ")!") + ")!";
     if (startsWith(text, "You have won ") && endsWith(text, " gold!"))
         return between(text, "You have won ", " gold!") + "골드를 획득해 승리했습니다!";
+    if (text == "Ooops") return "이런!";
+if (startsWith(text, "Deposited ") && endsWith(text, " gold."))
+    return "입금: " + between(text, "Deposited ", " gold.") + "골드.";
+if (startsWith(text, "Withdrew ") && endsWith(text, " gold."))
+    return "출금: " + between(text, "Withdrew ", " gold.") + "골드.";
+if (startsWith(text, "Answer: ")) return "답변: " + text.substr(8);
     if (startsWith(text, "House #")) return "건물 #" + text.substr(7);
     if (startsWith(text, "NPC #")) return "NPC #" + text.substr(5);
     if (startsWith(text, "Save ")) return "저장 " + text.substr(5);
