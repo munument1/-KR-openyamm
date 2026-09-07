@@ -24,7 +24,7 @@ jobs:
           sparse-checkout: |
             /game/ui/KoreanRuntimeTextOverrides.h
 
-      - name: Patch remaining runtime display leaks
+      - name: Normalize added runtime localization rules
         shell: bash
         run: |
           set -euo pipefail
@@ -34,9 +34,27 @@ jobs:
           path = Path('game/ui/KoreanRuntimeTextOverrides.h')
           text = path.read_text(encoding='utf-8')
 
-          bad = '''    if (text.find(" needs ") != std::string::npos
-              && text.find(" more experience to train to level ") != std::string::npos
-              && endsWith(text, "."))
+          status_old = '''    if (text == "Ooops") return "이런!";
+          if (startsWith(text, "Deposited ") && endsWith(text, " gold."))
+              return "입금: " + between(text, "Deposited ", " gold.") + "골드.";
+          if (startsWith(text, "Withdrew ") && endsWith(text, " gold."))
+              return "출금: " + between(text, "Withdrew ", " gold.") + "골드.";
+          if (startsWith(text, "Answer: ")) return "답변: " + text.substr(8);
+          '''
+          # Current source has the first line indented but the following lines flush-left.
+          status_current = status_old.replace('\n          if (startsWith(text, "Deposited ")', '\nif (startsWith(text, "Deposited ")') \
+              .replace('\n              return "입금:', '\n    return "입금:') \
+              .replace('\n          if (startsWith(text, "Withdrew ")', '\nif (startsWith(text, "Withdrew ")') \
+              .replace('\n              return "출금:', '\n    return "출금:') \
+              .replace('\n          if (startsWith(text, "Answer: ")', '\nif (startsWith(text, "Answer: ")')
+          if status_current in text:
+              text = text.replace(status_current, status_old, 1)
+          elif status_old not in text:
+              raise SystemExit('status localization block not found')
+
+          experience_current = '''    if (text.find(" needs ") != std::string::npos
+          && text.find(" more experience to train to level ") != std::string::npos
+          && endsWith(text, "."))
           {
               const std::string needsMarker = " needs ";
               const std::string levelMarker = " more experience to train to level ";
@@ -70,42 +88,62 @@ jobs:
               }
           }
           '''
-          # The first patch committed this block with shallow indentation. Normalize
-          # it without changing behavior. Generate the expected current form too.
-          current = bad.replace('\n              &&', '\n    &&').replace('\n          {', '\n{').replace('\n              const', '\n    const').replace('\n              if', '\n    if').replace('\n              {', '\n    {').replace('\n                  const', '\n        const').replace('\n                  return', '\n        return').replace('\n                      ', '\n            ').replace('\n              }', '\n    }').replace('\n          }', '\n}')
-          if current in text:
-              text = text.replace(current, bad, 1)
-          elif bad not in text:
-              raise SystemExit('experience block not found for formatting check')
-
-          marker = '    if (startsWith(text, "House #")) return "건물 #" + text.substr(7);\n'
-          if text.count(marker) != 1:
-              raise SystemExit(f'runtime status insertion marker count={text.count(marker)}')
-          rules = '''    if (text == "Ooops") return "이런!";
-          if (startsWith(text, "Deposited ") && endsWith(text, " gold."))
-              return "입금: " + between(text, "Deposited ", " gold.") + "골드.";
-          if (startsWith(text, "Withdrew ") && endsWith(text, " gold."))
-              return "출금: " + between(text, "Withdrew ", " gold.") + "골드.";
-          if (startsWith(text, "Answer: ")) return "답변: " + text.substr(8);
-          '''
-          if 'if (text == "Ooops")' not in text:
-              text = text.replace(marker, rules + marker, 1)
+          # Match the current shallow form exactly by removing one indentation level
+          # from continuation/body lines while preserving nested indentation.
+          exp_bad = '''    if (text.find(" needs ") != std::string::npos
+    && text.find(" more experience to train to level ") != std::string::npos
+    && endsWith(text, "."))
+{
+    const std::string needsMarker = " needs ";
+    const std::string levelMarker = " more experience to train to level ";
+    const size_t needs = text.find(needsMarker);
+    const size_t level = text.find(levelMarker, needs + needsMarker.size());
+    if (needs != std::string::npos && level != std::string::npos)
+    {
+        const std::string subject = text.substr(0, needs);
+        const std::string experience = text.substr(
+            needs + needsMarker.size(),
+            level - (needs + needsMarker.size()));
+        const std::string targetLevel = text.substr(
+            level + levelMarker.size(),
+            text.size() - (level + levelMarker.size()) - 1);
+        return (subject == "This character" ? std::string("이 캐릭터") : subject)
+            + ": 레벨 " + targetLevel + " 훈련까지 경험치 " + experience + "이 더 필요합니다.";
+    }
+}
+if (text.find(" is eligible to train up to level ") != std::string::npos && endsWith(text, "."))
+{
+    const std::string levelMarker = " is eligible to train up to level ";
+    const size_t split = text.find(levelMarker);
+    if (split != std::string::npos)
+    {
+        const std::string subject = text.substr(0, split);
+        const std::string targetLevel = text.substr(
+            split + levelMarker.size(),
+            text.size() - (split + levelMarker.size()) - 1);
+        return (subject == "This character" ? std::string("이 캐릭터") : subject)
+            + ": 레벨 " + targetLevel + "까지 훈련할 수 있습니다.";
+    }
+}
+'''
+          if exp_bad in text:
+              text = text.replace(exp_bad, experience_current, 1)
+          elif experience_current not in text:
+              raise SystemExit('experience localization block not found')
 
           path.write_text(text, encoding='utf-8')
           PY
 
-          grep -Fq 'if (text == "Ooops") return "이런!";' game/ui/KoreanRuntimeTextOverrides.h
-          grep -Fq 'startsWith(text, "Deposited ")' game/ui/KoreanRuntimeTextOverrides.h
-          grep -Fq 'startsWith(text, "Withdrew ")' game/ui/KoreanRuntimeTextOverrides.h
-          grep -Fq 'startsWith(text, "Answer: ")' game/ui/KoreanRuntimeTextOverrides.h
           git diff --check
+          grep -Fq '    if (startsWith(text, "Deposited ")' game/ui/KoreanRuntimeTextOverrides.h
+          grep -Fq '    && text.find(" more experience to train to level ")' game/ui/KoreanRuntimeTextOverrides.h
 
-      - name: Commit source fixes
+      - name: Commit formatting cleanup
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add game/ui/KoreanRuntimeTextOverrides.h
-          git commit -m "Cover remaining Korean runtime status text"
+          git commit -m "Normalize Korean runtime localization rules"
           git push origin HEAD:korean-localization
