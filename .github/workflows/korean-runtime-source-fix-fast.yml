@@ -1,0 +1,51 @@
+name: Fast one-shot Korean NPC display fix
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/korean-runtime-source-fix-fast.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-source:
+    if: github.event.head_commit.message == 'Add fast one-shot Korean NPC display fix'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out target source only
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/outdoor/OutdoorInteractionController.cpp
+
+      - name: Remove English article from generated NPC display names
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('game/outdoor/OutdoorInteractionController.cpp')
+          source = path.read_text(encoding='utf-8')
+          old = 'return resolution->generatedName + " the " + pProfession->profession;'
+          new = 'return resolution->generatedName + " " + pProfession->profession;'
+          count = source.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one NPC Name the Profession composition, found {count}')
+          path.write_text(source.replace(old, new), encoding='utf-8')
+          PY
+          grep -F 'return resolution->generatedName + " " + pProfession->profession;' game/outdoor/OutdoorInteractionController.cpp
+          ! grep -F 'return resolution->generatedName + " the " + pProfession->profession;' game/outdoor/OutdoorInteractionController.cpp
+
+      - name: Commit source fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/outdoor/OutdoorInteractionController.cpp
+          git diff --cached --check
+          git commit -m "Fix Korean NPC name and profession display"
+          git push origin HEAD:korean-localization
