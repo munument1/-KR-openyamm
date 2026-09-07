@@ -34,6 +34,7 @@ INTERNAL_FILE_PREFIXES = (
     'game/tables/HouseTable.cpp',
     'game/tables/ItemTable.cpp',
     'game/tables/MergedBaseTables.cpp',
+    'game/tables/SpellTable.cpp',
     'game/tables/SpriteTables.cpp',
     'game/tables/SurfaceMaterialTable.cpp',
     'game/audio/SoundCatalog.cpp',
@@ -42,6 +43,9 @@ INTERNAL_FILE_PREFIXES = (
 INTERNAL_LINE_MARKERS = (
     '#include', 'GAMEPLAY_DEBUG_TRACE', 'std::cout', 'std::cerr', 'spdlog',
     'logger.', 'Log::', 'assert(', 'static_assert(', 'throw ', 'TODO', 'FIXME',
+    'm_debugConsole.', '.description =', '.usage =', 'lastActivationResult',
+    'errorMessage =', 'itemNameEquals(', 'itemNameContains(', 'isHouseType(',
+    'm_lastStatus =', 'trace <<', 'out <<', 'traceInputPromptQuoted(',
 )
 INTERNAL_TEXT_MARKERS = (
     ' reason=', ' item_id=', ' source_id=', ' actor_', ' status=',
@@ -56,7 +60,7 @@ PLAYER_SINK_MARKERS = (
     'dialog', 'Dialog', 'message', 'Message', 'title', 'Title', 'label', 'Label',
     'description', 'Description', 'drawText', 'renderText', 'displayText',
     'tooltip', 'Tooltip', 'prompt', 'Prompt', 'certificate.', 'endingText',
-    'characterLine', 'scoreLine', 'totalTimeLine', 'return "', 'return std::string',
+    'characterLine', 'scoreLine', 'totalTimeLine', 'renderHud', 'drawScreenText',
 )
 
 DEDICATED_DISPLAY = {
@@ -75,13 +79,13 @@ def decode_cpp(raw: str) -> str:
 
 def implementation_literal(text: str) -> bool:
     t = text.strip()
-    if len(t) < 3:
+    if len(t) < 2:
         return True
     if '/' in t or '\\' in t:
         return True
     if re.search(r'\.(cpp|h|hpp|inc|txt|lua|yml|yaml|png|bmp|lod|odm|blv|wav|smk|vid|ttf|otf)$', t, re.I):
         return True
-    if re.fullmatch(r'[A-Za-z0-9_:\-.]+', t) and ' ' not in t:
+    if re.fullmatch(r'[A-Za-z0-9_:\-.]+', t) and ' ' not in t and len(WORD_RE.findall(t)) != 1:
         return True
     if t.startswith(('game/', 'ui/', 'engine/', 'assets/', 'fonts/')):
         return True
@@ -123,15 +127,27 @@ def collect_coverage(root: Path) -> tuple[set[str], set[str]]:
                 exact.add(key)
         if path.name == 'KoreanRuntimeTextOverrides.h':
             # Dynamic runtime localization is largely expressed through startsWith/
-            # endsWith/between fragments. Normalize whitespace here so a source
-            # fragment such as "Recall to " matches the same fragment in the
-            # localizer after the audit strips the source literal.
+            # endsWith/between fragments. Normalize whitespace here so source
+            # fragments match localizer fragments after stripping.
             for match in LITERAL_RE.finditer(content):
                 value = decode_cpp(match.group(1)).strip()
-                if len(WORD_RE.findall(value)) >= 2 and not HANGUL_RE.search(value):
+                if len(WORD_RE.findall(value)) >= 1 and not HANGUL_RE.search(value):
                     components.add(value)
 
     return exact, components
+
+
+def coverage_kind(text: str, exact: set[str], components: set[str]) -> str:
+    if text in exact:
+        return 'exact_override'
+    if text in DEDICATED_DISPLAY:
+        return 'dedicated_display'
+    if text in components:
+        return 'dynamic_override_component'
+    # Adjacent C++ string literals split some exact display strings across lines.
+    if len(text) >= 8 and any(text in covered for covered in exact):
+        return 'exact_override_component'
+    return 'uncovered'
 
 
 def main() -> int:
@@ -142,10 +158,11 @@ def main() -> int:
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
+    files = source_files(root)
     exact, components = collect_coverage(root)
     rows: list[dict[str, object]] = []
 
-    for path in source_files(root):
+    for path in files:
         rel = path.relative_to(root).as_posix()
         # Do not audit the localizers themselves as source English debt.
         if rel in {
@@ -161,25 +178,23 @@ def main() -> int:
             stripped = line.strip()
             if any(marker in stripped for marker in INTERNAL_LINE_MARKERS):
                 continue
+            player_sink = any(marker in stripped for marker in PLAYER_SINK_MARKERS)
             for match in LITERAL_RE.finditer(line):
                 text = decode_cpp(match.group(1)).strip()
                 words = WORD_RE.findall(text)
-                if len(words) < 2 or HANGUL_RE.search(text) or implementation_literal(text):
+                if not words or HANGUL_RE.search(text) or implementation_literal(text):
+                    continue
+                # Single-word literals are useful only when they are passed directly
+                # to a likely player-facing text sink. This catches labels such as
+                # "Name" without flooding the report with semantic lookup keys.
+                if len(words) == 1 and not player_sink:
                     continue
                 if any(marker in text for marker in INTERNAL_TEXT_MARKERS):
                     continue
-                if ' ' not in text and not any(ch in text for ch in '.!?'):
+                if len(words) >= 2 and ' ' not in text and not any(ch in text for ch in '.!?'):
                     continue
 
-                coverage = 'uncovered'
-                if text in exact:
-                    coverage = 'exact_override'
-                elif text in DEDICATED_DISPLAY:
-                    coverage = 'dedicated_display'
-                elif text in components:
-                    coverage = 'dynamic_override_component'
-
-                player_sink = any(marker in stripped for marker in PLAYER_SINK_MARKERS)
+                coverage = coverage_kind(text, exact, components)
                 confidence = 'high' if player_sink and not internal_file else 'medium'
                 if coverage != 'uncovered':
                     confidence = 'covered'
@@ -205,8 +220,8 @@ def main() -> int:
     covered = [r for r in rows if r['coverage'] != 'uncovered']
 
     result = {
-        'format': 5,
-        'scanned_files': len(source_files(root)),
+        'format': 6,
+        'scanned_files': len(files),
         'candidate_occurrences': len(rows),
         'covered_occurrences': len(covered),
         'uncovered_occurrences': len(uncovered),
