@@ -1,0 +1,42 @@
+name: One-shot hired skill integration trace
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/trace-hired-skill-integration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/**
+      - name: Trace skill integration paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== hiredNpcSkillBonus references ==='
+          grep -RIn 'hiredNpcSkillBonus' game || true
+          echo '=== partyWideUtilitySkillScore references ==='
+          grep -RIn 'partyWideUtilitySkillScore' game || true
+          echo '=== Perception resolver references ==='
+          grep -RIn 'resolveCharacterPerceptionValue' game || true
+          echo '=== Disarm resolver references ==='
+          grep -RIn 'resolveCharacterDisarmTrapValue' game || true
+          echo '=== Merchant references in gameplay code ==='
+          grep -RIn -E 'Merchant|merchantBonus|merchantScore' game | head -n 300 || true
+          echo '=== Canonical skill direct accesses ==='
+          grep -RIn -E 'findSkill\("(Perception|DisarmTraps|Merchant|Staff|Sword|Dagger|Axe|Spear|Bow|Mace|LeatherArmor|ChainArmor|PlateArmor|FireMagic|AirMagic|WaterMagic|EarthMagic|SpiritMagic|MindMagic|BodyMagic|LightMagic|DarkMagic)' game | head -n 400 || true
+          echo '=== Generic findSkill uses in combat/mechanics ==='
+          grep -RIn 'findSkill(' game/gameplay game/party game/items game/events | head -n 500 || true
