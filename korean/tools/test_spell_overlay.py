@@ -39,7 +39,9 @@ class SpellOverlayTests(unittest.TestCase):
             if row and row[0].strip().isdigit()
         }
 
-        with tempfile.TemporaryDirectory(dir=REPOSITORY_ROOT / "_codex") as temporary_directory:
+        temporary_parent = REPOSITORY_ROOT / "_codex"
+        temporary_parent.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=temporary_parent) as temporary_directory:
             overlay_root = Path(temporary_directory)
             entries, stats = CATALOG_BUILDER.build_field_overlay_table(
                 REPOSITORY_ROOT,
