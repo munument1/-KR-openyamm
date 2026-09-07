@@ -1135,6 +1135,41 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     }
     if (text == "With your skills, you should be working here as a teacher\n\nSorry, but we are unable to train you.")
         return "당신 정도의 실력이라면 여기서 교관으로 일해야겠군요.\n\n죄송하지만 더 이상 훈련해 드릴 수 없습니다.";
+    if (text.find(" needs ") != std::string::npos
+    && text.find(" more experience to train to level ") != std::string::npos
+    && endsWith(text, "."))
+{
+    const std::string needsMarker = " needs ";
+    const std::string levelMarker = " more experience to train to level ";
+    const size_t needs = text.find(needsMarker);
+    const size_t level = text.find(levelMarker, needs + needsMarker.size());
+    if (needs != std::string::npos && level != std::string::npos)
+    {
+        const std::string subject = text.substr(0, needs);
+        const std::string experience = text.substr(
+            needs + needsMarker.size(),
+            level - (needs + needsMarker.size()));
+        const std::string targetLevel = text.substr(
+            level + levelMarker.size(),
+            text.size() - (level + levelMarker.size()) - 1);
+        return (subject == "This character" ? std::string("이 캐릭터") : subject)
+            + ": 레벨 " + targetLevel + " 훈련까지 경험치 " + experience + "이 더 필요합니다.";
+    }
+}
+if (text.find(" is eligible to train up to level ") != std::string::npos && endsWith(text, "."))
+{
+    const std::string levelMarker = " is eligible to train up to level ";
+    const size_t split = text.find(levelMarker);
+    if (split != std::string::npos)
+    {
+        const std::string subject = text.substr(0, split);
+        const std::string targetLevel = text.substr(
+            split + levelMarker.size(),
+            text.size() - (split + levelMarker.size()) - 1);
+        return (subject == "This character" ? std::string("이 캐릭터") : subject)
+            + ": 레벨 " + targetLevel + "까지 훈련할 수 있습니다.";
+    }
+}
     if (startsWith(text, "You need ") && text.find(" more experience to train to level ") != std::string::npos)
     {
         const std::string middle = " more experience to train to level ";

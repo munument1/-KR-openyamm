@@ -1343,10 +1343,10 @@ std::string formatRestTimeText(float gameMinutes)
     const int hour24 = minuteOfDay / 60;
     const int minute = minuteOfDay % 60;
     const int hour12 = hour24 == 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
-    const char *pMeridiem = hour24 >= 12 ? "pm" : "am";
+    const char *pMeridiem = hour24 >= 12 ? "오후" : "오전";
 
-    char timeText[16] = {};
-    std::snprintf(timeText, sizeof(timeText), "%d:%02d %s", hour12, minute, pMeridiem);
+    char timeText[24] = {};
+    std::snprintf(timeText, sizeof(timeText), "%s %d:%02d", pMeridiem, hour12, minute);
     return timeText;
 }
 
