@@ -39,20 +39,21 @@ jobs:
               raise SystemExit('continent click marker not found')
           if 'drawContinentGameLabel(jadameRect, "M&M 8")' in text:
               raise SystemExit('continent game labels already exist')
-          block = '''
-
-    const auto drawContinentGameLabel =
-        [this, scale](const MenuScreenBase::Rect &continentRect, const char *pLabel)
-        {
-            const float labelWidth = measureTextWidth("SMALLNUM", pLabel, scale);
-            const float labelX = continentRect.x + (continentRect.width - labelWidth) * 0.5f;
-            const float labelY = continentRect.y + continentRect.height - 36.0f * scale;
-            drawText("SMALLNUM", pLabel, labelX, labelY, WhiteColor, scale);
-        };
-    drawContinentGameLabel(jadameRect, "M&M 8");
-    drawContinentGameLabel(antagarichRect, "M&M 7");
-    drawContinentGameLabel(enrothRect, "M&M 6");
-'''
+          block = '\n'.join([
+              '',
+              '    const auto drawContinentGameLabel =',
+              '        [this, scale](const MenuScreenBase::Rect &continentRect, const char *pLabel)',
+              '        {',
+              '            const float labelWidth = measureTextWidth("SMALLNUM", pLabel, scale);',
+              '            const float labelX = continentRect.x + (continentRect.width - labelWidth) * 0.5f;',
+              '            const float labelY = continentRect.y + continentRect.height - 36.0f * scale;',
+              '            drawText("SMALLNUM", pLabel, labelX, labelY, WhiteColor, scale);',
+              '        };',
+              '    drawContinentGameLabel(jadameRect, "M&M 8");',
+              '    drawContinentGameLabel(antagarichRect, "M&M 7");',
+              '    drawContinentGameLabel(enrothRect, "M&M 6");',
+              '',
+          ])
           path.write_text(text[:insertion_at] + block + text[insertion_at:], encoding='utf-8')
           PY
           git diff --check
