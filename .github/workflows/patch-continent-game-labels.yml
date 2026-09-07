@@ -30,33 +30,30 @@ jobs:
 
           path = Path('game/ui/screens/NewGameScreen.cpp')
           text = path.read_text(encoding='utf-8')
-          anchor = '''    const ButtonState enrothState = drawEllipseButton(
-              resolveContinentButtonVisuals("ContinentSelectionEnrothButton", {"slenrothdw", "slenrothup", "slenrothup"}),
-              enrothRect);
+          start = text.find('    const ButtonState enrothState = drawEllipseButton(')
+          if start < 0:
+              raise SystemExit('enroth button block not found')
+          marker = '\n    if (jadameState.clicked)\n'
+          insertion_at = text.find(marker, start)
+          if insertion_at < 0:
+              raise SystemExit('continent click marker not found')
+          if 'drawContinentGameLabel(jadameRect, "M&M 8")' in text:
+              raise SystemExit('continent game labels already exist')
+          block = '''
 
-          if (jadameState.clicked)
-          '''
-          replacement = '''    const ButtonState enrothState = drawEllipseButton(
-              resolveContinentButtonVisuals("ContinentSelectionEnrothButton", {"slenrothdw", "slenrothup", "slenrothup"}),
-              enrothRect);
-
-          const auto drawContinentGameLabel =
-              [this, scale](const MenuScreenBase::Rect &continentRect, const char *pLabel)
-              {
-                  const float labelWidth = measureTextWidth("SMALLNUM", pLabel, scale);
-                  const float labelX = continentRect.x + (continentRect.width - labelWidth) * 0.5f;
-                  const float labelY = continentRect.y + continentRect.height - 36.0f * scale;
-                  drawText("SMALLNUM", pLabel, labelX, labelY, WhiteColor, scale);
-              };
-          drawContinentGameLabel(jadameRect, "M&M 8");
-          drawContinentGameLabel(antagarichRect, "M&M 7");
-          drawContinentGameLabel(enrothRect, "M&M 6");
-
-          if (jadameState.clicked)
-          '''
-          if text.count(anchor) != 1:
-              raise SystemExit('continent-label patch anchor did not match exactly once')
-          path.write_text(text.replace(anchor, replacement, 1), encoding='utf-8')
+    const auto drawContinentGameLabel =
+        [this, scale](const MenuScreenBase::Rect &continentRect, const char *pLabel)
+        {
+            const float labelWidth = measureTextWidth("SMALLNUM", pLabel, scale);
+            const float labelX = continentRect.x + (continentRect.width - labelWidth) * 0.5f;
+            const float labelY = continentRect.y + continentRect.height - 36.0f * scale;
+            drawText("SMALLNUM", pLabel, labelX, labelY, WhiteColor, scale);
+        };
+    drawContinentGameLabel(jadameRect, "M&M 8");
+    drawContinentGameLabel(antagarichRect, "M&M 7");
+    drawContinentGameLabel(enrothRect, "M&M 6");
+'''
+          path.write_text(text[:insertion_at] + block + text[insertion_at:], encoding='utf-8')
           PY
           git diff --check
       - name: Commit source change
