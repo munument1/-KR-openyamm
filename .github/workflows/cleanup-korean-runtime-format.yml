@@ -1,0 +1,158 @@
+name: One-shot cleanup Korean runtime formatting
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/cleanup-korean-runtime-format.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.event.head_commit.message == 'Add one-shot Korean runtime formatting cleanup'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/ui/KoreanRuntimeTextOverrides.h
+
+      - name: Normalize indentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('game/ui/KoreanRuntimeTextOverrides.h')
+          text = path.read_text(encoding='utf-8')
+
+          old_status = '''    if (text == "Ooops") return "이런!";
+          if (startsWith(text, "Deposited ") && endsWith(text, " gold."))
+              return "입금: " + between(text, "Deposited ", " gold.") + "골드.";
+          if (startsWith(text, "Withdrew ") && endsWith(text, " gold."))
+              return "출금: " + between(text, "Withdrew ", " gold.") + "골드.";
+          if (startsWith(text, "Answer: ")) return "답변: " + text.substr(8);
+          '''
+          current_status = '''    if (text == "Ooops") return "이런!";
+          if (startsWith(text, "Deposited ") && endsWith(text, " gold."))
+              return "입금: " + between(text, "Deposited ", " gold.") + "골드.";
+          if (startsWith(text, "Withdrew ") && endsWith(text, " gold."))
+              return "출금: " + between(text, "Withdrew ", " gold.") + "골드.";
+          if (startsWith(text, "Answer: ")) return "답변: " + text.substr(8);
+          '''
+          # Triple-quoted YAML indentation is removed by the shell; recreate the
+          # current shallow C++ form explicitly.
+          current_status = current_status.replace('\n    if (startsWith(text, "Deposited ")', '\nif (startsWith(text, "Deposited ")')
+          current_status = current_status.replace('\n        return "입금:', '\n    return "입금:')
+          current_status = current_status.replace('\n    if (startsWith(text, "Withdrew ")', '\nif (startsWith(text, "Withdrew ")')
+          current_status = current_status.replace('\n        return "출금:', '\n    return "출금:')
+          current_status = current_status.replace('\n    if (startsWith(text, "Answer: ")', '\nif (startsWith(text, "Answer: ")')
+          if current_status in text:
+              text = text.replace(current_status, old_status, 1)
+
+          current_experience = '''    if (text.find(" needs ") != std::string::npos
+          && text.find(" more experience to train to level ") != std::string::npos
+          && endsWith(text, "."))
+          {
+              const std::string needsMarker = " needs ";
+              const std::string levelMarker = " more experience to train to level ";
+              const size_t needs = text.find(needsMarker);
+              const size_t level = text.find(levelMarker, needs + needsMarker.size());
+              if (needs != std::string::npos && level != std::string::npos)
+              {
+                  const std::string subject = text.substr(0, needs);
+                  const std::string experience = text.substr(
+                      needs + needsMarker.size(),
+                      level - (needs + needsMarker.size()));
+                  const std::string targetLevel = text.substr(
+                      level + levelMarker.size(),
+                      text.size() - (level + levelMarker.size()) - 1);
+                  return (subject == "This character" ? std::string("이 캐릭터") : subject)
+                      + ": 레벨 " + targetLevel + " 훈련까지 경험치 " + experience + "이 더 필요합니다.";
+              }
+          }
+          if (text.find(" is eligible to train up to level ") != std::string::npos && endsWith(text, "."))
+          {
+              const std::string levelMarker = " is eligible to train up to level ";
+              const size_t split = text.find(levelMarker);
+              if (split != std::string::npos)
+              {
+                  const std::string subject = text.substr(0, split);
+                  const std::string targetLevel = text.substr(
+                      split + levelMarker.size(),
+                      text.size() - (split + levelMarker.size()) - 1);
+                  return (subject == "This character" ? std::string("이 캐릭터") : subject)
+                      + ": 레벨 " + targetLevel + "까지 훈련할 수 있습니다.";
+              }
+          }
+          '''
+          shallow = '''    if (text.find(" needs ") != std::string::npos
+          && text.find(" more experience to train to level ") != std::string::npos
+          && endsWith(text, "."))
+          {
+              const std::string needsMarker = " needs ";
+              const std::string levelMarker = " more experience to train to level ";
+              const size_t needs = text.find(needsMarker);
+              const size_t level = text.find(levelMarker, needs + needsMarker.size());
+              if (needs != std::string::npos && level != std::string::npos)
+              {
+                  const std::string subject = text.substr(0, needs);
+                  const std::string experience = text.substr(
+                      needs + needsMarker.size(),
+                      level - (needs + needsMarker.size()));
+                  const std::string targetLevel = text.substr(
+                      level + levelMarker.size(),
+                      text.size() - (level + levelMarker.size()) - 1);
+                  return (subject == "This character" ? std::string("이 캐릭터") : subject)
+                      + ": 레벨 " + targetLevel + " 훈련까지 경험치 " + experience + "이 더 필요합니다.";
+              }
+          }
+          if (text.find(" is eligible to train up to level ") != std::string::npos && endsWith(text, "."))
+          {
+              const std::string levelMarker = " is eligible to train up to level ";
+              const size_t split = text.find(levelMarker);
+              if (split != std::string::npos)
+              {
+                  const std::string subject = text.substr(0, split);
+                  const std::string targetLevel = text.substr(
+                      split + levelMarker.size(),
+                      text.size() - (split + levelMarker.size()) - 1);
+                  return (subject == "This character" ? std::string("이 캐릭터") : subject)
+                      + ": 레벨 " + targetLevel + "까지 훈련할 수 있습니다.";
+              }
+          }
+          '''
+          # Convert the desired block into the observed shallow block.
+          shallow = shallow.replace('\n        &&', '\n    &&').replace('\n    {', '\n{')
+          shallow = shallow.replace('\n        const', '\n    const').replace('\n        if', '\n    if')
+          shallow = shallow.replace('\n        {', '\n    {').replace('\n            const', '\n        const')
+          shallow = shallow.replace('\n            return', '\n        return').replace('\n                ', '\n            ')
+          shallow = shallow.replace('\n        }', '\n    }').replace('\n    }', '\n}')
+          if shallow in text:
+              text = text.replace(shallow, current_experience, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          git diff --check
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No formatting cleanup required.'
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/ui/KoreanRuntimeTextOverrides.h
+          git commit -m "Normalize Korean runtime localization formatting"
+          git push origin HEAD:korean-localization
