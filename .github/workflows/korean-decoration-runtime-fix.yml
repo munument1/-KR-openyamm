@@ -1,0 +1,69 @@
+name: One-shot Korean decoration runtime fix
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/korean-decoration-runtime-fix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-source:
+    if: github.event.head_commit.message == 'Add one-shot Korean decoration runtime fix'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out target source only
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/gameplay/GameplayInteractionController.cpp
+
+      - name: Localize decoration names only at display boundary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('game/gameplay/GameplayInteractionController.cpp')
+          source = path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  '#include "game/tables/ItemTable.h"\n',
+                  '#include "game/tables/ItemTable.h"\n#include "game/ui/KoreanDecorationText.h"\n',
+              ),
+              (
+                  '''            action.label = hasStatusText(eventTargetStatusText)\n                ? *eventTargetStatusText\n                : (!hit.eventTarget->name.empty()\n                    ? hit.eventTarget->name\n                    : contextActionDefaultLabel(action.kind));''',
+                  '''            const bool localizeDecorationName =\n                hit.eventTarget->targetKind == GameplayWorldEventTargetKind::Decoration;\n            action.label = hasStatusText(eventTargetStatusText)\n                ? (localizeDecorationName\n                    ? KoreanRuntimeText::koreanDecorationHint(*eventTargetStatusText)\n                    : *eventTargetStatusText)\n                : (!hit.eventTarget->name.empty()\n                    ? (localizeDecorationName\n                        ? KoreanRuntimeText::koreanDecorationHint(hit.eventTarget->name)\n                        : hit.eventTarget->name)\n                    : contextActionDefaultLabel(action.kind));''',
+              ),
+              (
+                  '''    return payload.eventTargetStatusText;\n}\n\nGameplayInteractionController::WorldInteractionPointerPolicy''',
+                  '''    if (targetKind == GameplayWorldEventTargetKind::Decoration)\n    {\n        return KoreanRuntimeText::koreanDecorationHint(*payload.eventTargetStatusText);\n    }\n\n    return payload.eventTargetStatusText;\n}\n\nGameplayInteractionController::WorldInteractionPointerPolicy''',
+              ),
+          ]
+
+          for old, new in replacements:
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected exactly one source match, found {count}: {old[:80]!r}')
+              source = source.replace(old, new)
+
+          path.write_text(source, encoding='utf-8')
+          PY
+          grep -Fq '#include "game/ui/KoreanDecorationText.h"' game/gameplay/GameplayInteractionController.cpp
+          grep -Fq 'KoreanRuntimeText::koreanDecorationHint(*payload.eventTargetStatusText)' game/gameplay/GameplayInteractionController.cpp
+          grep -Fq 'KoreanRuntimeText::koreanDecorationHint(hit.eventTarget->name)' game/gameplay/GameplayInteractionController.cpp
+
+      - name: Commit source fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/gameplay/GameplayInteractionController.cpp
+          git diff --cached --check
+          git commit -m "Localize decoration names at runtime display boundary"
+          git push origin HEAD:korean-localization
