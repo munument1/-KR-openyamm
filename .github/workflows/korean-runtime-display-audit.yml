@@ -7,7 +7,14 @@ on:
     paths:
       - .github/workflows/korean-runtime-display-audit.yml
       - korean/tools/audit_runtime_display_text.py
+      - korean/tools/check_runtime_localization_routes.py
       - game/ui/KoreanRuntimeTextOverrides.h
+      - game/ui/GameplayPartyOverlayRenderer.cpp
+      - game/ui/GameplayHudCommon.cpp
+      - game/ui/GameplayUiRuntime.cpp
+      - game/gameplay/GameplayScreenRuntime.cpp
+      - game/ui/GameplayDialogueRenderer.cpp
+      - game/ui/screens/ArcomageScreen.cpp
   workflow_dispatch:
 
 permissions:
@@ -23,6 +30,12 @@ jobs:
           ref: korean-localization
           fetch-depth: 1
           persist-credentials: false
+
+      - name: Verify Korean runtime localization routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 korean/tools/check_runtime_localization_routes.py
 
       - name: Scan runtime display literals
         shell: bash
