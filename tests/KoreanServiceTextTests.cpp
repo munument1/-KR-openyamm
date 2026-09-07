@@ -148,6 +148,14 @@ TEST_CASE("Shop appraisal dialogue keeps every item and price in Korean")
     }
 }
 
+TEST_CASE("Arcomage player prompts and results have Korean runtime text")
+{
+    CHECK(koreanRuntimeTextOverride("Right-click a card to discard.") == "카드를 버리려면 우클릭하십시오.");
+    CHECK(koreanRuntimeTextOverride("Arcomage ended in a draw.") == "아르코메이지가 무승부로 끝났습니다.");
+    CHECK(koreanRuntimeTextOverride("You have won 500 gold!") == "500골드를 획득해 승리했습니다!");
+    CHECK(koreanRuntimeTextOverride("You lost the Arcomage match.") == "아르코메이지 대전에서 패배했습니다.");
+}
+
 TEST_CASE("Monster inspection translates each effect before joining the list")
 {
     using OpenYAMM::Game::KoreanRuntimeText::actorEffectsText;
