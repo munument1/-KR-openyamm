@@ -1,5 +1,6 @@
 #include "game/ui/GameplayDialogueRenderer.h"
 #include "game/ui/GameplayHudCommon.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
 #include "game/gameplay/GameplayInputFrame.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 
@@ -2295,6 +2296,14 @@ void GameplayDialogueRenderer::renderDialogueBodyText(
         return;
     }
 
+    std::vector<std::string> localizedDialogueBodyLines;
+    localizedDialogueBodyLines.reserve(dialogueBodyLines.size());
+    for (const std::string &sourceLine : dialogueBodyLines)
+    {
+        localizedDialogueBodyLines.push_back(
+            KoreanRuntimeText::koreanRuntimeTextOverride(sourceLine).value_or(sourceLine));
+    }
+
     const GameplayScreenRuntime::HudLayoutElement *pDialogueTextLayout = view.findHudLayoutElement("DialogueText");
 
     if (pDialogueTextLayout == nullptr || toLowerCopy(pDialogueTextLayout->screen) != "dialogue")
@@ -2317,12 +2326,12 @@ void GameplayDialogueRenderer::renderDialogueBodyText(
     }
 
     const std::optional<DialogueBodyTextMetrics> textMetrics =
-        [&view, pDialogueTextLayout, &dialogueBodyLines, &resolvedText]() -> std::optional<DialogueBodyTextMetrics>
+        [&view, pDialogueTextLayout, &localizedDialogueBodyLines, &resolvedText]() -> std::optional<DialogueBodyTextMetrics>
         {
             GameplayScreenRuntime::HudLayoutElement effectiveDialogueTextLayout = *pDialogueTextLayout;
             effectiveDialogueTextLayout.width = resolvedText->width / std::max(1.0f, resolvedText->scale);
             effectiveDialogueTextLayout.height = resolvedText->height / std::max(1.0f, resolvedText->scale);
-            return calculateDialogueBodyTextMetrics(view, effectiveDialogueTextLayout, dialogueBodyLines);
+            return calculateDialogueBodyTextMetrics(view, effectiveDialogueTextLayout, localizedDialogueBodyLines);
         }();
 
     if (!textMetrics)
@@ -2356,7 +2365,7 @@ void GameplayDialogueRenderer::renderDialogueBodyText(
         static_cast<size_t>(resolvedText->height / std::max(1.0f, lineHeight)));
     size_t visibleLineIndex = 0;
 
-    for (const std::string &sourceLine : dialogueBodyLines)
+    for (const std::string &sourceLine : localizedDialogueBodyLines)
     {
         const std::vector<std::string> wrappedLines = view.wrapHudTextToWidth(font, sourceLine, textWrapWidth);
 

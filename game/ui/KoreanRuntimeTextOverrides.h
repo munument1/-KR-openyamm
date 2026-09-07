@@ -851,6 +851,11 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "Town Portal to ")) return text.substr(15) + "(으)로 도시 귀환";
     if (startsWith(text, "Recall to ")) return text.substr(10) + "(으)로 귀환";
     if (startsWith(text, "Set beacon to ")) return text.substr(14) + "에 봉화 설치";
+    if (startsWith(text, "Set ") && text.find(" over ") != std::string::npos)
+    {
+        const size_t split = text.find(" over ", 4);
+        return "봉화 위치 변경: " + text.substr(split + 6) + " → " + text.substr(4, split - 4);
+    }
     if (startsWith(text, "Quick spell set to ")) return "빠른 주문 지정: " + text.substr(19);
     if (startsWith(text, "Attack spell set to ")) return "공격 주문 지정: " + text.substr(20);
 

@@ -70,6 +70,16 @@ TEST_CASE("MM9 fallback services and transport labels stay player-readable")
     CHECK(koreanRuntimeTextOverride("1 day to 미스트 for 0 gold") == "미스트까지 1일 이동 (0골드)");
 }
 
+TEST_CASE("Lloyd beacon hover labels preserve both locations in Korean")
+{
+    CHECK(koreanRuntimeTextOverride("Recall to Ravenshore") == "Ravenshore(으)로 귀환");
+    CHECK(koreanRuntimeTextOverride("Set beacon to 현재 위치") == "현재 위치에 봉화 설치");
+    CHECK(koreanRuntimeTextOverride("Set Free Haven over Ravenshore")
+        == "봉화 위치 변경: Ravenshore → Free Haven");
+    CHECK(koreanRuntimeTextOverride("Set 미스트 over Ravenshore")
+        == "봉화 위치 변경: Ravenshore → 미스트");
+}
+
 TEST_CASE("Monster inspection translates each effect before joining the list")
 {
     using OpenYAMM::Game::KoreanRuntimeText::actorEffectsText;
