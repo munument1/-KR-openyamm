@@ -18,6 +18,27 @@ EXCLUDED_PARTS = {
     'tests', 'test', 'tools', 'third_party', 'external', 'generated', 'build',
 }
 
+INTERNAL_FILE_PREFIXES = (
+    'game/content/',
+    'game/debug/',
+    'game/maps/IndoorSceneYml.cpp',
+    'game/maps/OutdoorSceneYml.cpp',
+    'game/maps/MapItemSourceYml.cpp',
+    'game/maps/MapPresentation.cpp',
+    'game/outdoor/HeadlessOutdoorDiagnostics.cpp',
+    'game/outdoor/OutdoorLightingData.cpp',
+    'game/outdoor/OutdoorNavigationData.cpp',
+    'game/outdoor/OutdoorRenderData.cpp',
+    'game/scenario/',
+    'game/data/GameDataLoader.cpp',
+    'game/tables/HouseTable.cpp',
+    'game/tables/ItemTable.cpp',
+    'game/tables/MergedBaseTables.cpp',
+    'game/tables/SpriteTables.cpp',
+    'game/tables/SurfaceMaterialTable.cpp',
+    'game/audio/SoundCatalog.cpp',
+)
+
 INTERNAL_LINE_MARKERS = (
     '#include', 'GAMEPLAY_DEBUG_TRACE', 'std::cout', 'std::cerr', 'spdlog',
     'logger.', 'Log::', 'assert(', 'static_assert(', 'throw ', 'TODO', 'FIXME',
@@ -96,13 +117,17 @@ def collect_coverage(root: Path) -> tuple[set[str], set[str]]:
             continue
         content = path.read_text(encoding='utf-8')
         for match in PAIR_RE.finditer(content):
-            key = decode_cpp(match.group(1))
-            value = decode_cpp(match.group(2))
+            key = decode_cpp(match.group(1)).strip()
+            value = decode_cpp(match.group(2)).strip()
             if HANGUL_RE.search(value):
                 exact.add(key)
         if path.name == 'KoreanRuntimeTextOverrides.h':
+            # Dynamic runtime localization is largely expressed through startsWith/
+            # endsWith/between fragments. Normalize whitespace here so a source
+            # fragment such as "Recall to " matches the same fragment in the
+            # localizer after the audit strips the source literal.
             for match in LITERAL_RE.finditer(content):
-                value = decode_cpp(match.group(1))
+                value = decode_cpp(match.group(1)).strip()
                 if len(WORD_RE.findall(value)) >= 2 and not HANGUL_RE.search(value):
                     components.add(value)
 
@@ -130,6 +155,7 @@ def main() -> int:
             'game/ui/MenuScreenKoreanText.inc',
         }:
             continue
+        internal_file = rel.startswith(INTERNAL_FILE_PREFIXES)
         lines = path.read_text(encoding='utf-8', errors='replace').splitlines()
         for lineno, line in enumerate(lines, 1):
             stripped = line.strip()
@@ -154,7 +180,7 @@ def main() -> int:
                     coverage = 'dynamic_override_component'
 
                 player_sink = any(marker in stripped for marker in PLAYER_SINK_MARKERS)
-                confidence = 'high' if player_sink else 'medium'
+                confidence = 'high' if player_sink and not internal_file else 'medium'
                 if coverage != 'uncovered':
                     confidence = 'covered'
 
@@ -179,7 +205,7 @@ def main() -> int:
     covered = [r for r in rows if r['coverage'] != 'uncovered']
 
     result = {
-        'format': 4,
+        'format': 5,
         'scanned_files': len(source_files(root)),
         'candidate_occurrences': len(rows),
         'covered_occurrences': len(covered),
