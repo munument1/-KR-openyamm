@@ -1,6 +1,7 @@
 #include "game/ui/screens/LoadGameScreen.h"
 
 #include "game/maps/SaveGame.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
 
 #include <SDL3/SDL.h>
 
@@ -907,6 +908,8 @@ void LoadGameScreen::drawLayoutText(
         return;
     }
 
+    const std::string localizedText = KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
+
     const UiLayoutManager::LayoutElement *pLayout = m_layoutManager.findElement(layoutId);
 
     if (pLayout == nullptr)
@@ -937,7 +940,7 @@ void LoadGameScreen::drawLayoutText(
     float drawX = resolved->x + padX;
     float drawY = resolved->y + padY;
     LoadGameScreen *pMutableScreen = const_cast<LoadGameScreen *>(this);
-    const float textWidth = pMutableScreen->measureTextWidth(fontName, text, fontScale);
+    const float textWidth = pMutableScreen->measureTextWidth(fontName, localizedText, fontScale);
     const float textHeight = static_cast<float>(pMutableScreen->fontHeight(fontName)) * fontScale;
 
     if (pLayout->textAlignX == UiLayoutManager::TextAlignX::Center)
@@ -958,6 +961,6 @@ void LoadGameScreen::drawLayoutText(
         drawY = resolved->y + resolved->height - textHeight - padY;
     }
 
-    pMutableScreen->drawText(fontName, text, drawX, drawY, color, fontScale);
+    pMutableScreen->drawText(fontName, localizedText, drawX, drawY, color, fontScale);
 }
 }
