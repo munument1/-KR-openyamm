@@ -68,6 +68,8 @@ TEST_CASE("MM9 fallback services and transport labels stay player-readable")
         == "MM9 기술 훈련 서비스는 아직 구현되지 않았습니다.");
     CHECK(koreanRuntimeTextOverride("2 days to Ravenshore for 150 gold") == "Ravenshore까지 2일 이동 (150골드)");
     CHECK(koreanRuntimeTextOverride("1 day to 미스트 for 0 gold") == "미스트까지 1일 이동 (0골드)");
+    CHECK(koreanRuntimeTextOverride("That route is not available.") == "이 이동 경로는 현재 이용할 수 없습니다.");
+    CHECK(koreanRuntimeTextOverride("You don't have enough gold.") == "골드가 부족합니다.");
 }
 
 TEST_CASE("Lloyd beacon hover labels preserve both locations in Korean")

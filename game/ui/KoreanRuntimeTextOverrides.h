@@ -455,6 +455,7 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     static const std::unordered_map<std::string, std::string> Exact = {
         {"The Adventurer's Inn", "모험가의 여관"},
         {"The Adventurer's Inn is empty.", "모험가의 여관에 아무도 없습니다."},
+        {"That route is not available.", "이 이동 경로는 현재 이용할 수 없습니다."},
         {"That topic does not have an event yet.", "이 대화 주제에는 아직 이벤트가 없습니다."},
         {"Your packs are already full!", "식량이 이미 가득합니다!"},
         {"MM9 skill trainer topic is no longer valid.", "이 기술 교관 대화는 더 이상 유효하지 않습니다."},
@@ -468,6 +469,7 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"How Much?", "얼마인가요?"},
         {"You can't rest in turn-based mode!", "턴제 모드에서는 쉴 수 없습니다!"},
         {"You are already resting.", "이미 휴식 중입니다."},
+        {"You don't have enough gold.", "골드가 부족합니다."},
         {"You don't have enough food to rest.", "휴식에 필요한 식량이 부족합니다."},
         {"Cannot leave turn-based mode now.", "지금은 턴제 모드를 종료할 수 없습니다."},
         {"Turn-based mode", "턴제 모드"},
