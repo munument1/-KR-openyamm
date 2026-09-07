@@ -2335,7 +2335,7 @@ std::string OutdoorInteractionController::resolveActorInspectDisplayName(
     }
 
     // MMerge assigns NPC_ID to the monster; the original display path then uses NameAndTitle(NPC).
-    return resolution->generatedName + " the " + pProfession->profession;
+    return resolution->generatedName + " " + pProfession->profession;
 }
 
 GameplayWorldHit OutdoorInteractionController::translateInspectHitToGameplayWorldHit(
