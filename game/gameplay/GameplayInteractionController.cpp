@@ -13,6 +13,7 @@
 #include "game/items/ItemRuntime.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/ItemTable.h"
+#include "game/ui/KoreanDecorationText.h"
 
 #include <SDL3/SDL_timer.h>
 
@@ -404,10 +405,16 @@ std::optional<GameplayContextAction> buildContextAction(
         }
         else
         {
+            const bool localizeDecorationName =
+                hit.eventTarget->targetKind == GameplayWorldEventTargetKind::Decoration;
             action.label = hasStatusText(eventTargetStatusText)
-                ? *eventTargetStatusText
+                ? (localizeDecorationName
+                    ? KoreanRuntimeText::koreanDecorationHint(*eventTargetStatusText)
+                    : *eventTargetStatusText)
                 : (!hit.eventTarget->name.empty()
-                    ? hit.eventTarget->name
+                    ? (localizeDecorationName
+                        ? KoreanRuntimeText::koreanDecorationHint(hit.eventTarget->name)
+                        : hit.eventTarget->name)
                     : contextActionDefaultLabel(action.kind));
         }
     }
@@ -1313,6 +1320,11 @@ std::optional<std::string> GameplayInteractionController::resolveHoverStatusText
     if (requireNearHover && hit.eventTarget->distance > NearHoverStatusDistance)
     {
         return std::nullopt;
+    }
+
+    if (targetKind == GameplayWorldEventTargetKind::Decoration)
+    {
+        return KoreanRuntimeText::koreanDecorationHint(*payload.eventTargetStatusText);
     }
 
     return payload.eventTargetStatusText;
