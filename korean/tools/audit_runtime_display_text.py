@@ -84,6 +84,7 @@ def collect_coverage(root: Path) -> tuple[set[str], set[str]]:
     coverage_files = [
         root / 'game/ui/GameplayHudCommon.cpp',
         root / 'game/ui/KoreanRuntimeTextOverrides.h',
+        root / 'game/ui/KoreanDecorationText.h',
         root / 'game/ui/screens/NewGameScreen.cpp',
         root / 'game/ui/screens/NewGameScreen.h',
     ]
@@ -125,6 +126,7 @@ def main() -> int:
         if rel in {
             'game/ui/GameplayHudCommon.cpp',
             'game/ui/KoreanRuntimeTextOverrides.h',
+            'game/ui/KoreanDecorationText.h',
             'game/ui/MenuScreenKoreanText.inc',
         }:
             continue
@@ -177,7 +179,7 @@ def main() -> int:
     covered = [r for r in rows if r['coverage'] != 'uncovered']
 
     result = {
-        'format': 3,
+        'format': 4,
         'scanned_files': len(source_files(root)),
         'candidate_occurrences': len(rows),
         'covered_occurrences': len(covered),
