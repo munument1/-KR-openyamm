@@ -3020,6 +3020,18 @@ void NewGameScreen::drawContinentSelection(float deltaSeconds)
         resolveContinentButtonVisuals("ContinentSelectionEnrothButton", {"slenrothdw", "slenrothup", "slenrothup"}),
         enrothRect);
 
+    const auto drawContinentGameLabel =
+        [this, scale](const MenuScreenBase::Rect &continentRect, const char *pLabel)
+        {
+            const float labelWidth = measureTextWidth("SMALLNUM", pLabel, scale);
+            const float labelX = continentRect.x + (continentRect.width - labelWidth) * 0.5f;
+            const float labelY = continentRect.y + continentRect.height - 36.0f * scale;
+            drawText("SMALLNUM", pLabel, labelX, labelY, WhiteColor, scale);
+        };
+    drawContinentGameLabel(jadameRect, "M&M 8");
+    drawContinentGameLabel(antagarichRect, "M&M 7");
+    drawContinentGameLabel(enrothRect, "M&M 6");
+
     if (jadameState.clicked)
     {
         playUiClickSound(SoundId::ClickIn);
