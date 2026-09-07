@@ -32,16 +32,16 @@ jobs:
 
           path = Path('.github/workflows/korean-translation-import.yml')
           text = path.read_text(encoding='utf-8')
-          anchor = '''      - name: Add Korean fallback font to generated engine overlay
-          '''
-          insertion = '''      - name: Apply reviewed MMMerge feedback corrections
-        run: |
-          set -euo pipefail
-          python3 korean/tools/apply_review_feedback_corrections.py
-          python3 -m json.tool korean/translations/catalog.json >/dev/null
-
-      - name: Add Korean fallback font to generated engine overlay
-          '''
+          anchor = "      - name: Add Korean fallback font to generated engine overlay\n"
+          insertion = (
+              "      - name: Apply reviewed MMMerge feedback corrections\n"
+              "        run: |\n"
+              "          set -euo pipefail\n"
+              "          python3 korean/tools/apply_review_feedback_corrections.py\n"
+              "          python3 -m json.tool korean/translations/catalog.json >/dev/null\n"
+              "\n"
+              "      - name: Add Korean fallback font to generated engine overlay\n"
+          )
           if 'Apply reviewed MMMerge feedback corrections' in text:
               raise SystemExit('Correction stage already exists')
           if text.count(anchor) != 1:
