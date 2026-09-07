@@ -7,6 +7,8 @@ on:
     paths:
       - "korean/**"
       - "game/ui/screens/**"
+      - "game/ui/KoreanDecorationText.h"
+      - "game/gameplay/GameplayInteractionController.cpp"
       - "game/outdoor/OutdoorInteractionController.cpp"
       - "game/items/ItemEnchantTables.cpp"
       - "game/tables/CharacterInspectTable.cpp"
@@ -40,6 +42,8 @@ jobs:
           sparse-checkout: |
             /korean/**
             /game/ui/screens/**
+            /game/ui/KoreanDecorationText.h
+            /game/gameplay/GameplayInteractionController.cpp
             /game/outdoor/OutdoorInteractionController.cpp
             /game/items/ItemEnchantTables.cpp
             /game/tables/CharacterInspectTable.cpp
@@ -199,7 +203,6 @@ jobs:
           for required in \
             fonts/KoreanFallback.ttf \
             data_tables/arcomage_cards.txt \
-            data_tables/decoration_data.txt \
             data_tables/english/Global.txt \
             data_tables/english/quests.txt \
             data_tables/english/autonote.txt \
@@ -230,6 +233,10 @@ jobs:
           done
           if grep -Fxq 'data_tables/english/spells.txt' dist/korean-translation-import/engine-contents.txt; then
             echo 'Inactive English spell-table overlay must not be packaged.' >&2
+            exit 1
+          fi
+          if grep -Fxq 'data_tables/decoration_data.txt' dist/korean-translation-import/engine-contents.txt; then
+            echo 'Decoration source Hint values are gameplay keys and must not be packaged as a localized overlay.' >&2
             exit 1
           fi
           for world in mm6 mm7 mm8 mmmerge; do
