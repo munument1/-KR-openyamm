@@ -1563,9 +1563,9 @@ std::string quickReferenceSpellName(const Character &character, const SpellTable
 
     const SpellEntry *pSpell = pSpellTable != nullptr ? pSpellTable->findByName(character.quickSpellName) : nullptr;
 
-    if (pSpell != nullptr && !pSpell->shortName.empty())
+    if (pSpell != nullptr)
     {
-        return pSpell->shortName;
+        return pSpell->displayName();
     }
 
     return character.quickSpellName;
@@ -2341,9 +2341,9 @@ std::string formatMonsterInspectSpellText(
     {
         const SpellEntry *pSpellEntry = pSpellTable->findByName(spellName);
 
-        if (pSpellEntry != nullptr && !pSpellEntry->shortName.empty())
+        if (pSpellEntry != nullptr)
         {
-            displayName = pSpellEntry->shortName;
+            displayName = pSpellEntry->displayName();
         }
     }
 
@@ -5680,8 +5680,7 @@ void GameplayPartyOverlayRenderer::renderSpellbookOverlay(GameplayScreenRuntime 
     std::string selectedSpellLabel;
     if (hasSelectedSpell)
     {
-        selectedSpellLabel = "선택: "
-            + (pSelectedSpell->shortName.empty() ? pSelectedSpell->name : pSelectedSpell->shortName);
+        selectedSpellLabel = "선택: " + pSelectedSpell->displayName();
     }
     renderSpellbookTopLabel("SpellbookSelectLabel", selectedSpellLabel);
     renderSpellbookTopLabel(

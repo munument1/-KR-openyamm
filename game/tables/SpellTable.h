@@ -33,6 +33,11 @@ struct SpellEntry
     int impactDisplayObjectId = 0;
     int damageBase = 0;
     int damageDiceSides = 0;
+
+    const std::string &displayName() const
+    {
+        return shortName.empty() ? name : shortName;
+    }
 };
 
 class SpellTable

@@ -51,11 +51,6 @@ int spellInspectManaCostForMastery(const SpellEntry &spellEntry, SkillMastery ma
     }
 }
 
-const std::string &spellDisplayName(const SpellEntry &spellEntry)
-{
-    return spellEntry.shortName.empty() ? spellEntry.name : spellEntry.shortName;
-}
-
 SkillMastery spellInspectCasterMasteryForSpell(const Character *pCaster, uint32_t spellId)
 {
     if (pCaster == nullptr)
@@ -1291,7 +1286,7 @@ void GameplayHudOverlaySupport::updateSpellInspectOverlay(
         overlay.school = spellbookSchoolDisplayName(spellSchool);
         overlay.manaCost = std::max(0, spellInspectManaCostForMastery(*pSpellEntry, casterMastery));
         overlay.hasManaCost = true;
-        overlay.title = spellDisplayName(*pSpellEntry);
+        overlay.title = pSpellEntry->displayName();
         overlay.body = pSpellEntry->description;
         overlay.normal = pSpellEntry->normalText.empty() ? "" : "Normal: " + pSpellEntry->normalText;
         overlay.expert = pSpellEntry->expertText.empty() ? "" : "Expert: " + pSpellEntry->expertText;

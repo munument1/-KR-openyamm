@@ -15,6 +15,11 @@ TEST_CASE("Localized spell display fields preserve the English gameplay lookup k
     REQUIRE(pSpell != nullptr);
     CHECK(pSpell->name == "Haste");
     CHECK(pSpell->shortName == "가속");
+    CHECK(pSpell->displayName() == "가속");
     CHECK(pSpell->description == "주문 시전과 공격 뒤 회복 시간을 줄입니다.");
     CHECK(spellTable.findByName("가속") == nullptr);
+
+    SpellEntry fallbackSpell = {};
+    fallbackSpell.name = "Custom Spell";
+    CHECK(fallbackSpell.displayName() == "Custom Spell");
 }

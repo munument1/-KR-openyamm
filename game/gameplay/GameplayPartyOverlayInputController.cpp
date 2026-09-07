@@ -1590,9 +1590,7 @@ void GameplayPartyOverlayInputController::handleSpellbookOverlayInput(
                     context.partyReadOnly()->activeMemberIndex(),
                     SpeechId::SetQuickSpell,
                     true);
-                const std::string &displayName =
-                    pSpellEntry->shortName.empty() ? pSpellEntry->name : pSpellEntry->shortName;
-                context.setStatusBarEvent("Quick spell set to " + displayName);
+                context.setStatusBarEvent("Quick spell set to " + pSpellEntry->displayName());
                 return;
             }
 
@@ -1666,9 +1664,7 @@ void GameplayPartyOverlayInputController::handleSpellbookOverlayInput(
                     context.partyReadOnly()->activeMemberIndex(),
                     SpeechId::SetQuickSpell,
                     true);
-                const std::string &displayName =
-                    pSpellEntry->shortName.empty() ? pSpellEntry->name : pSpellEntry->shortName;
-                context.setStatusBarEvent("Attack spell set to " + displayName);
+                context.setStatusBarEvent("Attack spell set to " + pSpellEntry->displayName());
             }
         });
 }

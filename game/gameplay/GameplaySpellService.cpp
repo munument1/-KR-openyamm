@@ -43,9 +43,9 @@ std::string displaySpellName(
 {
     const SpellTable *pSpellTable = runtime.spellTable();
     const SpellEntry *pSpellEntry = pSpellTable != nullptr ? pSpellTable->findById(static_cast<int>(spellId)) : nullptr;
-    if (pSpellEntry != nullptr && !pSpellEntry->shortName.empty())
+    if (pSpellEntry != nullptr)
     {
-        return pSpellEntry->shortName;
+        return pSpellEntry->displayName();
     }
 
     return fallbackName;
