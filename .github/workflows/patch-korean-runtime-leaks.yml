@@ -15,7 +15,7 @@ jobs:
     if: github.event.head_commit.message == 'Add one-shot Korean runtime leak patcher'
     runs-on: ubuntu-24.04
     steps:
-      - name: Check out patch targets
+      - name: Check out patch target
         uses: actions/checkout@v7
         with:
           ref: korean-localization
@@ -23,21 +23,18 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /game/ui/KoreanRuntimeTextOverrides.h
-            /game/ui/GameplayPartyOverlayRenderer.cpp
 
-      - name: Patch runtime display leaks
+      - name: Patch remaining runtime display leaks
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
 
-          override_path = Path('game/ui/KoreanRuntimeTextOverrides.h')
-          text = override_path.read_text(encoding='utf-8')
-          marker = '    if (startsWith(text, "You need ") && text.find(" more experience to train to level ") != std::string::npos)\n'
-          if text.count(marker) != 1:
-              raise SystemExit(f'experience marker count={text.count(marker)}')
-          insert = '''    if (text.find(" needs ") != std::string::npos
+          path = Path('game/ui/KoreanRuntimeTextOverrides.h')
+          text = path.read_text(encoding='utf-8')
+
+          bad = '''    if (text.find(" needs ") != std::string::npos
               && text.find(" more experience to train to level ") != std::string::npos
               && endsWith(text, "."))
           {
@@ -73,37 +70,34 @@ jobs:
               }
           }
           '''
-          override_path.write_text(text.replace(marker, insert + marker, 1), encoding='utf-8')
+          # The first patch committed this block with shallow indentation. Normalize
+          # it without changing behavior. Generate the expected current form too.
+          current = bad.replace('\n              &&', '\n    &&').replace('\n          {', '\n{').replace('\n              const', '\n    const').replace('\n              if', '\n    if').replace('\n              {', '\n    {').replace('\n                  const', '\n        const').replace('\n                  return', '\n        return').replace('\n                      ', '\n            ').replace('\n              }', '\n    }').replace('\n          }', '\n}')
+          if current in text:
+              text = text.replace(current, bad, 1)
+          elif bad not in text:
+              raise SystemExit('experience block not found for formatting check')
 
-          party_path = Path('game/ui/GameplayPartyOverlayRenderer.cpp')
-          text = party_path.read_text(encoding='utf-8')
-          old = '''    const char *pMeridiem = hour24 >= 12 ? "pm" : "am";
-
-              char timeText[16] = {};
-              std::snprintf(timeText, sizeof(timeText), "%d:%02d %s", hour12, minute, pMeridiem);
-              return timeText;
+          marker = '    if (startsWith(text, "House #")) return "건물 #" + text.substr(7);\n'
+          if text.count(marker) != 1:
+              raise SystemExit(f'runtime status insertion marker count={text.count(marker)}')
+          rules = '''    if (text == "Ooops") return "이런!";
+          if (startsWith(text, "Deposited ") && endsWith(text, " gold."))
+              return "입금: " + between(text, "Deposited ", " gold.") + "골드.";
+          if (startsWith(text, "Withdrew ") && endsWith(text, " gold."))
+              return "출금: " + between(text, "Withdrew ", " gold.") + "골드.";
+          if (startsWith(text, "Answer: ")) return "답변: " + text.substr(8);
           '''
-          old = old.replace('              ', '    ')
-          new = '''    const char *pMeridiem = hour24 >= 12 ? "오후" : "오전";
+          if 'if (text == "Ooops")' not in text:
+              text = text.replace(marker, rules + marker, 1)
 
-              char timeText[24] = {};
-              std::snprintf(timeText, sizeof(timeText), "%s %d:%02d", pMeridiem, hour12, minute);
-              return timeText;
-          '''
-          new = new.replace('              ', '    ')
-          if text.count(old) != 1:
-              raise SystemExit(f'rest-time marker count={text.count(old)}')
-          party_path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          path.write_text(text, encoding='utf-8')
           PY
 
-          grep -Fq 'is eligible to train up to level' game/ui/KoreanRuntimeTextOverrides.h
-          grep -Fq '레벨 " + targetLevel + "까지 훈련할 수 있습니다.' game/ui/KoreanRuntimeTextOverrides.h
-          grep -Fq 'hour24 >= 12 ? "오후" : "오전"' game/ui/GameplayPartyOverlayRenderer.cpp
-          grep -Fq '"%s %d:%02d"' game/ui/GameplayPartyOverlayRenderer.cpp
-          if grep -Fq 'hour24 >= 12 ? "pm" : "am"' game/ui/GameplayPartyOverlayRenderer.cpp; then
-            echo '::error::English rest meridiem remains in runtime producer'
-            exit 1
-          fi
+          grep -Fq 'if (text == "Ooops") return "이런!";' game/ui/KoreanRuntimeTextOverrides.h
+          grep -Fq 'startsWith(text, "Deposited ")' game/ui/KoreanRuntimeTextOverrides.h
+          grep -Fq 'startsWith(text, "Withdrew ")' game/ui/KoreanRuntimeTextOverrides.h
+          grep -Fq 'startsWith(text, "Answer: ")' game/ui/KoreanRuntimeTextOverrides.h
           git diff --check
 
       - name: Commit source fixes
@@ -112,6 +106,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add game/ui/KoreanRuntimeTextOverrides.h game/ui/GameplayPartyOverlayRenderer.cpp
-          git commit -m "Localize experience inspect and rest time text"
+          git add game/ui/KoreanRuntimeTextOverrides.h
+          git commit -m "Cover remaining Korean runtime status text"
           git push origin HEAD:korean-localization
