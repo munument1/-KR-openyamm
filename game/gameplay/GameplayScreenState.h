@@ -40,6 +40,7 @@ public:
         bool applyRecovery = true;
         PartySpellCastTargetKind targetKind = PartySpellCastTargetKind::None;
         std::string spellName;
+        std::string displaySpellName;
         bool clickLatch = false;
         bool cancelLatch = false;
         bool hasSelectedGroundTargetPoint = false;

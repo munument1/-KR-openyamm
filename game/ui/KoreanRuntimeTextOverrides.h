@@ -364,6 +364,25 @@ inline std::string keyboardBindingLabel(const std::string &text)
     return text;
 }
 
+inline std::string mm9ServiceLabel(const std::string &service)
+{
+    if (service == "shop") return "상점";
+    if (service == "training") return "훈련소";
+    if (service == "skill training") return "기술 훈련";
+    if (service == "travel") return "이동";
+    if (service == "bank") return "은행";
+    if (service == "inn") return "여관";
+    if (service == "healer") return "치료소";
+    if (service == "hire") return "고용";
+    if (service == "dismiss") return "해고";
+    if (service == "item combine") return "아이템 조합";
+    if (service == "quest handoff") return "퀘스트 전달";
+    if (service == "town portal") return "도시 귀환";
+    if (service == "donation") return "기부";
+    if (service == "unknown service") return "알 수 없는 서비스";
+    return service;
+}
+
 inline std::optional<std::string> combatStatusText(const std::string &text)
 {
     const std::string evadeSuffix = " evades damage";
@@ -834,6 +853,44 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
     if (startsWith(text, "Set beacon to ")) return text.substr(14) + "에 봉화 설치";
     if (startsWith(text, "Quick spell set to ")) return "빠른 주문 지정: " + text.substr(19);
     if (startsWith(text, "Attack spell set to ")) return "공격 주문 지정: " + text.substr(20);
+
+    const std::string mm9MissingServiceSuffix = " has no mounted service definition.";
+    const std::string mm9InvalidServiceSuffix = " service definition is invalid.";
+    const std::string mm9UnimplementedServiceSuffix = " service is not implemented yet.";
+    if (startsWith(text, "MM9 ") && endsWith(text, mm9MissingServiceSuffix))
+    {
+        const std::string serviceAndId = text.substr(4, text.size() - 4 - mm9MissingServiceSuffix.size());
+        const size_t separator = serviceAndId.rfind(' ');
+        if (separator != std::string::npos)
+        {
+            return "MM9 " + mm9ServiceLabel(serviceAndId.substr(0, separator)) + " "
+                + serviceAndId.substr(separator + 1) + "번의 등록된 서비스 정의가 없습니다.";
+        }
+    }
+    if (startsWith(text, "MM9 ") && endsWith(text, mm9InvalidServiceSuffix))
+    {
+        return "MM9 " + mm9ServiceLabel(text.substr(4, text.size() - 4 - mm9InvalidServiceSuffix.size()))
+            + " 서비스 정의가 잘못되었습니다.";
+    }
+    if (startsWith(text, "MM9 ") && endsWith(text, mm9UnimplementedServiceSuffix))
+    {
+        return "MM9 " + mm9ServiceLabel(text.substr(4, text.size() - 4 - mm9UnimplementedServiceSuffix.size()))
+            + " 서비스는 아직 구현되지 않았습니다.";
+    }
+
+    if (text.find(" to ") != std::string::npos && text.find(" for ") != std::string::npos && endsWith(text, " gold"))
+    {
+        const size_t destination = text.find(" to ");
+        const size_t price = text.rfind(" for ");
+        if (price > destination + 4)
+        {
+            std::string duration = text.substr(0, destination);
+            if (endsWith(duration, " day")) duration = duration.substr(0, duration.size() - 4) + "일";
+            else if (endsWith(duration, " days")) duration = duration.substr(0, duration.size() - 5) + "일";
+            return text.substr(destination + 4, price - (destination + 4)) + "까지 " + duration + " 이동 ("
+                + text.substr(price + 5, text.size() - (price + 5) - 5) + "골드)";
+        }
+    }
 
     if (startsWith(text, "To confirm ") && endsWith(text, " dismissal press the button again..."))
     {

@@ -58,8 +58,8 @@ jobs:
           sparse-checkout: |
             /Data/Text localization/**
 
-      - name: Test multiline NPC dialogue import
-        run: python3 -m unittest discover -s korean/tools -p test_npc_dialogue_import.py
+      - name: Test Korean translation importers
+        run: python3 -m unittest discover -s korean/tools -p 'test_*.py'
 
       - name: Generate base JSON catalog and native overlay tables
         run: |
@@ -190,7 +190,7 @@ jobs:
             data_tables/english/Global.txt \
             data_tables/english/quests.txt \
             data_tables/english/autonote.txt \
-            data_tables/english/spells.txt \
+            data_tables/spells.txt \
             data_tables/english/awards.txt \
             data_tables/english/scroll.txt \
             data_tables/english/class.txt \
@@ -215,6 +215,10 @@ jobs:
             data_tables/special_item_enchants.txt; do
             grep -Fxq "$required" dist/korean-translation-import/engine-contents.txt
           done
+          if grep -Fxq 'data_tables/english/spells.txt' dist/korean-translation-import/engine-contents.txt; then
+            echo 'Inactive English spell-table overlay must not be packaged.' >&2
+            exit 1
+          fi
           for world in mm6 mm7 mm8 mmmerge; do
             test -s "dist/korean-translation-import/korean/worlds/${world}.zip"
             echo "${world}: $(unzip -Z1 "dist/korean-translation-import/korean/worlds/${world}.zip" | wc -l) overlay file(s)"

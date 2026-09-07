@@ -5677,9 +5677,13 @@ void GameplayPartyOverlayRenderer::renderSpellbookOverlay(GameplayScreenRuntime 
             context.renderHudFontLayer(*font, textTexture, text, textX, textY, fontScale);
         };
 
-    renderSpellbookTopLabel(
-        "SpellbookSelectLabel",
-        hasSelectedSpell ? "Select " + pSelectedSpell->name : std::string());
+    std::string selectedSpellLabel;
+    if (hasSelectedSpell)
+    {
+        selectedSpellLabel = "선택: "
+            + (pSelectedSpell->shortName.empty() ? pSelectedSpell->name : pSelectedSpell->shortName);
+    }
+    renderSpellbookTopLabel("SpellbookSelectLabel", selectedSpellLabel);
     renderSpellbookTopLabel(
         "SpellbookCasterName",
         pActiveMember != nullptr ? pActiveMember->name : std::string());

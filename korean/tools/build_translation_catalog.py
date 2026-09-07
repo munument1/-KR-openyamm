@@ -64,9 +64,11 @@ FIELD_OVERLAY_SPECS = (
     ),
     FieldOverlaySpec(
         overlay_name="KO_SpellsTxt.txt",
-        source_relpath="assets_dev/engine/data_tables/english/spells.txt",
+        # SpellEntry.name is a gameplay/save lookup key.  The active spell table is
+        # data_tables/spells.txt, so only its player-facing fields belong in the
+        # Korean overlay.
+        source_relpath="assets_dev/engine/data_tables/spells.txt",
         fields={
-            "Name": 2,
             "ShortName": 4,
             "Description": 5,
             "Normal": 6,

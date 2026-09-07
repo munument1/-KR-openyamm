@@ -4,7 +4,7 @@ set -euo pipefail
 mmmerge_root="${1:-_mmmerge}"
 output_root="${2:-dist/korean-release-overlay}"
 
-python3 -m unittest discover -s korean/tools -p test_npc_dialogue_import.py
+python3 -m unittest discover -s korean/tools -p 'test_*.py'
 
 python3 korean/tools/build_translation_catalog.py \
     --mmmerge-root "$mmmerge_root" \
@@ -78,5 +78,10 @@ grep -Fxq 'fonts/KoreanFallback.ttf' "$output_root/engine-contents.txt"
 grep -Fxq 'fonts/Galmuri-OFL.txt' "$output_root/engine-contents.txt"
 grep -Fxq 'data_tables/english/Global.txt' "$output_root/engine-contents.txt"
 grep -Fxq 'data_tables/english/quests.txt' "$output_root/engine-contents.txt"
+grep -Fxq 'data_tables/spells.txt' "$output_root/engine-contents.txt"
+if grep -Fxq 'data_tables/english/spells.txt' "$output_root/engine-contents.txt"; then
+    echo 'Inactive English spell-table overlay must not be packaged.' >&2
+    exit 1
+fi
 
 echo "Korean release overlay ready: $output_root"

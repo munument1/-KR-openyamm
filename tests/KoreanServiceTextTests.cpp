@@ -58,6 +58,18 @@ TEST_CASE("Monster attack labels translate display aliases while preserving data
     CHECK(monsterAttackTypeLabel("Custom damage") == "Custom damage");
 }
 
+TEST_CASE("MM9 fallback services and transport labels stay player-readable")
+{
+    CHECK(koreanRuntimeTextOverride("MM9 shop 42 has no mounted service definition.")
+        == "MM9 상점 42번의 등록된 서비스 정의가 없습니다.");
+    CHECK(koreanRuntimeTextOverride("MM9 healer service definition is invalid.")
+        == "MM9 치료소 서비스 정의가 잘못되었습니다.");
+    CHECK(koreanRuntimeTextOverride("MM9 skill training service is not implemented yet.")
+        == "MM9 기술 훈련 서비스는 아직 구현되지 않았습니다.");
+    CHECK(koreanRuntimeTextOverride("2 days to Ravenshore for 150 gold") == "Ravenshore까지 2일 이동 (150골드)");
+    CHECK(koreanRuntimeTextOverride("1 day to 미스트 for 0 gold") == "미스트까지 1일 이동 (0골드)");
+}
+
 TEST_CASE("Monster inspection translates each effect before joining the list")
 {
     using OpenYAMM::Game::KoreanRuntimeText::actorEffectsText;
