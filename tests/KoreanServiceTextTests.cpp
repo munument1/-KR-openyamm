@@ -82,6 +82,15 @@ TEST_CASE("Lloyd beacon hover labels preserve both locations in Korean")
         == "봉화 위치 변경: Ravenshore → 미스트");
 }
 
+TEST_CASE("Stealing failure feedback remains localized")
+{
+    CHECK(koreanRuntimeTextOverride("You need Stealing skill.") == "소매치기 기술이 필요합니다.");
+    CHECK(koreanRuntimeTextOverride("Too far away.") == "너무 멀리 있습니다.");
+    CHECK(koreanRuntimeTextOverride("Nothing to steal.") == "훔칠 것이 없습니다.");
+    CHECK(koreanRuntimeTextOverride("Caught stealing!") == "도둑질하다 들켰습니다!");
+    CHECK(koreanRuntimeTextOverride("Failed to steal.") == "훔치지 못했습니다.");
+}
+
 TEST_CASE("Monster inspection translates each effect before joining the list")
 {
     using OpenYAMM::Game::KoreanRuntimeText::actorEffectsText;

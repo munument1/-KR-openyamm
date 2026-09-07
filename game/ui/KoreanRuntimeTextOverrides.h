@@ -767,6 +767,7 @@ inline std::optional<std::string> koreanRuntimeTextOverride(const std::string &t
         {"Too far away.", "너무 멀리 있습니다."},
         {"Nothing to steal.", "훔칠 것이 없습니다."},
         {"Caught stealing!", "도둑질하다 들켰습니다!"},
+        {"Failed to steal.", "훔치지 못했습니다."},
         {"No Armageddon casts left today", "오늘은 더 이상 아마겟돈을 시전할 수 없습니다"},
         {"Unknown item", "알 수 없는 아이템"},
         {"Sorry, I'm not interested in that item.", "죄송하지만 그 아이템에는 관심이 없습니다."},
