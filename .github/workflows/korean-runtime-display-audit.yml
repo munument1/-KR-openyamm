@@ -30,6 +30,11 @@ jobs:
           ref: korean-localization
           fetch-depth: 1
           persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/**
+            /korean/tools/audit_runtime_display_text.py
+            /korean/tools/check_runtime_localization_routes.py
 
       - name: Verify Korean runtime localization routes
         shell: bash
