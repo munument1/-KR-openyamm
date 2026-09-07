@@ -7,6 +7,7 @@ on:
     paths:
       - "korean/**"
       - "game/ui/screens/**"
+      - "game/outdoor/OutdoorInteractionController.cpp"
       - "game/items/ItemEnchantTables.cpp"
       - "game/tables/CharacterInspectTable.cpp"
       - "assets_dev/engine/data_tables/**"
@@ -39,6 +40,7 @@ jobs:
           sparse-checkout: |
             /korean/**
             /game/ui/screens/**
+            /game/outdoor/OutdoorInteractionController.cpp
             /game/items/ItemEnchantTables.cpp
             /game/tables/CharacterInspectTable.cpp
             /assets_dev/engine/data_tables/**
@@ -170,6 +172,12 @@ jobs:
           python3 korean/tools/extend_arcomage_catalog.py \
             --fail-on-review
 
+      - name: Extend catalog with decoration hints
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_decoration_catalog.py \
+            --fail-on-review
+
       - name: Generate Korean map event overlays
         run: |
           set -euo pipefail
@@ -191,6 +199,7 @@ jobs:
           for required in \
             fonts/KoreanFallback.ttf \
             data_tables/arcomage_cards.txt \
+            data_tables/decoration_data.txt \
             data_tables/english/Global.txt \
             data_tables/english/quests.txt \
             data_tables/english/autonote.txt \
