@@ -1,0 +1,61 @@
+name: One-shot add reviewed feedback correction step
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/add-feedback-correction-step.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Add one-shot feedback correction workflow patcher'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.github/workflows/korean-translation-import.yml
+
+      - name: Add reviewed correction stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/korean-translation-import.yml')
+          text = path.read_text(encoding='utf-8')
+          anchor = '''      - name: Add Korean fallback font to generated engine overlay
+          '''
+          insertion = '''      - name: Apply reviewed MMMerge feedback corrections
+        run: |
+          set -euo pipefail
+          python3 korean/tools/apply_review_feedback_corrections.py
+          python3 -m json.tool korean/translations/catalog.json >/dev/null
+
+      - name: Add Korean fallback font to generated engine overlay
+          '''
+          if 'Apply reviewed MMMerge feedback corrections' in text:
+              raise SystemExit('Correction stage already exists')
+          if text.count(anchor) != 1:
+              raise SystemExit('Expected workflow anchor exactly once')
+          path.write_text(text.replace(anchor, insertion, 1), encoding='utf-8')
+          PY
+          git diff --check
+
+      - name: Commit workflow update
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/korean-translation-import.yml
+          git commit -m "Apply reviewed feedback in Korean import"
+          git push origin HEAD:korean-localization
