@@ -3,6 +3,7 @@
 #include "game/events/EventRuntime.h"
 #include "game/debug/GameplayDebugTrace.h"
 #include "game/gameplay/GameMechanics.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/gameplay/ReputationRuntime.h"
 #include "game/items/ItemEnchantRuntime.h"
 #include "game/items/ItemEnchantTables.h"
@@ -3092,6 +3093,12 @@ uint32_t Party::grantSharedExperience(uint32_t totalExperience)
     }
 
     const uint32_t experiencePerEligibleMember = totalExperience / eligibleMemberCount;
+
+    EventRuntimeState followerRuntimeState = {};
+    applyGlobalNpcStateTo(followerRuntimeState);
+    const int followerLearningPercent =
+        std::max(0, hiredNpcSkillBonus(followerRuntimeState, "Learning"));
+
     uint32_t totalGrantedExperience = 0;
 
     for (size_t memberIndex = 0; memberIndex < m_members.size(); ++memberIndex)
@@ -3103,7 +3110,8 @@ uint32_t Party::grantSharedExperience(uint32_t totalExperience)
             continue;
         }
 
-        const int learningPercent = learningPercentForExperienceGain(member);
+        const int learningPercent =
+            learningPercentForExperienceGain(member) + followerLearningPercent;
         const uint32_t learnedExperience =
             experiencePerEligibleMember
             + experiencePerEligibleMember * std::max(0, learningPercent) / 100;
