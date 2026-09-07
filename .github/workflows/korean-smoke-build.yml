@@ -56,6 +56,35 @@ jobs:
             exit 1
           fi
 
+  hired-npc-learning-guard:
+    name: Hired NPC Learning bonus guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out follower bonus sources
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/party/Party.cpp
+            /game/gameplay/NpcFollowerRuntime.cpp
+            /game/gameplay/NpcFollowerRuntime.h
+
+      - name: Verify hired Learning bonus is applied once as a flat percent
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq '#include "game/gameplay/NpcFollowerRuntime.h"' game/party/Party.cpp
+          grep -Fq 'applyGlobalNpcStateTo(followerRuntimeState);' game/party/Party.cpp
+          grep -Fq 'std::max(0, hiredNpcSkillBonus(followerRuntimeState, "Learning"));' game/party/Party.cpp
+          grep -Fq 'learningPercentForExperienceGain(member) + followerLearningPercent;' game/party/Party.cpp
+          grep -Fq 'if (professionId == 4) bonus += 5;' game/gameplay/NpcFollowerRuntime.cpp
+          grep -Fq 'else if (professionId == 13) bonus += 10;' game/gameplay/NpcFollowerRuntime.cpp
+          grep -Fq 'else if (professionId == 14) bonus += 15;' game/gameplay/NpcFollowerRuntime.cpp
+
   korean-overlay:
     name: Korean smoke overlay
     runs-on: ubuntu-24.04
