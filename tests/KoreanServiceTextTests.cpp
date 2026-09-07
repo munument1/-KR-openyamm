@@ -119,6 +119,35 @@ TEST_CASE("House service results localize every fixed player message")
     }
 }
 
+TEST_CASE("Shop appraisal dialogue keeps every item and price in Korean")
+{
+    const std::pair<const char *, const char *> messages[] = {
+        {"Sorry, I'm not interested in that item.", "죄송하지만 그 아이템에는 관심이 없습니다."},
+        {"Hmph. Looks like junk to me. <yawn> I suppose I could give you oh, say, 25 gold pieces for it.",
+            "흠. 내 눈에는 고물로밖에 안 보이는군요. <하품> 그래도 25골드 정도는 드릴 수 있겠네요."},
+        {"Normally, I do my best to buy a Sword for 100 gold. But I can see you know it's worth 200. Agreed?",
+            "보통 Sword은(는) 100골드에 사려고 합니다. 하지만 실제 가치가 200골드라는 걸 알고 계시는군요. 이 가격에 거래하시겠습니까?"},
+        {"Usually I try to buy something like this Sword for 100 gold. I'll give you 75 for it.",
+            "보통 이런 Sword은(는) 100골드 정도에 사지만, 당신에게는 75골드를 드리겠습니다."},
+        {"Sorry, I can't identify a Sword because I'm a Armorer. I don't know anything about those.",
+            "죄송하지만 저는 Armorer이라 Sword을(를) 감정할 수 없습니다. 그 물건은 잘 모릅니다."},
+        {"I'll tell you what it is for 125 gold pieces.", "125골드에 감정해 드리겠습니다."},
+        {"Sorry, I have no idea how to fix a Sword.", "죄송하지만 Sword은(는) 어떻게 수리하는지 모르겠습니다."},
+        {"This Sword is nearly beyond repair. It will take a superhuman effort to fix it! I'll have to charge 500 gold.",
+            "이 Sword은(는) 거의 수리 불능 상태군요. 고치려면 엄청난 작업이 필요합니다! 비용은 500골드입니다."},
+        {"Hmmm. Nothing a little glue and polish won't fix, I warrant. My policy is to ask for 100 gold, but I can go as low as 75.",
+            "흠, 접착제와 광택제만 있으면 고칠 수 있겠군요. 보통 100골드를 받지만, 75골드까지 깎아 드리죠."},
+        {"This Sword is in bad shape, but it can be fixed. I usually want 100 gold, but for you I will charge a mere 75.",
+            "이 Sword은(는) 상태가 나쁘지만 수리는 가능합니다. 보통 100골드를 받지만 당신에게는 75골드만 받겠습니다."},
+    };
+
+    for (const auto &[source, target] : messages)
+    {
+        CAPTURE(source);
+        CHECK(koreanRuntimeTextOverride(source) == target);
+    }
+}
+
 TEST_CASE("Monster inspection translates each effect before joining the list")
 {
     using OpenYAMM::Game::KoreanRuntimeText::actorEffectsText;
