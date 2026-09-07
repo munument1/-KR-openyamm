@@ -1,0 +1,51 @@
+name: One-shot Korean NPC display name fix
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/korean-runtime-source-fix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-source:
+    if: github.event.head_commit.message == 'Add one-shot Korean NPC display name fix'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out Korean branch
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+
+      - name: Remove English article from generated NPC display names
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('game/outdoor/OutdoorInteractionController.cpp')
+          source = path.read_text(encoding='utf-8')
+          old = 'return resolution->generatedName + " the " + pProfession->profession;'
+          new = 'return resolution->generatedName + " " + pProfession->profession;'
+          count = source.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one NPC Name the Profession composition, found {count}')
+          path.write_text(source.replace(old, new), encoding='utf-8')
+          PY
+          grep -F 'return resolution->generatedName + " " + pProfession->profession;' game/outdoor/OutdoorInteractionController.cpp
+          if grep -F 'return resolution->generatedName + " the " + pProfession->profession;' game/outdoor/OutdoorInteractionController.cpp; then
+            echo 'English NPC article is still present.' >&2
+            exit 1
+          fi
+
+      - name: Commit source fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/outdoor/OutdoorInteractionController.cpp
+          git diff --cached --check
+          git commit -m "Fix Korean NPC name and profession display"
+          git push origin HEAD:korean-localization
