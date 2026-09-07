@@ -6,6 +6,7 @@ on:
       - korean-localization
     paths:
       - "korean/**"
+      - "game/ui/screens/**"
       - "game/items/ItemEnchantTables.cpp"
       - "game/tables/CharacterInspectTable.cpp"
       - "assets_dev/engine/data_tables/**"
@@ -37,6 +38,9 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /korean/**
+            /game/ui/screens/**
+            /game/items/ItemEnchantTables.cpp
+            /game/tables/CharacterInspectTable.cpp
             /assets_dev/engine/data_tables/**
             /assets_dev/worlds/mm6/_legacy/events/**
             /assets_dev/worlds/mm6/events/maps/**
