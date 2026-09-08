@@ -9,14 +9,24 @@ class HiredNpcSkillIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.repo_root = Path(__file__).resolve().parents[2]
-        cls.party = (cls.repo_root / "game/party/Party.cpp").read_text(encoding="utf-8")
-        cls.follower = (cls.repo_root / "game/gameplay/NpcFollowerRuntime.cpp").read_text(encoding="utf-8")
-        cls.mechanics = (cls.repo_root / "game/gameplay/GameMechanics.cpp").read_text(encoding="utf-8")
-        cls.prices = (cls.repo_root / "game/items/PriceCalculator.cpp").read_text(encoding="utf-8")
-        cls.events = (cls.repo_root / "game/events/EventRuntime.cpp").read_text(encoding="utf-8")
-        cls.houses = (cls.repo_root / "game/gameplay/HouseServiceRuntime.cpp").read_text(encoding="utf-8")
-        cls.spells = (cls.repo_root / "game/party/PartySpellSystem.cpp").read_text(encoding="utf-8")
-        cls.combat = (cls.repo_root / "game/gameplay/GameplayCombatController.cpp").read_text(encoding="utf-8")
+        source_paths = {
+            "party": "game/party/Party.cpp",
+            "follower": "game/gameplay/NpcFollowerRuntime.cpp",
+            "mechanics": "game/gameplay/GameMechanics.cpp",
+            "prices": "game/items/PriceCalculator.cpp",
+            "events": "game/events/EventRuntime.cpp",
+            "houses": "game/gameplay/HouseServiceRuntime.cpp",
+            "spells": "game/party/PartySpellSystem.cpp",
+            "combat": "game/gameplay/GameplayCombatController.cpp",
+        }
+        missing = [relative for relative in source_paths.values() if not (cls.repo_root / relative).is_file()]
+        if missing:
+            raise unittest.SkipTest(
+                "hired NPC gameplay integration sources are not present in this sparse checkout: "
+                + ", ".join(missing)
+            )
+        for attribute, relative in source_paths.items():
+            setattr(cls, attribute, (cls.repo_root / relative).read_text(encoding="utf-8"))
 
     def test_learning_bonus_is_flat_and_uses_reviewed_values(self) -> None:
         self.assertIn('hiredNpcSkillBonus(followerRuntimeState, "Learning")', self.party)
