@@ -26,30 +26,25 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
+          # Hareck's Leather: the English item data says Stealing +5, Disarm +5,
+          # Water Walking.  Keep Water Walking, but fix the runtime's accidental
+          # Unarmed +5 bonus to Stealing +5.
           runtime = Path('game/items/ItemEnchantRuntime.cpp')
           text = runtime.read_text(encoding='utf-8')
-          old = '''        case 1318:
-                      member.magicalBonuses.luck += 50;
-                      addAllMagicResistances(member, -10);
-                      addSkillBonus(member, "DisarmTraps", 5);
-                      addSkillBonus(member, "Unarmed", 5);
-                      member.waterWalking = true;
-                      break;
-          '''.replace('\n          ', '\n')
-          new = '''        case 1318:
-                      member.magicalBonuses.luck += 50;
-                      addAllMagicResistances(member, -10);
-                      addSkillBonus(member, "DisarmTraps", 5);
-                      addSkillBonus(member, "Stealing", 5);
-                      member.waterWalking = true;
-                      break;
-          '''.replace('\n          ', '\n')
-          if new not in text:
-              if old not in text:
-                  raise SystemExit('Hareck item runtime anchor not found')
-              text = text.replace(old, new, 1)
+          start = text.index('        case 1318:')
+          end = text.index('            break;', start)
+          block = text[start:end]
+          old = '            addSkillBonus(member, "Unarmed", 5);'
+          new = '            addSkillBonus(member, "Stealing", 5);'
+          if new not in block:
+              if old not in block:
+                  raise SystemExit('Hareck item runtime skill anchor not found')
+              block = block.replace(old, new, 1)
+              text = text[:start] + block + text[end:]
               runtime.write_text(text, encoding='utf-8')
 
+          # Keep the directly-reviewed stats/skills source aligned with the
+          # generated catalog/overlay correction pass.
           stats = Path('korean/translations/stats_skills_reviewed.json')
           text = stats.read_text(encoding='utf-8')
           replacements = (
@@ -66,6 +61,48 @@ jobs:
                   raise SystemExit(f'stats/skills anchor not found: {old}')
               text = text.replace(old, new, 1)
           stats.write_text(text, encoding='utf-8')
+
+          # Polish context-sensitive lore normalization so canonical terms do
+          # not create awkward Korean after source-aware replacement.
+          feedback = Path('korean/tools/apply_mmmerge_116a_feedback.py')
+          text = feedback.read_text(encoding='utf-8')
+          text = text.replace(
+              '(121, "Notes"): "정교하게 제작된 드래곤 가죽 벨트는',
+              '(121, "Notes"): "정교하게 제작된 드래곤의 가죽 벨트는',
+              1,
+          )
+          marker = 'MEKORIG_VARIANTS = (\n    "메코리그 더 블라인드",\n    "맹인 메코리그",\n    "눈먼 메코리그",\n)\n\n'
+          repairs = '''CONTEXT_REPAIRS: tuple[tuple[str, str], ...] = (
+              ("침묵의 시대의 모든 유물처럼", "침묵의 시대 이전의 모든 유물처럼"),
+              ("침묵의 시대 12년 전에", "침묵의 시대가 시작되기 12년 전에"),
+              ("침묵의 시대 이전 시대의", "침묵의 시대 이전의"),
+              ("경이의 시대의 장비", "경이의 시대에 만들어진 장비"),
+              ("경이의 시대의 무기인", "경이의 시대에 만들어진 무기인"),
+              ("경이의 시대의 유물", "경이의 시대에 만들어진 유물"),
+              ("장로인 장님 메코리그 본인", "거장 장님 메코리그 본인"),
+              ("거대한 대장간들이 침묵의 시대에 잠식되기 직전에", "침묵의 시대가 닥쳐 거대한 대장간들이 무너지기 직전에"),
+              ("침묵의 시대가 끝난 후 수년이 지나", "침묵의 시대 이후 수년이 지나"),
+          )
+
+          '''.replace('\n          ', '\n')
+          if 'CONTEXT_REPAIRS:' not in text:
+              if marker not in text:
+                  raise SystemExit('feedback context-repair insertion anchor not found')
+              text = text.replace(marker, marker + repairs, 1)
+
+          apply_anchor = '''            if "Mekorig the Blind" in source:
+                          for variant in MEKORIG_VARIANTS:
+                              translation = _replace(translation, variant, "장님 메코리그", counts)
+          '''.replace('\n          ', '\n')
+          apply_new = apply_anchor + '''
+                      for old, new in CONTEXT_REPAIRS:
+                          translation = _replace(translation, old, new, counts)
+          '''.replace('\n          ', '\n')
+          if 'for old, new in CONTEXT_REPAIRS:' not in text:
+              if apply_anchor not in text:
+                  raise SystemExit('feedback context-repair application anchor not found')
+              text = text.replace(apply_anchor, apply_new, 1)
+          feedback.write_text(text, encoding='utf-8')
           PY
 
           python3 - <<'PY'
@@ -82,6 +119,10 @@ jobs:
           assert '"display_name": "원거리 공격 보너스"' in stats
           assert '"display_name": "원거리 피해"' in stats
           assert '"grandmaster": "방패 주문 효과 상시 부여"' in stats
+
+          feedback = Path('korean/tools/apply_mmmerge_116a_feedback.py').read_text(encoding='utf-8')
+          assert 'CONTEXT_REPAIRS:' in feedback
+          assert '드래곤의 가죽 벨트' in feedback
           PY
 
           python3 -m unittest korean.tools.test_mmmerge_116a_feedback -v
@@ -89,7 +130,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add game/items/ItemEnchantRuntime.cpp korean/translations/stats_skills_reviewed.json
+          git add game/items/ItemEnchantRuntime.cpp korean/translations/stats_skills_reviewed.json korean/tools/apply_mmmerge_116a_feedback.py
           if git diff --cached --quiet; then
             echo 'No source changes needed'
             exit 0
