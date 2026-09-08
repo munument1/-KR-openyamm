@@ -1119,7 +1119,7 @@ void applyRareItemBonus(Character &member, uint32_t itemId)
             member.magicalBonuses.luck += 50;
             addAllMagicResistances(member, -10);
             addSkillBonus(member, "DisarmTraps", 5);
-            addSkillBonus(member, "Unarmed", 5);
+            addSkillBonus(member, "Stealing", 5);
             member.waterWalking = true;
             break;
 
