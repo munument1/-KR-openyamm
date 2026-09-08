@@ -1,0 +1,58 @@
+name: One-shot release OpenYAMM 0.11-korean-r8
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/release-korean-r8.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release:
+    if: github.event.head_commit.message == 'Trigger OpenYAMM 0.11-korean-r8 release'
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: 0.11-korean-r8
+      RELEASE_SHA: b79d37cd79fec696e791c90d8cff24bff38fd18e
+    steps:
+      - name: Verify release target
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_SHA" >/dev/null
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $RELEASE_TAG already exists."
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $RELEASE_TAG already exists."
+            exit 1
+          fi
+
+      - name: Create release tag at validated commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            --method POST \
+            "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$RELEASE_TAG" \
+            -f sha="$RELEASE_SHA" \
+            >/dev/null
+          resolved="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
+          test "$resolved" = "$RELEASE_SHA"
+
+      - name: Dispatch tagged package build
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run nightly.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "$RELEASE_TAG" \
+            -f publish_release=true
+          echo "Dispatched Package builds for $RELEASE_TAG at $RELEASE_SHA"
