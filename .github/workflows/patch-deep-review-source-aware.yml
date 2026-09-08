@@ -34,20 +34,10 @@ jobs:
           path = Path('korean/tools/apply_deep_review_corrections.py')
           text = path.read_text(encoding='utf-8')
 
-          text = text.replace(
-              'import json\nfrom collections import Counter\n',
-              'import json\nimport re\nfrom collections import Counter\n',
-              1,
-          )
+          if 'import re\n' not in text:
+              text = text.replace('import json\n', 'import json\nimport re\n', 1)
 
-          text = text.replace(
-              '        ("신체 기반", "육체 기반"),\n        ("장착한 활로", "장착한 원거리 무기로"),',
-              '        ("신체 기반", "육체 기반"),\n        ("대기 피해", "공기 피해"),\n        ("신체 피해", "육체 피해"),\n        ("장착한 활로", "장착한 원거리 무기로"),',
-              1,
-          )
-
-          anchor = '''def item_context_corrections(source: str, translation: str, counts: Counter[str]) -> str:
-          '''
+          helper_anchor = 'def item_context_corrections(source: str, translation: str, counts: Counter[str]) -> str:\n'
           helper = '''def source_has_word(source: str, word: str) -> bool:
               return re.search(r"\\b" + re.escape(word) + r"\\b", source) is not None
 
@@ -59,9 +49,6 @@ jobs:
               counts: Counter[str],
           ) -> str:
               result = translation
-
-              # Canonical character-stat terminology. Only touch a Korean term
-              # when the corresponding English semantic token is present.
               for english, old, new in (
                   ("Intellect", "지력", "지능"),
                   ("Accuracy", "정확도", "적중률"),
@@ -71,12 +58,8 @@ jobs:
                   if source_has_word(source, english):
                       result = replace_all(result, ((old, new),), counts)
 
-              # In non-item tables Luck generally denotes the named character
-              # stat. Item prose can use natural-language 행운, so item handling
-              # keeps it contextual and changes only mechanical +/- forms.
               if source_name != "items.txt" and source_has_word(source, "Luck"):
                   result = replace_all(result, (("행운", "운"),), counts)
-
               if source_has_word(source, "Air"):
                   result = replace_all(result, (("대기", "공기"),), counts)
               if source_has_word(source, "Body"):
@@ -85,64 +68,33 @@ jobs:
                   result = replace_all(result, (("흙 마법", "대지 마법"),), counts)
               if source_has_word(source, "Resistance") or source_has_word(source, "Resistances"):
                   result = replace_all(result, (("저항력", "저항"),), counts)
-
               return result
 
 
-          def item_context_corrections(source: str, translation: str, counts: Counter[str]) -> str:
           '''
           if 'def source_aware_terminology(' not in text:
-              if text.count(anchor) != 1:
-                  raise SystemExit('item_context_corrections anchor not found exactly once')
-              text = text.replace(anchor, helper, 1)
+              if helper_anchor not in text:
+                  raise SystemExit('item_context_corrections function not found')
+              text = text.replace(helper_anchor, helper + helper_anchor, 1)
 
-          text = text.replace(
-              '''    if "Accuracy" in source:
-                  result = replace_all(result, (("정확도", "적중률"),), counts)
-              if "Luck" in source:
-          ''',
-              '''    if "Accuracy" in source:
-                  result = replace_all(result, (("정확도", "적중률"),), counts)
-              if "Endurance" in source:
-                  result = replace_all(result, (("인내력", "체력"),), counts)
-              if "Speed" in source:
-                  result = replace_all(result, (("민첩성", "속도"),), counts)
-              if "Luck" in source:
-          ''',
-              1,
-          )
+          call_anchor = '    corrected = replace_all(corrected, TABLE_REPLACEMENTS.get(source_name, ()), counts)\n\n    if source_name == "items.txt":\n'
+          call_replacement = '    corrected = replace_all(corrected, TABLE_REPLACEMENTS.get(source_name, ()), counts)\n    corrected = source_aware_terminology(source_name, source, corrected, counts)\n\n    if source_name == "items.txt":\n'
+          if 'corrected = source_aware_terminology(' not in text:
+              if call_anchor not in text:
+                  raise SystemExit('catalog correction call anchor not found')
+              text = text.replace(call_anchor, call_replacement, 1)
 
-          text = text.replace(
-              '''    corrected = replace_all(translation, BROKEN_WORD_REPLACEMENTS, counts)
-              corrected = replace_all(corrected, TABLE_REPLACEMENTS.get(source_name, ()), counts)
-
-              if source_name == "items.txt":
-          ''',
-              '''    corrected = replace_all(translation, BROKEN_WORD_REPLACEMENTS, counts)
-              corrected = replace_all(corrected, TABLE_REPLACEMENTS.get(source_name, ()), counts)
-              corrected = source_aware_terminology(source_name, source, corrected, counts)
-
-              if source_name == "items.txt":
-          ''',
-              1,
-          )
-
-          # Guard Wyrm Spitter while also normalizing its Endurance/Swift text.
-          marker = '''    (507, "Notes"): '''
+          item_marker = '    (507, "Notes"): '
           if '(506, "Notes")' not in text:
-              insertion = '''    (506, "Notes"): "(체력 +20, 드래곤 사냥, 빠른 공격 회복 속도) 역대 최고의 드래곤 사냥꾼으로 손꼽히는 라이언 스메들리 경은 모든 원정에서 이 강력한 창을 휴대하며, 이 창만 있으면 어떤 드래곤과도 일대일로 싸워 이길 수 있다고 자부했습니다. 그의 주장은 사실이었지만, 결국 그는 섀도우매시 고개에서 매복 공격을 가한 12마리가 넘는 드래곤들에게 목숨을 잃었습니다.",
-              '''
-              if text.count(marker) != 1:
-                  raise SystemExit('item 507 override marker not found exactly once')
-              text = text.replace(marker, insertion + marker, 1)
+              if item_marker not in text:
+                  raise SystemExit('item 507 override marker not found')
+              insertion = '    (506, "Notes"): "(체력 +20, 드래곤 사냥, 빠른 공격 회복 속도) 역대 최고의 드래곤 사냥꾼으로 손꼽히는 라이언 스메들리 경은 모든 원정에서 이 강력한 창을 휴대하며, 이 창만 있으면 어떤 드래곤과도 일대일로 싸워 이길 수 있다고 자부했습니다. 그의 주장은 사실이었지만, 결국 그는 섀도우매시 고개에서 매복 공격을 가한 12마리가 넘는 드래곤들에게 목숨을 잃었습니다.",\n'
+              text = text.replace(item_marker, insertion + item_marker, 1)
 
-          # Validation: source-semantic terms must never regress to alternates.
-          validation_anchor = '''        source_name = Path(str(entry.get("source_file", ""))).name
-              if source_name == "items.txt":
-          '''
-          validation_insert = '''        source_name = Path(str(entry.get("source_file", ""))).name
+          validate_anchor = '        source_name = Path(str(entry.get("source_file", ""))).name\n        if source_name == "items.txt":\n'
+          validate_replacement = '''        source_name = Path(str(entry.get("source_file", ""))).name
               source = str(entry.get("source", ""))
-              stale_by_source = (
+              for english, stale in (
                   ("Intellect", "지력"),
                   ("Accuracy", "정확도"),
                   ("Endurance", "인내력"),
@@ -151,30 +103,102 @@ jobs:
                   ("Air", "대기 저항"),
                   ("Body", "신체 마법"),
                   ("Body", "신체 저항"),
-              )
-              for english, stale in stale_by_source:
+              ):
                   if source_has_word(source, english) and stale in translation:
                       errors.append(f"{entry.get('key', '<unknown>')}: stale {stale!r} for source term {english}")
-
               if source_name == "items.txt":
           '''
-          if 'stale_by_source = (' not in text:
-              if text.count(validation_anchor) != 1:
-                  raise SystemExit('validation source_name anchor not found exactly once')
-              text = text.replace(validation_anchor, validation_insert, 1)
+          if 'stale in (' not in text:
+              if validate_anchor not in text:
+                  raise SystemExit('validate_catalog source_name anchor not found')
+              text = text.replace(validate_anchor, validate_replacement, 1)
+
+          # Keep the generated items overlay byte-for-byte aligned with the
+          # corrected catalog fields. This propagates source-aware fixes into
+          # the actual game package instead of leaving them catalog-only.
+          text = text.replace(
+              'def correct_items_tsv(text: str) -> tuple[str, Counter[str]]:\n',
+              'def correct_items_tsv(text: str, catalog_item_fields: dict[tuple[int, str], str] | None = None) -> tuple[str, Counter[str]]:\n',
+              1,
+          )
+          sync_anchor = '''        # The generated TSV no longer carries the English note next to the
+              # Korean note, so exact item overrides are authoritative here.
+              for field, column in (("Name", name_column), ("Notes", notes_column)):
+                  override = ITEM_FIELD_OVERRIDES.get((item_id, field))
+                  if override is not None and row[column] != override:
+                      row[column] = override
+                      counts[f"item:{item_id}:{field}"] += 1
+          '''
+          sync_replacement = '''        # The generated TSV no longer carries the English note next to the
+              # Korean note. Synchronize every reviewed catalog field first,
+              # then retain exact overrides as a final authority.
+              for field, column in (("Name", name_column), ("Notes", notes_column)):
+                  catalog_value = (catalog_item_fields or {}).get((item_id, field))
+                  if catalog_value is not None and row[column] != catalog_value:
+                      row[column] = catalog_value
+                      counts[f"catalog-sync:{item_id}:{field}"] += 1
+                  override = ITEM_FIELD_OVERRIDES.get((item_id, field))
+                  if override is not None and row[column] != override:
+                      row[column] = override
+                      counts[f"item:{item_id}:{field}"] += 1
+          '''
+          if 'catalog-sync:' not in text:
+              if sync_anchor not in text:
+                  raise SystemExit('items TSV sync anchor not found')
+              text = text.replace(sync_anchor, sync_replacement, 1)
+
+          text = text.replace(
+              'def correct_overlay_text(path: Path, text: str) -> tuple[str, Counter[str]]:\n',
+              'def correct_overlay_text(path: Path, text: str, catalog_item_fields: dict[tuple[int, str], str] | None = None) -> tuple[str, Counter[str]]:\n',
+              1,
+          )
+          text = text.replace(
+              '        return correct_items_tsv(text)\n',
+              '        return correct_items_tsv(text, catalog_item_fields)\n',
+              1,
+          )
+
+          mapping_anchor = '    validate_catalog(catalog)\n    catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")\n\n    overlay_paths: list[Path] = []\n'
+          mapping_replacement = '''    validate_catalog(catalog)
+              catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+
+              catalog_item_fields: dict[tuple[int, str], str] = {}
+              for entry in catalog.get("entries", []):
+                  if Path(str(entry.get("source_file", ""))).name != "items.txt":
+                      continue
+                  try:
+                      item_id = int(entry.get("record_id"))
+                  except (TypeError, ValueError):
+                      continue
+                  field = str(entry.get("field", ""))
+                  translation = entry.get("translation", "")
+                  if field in {"Name", "Notes"} and isinstance(translation, str):
+                      catalog_item_fields[(item_id, field)] = translation
+
+              overlay_paths: list[Path] = []
+          '''
+          if 'catalog_item_fields: dict[' not in text:
+              if mapping_anchor not in text:
+                  raise SystemExit('catalog mapping anchor not found')
+              text = text.replace(mapping_anchor, mapping_replacement, 1)
+
+          text = text.replace(
+              '        corrected, counts = correct_overlay_text(path, original)\n',
+              '        corrected, counts = correct_overlay_text(path, original, catalog_item_fields)\n',
+              1,
+          )
 
           path.write_text(text, encoding='utf-8')
 
           reviewed = Path('korean/translations/stats_skills_reviewed.json')
-          text = reviewed.read_text(encoding='utf-8')
-          text = text.replace('대기 피해', '공기 피해')
-          text = text.replace('신체 피해', '육체 피해')
-          reviewed.write_text(text, encoding='utf-8')
+          reviewed_text = reviewed.read_text(encoding='utf-8')
+          reviewed_text = reviewed_text.replace('대기 피해', '공기 피해')
+          reviewed_text = reviewed_text.replace('신체 피해', '육체 피해')
+          reviewed.write_text(reviewed_text, encoding='utf-8')
 
           test_path = Path('korean/tools/test_deep_review_corrections.py')
           test = test_path.read_text(encoding='utf-8')
-          anchor = '''    def test_bulk_replacement_corruption_is_repaired(self) -> None:
-          '''
+          test_anchor = '    def test_bulk_replacement_corruption_is_repaired(self) -> None:\n'
           addition = '''    def test_source_aware_stat_terms_survive_upstream_variants(self) -> None:
               samples = (
                   ("Endurance +20", "인내력 +20", "체력 +20"),
@@ -190,22 +214,21 @@ jobs:
                   actual = review.source_aware_terminology("Global.txt", source, translation, counts)
                   self.assertEqual(actual, expected)
 
-              # Natural item prose keeps 행운 unless it is a mechanical +/- stat.
               counts = review.Counter()
               item = review.source_aware_terminology("items.txt", "+20 Luck; luck of the devil", "운 +20, 악마의 행운", counts)
               self.assertEqual(item, "운 +20, 악마의 행운")
 
-              def test_bulk_replacement_corruption_is_repaired(self) -> None:
           '''
           if 'test_source_aware_stat_terms_survive_upstream_variants' not in test:
-              if test.count(anchor) != 1:
-                  raise SystemExit('test insertion anchor not found exactly once')
-              test = test.replace(anchor, addition, 1)
+              if test_anchor not in test:
+                  raise SystemExit('test insertion anchor not found')
+              test = test.replace(test_anchor, addition + test_anchor, 1)
           test_path.write_text(test, encoding='utf-8')
           PY
 
           python3 -m json.tool korean/translations/stats_skills_reviewed.json >/dev/null
           python3 korean/tools/test_deep_review_corrections.py -v
+          python3 -m py_compile korean/tools/apply_deep_review_corrections.py
           git diff --check
 
       - name: Commit source-aware normalization
