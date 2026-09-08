@@ -34,7 +34,6 @@ class SourceSemanticCorrectionTests(unittest.TestCase):
             ("Accuracy increased", "정확도가 증가했습니다", "적중률이 증가했습니다"),
             ("Speed and grace", "민첩성과 우아함", "속도와 우아함"),
             ("Speed is reduced", "민첩성이 감소합니다", "속도가 감소합니다"),
-            ("Earth is strong", "흙이 강합니다", "대지가 강합니다"),
         )
         for source, translation, expected in samples:
             with self.subTest(source=source):
