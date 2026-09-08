@@ -1,0 +1,53 @@
+name: One-shot hired NPC effect call audit
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/audit-hired-npc-effect-calls.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/**
+      - name: Audit all hired NPC effect helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          source = Path('game/gameplay/NpcFollowerRuntime.cpp').read_text(encoding='utf-8')
+          names = []
+          for match in re.finditer(r'\n(?:int|uint32_t|bool)\s+(hiredNpc[A-Za-z0-9_]+)\s*\(', source):
+              name = match.group(1)
+              if name not in names:
+                  names.append(name)
+
+          all_files = list(Path('game').rglob('*.cpp')) + list(Path('game').rglob('*.h'))
+          for name in names:
+              refs = []
+              for path in all_files:
+                  if path.as_posix() == 'game/gameplay/NpcFollowerRuntime.cpp':
+                      continue
+                  text = path.read_text(encoding='utf-8', errors='replace')
+                  count = text.count(name)
+                  if count:
+                      refs.append((path.as_posix(), count))
+              print(f'{name}: {sum(c for _, c in refs)} external reference(s)')
+              for path, count in refs:
+                  print(f'  {path}: {count}')
+          PY
