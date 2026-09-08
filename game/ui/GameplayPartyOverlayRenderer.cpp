@@ -1117,7 +1117,8 @@ void renderHudLines(
     const std::vector<std::string> &lines,
     float x,
     float y,
-    float fontScale)
+    float fontScale,
+    bool drawShadow = true)
 {
     bgfx::TextureHandle coloredMainTextureHandle = context.ensureHudFontMainTextureColor(font, colorAbgr);
 
@@ -1131,7 +1132,10 @@ void renderHudLines(
     for (size_t index = 0; index < lines.size(); ++index)
     {
         const float lineY = y + static_cast<float>(index) * lineHeight;
-        context.renderHudFontLayer(font, font.shadowTextureHandle, lines[index], x, lineY, fontScale);
+        if (drawShadow)
+        {
+            context.renderHudFontLayer(font, font.shadowTextureHandle, lines[index], x, lineY, fontScale);
+        }
         context.renderHudFontLayer(font, coloredMainTextureHandle, lines[index], x, lineY, fontScale);
     }
 }
@@ -4610,7 +4614,7 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
 
         if (!bodyLines.empty())
         {
-            renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, bodyLines, textResolved->x, textResolved->y, bodyFontScale);
+            renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, bodyLines, textResolved->x, textResolved->y, bodyFontScale, false);
         }
     }
 
