@@ -39,27 +39,9 @@ class SourceSemanticCorrectionTests(unittest.TestCase):
     def test_catalog_items_are_synchronized_to_overlay(self) -> None:
         catalog = {
             "entries": [
-                {
-                    "source_file": "assets_dev/engine/data_tables/items.txt",
-                    "record_id": 506,
-                    "field": "Name",
-                    "source": "Wyrm Spitter",
-                    "translation": "웜 스피터",
-                },
-                {
-                    "source_file": "assets_dev/engine/data_tables/items.txt",
-                    "record_id": 506,
-                    "field": "NotIdentifiedName",
-                    "source": "Spear",
-                    "translation": "창",
-                },
-                {
-                    "source_file": "assets_dev/engine/data_tables/items.txt",
-                    "record_id": 506,
-                    "field": "Notes",
-                    "source": "Endurance +20, Swift",
-                    "translation": "체력 +20, 빠른 공격 회복 속도",
-                },
+                {"source_file": "assets_dev/engine/data_tables/items.txt", "record_id": 506, "field": "Name", "source": "Wyrm Spitter", "translation": "웜 스피터"},
+                {"source_file": "assets_dev/engine/data_tables/items.txt", "record_id": 506, "field": "NotIdentifiedName", "source": "Spear", "translation": "창"},
+                {"source_file": "assets_dev/engine/data_tables/items.txt", "record_id": 506, "field": "Notes", "source": "Endurance +20, Swift", "translation": "체력 +20, 빠른 공격 회복 속도"},
             ]
         }
         source = (
@@ -103,8 +85,40 @@ class SourceSemanticCorrectionTests(unittest.TestCase):
             changed = semantic.sync_tabular_overlay(path, fields, {"text": "Autonote Text"})
             corrected = path.read_text(encoding="utf-8")
         self.assertEqual(changed, 1)
-        self.assertIn("일시적으로 적중률 10 증가", corrected)
+        self.assertIn("407\t일시적으로 적중률 10 증가", corrected)
         self.assertNotIn("정확도 10 증가", corrected)
+
+    def test_global_legacy_header_never_overwrites_record_id(self) -> None:
+        catalog = {
+            "entries": [
+                {
+                    "source_file": "assets_dev/engine/data_tables/english/Global.txt",
+                    "record_id": 1,
+                    "field": "text",
+                    "source": "Accuracy",
+                    "translation": "적중률",
+                },
+                {
+                    "source_file": "assets_dev/engine/data_tables/english/Global.txt",
+                    "record_id": 75,
+                    "field": "text",
+                    "source": "Endurance",
+                    "translation": "체력",
+                },
+            ]
+        }
+        source = "Global Text\t\n\n0\t방어\n1\t정확도\n75\t인내력\n"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "Global.txt"
+            path.write_text(source, encoding="utf-8")
+            fields = semantic.catalog_fields_for_table(catalog, "Global.txt", {"text"})
+            changed = semantic.sync_tabular_overlay(path, fields, {"text": 1})
+            corrected = path.read_text(encoding="utf-8")
+        self.assertEqual(changed, 2)
+        self.assertIn("1\t적중률", corrected)
+        self.assertIn("75\t체력", corrected)
+        self.assertNotIn("적중률\t정확도", corrected)
+        self.assertNotIn("체력\t인내력", corrected)
 
     def test_validation_rejects_stale_semantic_term(self) -> None:
         catalog = {
