@@ -1,0 +1,39 @@
+name: Temporary apply record hover fixes
+on:
+  push:
+    branches: [tmp-record-hover-fixes]
+    paths: [".github/workflows/tmp-apply-record-hover-fixes.yml"]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Apply record body shadow fix'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: tmp-record-hover-fixes
+          fetch-depth: 1
+      - name: Remove shadow from journal parchment body text
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('game/ui/GameplayPartyOverlayRenderer.cpp')
+          text = path.read_text(encoding='utf-8')
+          old = 'renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale);'
+          new = 'renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale, false);'
+          count = text.count(old)
+          if count != 2:
+              raise SystemExit(f'expected exactly 2 shadowed journal stacked-body calls, found {count}')
+          text = text.replace(old, new)
+          path.write_text(text, encoding='utf-8')
+          PY
+          python3 -m unittest korean.tools.test_record_hover_localization korean.tools.test_sync_map_target_names -v
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add game/ui/GameplayPartyOverlayRenderer.cpp
+          git commit -m 'fix(korean): remove journal body text shadow'
+          git push origin HEAD:tmp-record-hover-fixes
