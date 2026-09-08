@@ -52,6 +52,7 @@ def apply_reviewed_feedback_if_available(repo_root: Path) -> None:
     correction_tools = (
         repo_root / "korean" / "tools" / "apply_review_feedback_corrections.py",
         repo_root / "korean" / "tools" / "apply_deep_review_corrections.py",
+        repo_root / "korean" / "tools" / "apply_source_semantic_corrections.py",
     )
     for correction_tool in correction_tools:
         if not correction_tool.is_file():
