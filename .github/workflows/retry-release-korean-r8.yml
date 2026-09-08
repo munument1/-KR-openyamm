@@ -1,0 +1,54 @@
+name: One-shot retry OpenYAMM 0.11-korean-r8
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/retry-release-korean-r8.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release:
+    if: github.event.head_commit.message == 'Retry OpenYAMM 0.11-korean-r8 release'
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: 0.11-korean-r8
+      RELEASE_SHA: 98efc6f60160db9867784ca4a427c55e8f94801d
+    steps:
+      - name: Verify release has not been published
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_SHA" >/dev/null
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $RELEASE_TAG already exists."
+            exit 1
+          fi
+
+      - name: Move release tag to validated sparse-checkout fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            --method PATCH \
+            "repos/$GITHUB_REPOSITORY/git/refs/tags/$RELEASE_TAG" \
+            -f sha="$RELEASE_SHA" \
+            -F force=true \
+            >/dev/null
+          resolved="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
+          test "$resolved" = "$RELEASE_SHA"
+
+      - name: Dispatch tagged package build
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run nightly.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "$RELEASE_TAG" \
+            -f publish_release=true
+          echo "Dispatched Package builds for $RELEASE_TAG at $RELEASE_SHA"
