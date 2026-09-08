@@ -1,0 +1,193 @@
+name: One-shot cross-map hireling travel patcher
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/patch-cross-map-hireling-travel.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/gameplay/NpcFollowerRuntime.h
+            /game/gameplay/NpcFollowerRuntime.cpp
+            /game/gameplay/GameplayDialogController.cpp
+            /game/events/EventDialogContent.cpp
+
+      - name: Connect cross-map travel reduction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Centralize the minimum-one-day rule with the follower helper.
+          path = Path('game/gameplay/NpcFollowerRuntime.h')
+          text = path.read_text(encoding='utf-8')
+          anchor = 'int hiredNpcCrossMapDayReduction(const EventRuntimeState &eventRuntimeState);\n'
+          addition = anchor + 'int hiredNpcAdjustedCrossMapTravelDays(const EventRuntimeState &eventRuntimeState, int baseDays);\n'
+          if 'hiredNpcAdjustedCrossMapTravelDays' not in text:
+              if text.count(anchor) != 1:
+                  raise SystemExit('cross-map header anchor not found exactly once')
+              text = text.replace(anchor, addition, 1)
+          path.write_text(text, encoding='utf-8')
+
+          path = Path('game/gameplay/NpcFollowerRuntime.cpp')
+          text = path.read_text(encoding='utf-8')
+          anchor = '''int hiredNpcRestFoodReduction(const EventRuntimeState &eventRuntimeState)
+          {
+          '''
+          helper = '''int hiredNpcAdjustedCrossMapTravelDays(const EventRuntimeState &eventRuntimeState, int baseDays)
+          {
+              if (baseDays <= 0)
+              {
+                  return 0;
+              }
+
+              return std::max(1, baseDays - hiredNpcCrossMapDayReduction(eventRuntimeState));
+          }
+
+          int hiredNpcRestFoodReduction(const EventRuntimeState &eventRuntimeState)
+          {
+          '''
+          if 'int hiredNpcAdjustedCrossMapTravelDays' not in text:
+              if text.count(anchor) != 1:
+                  raise SystemExit('cross-map implementation anchor not found exactly once')
+              text = text.replace(anchor, helper, 1)
+          path.write_text(text, encoding='utf-8')
+
+          # Apply to classic outdoor-to-outdoor map moves and direct edge
+          # transition side effects. MM9 positioned transitions and transport
+          # houses keep their own travel rules.
+          path = Path('game/gameplay/GameplayDialogController.cpp')
+          text = path.read_text(encoding='utf-8')
+          include_anchor = '#include "game/gameplay/MercenaryRecruitmentRuntime.h"\n'
+          include_line = '#include "game/gameplay/NpcFollowerRuntime.h"\n'
+          if include_line not in text:
+              if text.count(include_anchor) != 1:
+                  raise SystemExit('GameplayDialogController include anchor not found')
+              text = text.replace(include_anchor, include_anchor + include_line, 1)
+
+          old = '''    return OutdoorMapTravelFoodCost;
+          }
+
+          const Mm9MapTransition *pendingMm9PositionedTransition(
+          '''
+          new = '''    EventRuntimeState followerRuntimeState = context.eventRuntimeState;
+              if (context.pParty != nullptr)
+              {
+                  context.pParty->applyGlobalNpcStateTo(followerRuntimeState);
+              }
+
+              return hiredNpcAdjustedCrossMapTravelDays(
+                  followerRuntimeState,
+                  OutdoorMapTravelFoodCost);
+          }
+
+          const Mm9MapTransition *pendingMm9PositionedTransition(
+          '''
+          if old not in text:
+              raise SystemExit('outdoorMapMoveTravelDays return anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    const int foodRequired = mapTransitionTravelFoodRequired(context, transition);
+              if (context.pParty != nullptr)
+              {
+                  applyTravelDaysSideEffects(
+                      *context.pParty,
+                      context.pWorldRuntime,
+                      transition.travelDays,
+                      foodRequired);
+              }
+          }
+          '''
+          new = '''    const int foodRequired = mapTransitionTravelFoodRequired(context, transition);
+              if (context.pParty != nullptr)
+              {
+                  int travelDays = transition.travelDays;
+                  if (context.pCurrentMap != nullptr
+                      && isOutdoorMapFileName(context.pCurrentMap->fileName)
+                      && isOutdoorMapFileName(transition.destinationMapFileName))
+                  {
+                      EventRuntimeState followerRuntimeState = context.eventRuntimeState;
+                      context.pParty->applyGlobalNpcStateTo(followerRuntimeState);
+                      travelDays = hiredNpcAdjustedCrossMapTravelDays(followerRuntimeState, travelDays);
+                  }
+
+                  applyTravelDaysSideEffects(
+                      *context.pParty,
+                      context.pWorldRuntime,
+                      travelDays,
+                      foodRequired);
+              }
+          }
+          '''
+          if old not in text:
+              raise SystemExit('map transition side effect anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+
+          # Keep direct edge-transition prompt text consistent with the actual
+          # reduced travel time when that legacy/direct path is used.
+          path = Path('game/events/EventDialogContent.cpp')
+          text = path.read_text(encoding='utf-8')
+          include_anchor = '#include "game/gameplay/MasteryTeacherDialog.h"\n'
+          include_line = '#include "game/gameplay/NpcFollowerRuntime.h"\n'
+          if include_line not in text:
+              if text.count(include_anchor) != 1:
+                  raise SystemExit('EventDialogContent include anchor not found')
+              text = text.replace(include_anchor, include_anchor + include_line, 1)
+
+          old = '''        if (pTransition != nullptr && pTransition->has_value() && (*pTransition)->travelDays > 0)
+                  {
+                      const int travelDays = (*pTransition)->travelDays;
+                      dialog.lines.push_back(
+          '''
+          new = '''        if (pTransition != nullptr && pTransition->has_value() && (*pTransition)->travelDays > 0)
+                  {
+                      int travelDays = (*pTransition)->travelDays;
+                      if (pCurrentMap != nullptr
+                          && pDestinationMap != nullptr
+                          && pCurrentMap->outdoorBounds.enabled
+                          && pDestinationMap->outdoorBounds.enabled)
+                      {
+                          travelDays = hiredNpcAdjustedCrossMapTravelDays(npcRuntimeState, travelDays);
+                      }
+                      dialog.lines.push_back(
+          '''
+          if old not in text:
+              raise SystemExit('transition prompt travel-days anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          git diff --check
+          grep -RIn 'hiredNpcAdjustedCrossMapTravelDays' \
+            game/gameplay/NpcFollowerRuntime.* \
+            game/gameplay/GameplayDialogController.cpp \
+            game/events/EventDialogContent.cpp
+
+      - name: Commit cross-map travel integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            game/gameplay/NpcFollowerRuntime.h \
+            game/gameplay/NpcFollowerRuntime.cpp \
+            game/gameplay/GameplayDialogController.cpp \
+            game/events/EventDialogContent.cpp
+          git commit -m "Apply hireling bonuses to cross-map travel"
+          git push origin HEAD:korean-localization
