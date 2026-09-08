@@ -1,0 +1,222 @@
+name: One-shot source-aware terminology patcher
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/patch-deep-review-source-aware.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /korean/tools/apply_deep_review_corrections.py
+            /korean/tools/test_deep_review_corrections.py
+            /korean/translations/stats_skills_reviewed.json
+
+      - name: Make terminology normalization source-aware
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('korean/tools/apply_deep_review_corrections.py')
+          text = path.read_text(encoding='utf-8')
+
+          text = text.replace(
+              'import json\nfrom collections import Counter\n',
+              'import json\nimport re\nfrom collections import Counter\n',
+              1,
+          )
+
+          text = text.replace(
+              '        ("신체 기반", "육체 기반"),\n        ("장착한 활로", "장착한 원거리 무기로"),',
+              '        ("신체 기반", "육체 기반"),\n        ("대기 피해", "공기 피해"),\n        ("신체 피해", "육체 피해"),\n        ("장착한 활로", "장착한 원거리 무기로"),',
+              1,
+          )
+
+          anchor = '''def item_context_corrections(source: str, translation: str, counts: Counter[str]) -> str:
+          '''
+          helper = '''def source_has_word(source: str, word: str) -> bool:
+              return re.search(r"\\b" + re.escape(word) + r"\\b", source) is not None
+
+
+          def source_aware_terminology(
+              source_name: str,
+              source: str,
+              translation: str,
+              counts: Counter[str],
+          ) -> str:
+              result = translation
+
+              # Canonical character-stat terminology. Only touch a Korean term
+              # when the corresponding English semantic token is present.
+              for english, old, new in (
+                  ("Intellect", "지력", "지능"),
+                  ("Accuracy", "정확도", "적중률"),
+                  ("Endurance", "인내력", "체력"),
+                  ("Speed", "민첩성", "속도"),
+              ):
+                  if source_has_word(source, english):
+                      result = replace_all(result, ((old, new),), counts)
+
+              # In non-item tables Luck generally denotes the named character
+              # stat. Item prose can use natural-language 행운, so item handling
+              # keeps it contextual and changes only mechanical +/- forms.
+              if source_name != "items.txt" and source_has_word(source, "Luck"):
+                  result = replace_all(result, (("행운", "운"),), counts)
+
+              if source_has_word(source, "Air"):
+                  result = replace_all(result, (("대기", "공기"),), counts)
+              if source_has_word(source, "Body"):
+                  result = replace_all(result, (("신체", "육체"),), counts)
+              if source_has_word(source, "Earth"):
+                  result = replace_all(result, (("흙 마법", "대지 마법"),), counts)
+              if source_has_word(source, "Resistance") or source_has_word(source, "Resistances"):
+                  result = replace_all(result, (("저항력", "저항"),), counts)
+
+              return result
+
+
+          def item_context_corrections(source: str, translation: str, counts: Counter[str]) -> str:
+          '''
+          if 'def source_aware_terminology(' not in text:
+              if text.count(anchor) != 1:
+                  raise SystemExit('item_context_corrections anchor not found exactly once')
+              text = text.replace(anchor, helper, 1)
+
+          text = text.replace(
+              '''    if "Accuracy" in source:
+                  result = replace_all(result, (("정확도", "적중률"),), counts)
+              if "Luck" in source:
+          ''',
+              '''    if "Accuracy" in source:
+                  result = replace_all(result, (("정확도", "적중률"),), counts)
+              if "Endurance" in source:
+                  result = replace_all(result, (("인내력", "체력"),), counts)
+              if "Speed" in source:
+                  result = replace_all(result, (("민첩성", "속도"),), counts)
+              if "Luck" in source:
+          ''',
+              1,
+          )
+
+          text = text.replace(
+              '''    corrected = replace_all(translation, BROKEN_WORD_REPLACEMENTS, counts)
+              corrected = replace_all(corrected, TABLE_REPLACEMENTS.get(source_name, ()), counts)
+
+              if source_name == "items.txt":
+          ''',
+              '''    corrected = replace_all(translation, BROKEN_WORD_REPLACEMENTS, counts)
+              corrected = replace_all(corrected, TABLE_REPLACEMENTS.get(source_name, ()), counts)
+              corrected = source_aware_terminology(source_name, source, corrected, counts)
+
+              if source_name == "items.txt":
+          ''',
+              1,
+          )
+
+          # Guard Wyrm Spitter while also normalizing its Endurance/Swift text.
+          marker = '''    (507, "Notes"): '''
+          if '(506, "Notes")' not in text:
+              insertion = '''    (506, "Notes"): "(체력 +20, 드래곤 사냥, 빠른 공격 회복 속도) 역대 최고의 드래곤 사냥꾼으로 손꼽히는 라이언 스메들리 경은 모든 원정에서 이 강력한 창을 휴대하며, 이 창만 있으면 어떤 드래곤과도 일대일로 싸워 이길 수 있다고 자부했습니다. 그의 주장은 사실이었지만, 결국 그는 섀도우매시 고개에서 매복 공격을 가한 12마리가 넘는 드래곤들에게 목숨을 잃었습니다.",
+              '''
+              if text.count(marker) != 1:
+                  raise SystemExit('item 507 override marker not found exactly once')
+              text = text.replace(marker, insertion + marker, 1)
+
+          # Validation: source-semantic terms must never regress to alternates.
+          validation_anchor = '''        source_name = Path(str(entry.get("source_file", ""))).name
+              if source_name == "items.txt":
+          '''
+          validation_insert = '''        source_name = Path(str(entry.get("source_file", ""))).name
+              source = str(entry.get("source", ""))
+              stale_by_source = (
+                  ("Intellect", "지력"),
+                  ("Accuracy", "정확도"),
+                  ("Endurance", "인내력"),
+                  ("Speed", "민첩성"),
+                  ("Air", "대기 마법"),
+                  ("Air", "대기 저항"),
+                  ("Body", "신체 마법"),
+                  ("Body", "신체 저항"),
+              )
+              for english, stale in stale_by_source:
+                  if source_has_word(source, english) and stale in translation:
+                      errors.append(f"{entry.get('key', '<unknown>')}: stale {stale!r} for source term {english}")
+
+              if source_name == "items.txt":
+          '''
+          if 'stale_by_source = (' not in text:
+              if text.count(validation_anchor) != 1:
+                  raise SystemExit('validation source_name anchor not found exactly once')
+              text = text.replace(validation_anchor, validation_insert, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+          reviewed = Path('korean/translations/stats_skills_reviewed.json')
+          text = reviewed.read_text(encoding='utf-8')
+          text = text.replace('대기 피해', '공기 피해')
+          text = text.replace('신체 피해', '육체 피해')
+          reviewed.write_text(text, encoding='utf-8')
+
+          test_path = Path('korean/tools/test_deep_review_corrections.py')
+          test = test_path.read_text(encoding='utf-8')
+          anchor = '''    def test_bulk_replacement_corruption_is_repaired(self) -> None:
+          '''
+          addition = '''    def test_source_aware_stat_terms_survive_upstream_variants(self) -> None:
+              samples = (
+                  ("Endurance +20", "인내력 +20", "체력 +20"),
+                  ("Speed +70", "민첩성 +70", "속도 +70"),
+                  ("Pure Intellect", "순수한 지력", "순수한 지능"),
+                  ("Pure Accuracy", "순수한 정확도", "순수한 적중률"),
+                  ("Pure Luck", "순수한 행운", "순수한 운"),
+                  ("Air Resistance", "대기 저항력", "공기 저항"),
+                  ("Body Resistance", "신체 저항력", "육체 저항"),
+              )
+              for source, translation, expected in samples:
+                  counts = review.Counter()
+                  actual = review.source_aware_terminology("Global.txt", source, translation, counts)
+                  self.assertEqual(actual, expected)
+
+              # Natural item prose keeps 행운 unless it is a mechanical +/- stat.
+              counts = review.Counter()
+              item = review.source_aware_terminology("items.txt", "+20 Luck; luck of the devil", "운 +20, 악마의 행운", counts)
+              self.assertEqual(item, "운 +20, 악마의 행운")
+
+              def test_bulk_replacement_corruption_is_repaired(self) -> None:
+          '''
+          if 'test_source_aware_stat_terms_survive_upstream_variants' not in test:
+              if test.count(anchor) != 1:
+                  raise SystemExit('test insertion anchor not found exactly once')
+              test = test.replace(anchor, addition, 1)
+          test_path.write_text(test, encoding='utf-8')
+          PY
+
+          python3 -m json.tool korean/translations/stats_skills_reviewed.json >/dev/null
+          python3 korean/tools/test_deep_review_corrections.py -v
+          git diff --check
+
+      - name: Commit source-aware normalization
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            korean/tools/apply_deep_review_corrections.py \
+            korean/tools/test_deep_review_corrections.py \
+            korean/translations/stats_skills_reviewed.json
+          git commit -m "Normalize Korean terms from source semantics"
+          git push origin HEAD:korean-localization
