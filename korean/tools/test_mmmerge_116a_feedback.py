@@ -37,6 +37,34 @@ class Mmerge116aFeedbackTests(unittest.TestCase):
         feedback.correct_catalog_entry(mekorig, Counter())
         self.assertEqual(mekorig["translation"], "장님 메코리그가 만들었다.")
 
+    def test_lore_context_repairs_avoid_awkward_particles(self) -> None:
+        artifact = self.item(
+            824,
+            "Like everything from the time of the Silence.",
+            "대침묵의 시대의 모든 유물처럼 새것입니다.",
+        )
+        feedback.correct_catalog_entry(artifact, Counter())
+        self.assertEqual(artifact["translation"], "침묵의 시대 이전의 모든 유물처럼 새것입니다.")
+
+        spear = self.item(
+            837,
+            "Made 12 years before the Silence.",
+            "대침묵의 사건 12년 전에 만들어졌습니다.",
+        )
+        feedback.correct_catalog_entry(spear, Counter())
+        self.assertEqual(spear["translation"], "침묵의 시대가 시작되기 12년 전에 만들어졌습니다.")
+
+        equipment = self.item(
+            1637,
+            "Equipment from the Time of Wonders, centuries before the Silence.",
+            "경이로운 시대의 장비이며 대침묵의 시대보다 오래되었습니다.",
+        )
+        feedback.correct_catalog_entry(equipment, Counter())
+        self.assertEqual(
+            equipment["translation"],
+            "경이의 시대에 만들어진 장비이며 침묵의 시대보다 오래되었습니다.",
+        )
+
     def test_gem_provenance_adds_san_only_for_source_adjectives(self) -> None:
         jadame = self.item(186, "A Jadamean diamond.", "제이덤 다이아몬드입니다.")
         feedback.correct_catalog_entry(jadame, Counter())
@@ -47,6 +75,10 @@ class Mmerge116aFeedbackTests(unittest.TestCase):
         self.assertEqual(antagarich["translation"], "안타개릭산 다이아몬드입니다.")
 
     def test_specific_item_wording_is_consistent(self) -> None:
+        belt = self.item(121, "Finely crafted belts of dragon leather.", "용의 가죽 벨트입니다.")
+        feedback.correct_catalog_entry(belt, Counter())
+        self.assertIn("드래곤의 가죽 벨트", belt["translation"])
+
         dagger = self.item(821, "A weapon from the Time of Wonders.", "불가사의한 시대의 무기인 이 칼입니다.")
         feedback.correct_catalog_entry(dagger, Counter())
         self.assertIn("경이의 시대", dagger["translation"])
