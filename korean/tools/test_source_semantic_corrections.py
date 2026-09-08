@@ -27,6 +27,20 @@ class SourceSemanticCorrectionTests(unittest.TestCase):
                 actual = semantic.normalize_translation(source_name, source, translation, Counter())
                 self.assertEqual(actual, expected)
 
+    def test_particle_repairs_follow_normalized_stat_terms(self) -> None:
+        samples = (
+            ("Accuracy determines survival", "정확도는 생존을 결정합니다", "적중률은 생존을 결정합니다"),
+            ("Increase Accuracy", "정확도를 증가시킵니다", "적중률을 증가시킵니다"),
+            ("Accuracy increased", "정확도가 증가했습니다", "적중률이 증가했습니다"),
+            ("Speed and grace", "민첩성과 우아함", "속도와 우아함"),
+            ("Speed is reduced", "민첩성이 감소합니다", "속도가 감소합니다"),
+            ("Earth is strong", "흙이 강합니다", "대지가 강합니다"),
+        )
+        for source, translation, expected in samples:
+            with self.subTest(source=source):
+                actual = semantic.normalize_translation("Global.txt", source, translation, Counter())
+                self.assertEqual(actual, expected)
+
     def test_item_luck_preserves_natural_prose(self) -> None:
         actual = semantic.normalize_translation(
             "items.txt",
@@ -120,6 +134,50 @@ class SourceSemanticCorrectionTests(unittest.TestCase):
         self.assertNotIn("적중률\t정확도", corrected)
         self.assertNotIn("체력\t인내력", corrected)
 
+    def test_world_map_catalog_corrections_are_synchronized_to_lua(self) -> None:
+        catalog = {
+            "entries": [
+                {
+                    "key": "world:mm6:6T5.STR:7",
+                    "source_file": "assets_dev/worlds/mm6/events/maps/*.lua",
+                    "source": "Altar of Accuracy",
+                    "translation": "적중률의 제단",
+                    "note": "Target mm6/6t5.lua (utf-8-sig); authoritative source mm6/6T5.STR StringId 7; literal occurs 2 time(s).",
+                },
+                {
+                    "key": "world:mm6:6T5.STR:14",
+                    "source_file": "assets_dev/worlds/mm6/events/maps/*.lua",
+                    "source": "Life above all, Accuracy before Might, Endurance before Speed, and finally, Luck.",
+                    "translation": "무엇보다 생명을, 힘보다 적중률을, 속도보다 체력을, 그리고 마지막으로 운을.",
+                    "note": "Target mm6/6t5.lua (utf-8-sig); authoritative source mm6/6T5.STR StringId 14; literal occurs 1 time(s).",
+                },
+            ]
+        }
+        previous = {
+            "world:mm6:6T5.STR:7": "정확도의 제단",
+            "world:mm6:6T5.STR:14": "무엇보다 생명을, 힘보다 정확도를, 속도보다 체력을, 그리고 마지막으로 행운을.",
+        }
+        lua = (
+            'RegisterEvent(19, "정확도의 제단", function()\n'
+            'end, "정확도의 제단")\n'
+            'evt.SetMessage("무엇보다 생명을, 힘보다 정확도를, 속도보다 체력을, 그리고 마지막으로 행운을.")\n'
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            world_root = Path(directory) / "worlds"
+            path = world_root / "mm6" / "events" / "maps" / "6t5.lua"
+            path.parent.mkdir(parents=True)
+            path.write_text(lua, encoding="utf-8-sig")
+            changed = semantic.sync_world_map_overlays(world_root, catalog, previous)
+            corrected = path.read_text(encoding="utf-8-sig")
+            raw = path.read_bytes()
+        self.assertEqual(changed, 3)
+        self.assertTrue(raw.startswith(b"\xef\xbb\xbf"))
+        self.assertIn('"적중률의 제단"', corrected)
+        self.assertIn("힘보다 적중률을", corrected)
+        self.assertIn("마지막으로 운을", corrected)
+        self.assertNotIn("정확도의 제단", corrected)
+        self.assertNotIn("행운을", corrected)
+
     def test_validation_rejects_stale_semantic_term(self) -> None:
         catalog = {
             "entries": [
@@ -130,6 +188,22 @@ class SourceSemanticCorrectionTests(unittest.TestCase):
                     "field": "Notes",
                     "source": "endurance +10",
                     "translation": "인내력 +10",
+                }
+            ]
+        }
+        with self.assertRaises(ValueError):
+            semantic.validate_catalog(catalog)
+
+    def test_validation_rejects_malformed_particle_sequence(self) -> None:
+        catalog = {
+            "entries": [
+                {
+                    "key": "engine:autonote.txt:1:text",
+                    "source_file": "assets_dev/engine/data_tables/english/autonote.txt",
+                    "record_id": 1,
+                    "field": "text",
+                    "source": "Accuracy increases",
+                    "translation": "적중률가 증가합니다",
                 }
             ]
         }
