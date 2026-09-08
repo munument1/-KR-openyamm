@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Regression coverage for the journal body and world-interaction localization checklist.
 from __future__ import annotations
 
 import csv
