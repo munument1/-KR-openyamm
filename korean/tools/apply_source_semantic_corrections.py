@@ -30,10 +30,12 @@ SOURCE_TERMS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ("Resistances", (("저항력", "저항"),)),
 )
 
-# Catalog field -> generated table header. Only display fields are synchronized;
-# source/runtime logic keys are never changed.
-SYNC_TABLES: dict[str, tuple[str, dict[str, str]]] = {
-    "Global.txt": ("english/Global.txt", {"text": "Global Text"}),
+# Catalog field -> generated table selector. A selector can be a header name or
+# an explicit zero-based column index for legacy tables whose header is shifted
+# relative to their data rows (notably Global.txt).
+SYNC_TABLES: dict[str, tuple[str, dict[str, str | int]]] = {
+    "Global.txt": ("english/Global.txt", {"text": 1}),
+    "quests.txt": ("english/quests.txt", {"text": "Quest Note Text"}),
     "autonote.txt": ("english/autonote.txt", {"text": "Autonote Text"}),
     "npc_topic_text.txt": ("npc_topic_text.txt", {"Text": "Text"}),
     "npc_topic.txt": ("npc_topic.txt", {"Topic": "Topic"}),
@@ -178,34 +180,53 @@ def catalog_fields_for_table(catalog: dict, source_name: str, allowed_fields: se
 def sync_tabular_overlay(
     path: Path,
     fields: dict[tuple[str, str], str],
-    field_headers: dict[str, str],
+    field_selectors: dict[str, str | int],
 ) -> int:
     if not path.is_file() or not fields:
         return 0
     text = path.read_text(encoding="utf-8-sig")
     rows = list(csv.reader(io.StringIO(text, newline=""), delimiter="\t", quotechar='"'))
 
-    header_index = None
-    header_columns: dict[str, int] = {}
-    for index, row in enumerate(rows):
-        if not row:
-            continue
-        candidate = {field: (row.index(header) if header in row else -1) for field, header in field_headers.items()}
-        if any(column >= 0 for column in candidate.values()):
-            header_index = index
-            header_columns = candidate
-            break
-    if header_index is None:
-        raise ValueError(f"Could not locate header in {path}")
+    explicit_columns = {
+        field: selector for field, selector in field_selectors.items() if isinstance(selector, int)
+    }
+    named_selectors = {
+        field: selector for field, selector in field_selectors.items() if isinstance(selector, str)
+    }
+
+    header_index = 0
+    header_columns: dict[str, int] = dict(explicit_columns)
+    if named_selectors:
+        found_header = False
+        for index, row in enumerate(rows):
+            if not row:
+                continue
+            candidate = {
+                field: (row.index(header) if header in row else -1)
+                for field, header in named_selectors.items()
+            }
+            if any(column >= 0 for column in candidate.values()):
+                header_index = index
+                header_columns.update(candidate)
+                found_header = True
+                break
+        if not found_header:
+            raise ValueError(f"Could not locate header in {path}")
+
+    # For explicit-column legacy tables we still skip their first header row.
+    if not named_selectors:
+        header_index = 0
 
     changed = 0
     for row in rows[header_index + 1:]:
         if not row:
             continue
         record_id = row[0].strip()
+        # Never rewrite the record-id column. A malformed selector must fail
+        # rather than silently turning IDs into localized strings.
         for field, column in header_columns.items():
-            if column < 0:
-                continue
+            if column <= 0:
+                raise ValueError(f"Unsafe display column {column} for {field} in {path}")
             value = fields.get((record_id, field))
             if value is None:
                 continue
@@ -261,9 +282,9 @@ def main() -> int:
     catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     synced_fields = 0
-    for source_name, (relative_path, field_headers) in SYNC_TABLES.items():
-        fields = catalog_fields_for_table(catalog, source_name, set(field_headers))
-        synced_fields += sync_tabular_overlay(overlay_root / relative_path, fields, field_headers)
+    for source_name, (relative_path, field_selectors) in SYNC_TABLES.items():
+        fields = catalog_fields_for_table(catalog, source_name, set(field_selectors))
+        synced_fields += sync_tabular_overlay(overlay_root / relative_path, fields, field_selectors)
 
     mechanical_changes = 0
     for name in MECHANICAL_OVERLAY_REPLACEMENTS:
