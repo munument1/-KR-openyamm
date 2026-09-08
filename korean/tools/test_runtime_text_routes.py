@@ -16,6 +16,10 @@ class RuntimeTextRouteTests(unittest.TestCase):
             REPOSITORY_ROOT / "game/ui/screens/LoadGameScreen.cpp",
         )
 
+        missing = [screen for screen in screens if not screen.is_file()]
+        if missing:
+            self.skipTest("direct-screen sources are outside the sparse release-overlay checkout")
+
         for screen in screens:
             source = screen.read_text(encoding="utf-8")
             self.assertIn('#include "game/ui/KoreanRuntimeTextOverrides.h"', source)
