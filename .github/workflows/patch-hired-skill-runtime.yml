@@ -1,0 +1,455 @@
+name: One-shot hired skill runtime patcher
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/patch-hired-skill-runtime.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/gameplay/NpcFollowerRuntime.cpp
+            /game/party/Party.cpp
+            /game/gameplay/GameMechanics.cpp
+            /game/items/PriceCalculator.cpp
+            /game/events/EventRuntime.cpp
+            /game/gameplay/HouseServiceRuntime.cpp
+
+      - name: Connect all hired NPC skill bonuses
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # 1) Same profession must not stack with itself.
+          path = Path('game/gameplay/NpcFollowerRuntime.cpp')
+          text = path.read_text(encoding='utf-8')
+          if '#include <unordered_set>' not in text:
+              text = text.replace('#include <utility>\n', '#include <utility>\n#include <unordered_set>\n', 1)
+          old = '''int hiredNpcSkillBonus(const EventRuntimeState &eventRuntimeState, const std::string &skillName)
+          {
+              int bonus = 0;
+
+              for (const EventRuntimeState::HiredNpcFollower &follower : eventRuntimeState.hiredNpcFollowers)
+              {
+                  const uint32_t professionId = follower.professionId;
+
+                  if (skillName == "Learning")
+          '''
+          new = '''int hiredNpcSkillBonus(const EventRuntimeState &eventRuntimeState, const std::string &skillName)
+          {
+              int bonus = 0;
+              std::unordered_set<uint32_t> appliedProfessionIds;
+
+              for (const EventRuntimeState::HiredNpcFollower &follower : eventRuntimeState.hiredNpcFollowers)
+              {
+                  const uint32_t professionId = follower.professionId;
+
+                  if (!appliedProfessionIds.insert(professionId).second)
+                  {
+                      continue;
+                  }
+
+                  if (skillName == "Learning")
+          '''
+          if old not in text:
+              raise SystemExit('NpcFollowerRuntime hiredNpcSkillBonus anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+
+          # 2) Materialize non-Learning follower skill bonuses into the existing
+          # temporary skill-bonus channel used by combat, armor, and spells.
+          path = Path('game/party/Party.cpp')
+          text = path.read_text(encoding='utf-8')
+          old = '''void Party::rebuildMagicalBonusesFromBuffs()
+          {
+              for (Character &member : m_members)
+          '''
+          new = '''void Party::rebuildMagicalBonusesFromBuffs()
+          {
+              EventRuntimeState followerRuntimeState = {};
+              applyGlobalNpcStateTo(followerRuntimeState);
+
+              static constexpr std::array<const char *, 22> FollowerSkillBonusNames = {{
+                  "Merchant",
+                  "DisarmTraps",
+                  "Perception",
+                  "LeatherArmor",
+                  "ChainArmor",
+                  "PlateArmor",
+                  "Staff",
+                  "Sword",
+                  "Dagger",
+                  "Axe",
+                  "Spear",
+                  "Bow",
+                  "Mace",
+                  "FireMagic",
+                  "AirMagic",
+                  "WaterMagic",
+                  "EarthMagic",
+                  "SpiritMagic",
+                  "MindMagic",
+                  "BodyMagic",
+                  "LightMagic",
+                  "DarkMagic",
+              }};
+              std::unordered_map<std::string, int> followerSkillBonuses;
+
+              for (const char *pSkillName : FollowerSkillBonusNames)
+              {
+                  const int bonus = hiredNpcSkillBonus(followerRuntimeState, pSkillName);
+                  if (bonus > 0)
+                  {
+                      followerSkillBonuses.emplace(pSkillName, bonus);
+                  }
+              }
+
+              for (Character &member : m_members)
+          '''
+          if old not in text:
+              raise SystemExit('Party rebuild anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        member.itemSkillBonuses.clear();
+                  member.equippedItemEffectFlags.clear();
+          '''
+          new = '''        member.itemSkillBonuses.clear();
+                  for (const auto &[skillName, bonus] : followerSkillBonuses)
+                  {
+                      member.itemSkillBonuses[skillName] += bonus;
+                  }
+                  member.equippedItemEffectFlags.clear();
+          '''
+          if old not in text:
+              raise SystemExit('Party itemSkillBonuses reset anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    m_unavailableNpcIds.insert(follower.npcId);
+          }
+
+          void Party::removeHiredNpcFollower(uint32_t npcId)
+          '''
+          new = '''    m_unavailableNpcIds.insert(follower.npcId);
+              rebuildMagicalBonusesFromBuffs();
+          }
+
+          void Party::removeHiredNpcFollower(uint32_t npcId)
+          '''
+          if old not in text:
+              raise SystemExit('Party add follower refresh anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        m_hiredNpcFollowers.erase(followerIt, m_hiredNpcFollowers.end());
+              }
+          }
+
+          void Party::setHiredNpcFollowerAbilityUsedDay'''
+          new = '''        m_hiredNpcFollowers.erase(followerIt, m_hiredNpcFollowers.end());
+                  rebuildMagicalBonusesFromBuffs();
+              }
+          }
+
+          void Party::setHiredNpcFollowerAbilityUsedDay'''
+          if old not in text:
+              raise SystemExit('Party remove follower refresh anchor not found')
+          text = text.replace(old, new, 1)
+
+          event_loop = '    for (const HiredNpcFollower &follower : runtimeState.hiredNpcFollowers)\n'
+          if event_loop not in text:
+              raise SystemExit('Party event follower loop anchor not found')
+          text = text.replace(
+              event_loop,
+              '    bool followerStateChanged = false;\n\n' + event_loop,
+              1,
+          )
+          marker = '''        if (follower.npcId == 0)
+                  {
+                      continue;
+                  }
+
+                  const auto followerIt = std::find_if(
+          '''
+          replacement = '''        if (follower.npcId == 0)
+                  {
+                      continue;
+                  }
+
+                  followerStateChanged = true;
+
+                  const auto followerIt = std::find_if(
+          '''
+          if marker not in text:
+              raise SystemExit('Party event follower changed anchor not found')
+          text = text.replace(marker, replacement, 1)
+          end_marker = '''    for (const HiredNpcFollower &follower : m_hiredNpcFollowers)
+              {
+                  if (follower.npcId != 0)
+                  {
+                      m_unavailableNpcIds.insert(follower.npcId);
+                  }
+              }
+          }
+
+          bool Party::applyDamageToActiveMember'''
+          end_replacement = '''    for (const HiredNpcFollower &follower : m_hiredNpcFollowers)
+              {
+                  if (follower.npcId != 0)
+                  {
+                      m_unavailableNpcIds.insert(follower.npcId);
+                  }
+              }
+
+              if (followerStateChanged)
+              {
+                  rebuildMagicalBonusesFromBuffs();
+              }
+          }
+
+          bool Party::applyDamageToActiveMember'''
+          if end_marker not in text:
+              raise SystemExit('Party event follower refresh end anchor not found')
+          text = text.replace(end_marker, end_replacement, 1)
+          path.write_text(text, encoding='utf-8')
+
+          # 3) Perception and Disarm must consume temporary skill points too.
+          path = Path('game/gameplay/GameMechanics.cpp')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('int GameMechanics::resolveCharacterPerceptionValue(const Character &character)')
+          end = text.index('\nint GameMechanics::resolvePartyPerceptionValue', start)
+          replacement = '''int GameMechanics::resolveCharacterPerceptionValue(const Character &character)
+          {
+              static const std::string PerceptionSkillName = "Perception";
+
+              if (!canAct(character))
+              {
+                  return 0;
+              }
+
+              const CharacterSkill *pSkill = character.findSkillByCanonicalName(PerceptionSkillName);
+              const auto bonusIt = character.itemSkillBonuses.find(PerceptionSkillName);
+              const int bonusLevel = bonusIt != character.itemSkillBonuses.end() ? bonusIt->second : 0;
+              const bool hasLearnedSkill =
+                  pSkill != nullptr && pSkill->mastery != SkillMastery::None && pSkill->level > 0;
+
+              if (!hasLearnedSkill && bonusLevel <= 0)
+              {
+                  return 0;
+              }
+
+              const SkillMastery mastery = hasLearnedSkill ? pSkill->mastery : SkillMastery::Normal;
+              if (mastery == SkillMastery::Grandmaster)
+              {
+                  return 10000;
+              }
+
+              const int effectiveLevel =
+                  (hasLearnedSkill ? static_cast<int>(pSkill->level) : 0) + std::max(0, bonusLevel);
+              return effectiveLevel * masteryMultiplier(mastery, 1, 2, 3, 5);
+          }
+
+          int GameMechanics::resolveCharacterDisarmTrapValue(const Character &character)
+          {
+              static const std::string DisarmTrapSkillName = "DisarmTraps";
+
+              const CharacterSkill *pSkill = character.findSkillByCanonicalName(DisarmTrapSkillName);
+              const auto bonusForName =
+                  [&character](const char *pSkillName)
+                  {
+                      const auto iterator = character.itemSkillBonuses.find(pSkillName);
+                      return iterator != character.itemSkillBonuses.end() ? iterator->second : 0;
+                  };
+
+              const int itemBonus =
+                  bonusForName("Disarm")
+                  + bonusForName("DisarmTrap")
+                  + bonusForName("DisarmTraps");
+              const bool hasLearnedSkill =
+                  pSkill != nullptr && pSkill->mastery != SkillMastery::None && pSkill->level > 0;
+
+              if (!hasLearnedSkill && itemBonus <= 0)
+              {
+                  return 0;
+              }
+
+              const SkillMastery mastery = hasLearnedSkill ? pSkill->mastery : SkillMastery::Normal;
+              if (mastery == SkillMastery::Grandmaster)
+              {
+                  return 10000;
+              }
+
+              const int effectiveLevel =
+                  (hasLearnedSkill ? static_cast<int>(pSkill->level) : 0) + std::max(0, itemBonus);
+              return effectiveLevel * masteryMultiplier(mastery, 1, 2, 3, 5);
+          }
+          '''
+          text = text[:start] + replacement + text[end:]
+          path.write_text(text, encoding='utf-8')
+
+          # 4) Shop prices must see the temporary Merchant skill points. A
+          # character without learned Merchant treats the follower bonus as Normal.
+          path = Path('game/items/PriceCalculator.cpp')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('int PriceCalculator::playerMerchant(const Character *pCharacter, int effectiveReputation)')
+          end = text.index('\nint PriceCalculator::applyMerchantDiscount', start)
+          replacement = '''int PriceCalculator::playerMerchant(const Character *pCharacter, int effectiveReputation)
+          {
+              if (pCharacter == nullptr)
+              {
+                  return 0;
+              }
+
+              const CharacterSkill *pMerchant = pCharacter->findSkill("Merchant");
+              const auto skillBonusIt = pCharacter->itemSkillBonuses.find("Merchant");
+              const int temporaryMerchantSkillBonus =
+                  skillBonusIt != pCharacter->itemSkillBonuses.end() ? std::max(0, skillBonusIt->second) : 0;
+              const int merchantBonus = std::max(0, pCharacter->merchantBonus);
+              const bool hasLearnedMerchant =
+                  pMerchant != nullptr && pMerchant->mastery != SkillMastery::None && pMerchant->level > 0;
+
+              if (!hasLearnedMerchant && temporaryMerchantSkillBonus <= 0)
+              {
+                  return std::min(merchantBonus - effectiveReputation, 100);
+              }
+
+              const SkillMastery mastery = hasLearnedMerchant ? pMerchant->mastery : SkillMastery::Normal;
+              if (mastery == SkillMastery::Grandmaster)
+              {
+                  return 100;
+              }
+
+              const int effectiveLevel =
+                  (hasLearnedMerchant ? static_cast<int>(pMerchant->level) : 0) + temporaryMerchantSkillBonus;
+              const int bonus = effectiveLevel * masteryMerchantMultiplier(mastery) + merchantBonus;
+
+              if (bonus <= 0)
+              {
+                  return std::min(merchantBonus - effectiveReputation, 100);
+              }
+
+              return std::min(bonus - effectiveReputation + 7, 100);
+          }
+          '''
+          text = text[:start] + replacement + text[end:]
+          path.write_text(text, encoding='utf-8')
+
+          # 5) Numeric EVT skill checks should see temporary skill points, but
+          # explicit mastery checks still require the character to know the skill.
+          path = Path('game/events/EventRuntime.cpp')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('int characterEffectiveSkillCheckValue(const Character &member, const std::string &skillName)')
+          end = text.index('\nbool characterHasLearnedSkill', start)
+          replacement = '''int characterEffectiveSkillCheckValue(const Character &member, const std::string &skillName)
+          {
+              if (skillName == "Perception")
+              {
+                  return GameMechanics::resolveCharacterPerceptionValue(member);
+              }
+
+              if (skillName == "DisarmTraps")
+              {
+                  return GameMechanics::resolveCharacterDisarmTrapValue(member);
+              }
+
+              if (!GameMechanics::canAct(member))
+              {
+                  return 0;
+              }
+
+              const CharacterSkill *pSkill = member.findSkill(skillName);
+              const auto bonusIt = member.itemSkillBonuses.find(skillName);
+              const int bonusLevel = bonusIt != member.itemSkillBonuses.end() ? bonusIt->second : 0;
+              const bool hasLearnedSkill =
+                  pSkill != nullptr && pSkill->level > 0 && pSkill->mastery != SkillMastery::None;
+
+              if (!hasLearnedSkill && bonusLevel <= 0)
+              {
+                  return 0;
+              }
+
+              const int effectiveLevel =
+                  (hasLearnedSkill ? static_cast<int>(pSkill->level) : 0) + std::max(0, bonusLevel);
+              const SkillMastery mastery = hasLearnedSkill ? pSkill->mastery : SkillMastery::Normal;
+              return effectiveLevel * masteryEffectiveMultiplier(mastery);
+          }
+
+          bool characterMeetsSkillCheck(
+              const Character &member,
+              const std::string &skillName,
+              uint32_t rawMastery,
+              uint32_t level)
+          {
+              if (rawMastery == 0)
+              {
+                  return characterEffectiveSkillCheckValue(member, skillName) >= static_cast<int>(level);
+              }
+
+              const CharacterSkill *pSkill = member.findSkill(skillName);
+              if (pSkill == nullptr || pSkill->level == 0 || pSkill->mastery == SkillMastery::None)
+              {
+                  return false;
+              }
+
+              const SkillMastery mastery = normalizeCheckSkillMastery(rawMastery);
+              return pSkill->mastery >= mastery
+                  && characterEffectiveSkillCheckValue(member, skillName) >= static_cast<int>(level);
+          }
+          '''
+          text = text[:start] + replacement + text[end:]
+          path.write_text(text, encoding='utf-8')
+
+          # 6) Merchant-specific shop phrases should recognize a follower-granted
+          # Normal Merchant skill, not only a learned character skill.
+          path = Path('game/gameplay/HouseServiceRuntime.cpp')
+          text = path.read_text(encoding='utf-8')
+          old = '''    const CharacterSkill *pMerchant = pCharacter->findSkill("Merchant");
+              return pMerchant != nullptr && pMerchant->mastery != SkillMastery::None && pMerchant->level > 0;
+          '''
+          new = '''    const CharacterSkill *pMerchant = pCharacter->findSkill("Merchant");
+              if (pMerchant != nullptr && pMerchant->mastery != SkillMastery::None && pMerchant->level > 0)
+              {
+                  return true;
+              }
+
+              const auto bonusIt = pCharacter->itemSkillBonuses.find("Merchant");
+              return bonusIt != pCharacter->itemSkillBonuses.end() && bonusIt->second > 0;
+          '''
+          if old not in text:
+              raise SystemExit('HouseService Merchant phrase anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          git diff --check
+          grep -n -A14 -B4 'FollowerSkillBonusNames' game/party/Party.cpp
+          grep -n -A12 -B4 'appliedProfessionIds' game/gameplay/NpcFollowerRuntime.cpp
+          grep -n -A28 'int PriceCalculator::playerMerchant' game/items/PriceCalculator.cpp
+
+      - name: Commit runtime integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            game/gameplay/NpcFollowerRuntime.cpp \
+            game/party/Party.cpp \
+            game/gameplay/GameMechanics.cpp \
+            game/items/PriceCalculator.cpp \
+            game/events/EventRuntime.cpp \
+            game/gameplay/HouseServiceRuntime.cpp
+          git commit -m "Connect hired NPC skill bonuses to gameplay"
+          git push origin HEAD:korean-localization
