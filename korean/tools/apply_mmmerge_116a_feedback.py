@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply reviewed MMMerge 1.0.16a player-feedback corrections.
 
-This pass is deliberately source-aware.  It normalizes lore terms and a small
+This pass is deliberately source-aware. It normalizes lore terms and a small
 set of item/stat/skill strings only when their English source establishes the
 intended meaning, then synchronizes the corrected catalog values back into the
 generated engine overlay used by the game.
@@ -19,7 +19,7 @@ from pathlib import Path
 
 
 ITEM_EXACT_OVERRIDES: dict[tuple[int, str], str] = {
-    (121, "Notes"): "정교하게 제작된 드래곤 가죽 벨트는 마법을 담는 데 사용됩니다. 이 벨트는 금으로 장식되어 있으며 얇은 시에르탈 띠로 둘러싸여 있습니다.",
+    (121, "Notes"): "정교하게 제작된 드래곤의 가죽 벨트는 마법을 담는 데 사용됩니다. 이 벨트는 금으로 장식되어 있으며 얇은 시에르탈 띠로 둘러싸여 있습니다.",
     (821, "Notes"): "경이의 시대에 만들어진 이 단검은, 이보다 더 날카롭거나 더 강인한 날을 가진 무기를 만들 수 없을 정도로 뛰어납니다.",
     (832, "Notes"): "사형 집행인들이 선호하는 처형 도구에서 이름을 따온 참수자의 장대도끼는 처형 과정에서 발생하는 지저분하고 당황스러운 실수를 줄이기 위해 더 긴 날을 가지고 있습니다.",
     (2024, "Notes"): "전통적으로 최고 드루이드가 휴대하던 멀린은 종교 교리 분쟁 중에 분실되었지만, 사용자가 언제든 끌어낼 수 있는 주문력의 저장소 역할을 합니다. 멀린은 공격 회복 속도를 높이는 마법이 걸려 있어 일반 지팡이보다 훨씬 빠르게 적에게 공격을 퍼붓습니다. (특수 능력: 빠른 공격 회복 속도, 주문력 +40)",
@@ -42,6 +42,21 @@ MEKORIG_VARIANTS = (
     "메코리그 더 블라인드",
     "맹인 메코리그",
     "눈먼 메코리그",
+)
+
+CONTEXT_REPAIRS: tuple[tuple[str, str], ...] = (
+    ("침묵의 시대의 모든 유물처럼", "침묵의 시대 이전의 모든 유물처럼"),
+    ("침묵의 시대 12년 전에", "침묵의 시대가 시작되기 12년 전에"),
+    ("침묵의 시대 이전 시대의", "침묵의 시대 이전의"),
+    ("경이의 시대의 장비", "경이의 시대에 만들어진 장비"),
+    ("경이의 시대의 무기인", "경이의 시대에 만들어진 무기인"),
+    ("경이의 시대의 유물", "경이의 시대에 만들어진 유물"),
+    ("장로인 장님 메코리그 본인", "거장 장님 메코리그 본인"),
+    (
+        "거대한 대장간들이 침묵의 시대에 잠식되기 직전에",
+        "침묵의 시대가 닥쳐 거대한 대장간들이 무너지기 직전에",
+    ),
+    ("침묵의 시대가 끝난 후 수년이 지나", "침묵의 시대 이후 수년이 지나"),
 )
 
 
@@ -84,6 +99,9 @@ def correct_catalog_entry(entry: dict, counts: Counter[str]) -> bool:
             if "Mekorig the Blind" in source:
                 for variant in MEKORIG_VARIANTS:
                     translation = _replace(translation, variant, "장님 메코리그", counts)
+
+            for old, new in CONTEXT_REPAIRS:
+                translation = _replace(translation, old, new, counts)
 
             # Jadamean/Antagarichan here are provenance adjectives for gems.
             # Keep the Korean '-산' form consistent with Enroth-origin gems.
@@ -160,7 +178,10 @@ def _sync_tabular(
     for index, row in enumerate(rows):
         if not row:
             continue
-        candidate = {field: (row.index(header) if header in row else -1) for field, header in field_to_header.items()}
+        candidate = {
+            field: (row.index(header) if header in row else -1)
+            for field, header in field_to_header.items()
+        }
         if any(column >= 0 for column in candidate.values()):
             header_index = index
             columns = candidate
@@ -186,7 +207,13 @@ def _sync_tabular(
                 changed += 1
 
     output = io.StringIO(newline="")
-    csv.writer(output, delimiter="\t", quotechar='"', quoting=csv.QUOTE_MINIMAL, lineterminator="\n").writerows(rows)
+    csv.writer(
+        output,
+        delimiter="\t",
+        quotechar='"',
+        quoting=csv.QUOTE_MINIMAL,
+        lineterminator="\n",
+    ).writerows(rows)
     path.write_text(output.getvalue(), encoding="utf-8", newline="")
     return changed
 
@@ -253,7 +280,9 @@ def validate(catalog: dict) -> None:
         if "Mekorig the Blind" in source and any(v in translation for v in MEKORIG_VARIANTS):
             errors.append(f"{entry.get('key')}: stale Mekorig wording")
     if errors:
-        raise ValueError("MMMerge 1.0.16a feedback validation failed:\n" + "\n".join(errors[:100]))
+        raise ValueError(
+            "MMMerge 1.0.16a feedback validation failed:\n" + "\n".join(errors[:100])
+        )
 
 
 def main() -> int:
@@ -271,9 +300,15 @@ def main() -> int:
     for entry in catalog.get("entries", []):
         correct_catalog_entry(entry, counts)
     validate(catalog)
-    catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    catalog_path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     overlay_changes = synchronize_overlay(repo_root, catalog)
-    print(f"MMMerge 1.0.16a feedback: {counts['catalog entries changed']} catalog entries, {overlay_changes} overlay sync changes")
+    print(
+        f"MMMerge 1.0.16a feedback: {counts['catalog entries changed']} catalog entries, "
+        f"{overlay_changes} overlay sync changes"
+    )
     for label, count in sorted(counts.items()):
         if label != "catalog entries changed":
             print(f"  {label}: {count}")
