@@ -224,6 +224,16 @@ int hiredNpcCrossMapDayReduction(const EventRuntimeState &eventRuntimeState)
     return reduction;
 }
 
+int hiredNpcAdjustedCrossMapTravelDays(const EventRuntimeState &eventRuntimeState, int baseDays)
+{
+    if (baseDays <= 0)
+    {
+        return 0;
+    }
+
+    return std::max(1, baseDays - hiredNpcCrossMapDayReduction(eventRuntimeState));
+}
+
 int hiredNpcRestFoodReduction(const EventRuntimeState &eventRuntimeState)
 {
     int reduction = 0;
