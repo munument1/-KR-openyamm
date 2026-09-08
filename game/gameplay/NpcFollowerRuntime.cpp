@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <utility>
+#include <unordered_set>
 
 namespace OpenYAMM::Game
 {
@@ -245,10 +246,16 @@ int hiredNpcRestFoodReduction(const EventRuntimeState &eventRuntimeState)
 int hiredNpcSkillBonus(const EventRuntimeState &eventRuntimeState, const std::string &skillName)
 {
     int bonus = 0;
+    std::unordered_set<uint32_t> appliedProfessionIds;
 
     for (const EventRuntimeState::HiredNpcFollower &follower : eventRuntimeState.hiredNpcFollowers)
     {
         const uint32_t professionId = follower.professionId;
+
+        if (!appliedProfessionIds.insert(professionId).second)
+        {
+            continue;
+        }
 
         if (skillName == "Learning")
         {

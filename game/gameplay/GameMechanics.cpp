@@ -3303,18 +3303,25 @@ int GameMechanics::resolveCharacterPerceptionValue(const Character &character)
     }
 
     const CharacterSkill *pSkill = character.findSkillByCanonicalName(PerceptionSkillName);
+    const auto bonusIt = character.itemSkillBonuses.find(PerceptionSkillName);
+    const int bonusLevel = bonusIt != character.itemSkillBonuses.end() ? bonusIt->second : 0;
+    const bool hasLearnedSkill =
+        pSkill != nullptr && pSkill->mastery != SkillMastery::None && pSkill->level > 0;
 
-    if (pSkill == nullptr || pSkill->mastery == SkillMastery::None || pSkill->level == 0)
+    if (!hasLearnedSkill && bonusLevel <= 0)
     {
         return 0;
     }
 
-    if (pSkill->mastery == SkillMastery::Grandmaster)
+    const SkillMastery mastery = hasLearnedSkill ? pSkill->mastery : SkillMastery::Normal;
+    if (mastery == SkillMastery::Grandmaster)
     {
         return 10000;
     }
 
-    return static_cast<int>(pSkill->level) * masteryMultiplier(pSkill->mastery, 1, 2, 3, 5);
+    const int effectiveLevel =
+        (hasLearnedSkill ? static_cast<int>(pSkill->level) : 0) + std::max(0, bonusLevel);
+    return effectiveLevel * masteryMultiplier(mastery, 1, 2, 3, 5);
 }
 
 int GameMechanics::resolveCharacterDisarmTrapValue(const Character &character)
@@ -3322,17 +3329,6 @@ int GameMechanics::resolveCharacterDisarmTrapValue(const Character &character)
     static const std::string DisarmTrapSkillName = "DisarmTraps";
 
     const CharacterSkill *pSkill = character.findSkillByCanonicalName(DisarmTrapSkillName);
-
-    if (pSkill == nullptr || pSkill->mastery == SkillMastery::None || pSkill->level == 0)
-    {
-        return 0;
-    }
-
-    if (pSkill->mastery == SkillMastery::Grandmaster)
-    {
-        return 10000;
-    }
-
     const auto bonusForName =
         [&character](const char *pSkillName)
         {
@@ -3344,9 +3340,23 @@ int GameMechanics::resolveCharacterDisarmTrapValue(const Character &character)
         bonusForName("Disarm")
         + bonusForName("DisarmTrap")
         + bonusForName("DisarmTraps");
+    const bool hasLearnedSkill =
+        pSkill != nullptr && pSkill->mastery != SkillMastery::None && pSkill->level > 0;
 
-    const int effectiveLevel = std::max(0, static_cast<int>(pSkill->level) + itemBonus);
-    return effectiveLevel * masteryMultiplier(pSkill->mastery, 1, 2, 3, 5);
+    if (!hasLearnedSkill && itemBonus <= 0)
+    {
+        return 0;
+    }
+
+    const SkillMastery mastery = hasLearnedSkill ? pSkill->mastery : SkillMastery::Normal;
+    if (mastery == SkillMastery::Grandmaster)
+    {
+        return 10000;
+    }
+
+    const int effectiveLevel =
+        (hasLearnedSkill ? static_cast<int>(pSkill->level) : 0) + std::max(0, itemBonus);
+    return effectiveLevel * masteryMultiplier(mastery, 1, 2, 3, 5);
 }
 
 int GameMechanics::resolvePartyPerceptionValue(const Party &party)

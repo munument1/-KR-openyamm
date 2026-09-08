@@ -2822,12 +2822,16 @@ void Party::applyEventRuntimeState(const EventRuntimeState &runtimeState, bool g
         m_lastStatus = "award removed";
     }
 
+    bool followerStateChanged = false;
+
     for (const HiredNpcFollower &follower : runtimeState.hiredNpcFollowers)
     {
         if (follower.npcId == 0)
         {
             continue;
         }
+
+        followerStateChanged = true;
 
         const auto followerIt = std::find_if(
             m_hiredNpcFollowers.begin(),
@@ -2853,6 +2857,11 @@ void Party::applyEventRuntimeState(const EventRuntimeState &runtimeState, bool g
         {
             m_unavailableNpcIds.insert(follower.npcId);
         }
+    }
+
+    if (followerStateChanged)
+    {
+        rebuildMagicalBonusesFromBuffs();
     }
 }
 
@@ -4184,6 +4193,7 @@ void Party::addHiredNpcFollower(const HiredNpcFollower &follower)
     }
 
     m_unavailableNpcIds.insert(follower.npcId);
+    rebuildMagicalBonusesFromBuffs();
 }
 
 void Party::removeHiredNpcFollower(uint32_t npcId)
@@ -4207,6 +4217,7 @@ void Party::removeHiredNpcFollower(uint32_t npcId)
         }
 
         m_hiredNpcFollowers.erase(followerIt, m_hiredNpcFollowers.end());
+        rebuildMagicalBonusesFromBuffs();
     }
 }
 
@@ -6685,6 +6696,44 @@ SoundId Party::resolveDamageImpactSoundForMember(size_t memberIndex) const
 
 void Party::rebuildMagicalBonusesFromBuffs()
 {
+    EventRuntimeState followerRuntimeState = {};
+    applyGlobalNpcStateTo(followerRuntimeState);
+
+    static constexpr std::array<const char *, 22> FollowerSkillBonusNames = {{
+        "Merchant",
+        "DisarmTraps",
+        "Perception",
+        "LeatherArmor",
+        "ChainArmor",
+        "PlateArmor",
+        "Staff",
+        "Sword",
+        "Dagger",
+        "Axe",
+        "Spear",
+        "Bow",
+        "Mace",
+        "FireMagic",
+        "AirMagic",
+        "WaterMagic",
+        "EarthMagic",
+        "SpiritMagic",
+        "MindMagic",
+        "BodyMagic",
+        "LightMagic",
+        "DarkMagic",
+    }};
+    std::unordered_map<std::string, int> followerSkillBonuses;
+
+    for (const char *pSkillName : FollowerSkillBonusNames)
+    {
+        const int bonus = hiredNpcSkillBonus(followerRuntimeState, pSkillName);
+        if (bonus > 0)
+        {
+            followerSkillBonuses.emplace(pSkillName, bonus);
+        }
+    }
+
     for (Character &member : m_members)
     {
         member.magicalBonuses = member.temporaryEventBonuses;
@@ -6711,6 +6760,10 @@ void Party::rebuildMagicalBonusesFromBuffs()
         member.attackRecoveryReductionTicks = 0;
         member.recoveryProgressMultiplier = 1.0f;
         member.itemSkillBonuses.clear();
+        for (const auto &[skillName, bonus] : followerSkillBonuses)
+        {
+            member.itemSkillBonuses[skillName] += bonus;
+        }
         member.equippedItemEffectFlags.clear();
 
         const std::array<int CharacterStatBonuses::*, 6> primaryStats = {

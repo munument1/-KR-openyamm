@@ -134,19 +134,27 @@ int PriceCalculator::playerMerchant(const Character *pCharacter, int effectiveRe
     }
 
     const CharacterSkill *pMerchant = pCharacter->findSkill("Merchant");
+    const auto skillBonusIt = pCharacter->itemSkillBonuses.find("Merchant");
+    const int temporaryMerchantSkillBonus =
+        skillBonusIt != pCharacter->itemSkillBonuses.end() ? std::max(0, skillBonusIt->second) : 0;
     const int merchantBonus = std::max(0, pCharacter->merchantBonus);
+    const bool hasLearnedMerchant =
+        pMerchant != nullptr && pMerchant->mastery != SkillMastery::None && pMerchant->level > 0;
 
-    if (pMerchant == nullptr || pMerchant->mastery == SkillMastery::None)
+    if (!hasLearnedMerchant && temporaryMerchantSkillBonus <= 0)
     {
         return std::min(merchantBonus - effectiveReputation, 100);
     }
 
-    if (pMerchant->mastery == SkillMastery::Grandmaster)
+    const SkillMastery mastery = hasLearnedMerchant ? pMerchant->mastery : SkillMastery::Normal;
+    if (mastery == SkillMastery::Grandmaster)
     {
         return 100;
     }
 
-    const int bonus = static_cast<int>(pMerchant->level) * masteryMerchantMultiplier(pMerchant->mastery) + merchantBonus;
+    const int effectiveLevel =
+        (hasLearnedMerchant ? static_cast<int>(pMerchant->level) : 0) + temporaryMerchantSkillBonus;
+    const int bonus = effectiveLevel * masteryMerchantMultiplier(mastery) + merchantBonus;
 
     if (bonus <= 0)
     {
