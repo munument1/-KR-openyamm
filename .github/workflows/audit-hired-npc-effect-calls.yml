@@ -22,32 +22,13 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /game/**
-      - name: Audit all hired NPC effect helpers
+      - name: Trace cross-map travel route
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          source = Path('game/gameplay/NpcFollowerRuntime.cpp').read_text(encoding='utf-8')
-          names = []
-          for match in re.finditer(r'\n(?:int|uint32_t|bool)\s+(hiredNpc[A-Za-z0-9_]+)\s*\(', source):
-              name = match.group(1)
-              if name not in names:
-                  names.append(name)
-
-          all_files = list(Path('game').rglob('*.cpp')) + list(Path('game').rglob('*.h'))
-          for name in names:
-              refs = []
-              for path in all_files:
-                  if path.as_posix() == 'game/gameplay/NpcFollowerRuntime.cpp':
-                      continue
-                  text = path.read_text(encoding='utf-8', errors='replace')
-                  count = text.count(name)
-                  if count:
-                      refs.append((path.as_posix(), count))
-              print(f'{name}: {sum(c for _, c in refs)} external reference(s)')
-              for path, count in refs:
-                  print(f'  {path}: {count}')
-          PY
+          echo '=== cross-map helper ==='
+          grep -RIn 'hiredNpcCrossMapDayReduction' game || true
+          echo '=== likely outdoor transition/travel code ==='
+          grep -RIn -E 'travelDays|travelDay|travelTime|TravelTime|daysToTravel|transition.*day|day.*transition|MapTransition|map transition|CrossMap|cross-map|cross map' game | head -n 500 || true
+          echo '=== time advances around map transitions ==='
+          grep -RIn -E 'advance.*(Day|day|Time|time)|add.*(Day|day|Hour|hour)|gameMinutes|hours' game/gameplay game/outdoor game/events | grep -E 'transition|travel|map|Outdoor|outdoor' | head -n 500 || true
