@@ -73,11 +73,14 @@ jobs:
             /game/party/Party.cpp
             /game/party/PartySpellSystem.cpp
             /game/gameplay/NpcFollowerRuntime.cpp
+            /game/gameplay/NpcFollowerRuntime.h
             /game/gameplay/GameMechanics.cpp
             /game/gameplay/GameplayCombatController.cpp
+            /game/gameplay/GameplayDialogController.cpp
             /game/gameplay/HouseServiceRuntime.cpp
             /game/items/PriceCalculator.cpp
             /game/events/EventRuntime.cpp
+            /game/events/EventDialogContent.cpp
 
       - name: Verify hired NPC skill bonus gameplay routes
         shell: bash
