@@ -1,0 +1,241 @@
+name: One-shot r9 runtime localization hotfix
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/apply-r9-runtime-hotfix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Apply r9 runtime localization hotfix'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+      - name: Patch runtime localization routes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new, label):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if new in text:
+                  print(f'{label}: already applied')
+                  return
+              if old not in text:
+                  raise SystemExit(f'{label}: anchor not found in {path}')
+              text = text.replace(old, new, 1)
+              p.write_text(text, encoding='utf-8')
+              print(f'{label}: applied')
+
+          # Route every status-bar event through the existing Korean dynamic-text override.
+          p = Path('game/gameplay/GameplayScreenRuntime.cpp')
+          text = p.read_text(encoding='utf-8')
+          include = '#include "game/ui/KoreanRuntimeTextOverrides.h"\n'
+          if include not in text:
+              anchor = '#include "game/ui/GameplayJournalMapUi.h"\n'
+              if anchor not in text:
+                  raise SystemExit('GameplayScreenRuntime include anchor not found')
+              text = text.replace(anchor, anchor + include, 1)
+          old = '''void GameplayScreenRuntime::setStatusBarEvent(
+              const std::string &text,
+              float durationSeconds,
+              GameplayUiController::StatusBarEventPriority priority)
+          {
+              uiController().setStatusBarEvent(text, durationSeconds, priority);
+          }
+          '''
+          new = '''void GameplayScreenRuntime::setStatusBarEvent(
+              const std::string &text,
+              float durationSeconds,
+              GameplayUiController::StatusBarEventPriority priority)
+          {
+              const std::string localizedText =
+                  KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
+              uiController().setStatusBarEvent(localizedText, durationSeconds, priority);
+          }
+          '''
+          if new not in text:
+              if old not in text:
+                  raise SystemExit('setStatusBarEvent anchor not found')
+              text = text.replace(old, new, 1)
+          p.write_text(text, encoding='utf-8')
+
+          # Localize event-target labels/hovers too, not only Decoration target kinds.
+          p = Path('game/gameplay/GameplayInteractionController.cpp')
+          text = p.read_text(encoding='utf-8')
+          include = '#include "game/ui/KoreanRuntimeTextOverrides.h"\n'
+          if include not in text:
+              anchor = '#include "game/ui/KoreanDecorationText.h"\n'
+              if anchor not in text:
+                  raise SystemExit('GameplayInteractionController include anchor not found')
+              text = text.replace(anchor, anchor + include, 1)
+          helper = '''std::string localizeInteractionDisplayText(const std::string &text)
+          {
+              if (const std::optional<std::string> localized =
+                      KoreanRuntimeText::koreanRuntimeTextOverride(text))
+              {
+                  return *localized;
+              }
+              return KoreanRuntimeText::koreanDecorationHint(text);
+          }
+
+          '''
+          if helper not in text:
+              anchor = '''bool hasStatusText(const std::optional<std::string> &text)
+          {
+              return text.has_value() && !text->empty();
+          }
+
+          '''
+              if anchor not in text:
+                  raise SystemExit('interaction helper anchor not found')
+              text = text.replace(anchor, anchor + helper, 1)
+
+          old_hover = '''    if (targetKind == GameplayWorldEventTargetKind::Decoration)
+              {
+                  return KoreanRuntimeText::koreanDecorationHint(*payload.eventTargetStatusText);
+              }
+
+              return payload.eventTargetStatusText;
+          '''
+          new_hover = '''    return localizeInteractionDisplayText(*payload.eventTargetStatusText);
+          '''
+          if new_hover not in text:
+              if old_hover not in text:
+                  raise SystemExit('hover localization anchor not found')
+              text = text.replace(old_hover, new_hover, 1)
+
+          label_guard = '''    if (hit.kind == GameplayWorldHitKind::EventTarget && !action.label.empty())
+              {
+                  action.label = localizeInteractionDisplayText(action.label);
+              }
+
+          '''
+          if label_guard not in text:
+              anchor = '''    if (action.iconId.empty())
+              {
+                  action.iconId = contextActionIconId(action.kind);
+              }
+          '''
+              if anchor not in text:
+                  raise SystemExit('context action label anchor not found')
+              text = text.replace(anchor, label_guard + anchor, 1)
+          p.write_text(text, encoding='utf-8')
+
+          # Fill common interactive-object nouns that previously bypassed decoration localization.
+          p = Path('game/ui/KoreanDecorationText.h')
+          text = p.read_text(encoding='utf-8')
+          additions = '''        {"well", "우물"},
+                  {"anvil", "모루"},
+                  {"shrine", "성소"},
+                  {"obelisk", "오벨리스크"},
+                  {"sign", "표지판"},
+          '''
+          if '{"well", "우물"}' not in text:
+              anchor = '        {"fountain", "분수"},\n'
+              if anchor not in text:
+                  raise SystemExit('KoreanDecorationText fountain anchor not found')
+              text = text.replace(anchor, anchor + additions, 1)
+          p.write_text(text, encoding='utf-8')
+
+          # Keep shadows for ordinary HUD text, but disable them for parchment journal body text.
+          p = Path('game/ui/GameplayPartyOverlayRenderer.cpp')
+          text = p.read_text(encoding='utf-8')
+          old_sig = '''void renderHudLines(
+              const GameplayScreenRuntime &context,
+              const auto &font,
+              uint32_t colorAbgr,
+              const std::vector<std::string> &lines,
+              float x,
+              float y,
+              float fontScale)
+          '''
+          new_sig = '''void renderHudLines(
+              const GameplayScreenRuntime &context,
+              const auto &font,
+              uint32_t colorAbgr,
+              const std::vector<std::string> &lines,
+              float x,
+              float y,
+              float fontScale,
+              bool drawShadow = true)
+          '''
+          if new_sig not in text:
+              if old_sig not in text:
+                  raise SystemExit('renderHudLines signature anchor not found')
+              text = text.replace(old_sig, new_sig, 1)
+          old_shadow = '        context.renderHudFontLayer(font, font.shadowTextureHandle, lines[index], x, lineY, fontScale);\n'
+          new_shadow = '''        if (drawShadow)
+                  {
+                      context.renderHudFontLayer(font, font.shadowTextureHandle, lines[index], x, lineY, fontScale);
+                  }
+          '''
+          if new_shadow not in text:
+              if old_shadow not in text:
+                  raise SystemExit('renderHudLines shadow anchor not found')
+              text = text.replace(old_shadow, new_shadow, 1)
+          old_call = '            renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, bodyLines, textResolved->x, textResolved->y, bodyFontScale);\n'
+          new_call = '            renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, bodyLines, textResolved->x, textResolved->y, bodyFontScale, false);\n'
+          if new_call not in text:
+              if old_call not in text:
+                  raise SystemExit('journal body render call anchor not found')
+              text = text.replace(old_call, new_call, 1)
+          p.write_text(text, encoding='utf-8')
+
+          # Regression checks; safe under release sparse checkout by skipping missing source files.
+          test = Path('korean/tools/test_r9_runtime_localization_hotfix.py')
+          test.write_text(r'''from pathlib import Path
+          import unittest
+
+          ROOT = Path(__file__).resolve().parents[2]
+
+          class R9RuntimeLocalizationHotfixTests(unittest.TestCase):
+              def read_source(self, relative):
+                  path = ROOT / relative
+                  if not path.exists():
+                      self.skipTest(f"source-only check: {relative} not present in sparse checkout")
+                  return path.read_text(encoding="utf-8")
+
+              def test_status_bar_uses_korean_runtime_override(self):
+                  source = self.read_source("game/gameplay/GameplayScreenRuntime.cpp")
+                  self.assertIn('KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text)', source)
+                  self.assertIn('uiController().setStatusBarEvent(localizedText', source)
+
+              def test_event_targets_use_general_localization_route(self):
+                  source = self.read_source("game/gameplay/GameplayInteractionController.cpp")
+                  self.assertIn('localizeInteractionDisplayText(*payload.eventTargetStatusText)', source)
+                  self.assertIn('action.label = localizeInteractionDisplayText(action.label);', source)
+
+              def test_well_and_anvil_are_known_interaction_nouns(self):
+                  source = self.read_source("game/ui/KoreanDecorationText.h")
+                  self.assertIn('{"well", "우물"}', source)
+                  self.assertIn('{"anvil", "모루"}', source)
+                  self.assertIn('{"keg", "작은 통"}', source)
+
+              def test_journal_body_disables_black_shadow(self):
+                  source = self.read_source("game/ui/GameplayPartyOverlayRenderer.cpp")
+                  self.assertIn('bool drawShadow = true', source)
+                  self.assertIn('bodyFontScale, false);', source)
+
+          if __name__ == "__main__":
+              unittest.main()
+          '''.replace('\n          ', '\n').lstrip(), encoding='utf-8')
+          PY
+
+          git diff --check
+          python3 -m unittest korean.tools.test_r9_runtime_localization_hotfix -v
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/gameplay/GameplayScreenRuntime.cpp game/gameplay/GameplayInteractionController.cpp game/ui/KoreanDecorationText.h game/ui/GameplayPartyOverlayRenderer.cpp korean/tools/test_r9_runtime_localization_hotfix.py
+          git commit -m "fix(korean): localize runtime interactions and journal text"
+          git push origin HEAD:korean-localization
