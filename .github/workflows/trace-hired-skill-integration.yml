@@ -36,7 +36,25 @@ jobs:
           grep -RIn 'resolveCharacterDisarmTrapValue' game || true
           echo '=== Merchant references in gameplay code ==='
           grep -RIn -E 'Merchant|merchantBonus|merchantScore' game | head -n 300 || true
-          echo '=== Canonical skill direct accesses ==='
-          grep -RIn -E 'findSkill\("(Perception|DisarmTraps|Merchant|Staff|Sword|Dagger|Axe|Spear|Bow|Mace|LeatherArmor|ChainArmor|PlateArmor|FireMagic|AirMagic|WaterMagic|EarthMagic|SpiritMagic|MindMagic|BodyMagic|LightMagic|DarkMagic)' game | head -n 400 || true
-          echo '=== Generic findSkill uses in combat/mechanics ==='
-          grep -RIn 'findSkill(' game/gameplay game/party game/items game/events | head -n 500 || true
+          echo '=== follower lifecycle line numbers ==='
+          grep -n -E 'Party::(restoreSnapshot|applyEventRuntimeState|addHiredNpcFollower|removeHiredNpcFollower)' game/party/Party.cpp || true
+          echo '=== follower lifecycle context ==='
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('game/party/Party.cpp').read_text(encoding='utf-8').splitlines()
+          needles = [
+              'void Party::restoreSnapshot',
+              'void Party::applyEventRuntimeState',
+              'void Party::addHiredNpcFollower',
+              'void Party::removeHiredNpcFollower',
+          ]
+          for needle in needles:
+              for i, line in enumerate(text):
+                  if needle in line:
+                      lo = max(0, i - 5)
+                      hi = min(len(text), i + 130)
+                      print(f'--- {needle} @ {i+1} ---')
+                      for n in range(lo, hi):
+                          print(f'{n+1}:{text[n]}')
+                      break
+          PY
