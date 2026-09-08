@@ -12,7 +12,10 @@ class HiredNpcSkillIntegrationTests(unittest.TestCase):
         source_paths = {
             "party": "game/party/Party.cpp",
             "follower": "game/gameplay/NpcFollowerRuntime.cpp",
+            "follower_header": "game/gameplay/NpcFollowerRuntime.h",
             "mechanics": "game/gameplay/GameMechanics.cpp",
+            "dialog_controller": "game/gameplay/GameplayDialogController.cpp",
+            "dialog_content": "game/events/EventDialogContent.cpp",
             "prices": "game/items/PriceCalculator.cpp",
             "events": "game/events/EventRuntime.cpp",
             "houses": "game/gameplay/HouseServiceRuntime.cpp",
@@ -99,6 +102,26 @@ class HiredNpcSkillIntegrationTests(unittest.TestCase):
     def test_existing_spell_and_combat_paths_consume_materialized_bonus(self) -> None:
         self.assertIn('caster.itemSkillBonuses.find(*skillName)', self.spells)
         self.assertIn('character.itemSkillBonuses.find(skillName)', self.combat)
+
+    def test_cross_map_travel_reduction_is_connected_and_clamped(self) -> None:
+        self.assertIn(
+            'int hiredNpcAdjustedCrossMapTravelDays(const EventRuntimeState &eventRuntimeState, int baseDays);',
+            self.follower_header,
+        )
+        self.assertIn('case 5:', self.follower)
+        self.assertIn('reduction += 1;', self.follower)
+        self.assertIn('case 6:', self.follower)
+        self.assertIn('reduction += 2;', self.follower)
+        self.assertIn('case 7:', self.follower)
+        self.assertIn('reduction += 3;', self.follower)
+        self.assertIn('case ExplorerProfessionId:', self.follower)
+        self.assertIn('return std::max(1, baseDays - hiredNpcCrossMapDayReduction(eventRuntimeState));', self.follower)
+        self.assertGreaterEqual(self.dialog_controller.count('hiredNpcAdjustedCrossMapTravelDays('), 2)
+        self.assertIn('isOutdoorMapFileName(context.pCurrentMap->fileName)', self.dialog_controller)
+        self.assertIn('isOutdoorMapFileName(transition.destinationMapFileName)', self.dialog_controller)
+        self.assertIn('hiredNpcAdjustedCrossMapTravelDays(npcRuntimeState, travelDays)', self.dialog_content)
+        self.assertIn('pCurrentMap->outdoorBounds.enabled', self.dialog_content)
+        self.assertIn('pDestinationMap->outdoorBounds.enabled', self.dialog_content)
 
 
 if __name__ == "__main__":
