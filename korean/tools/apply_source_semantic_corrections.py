@@ -4,7 +4,7 @@
 This is a final post-generation pass. It is intentionally source-aware so
 upstream MMMerge wording changes cannot silently reintroduce terminology drift
 into OpenYAMM. Corrected catalog fields are synchronized back into the native
-generated TSV/TXT overlays before packaging.
+generated TSV/TXT and map Lua overlays before packaging.
 """
 
 from __future__ import annotations
@@ -28,6 +28,24 @@ SOURCE_TERMS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ("Earth", (("흙 마법", "대지 마법"),)),
     ("Resistance", (("저항력", "저항"),)),
     ("Resistances", (("저항력", "저항"),)),
+)
+
+# Replacing a Korean noun can change whether the following particle needs a
+# final-consonant form. Keep these repairs explicit so terminology cleanup does
+# not generate text such as "적중률를" or "속도과".
+PARTICLE_REPAIRS: tuple[tuple[str, str], ...] = (
+    ("적중률를", "적중률을"),
+    ("적중률가", "적중률이"),
+    ("적중률는", "적중률은"),
+    ("적중률와", "적중률과"),
+    ("속도을", "속도를"),
+    ("속도이", "속도가"),
+    ("속도은", "속도는"),
+    ("속도과", "속도와"),
+    ("대지을", "대지를"),
+    ("대지이", "대지가"),
+    ("대지은", "대지는"),
+    ("대지과", "대지와"),
 )
 
 # Catalog field -> generated table selector. A selector can be a header name or
@@ -79,6 +97,9 @@ MECHANICAL_OVERLAY_REPLACEMENTS: dict[str, tuple[tuple[str, str], ...]] = {
     ),
 }
 
+TARGET_MAP_RE = re.compile(r"\bTarget\s+([^/;]+)/([^;]+\.lua)\b", flags=re.IGNORECASE)
+LITERAL_COUNT_RE = re.compile(r"literal occurs\s+(\d+)\s+time\(s\)", flags=re.IGNORECASE)
+
 
 def source_has_word(source: str, word: str) -> bool:
     return re.search(r"\b" + re.escape(word) + r"\b", source, flags=re.IGNORECASE) is not None
@@ -90,6 +111,18 @@ def replace_all(text: str, replacements: tuple[tuple[str, str], ...], counts: Co
         count = result.count(old)
         if count:
             result = result.replace(old, new)
+            counts[f"{old} -> {new}"] += count
+    return result
+
+
+def repair_korean_particles(text: str, counts: Counter[str] | None = None) -> str:
+    result = text
+    for old, new in PARTICLE_REPAIRS:
+        count = result.count(old)
+        if not count:
+            continue
+        result = result.replace(old, new)
+        if counts is not None:
             counts[f"{old} -> {new}"] += count
     return result
 
@@ -115,7 +148,7 @@ def normalize_translation(source_name: str, source: str, translation: str, count
         else:
             result = replace_all(result, (("행운", "운"),), counts)
 
-    return result
+    return repair_korean_particles(result, counts)
 
 
 def normalize_catalog(catalog: dict) -> tuple[int, Counter[str]]:
@@ -159,6 +192,9 @@ def validate_catalog(catalog: dict) -> None:
             errors.append(f"{entry.get('key', '<unknown>')}: stale '인내력' for abbreviated Endurance")
         if (source_has_word(source, "Resistance") or source_has_word(source, "Resistances")) and "저항력" in translation:
             errors.append(f"{entry.get('key', '<unknown>')}: stale '저항력' for Resistance")
+        for malformed, _ in PARTICLE_REPAIRS:
+            if malformed in translation:
+                errors.append(f"{entry.get('key', '<unknown>')}: malformed particle sequence {malformed!r}")
 
     if errors:
         raise ValueError("Source-semantic Korean normalization failed:\n" + "\n".join(errors[:100]))
@@ -260,8 +296,87 @@ def normalize_mechanical_overlay(path: Path) -> int:
         if count:
             corrected = corrected.replace(old, new)
             changed += count
+    corrected = repair_korean_particles(corrected)
     if corrected != original:
         path.write_text(corrected, encoding="utf-8", newline="")
+    return changed
+
+
+def _read_utf8_preserving_bom(path: Path) -> tuple[str, bool]:
+    raw = path.read_bytes()
+    return raw.decode("utf-8-sig"), raw.startswith(b"\xef\xbb\xbf")
+
+
+def _write_utf8_preserving_bom(path: Path, text: str, had_bom: bool) -> None:
+    path.write_text(text, encoding="utf-8-sig" if had_bom else "utf-8", newline="")
+
+
+def sync_world_map_overlays(
+    world_root: Path,
+    catalog: dict,
+    previous_translations: dict[str, str],
+) -> int:
+    """Push corrected catalog literals back into generated map Lua files.
+
+    Map catalog rows carry notes like ``Target mm6/oute2.lua`` and the expected
+    number of literal occurrences. The map builder runs before this final pass,
+    so without this synchronization the catalog can be correct while packaged
+    Lua still contains the old terminology.
+    """
+    changed = 0
+    cached: dict[Path, tuple[str, bool]] = {}
+
+    for entry in catalog.get("entries", []):
+        key = str(entry.get("key", ""))
+        old = previous_translations.get(key)
+        new = entry.get("translation")
+        source_file = str(entry.get("source_file", ""))
+        if not isinstance(old, str) or not isinstance(new, str) or old == new:
+            continue
+        if "/worlds/" not in source_file.replace("\\", "/"):
+            continue
+
+        note = str(entry.get("note", ""))
+        target_match = TARGET_MAP_RE.search(note)
+        if target_match is None:
+            raise ValueError(f"Changed world catalog entry has no Target Lua note: {key}")
+        world = target_match.group(1)
+        lua_name = target_match.group(2)
+        path = world_root / world / "events" / "maps" / lua_name
+        if not path.is_file():
+            raise ValueError(f"Target map Lua does not exist for {key}: {path}")
+
+        if path not in cached:
+            cached[path] = _read_utf8_preserving_bom(path)
+        text, had_bom = cached[path]
+
+        expected_match = LITERAL_COUNT_RE.search(note)
+        expected = int(expected_match.group(1)) if expected_match else None
+        quoted_old = f'"{old}"'
+        quoted_new = f'"{new}"'
+        quoted_count = text.count(quoted_old)
+        plain_count = text.count(old)
+
+        if quoted_count and (expected is None or quoted_count == expected):
+            text = text.replace(quoted_old, quoted_new)
+            changed += quoted_count
+        elif plain_count and (expected is None or plain_count == expected):
+            text = text.replace(old, new)
+            changed += plain_count
+        else:
+            already_count = text.count(quoted_new) or text.count(new)
+            if expected is not None and already_count == expected:
+                cached[path] = (text, had_bom)
+                continue
+            raise ValueError(
+                f"Could not safely synchronize {key} into {path}: "
+                f"expected={expected}, quoted_old={quoted_count}, plain_old={plain_count}, already_new={already_count}"
+            )
+
+        cached[path] = (text, had_bom)
+
+    for path, (text, had_bom) in cached.items():
+        _write_utf8_preserving_bom(path, text, had_bom)
     return changed
 
 
@@ -277,6 +392,11 @@ def main() -> int:
     overlay_root = repo_root / args.engine_overlay_root / "data_tables"
 
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    previous_translations = {
+        str(entry.get("key", "")): entry.get("translation", "")
+        for entry in catalog.get("entries", [])
+        if isinstance(entry.get("translation"), str)
+    }
     changed_entries, counts = normalize_catalog(catalog)
     validate_catalog(catalog)
     catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -293,20 +413,23 @@ def main() -> int:
             candidate = overlay_root / "english" / name
         mechanical_changes += normalize_mechanical_overlay(candidate)
 
+    world_root = repo_root / "korean" / "overlay" / "worlds"
+    map_catalog_sync_changes = sync_world_map_overlays(world_root, catalog, previous_translations)
+
     # One reviewed map-runtime phrasing is a stat check despite the English
     # source using 'smart' rather than the canonical word Intellect.
-    world_root = repo_root / "korean" / "overlay" / "worlds"
     map_phrase_changes = 0
     for path in world_root.rglob("*.lua") if world_root.exists() else ():
-        original = path.read_text(encoding="utf-8-sig")
+        original, had_bom = _read_utf8_preserving_bom(path)
         corrected = original.replace("지력이 부족합니다!", "지능이 부족합니다!")
         if corrected != original:
             map_phrase_changes += original.count("지력이 부족합니다!")
-            path.write_text(corrected, encoding="utf-8", newline="")
+            _write_utf8_preserving_bom(path, corrected, had_bom)
 
     print(f"SOURCE_SEMANTIC_CHANGED_ENTRIES={changed_entries}")
     print(f"SOURCE_SEMANTIC_SYNCED_TABLE_FIELDS={synced_fields}")
     print(f"SOURCE_SEMANTIC_MECHANICAL_REPLACEMENTS={mechanical_changes}")
+    print(f"SOURCE_SEMANTIC_MAP_CATALOG_SYNC_REPLACEMENTS={map_catalog_sync_changes}")
     print(f"SOURCE_SEMANTIC_MAP_PHRASE_REPLACEMENTS={map_phrase_changes}")
     print(f"SOURCE_SEMANTIC_TOTAL_CATALOG_REPLACEMENTS={sum(counts.values())}")
     return 0
