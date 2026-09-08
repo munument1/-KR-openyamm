@@ -46,19 +46,25 @@ def write_overlay_zip(source_root: Path, output_path: Path) -> int:
 
 def apply_reviewed_feedback_if_available(repo_root: Path) -> None:
     catalog_path = repo_root / "korean" / "translations" / "catalog.json"
-    correction_tool = repo_root / "korean" / "tools" / "apply_review_feedback_corrections.py"
-    if not catalog_path.is_file() or not correction_tool.is_file():
+    if not catalog_path.is_file():
         return
 
-    subprocess.run(
-        [
-            sys.executable,
-            str(correction_tool),
-            "--repo-root",
-            str(repo_root),
-        ],
-        check=True,
+    correction_tools = (
+        repo_root / "korean" / "tools" / "apply_review_feedback_corrections.py",
+        repo_root / "korean" / "tools" / "apply_deep_review_corrections.py",
     )
+    for correction_tool in correction_tools:
+        if not correction_tool.is_file():
+            continue
+        subprocess.run(
+            [
+                sys.executable,
+                str(correction_tool),
+                "--repo-root",
+                str(repo_root),
+            ],
+            check=True,
+        )
 
 
 def build(repo_root: Path, output_root: Path) -> dict:
