@@ -4482,7 +4482,7 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                 for (size_t entryIndex = 0; entryIndex < pages[pageIndex].entries.size(); ++entryIndex)
                 {
                     const JournalStackedPageEntry &entry = pages[pageIndex].entries[entryIndex];
-                    renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale);
+                    renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale, false);
                     textY += static_cast<float>(entry.lines.size()) * lineHeight;
 
                     if (entryIndex + 1 < pages[pageIndex].entries.size() && dividerTexture)
@@ -4593,7 +4593,7 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                 for (size_t entryIndex = 0; entryIndex < pages[pageIndex].entries.size(); ++entryIndex)
                 {
                     const JournalStackedPageEntry &entry = pages[pageIndex].entries[entryIndex];
-                    renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale);
+                    renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale, false);
                     textY += static_cast<float>(entry.lines.size()) * lineHeight;
 
                     if (entryIndex + 1 < pages[pageIndex].entries.size() && dividerTexture)
