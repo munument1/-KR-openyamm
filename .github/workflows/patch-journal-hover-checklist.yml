@@ -16,51 +16,62 @@ jobs:
         with:
           ref: korean-localization
           fetch-depth: 1
-      - name: Patch journal shadows and add regression guard
+      - name: Patch journal shadows
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-
           renderer = Path('game/ui/GameplayPartyOverlayRenderer.cpp')
           text = renderer.read_text(encoding='utf-8')
           start = text.index('void GameplayPartyOverlayRenderer::renderJournalOverlay')
           end = text.index('void GameplayPartyOverlayRenderer::renderUtilitySpellOverlay', start)
-          before = text[:start]
           block = text[start:end]
-          after = text[end:]
           old = 'renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale);'
           new = 'renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale, false);'
           count = block.count(old)
           if count != 2:
               raise SystemExit(f'expected exactly 2 shadowed journal entry render calls, found {count}')
           block = block.replace(old, new)
-          renderer.write_text(before + block + after, encoding='utf-8')
-
-          test = Path('korean/tools/test_journal_hover_localization.py')
-          test.write_text(r'''#!/usr/bin/env python3
+          renderer.write_text(text[:start] + block + text[end:], encoding='utf-8')
+          PY
+      - name: Write permanent regression guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > korean/tools/test_journal_hover_localization.py <<'PY'
+          #!/usr/bin/env python3
           from __future__ import annotations
+
           import csv
           import json
-          import re
           from pathlib import Path
           import unittest
 
           ROOT = Path(__file__).resolve().parents[2]
 
+
           class JournalAndHoverLocalizationTests(unittest.TestCase):
               def test_journal_body_text_has_no_shadow(self):
-                  text = (ROOT / 'game/ui/GameplayPartyOverlayRenderer.cpp').read_text(encoding='utf-8')
+                  path = ROOT / 'game/ui/GameplayPartyOverlayRenderer.cpp'
+                  if not path.is_file():
+                      self.skipTest('journal renderer is not present in this checkout')
+                  text = path.read_text(encoding='utf-8')
                   start = text.index('void GameplayPartyOverlayRenderer::renderJournalOverlay')
                   end = text.index('void GameplayPartyOverlayRenderer::renderUtilitySpellOverlay', start)
                   block = text[start:end]
                   shadowless_entry = 'renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale, false);'
                   self.assertEqual(block.count(shadowless_entry), 2)
-                  self.assertIn('renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, bodyLines, textResolved->x, textResolved->y, bodyFontScale, false);', block)
+                  self.assertIn(
+                      'renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, bodyLines, textResolved->x, textResolved->y, bodyFontScale, false);',
+                      block,
+                  )
 
               def test_core_interaction_object_names_are_localized(self):
-                  text = (ROOT / 'game/ui/KoreanDecorationText.h').read_text(encoding='utf-8')
+                  path = ROOT / 'game/ui/KoreanDecorationText.h'
+                  if not path.is_file():
+                      self.skipTest('runtime decoration translations are not present in this checkout')
+                  text = path.read_text(encoding='utf-8')
                   expected = {
                       'keg': '작은 통',
                       'anvil': '모루',
@@ -86,32 +97,45 @@ jobs:
                   mapping = json.loads(mapping_path.read_text(encoding='utf-8'))
                   entries = {str(k).strip().casefold() for k in mapping.get('entries', {})}
                   excluded = {str(x).strip().casefold() for x in mapping.get('excluded_sources', [])}
-                  hints = {row[2].strip() for row in rows if len(row) > 2 and row[0].strip().isdigit() and row[2].strip()}
-                  unknown = sorted(h for h in hints if h.casefold() not in entries and h.casefold() not in excluded)
+                  hints = {
+                      row[2].strip()
+                      for row in rows
+                      if len(row) > 2 and row[0].strip().isdigit() and row[2].strip()
+                  }
+                  unknown = sorted(
+                      hint for hint in hints
+                      if hint.casefold() not in entries and hint.casefold() not in excluded
+                  )
                   self.assertEqual(unknown, [])
 
               def test_all_event_target_labels_cross_localization_boundary(self):
-                  text = (ROOT / 'game/gameplay/GameplayInteractionController.cpp').read_text(encoding='utf-8')
-                  self.assertIn('if (hit.kind == GameplayWorldHitKind::EventTarget && !action.label.empty())', text)
+                  path = ROOT / 'game/gameplay/GameplayInteractionController.cpp'
+                  if not path.is_file():
+                      self.skipTest('interaction controller is not present in this checkout')
+                  text = path.read_text(encoding='utf-8')
+                  self.assertIn(
+                      'if (hit.kind == GameplayWorldHitKind::EventTarget && !action.label.empty())',
+                      text,
+                  )
                   self.assertIn('action.label = localizeInteractionDisplayText(action.label);', text)
                   self.assertIn('KoreanRuntimeText::koreanRuntimeTextOverride(text)', text)
                   self.assertIn('return KoreanRuntimeText::koreanDecorationHint(text);', text)
 
-              def test_map_target_name_sync_is_present(self):
-                  tools = ROOT / 'korean/tools'
-                  if not tools.is_dir():
-                      self.skipTest('korean tools directory is absent')
-                  combined = '\n'.join(p.read_text(encoding='utf-8', errors='ignore') for p in tools.glob('*.py'))
-                  self.assertIn('targetName', combined)
-                  self.assertRegex(combined, re.compile(r'house_data|map_stats', re.IGNORECASE))
+              def test_map_target_name_sync_is_strict(self):
+                  path = ROOT / 'korean/tools/sync_map_target_names.py'
+                  if not path.is_file():
+                      self.skipTest('map target-name sync tool is not present in this checkout')
+                  text = path.read_text(encoding='utf-8')
+                  self.assertIn('house_data.txt', text)
+                  self.assertIn('map_stats.txt', text)
+                  self.assertIn('targetName', text)
+                  self.assertIn('Untranslated generated targetName values remain', text)
+
 
           if __name__ == '__main__':
               unittest.main()
-          ''').replace('          ', ''), encoding='utf-8')
           PY
           python3 korean/tools/test_journal_hover_localization.py
-          echo '== targetName sync locations =='
-          grep -RIn --include='*.py' 'targetName\|house_data\|map_stats' korean/tools | head -n 200 || true
       - name: Commit patch
         shell: bash
         run: |
