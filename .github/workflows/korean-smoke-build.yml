@@ -56,34 +56,34 @@ jobs:
             exit 1
           fi
 
-  hired-npc-learning-guard:
-    name: Hired NPC Learning bonus guard
+  hired-npc-skill-guard:
+    name: Hired NPC skill bonus guard
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
-      - name: Check out follower bonus sources
+      - name: Check out follower skill integration sources
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
           persist-credentials: false
           sparse-checkout-cone-mode: false
           sparse-checkout: |
+            /korean/tools/test_hired_npc_skill_integration.py
             /game/party/Party.cpp
+            /game/party/PartySpellSystem.cpp
             /game/gameplay/NpcFollowerRuntime.cpp
-            /game/gameplay/NpcFollowerRuntime.h
+            /game/gameplay/GameMechanics.cpp
+            /game/gameplay/GameplayCombatController.cpp
+            /game/gameplay/HouseServiceRuntime.cpp
+            /game/items/PriceCalculator.cpp
+            /game/events/EventRuntime.cpp
 
-      - name: Verify hired Learning bonus is applied once as a flat percent
+      - name: Verify hired NPC skill bonus gameplay routes
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq '#include "game/gameplay/NpcFollowerRuntime.h"' game/party/Party.cpp
-          grep -Fq 'applyGlobalNpcStateTo(followerRuntimeState);' game/party/Party.cpp
-          grep -Fq 'std::max(0, hiredNpcSkillBonus(followerRuntimeState, "Learning"));' game/party/Party.cpp
-          grep -Fq 'learningPercentForExperienceGain(member) + followerLearningPercent;' game/party/Party.cpp
-          grep -Fq 'if (professionId == 4) bonus += 5;' game/gameplay/NpcFollowerRuntime.cpp
-          grep -Fq 'else if (professionId == 13) bonus += 10;' game/gameplay/NpcFollowerRuntime.cpp
-          grep -Fq 'else if (professionId == 14) bonus += 15;' game/gameplay/NpcFollowerRuntime.cpp
+          python3 korean/tools/test_hired_npc_skill_integration.py -v
 
   korean-overlay:
     name: Korean smoke overlay
