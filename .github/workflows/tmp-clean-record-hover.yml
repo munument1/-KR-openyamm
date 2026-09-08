@@ -1,0 +1,32 @@
+name: Temporary cleanup record hover audit
+on:
+  push:
+    branches: [tmp-record-hover-fixes]
+    paths: [".github/workflows/tmp-clean-record-hover.yml"]
+permissions:
+  contents: write
+jobs:
+  clean:
+    if: github.event.head_commit.message == 'Clean record hover audit helpers'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: tmp-record-hover-fixes
+          fetch-depth: 1
+      - name: Remove one-shot audit files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -f --ignore-unmatch \
+            .github/workflows/tmp-audit-record-hover.yml \
+            .github/workflows/tmp-focused-record-hover.yml \
+            .github/workflows/tmp-object-sign-audit.yml \
+            .github/workflows/tmp-apply-record-hover-fixes.yml \
+            .github/workflows/tmp-integrate-event-hover-sync.yml \
+            korean/translations/tmp_record_hover_audit.txt \
+            korean/translations/tmp_object_sign_audit.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: remove record hover audit helpers'
+          git push origin HEAD:tmp-record-hover-fixes
