@@ -1,0 +1,57 @@
+name: Generate Korean cutscene subtitle inventory
+
+on:
+  push:
+    branches:
+      - release-r9-staging-work
+    paths:
+      - .github/workflows/generate-korean-cutscene-inventory.yml
+
+permissions:
+  contents: write
+
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out Korean localization branch
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Test and generate inventory
+        run: |
+          set -euo pipefail
+          python3 -m unittest korean/tools/test_cutscene_subtitle_inventory.py
+          python3 korean/tools/build_cutscene_subtitle_inventory.py \
+            --output korean/subtitles/source_inventory.json
+          python3 -m json.tool korean/subtitles/source_inventory.json >/dev/null
+
+      - name: Print candidate summary
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('korean/subtitles/source_inventory.json').read_text(encoding='utf-8'))
+          print(json.dumps(data['summary'], ensure_ascii=False, indent=2))
+          print('Priority BIK candidates:')
+          for entry in data['entries']:
+              if entry['subtitle_candidate'] == 'priority_candidate':
+                  print(f"  {entry['source_path']} -> {entry['subtitle_path']} refs={len(entry['references'])}")
+          PY
+
+      - name: Commit generated inventory
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add korean/subtitles/source_inventory.json
+          if git diff --cached --quiet; then
+            echo 'Inventory already current.'
+            exit 0
+          fi
+          git diff --cached --check
+          git commit -m 'Add cutscene subtitle source inventory'
+          git push origin HEAD:korean-localization
