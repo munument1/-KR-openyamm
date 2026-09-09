@@ -29,6 +29,11 @@ small Korean overlay instead of re-encoding or modifying the original movies.
 - `review_required`: speech or audio exists, but the transcript/timing is not
   reliable enough yet to publish a subtitle.
 
+The first reviewed batch classifies all 32 runtime OGV files: 10 are
+`subtitle_ready`, 2 are confirmed `no_audio`, and 20 remain `review_required`.
+The review-required entries stay explicit instead of being silently treated as
+complete translation coverage.
+
 `source_inventory.json`, `media_probe.json`, and `asr_draft.json` are audit
 inputs, not translation authority. Machine ASR is used to locate speech and
 draft timing only. Low-confidence or missing ASR is never converted into guessed
@@ -39,3 +44,8 @@ that ready SRT files are valid UTF-8 with valid timing inside the video duration
 and that every ready SRT is actually included in the corresponding world overlay
 ZIP. MMmerge-only movie variants may keep a duplicate SRT in the mmmerge overlay
 when needed by the mounted-world asset layout.
+
+World map-event overlay regeneration must preserve sibling overlay assets such as
+`subtitles/`. `build_map_string_overlays.py` only owns generated
+`events/maps`, and its regression guard prevents a future map rebuild from
+removing reviewed SRT files before final packaging.
