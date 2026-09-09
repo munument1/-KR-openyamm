@@ -22,149 +22,24 @@ jobs:
           ref: korean-localization
           fetch-depth: 1
 
-      - name: Apply structural sink detection and regression tests
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          audit_path = Path('korean/tools/audit_runtime_display_text.py')
-          text = audit_path.read_text(encoding='utf-8')
-          marker = "DEDICATED_DISPLAY = {\n"
-          helper = r'''PLAYER_SINK_CALL_RE = re.compile(
-              r'\b(?:setStatusBarEvent|setStatus|drawText|renderText|displayText|drawScreenText|renderHud|renderLayoutLabel)\s*\('
-          )
-          PLAYER_NAMED_CALL_RE = re.compile(
-              r'\b(?:show|set|draw|render|display|update)(?:[A-Za-z0-9_]*(?:Message|Title|Label|Description|Tooltip|Prompt|Dialog))\s*\('
-          )
-          PLAYER_TEXT_ASSIGN_RE = re.compile(
-              r'\b(?:statusText|tooltip|prompt|endingText|characterLine|scoreLine|totalTimeLine)\b\s*(?:=|\+=|\.assign\s*\(|\.append\s*\()'
-          )
-          NON_PLAYER_LOOKUP_CALL_RE = re.compile(
-              r'\b(?:findHudLayoutElement|resolveHudLayoutElement|defaultHudLayoutZIndexForScreen|readStringMapFromField)\s*\('
-          )
-
-
-def is_player_sink_context(source_line: str) -> bool:
-              # Quoted literals are data candidates, never sink evidence themselves.
-              # Then require a structural display call/assignment instead of broad
-              # substrings such as "Dialog" appearing inside unrelated identifiers.
-              code_context = LITERAL_RE.sub('""', source_line)
-              if NON_PLAYER_LOOKUP_CALL_RE.search(code_context):
-                  return False
-              return bool(
-                  PLAYER_SINK_CALL_RE.search(code_context)
-                  or PLAYER_NAMED_CALL_RE.search(code_context)
-                  or PLAYER_TEXT_ASSIGN_RE.search(code_context)
-              )
-
-
-'''
-          if 'def is_player_sink_context(' not in text:
-              if marker not in text:
-                  raise SystemExit('Could not locate helper insertion point')
-              text = text.replace(marker, helper + marker, 1)
-          else:
-              raise SystemExit('Unexpected pre-existing sink helper; inspect before patching')
-
-          old = "            player_sink = any(marker in stripped for marker in PLAYER_SINK_MARKERS)\n"
-          new = "            player_sink = is_player_sink_context(stripped)\n"
-          if old not in text:
-              raise SystemExit('Could not locate player_sink assignment')
-          text = text.replace(old, new, 1)
-          text = text.replace("        'format': 6,\n", "        'format': 7,\n", 1)
-          audit_path.write_text(text, encoding='utf-8')
-
-          test_path = Path('korean/tools/test_runtime_display_audit.py')
-          test_path.write_text(r'''#!/usr/bin/env python3
-          from __future__ import annotations
-
-          import importlib.util
-          from pathlib import Path
-          import unittest
-
-          MODULE_PATH = Path(__file__).with_name("audit_runtime_display_text.py")
-          spec = importlib.util.spec_from_file_location("audit_runtime_display_text", MODULE_PATH)
-          assert spec is not None and spec.loader is not None
-          audit = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(audit)
-
-
-          class RuntimeDisplayAuditSinkTests(unittest.TestCase):
-              def test_explicit_player_text_calls_are_detected(self) -> None:
-                  self.assertTrue(audit.is_player_sink_context('drawText(font, "Name");'))
-                  self.assertTrue(audit.is_player_sink_context('setStatusBarEvent("Ready");'))
-                  self.assertTrue(audit.is_player_sink_context('view.renderLayoutLabel(layout, resolved, "Shop");'))
-                  self.assertTrue(audit.is_player_sink_context('showMessage("Inventory full");'))
-
-              def test_layout_lookup_identifiers_are_not_sinks(self) -> None:
-                  self.assertFalse(audit.is_player_sink_context('view.findHudLayoutElement("DialogueGoodbyeButton");'))
-                  self.assertFalse(audit.is_player_sink_context('const HudLayoutElement *pEventDialogLayout = view.findHudLayoutElement("DialogueEventDialog");'))
-                  self.assertFalse(audit.is_player_sink_context('const HudLayoutElement *pHouseTitleLayout = view.findHudLayoutElement("DialogueHouseTitle");'))
-                  self.assertFalse(audit.is_player_sink_context('view.resolveHudLayoutElement("DialogueEventDialog", width, height);'))
-
-              def test_lookup_literals_and_unrelated_identifiers_do_not_count(self) -> None:
-                  self.assertFalse(audit.is_player_sink_context('equipStat == "Message"'))
-                  self.assertFalse(audit.is_player_sink_context('readStringMapFromField(state, -1, "title");'))
-                  self.assertFalse(audit.is_player_sink_context('return "<no description>";'))
-                  self.assertFalse(audit.is_player_sink_context('bool showEventDialogPanel = false;'))
-
-              def test_player_text_assignments_are_detected(self) -> None:
-                  self.assertTrue(audit.is_player_sink_context('statusText = "Ready";'))
-                  self.assertTrue(audit.is_player_sink_context('prompt.assign("Choose one");'))
-
-
-          if __name__ == "__main__":
-              unittest.main()
-          '''.replace('\n          ', '\n').lstrip(), encoding='utf-8')
-
-          workflow_path = Path('.github/workflows/korean-runtime-display-audit.yml')
-          workflow = workflow_path.read_text(encoding='utf-8')
-          checkout_line = '            /korean/tools/audit_runtime_display_text.py\n'
-          test_checkout = '            /korean/tools/test_runtime_display_audit.py\n'
-          if test_checkout not in workflow:
-              if checkout_line not in workflow:
-                  raise SystemExit('Could not update display audit sparse checkout')
-              workflow = workflow.replace(checkout_line, checkout_line + test_checkout, 1)
-          test_step = '''\n      - name: Test runtime display audit heuristics\n        shell: bash\n        run: |\n          set -euo pipefail\n          python3 -m unittest korean/tools/test_runtime_display_audit.py\n'''
-          scan_step = '\n      - name: Scan runtime display literals\n'
-          if test_step not in workflow:
-              if scan_step not in workflow:
-                  raise SystemExit('Could not locate runtime audit scan step')
-              workflow = workflow.replace(scan_step, test_step + scan_step, 1)
-          workflow_path.write_text(workflow, encoding='utf-8')
-          PY
+      - name: Apply structural sink patch
+        run: python3 .github/temp_runtime_display_fix.py
 
       - name: Run regression tests
         run: python3 -m unittest korean/tools/test_runtime_display_audit.py
 
       - name: Run patched runtime display audit
-        run: |
-          python3 korean/tools/audit_runtime_display_text.py
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          result = json.loads(Path('runtime-display-audit.json').read_text(encoding='utf-8'))
-          if result['format'] != 7:
-              raise SystemExit(f"Unexpected audit format: {result['format']}")
-          print('HIGH_UNCOVERED_OCCURRENCES=' + str(result['high_confidence_uncovered_occurrences']))
-          print('HIGH_UNIQUE_LITERALS=' + str(result['high_confidence_unique_literals']))
-          bad_literals = {'DialogueGoodbyeButton', 'DialogueEventDialog', 'DialogueHouseTitle'}
-          bad = [
-              row for row in result['rows']
-              if row['confidence'] == 'high' and row['literal'] in bad_literals
-          ]
-          if bad:
-              raise SystemExit(f'Layout-key sink false positives remain: {bad[:5]}')
-          PY
+        run: python3 korean/tools/audit_runtime_display_text.py
+
+      - name: Verify layout keys are not high-confidence sinks
+        run: python3 -c "import json; r=json.load(open('runtime-display-audit.json', encoding='utf-8')); bad=[x for x in r['rows'] if x['confidence']=='high' and x['literal'] in {'DialogueGoodbyeButton','DialogueEventDialog','DialogueHouseTitle'}]; print('HIGH_UNCOVERED_OCCURRENCES='+str(r['high_confidence_uncovered_occurrences'])); print('HIGH_UNIQUE_LITERALS='+str(r['high_confidence_unique_literals'])); assert r['format']==7; assert not bad, bad"
 
       - name: Commit verified audit fix
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add korean/tools/audit_runtime_display_text.py \
-                  korean/tools/test_runtime_display_audit.py \
-                  .github/workflows/korean-runtime-display-audit.yml
+          git add korean/tools/audit_runtime_display_text.py korean/tools/test_runtime_display_audit.py .github/workflows/korean-runtime-display-audit.yml
           git diff --cached --check
           git commit -m "Use structural runtime display sink detection"
           git push origin HEAD:korean-localization
