@@ -25,6 +25,31 @@ korean/overlay/
 
 변경하지 않은 원본 파일은 오버레이에 복사하지 않습니다.
 
+## gettext PO 편집
+
+`korean/translations/ko.po`는 번역 편집용 gettext 카탈로그입니다. OpenYAMM 런타임이 PO를 직접 읽는 것은 아니며,
+`msgctxt`의 안정 키를 기준으로 변경된 `msgstr`을 기존 TSV/TXT, 표시용 테이블, 월드 Lua 또는 런타임 표시 매핑에 다시 반영합니다.
+
+```sh
+python korean/tools/catalog_po.py verify \
+  --catalog korean/translations/catalog.json \
+  --po korean/translations/ko.po
+
+python korean/tools/catalog_po.py import \
+  --repo-root . \
+  --catalog korean/translations/catalog.json \
+  --po korean/translations/ko.po
+
+python korean/tools/catalog_po.py verify-runtime \
+  --repo-root . \
+  --catalog korean/translations/catalog.json \
+  --po korean/translations/ko.po
+```
+
+`verify`는 원문과 컨텍스트, placeholder 일치를 검사하고, `verify-runtime`은 PO의 25,316개 항목이 생성된 실제 런타임 오버레이와 같은 값을 갖는지 전수검사합니다.
+`class.txt`처럼 영문 로직 키와 한국어 표시 이름을 분리하는 특수 테이블도 표시용 열만 비교합니다. 패치 패키징 시 PO import 뒤 `verify-runtime`이 자동 실행되므로,
+PO와 실제 게임 파일이 어긋나면 패키징이 실패합니다.
+
 ## 패치 압축 파일 만들기
 
 저장소 루트에서 실행합니다.
