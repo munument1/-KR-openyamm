@@ -1,0 +1,166 @@
+name: Harden Korean PO roundtrip
+
+on:
+  push:
+    branches:
+      - release-r9-staging-work
+    paths:
+      - .github/workflows/harden-korean-po-roundtrip.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out Korean localization branch
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Harden PO routes and correction synchronization
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          def replace_once(path: Path, old: str, new: str) -> None:
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, found {count}')
+              path.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
+
+          po_tool = Path('korean/tools/catalog_po.py')
+          replace_once(
+              po_tool,
+              'from typing import Iterable\n\nPRINTF_TOKEN_RE = re.compile(',
+              'from typing import Iterable\n\nimport catalog_po_runtime\n\nPRINTF_TOKEN_RE = re.compile(',
+          )
+          replace_once(
+              po_tool,
+              '            materialize_entry(repo_root, entry, translation)\n',
+              '            catalog_po_runtime.materialize_entry(repo_root, entry, translation)\n',
+          )
+          replace_once(
+              po_tool,
+              '    verify_parser = subparsers.add_parser("verify")\n'
+              '    verify_parser.add_argument("--catalog", default="korean/translations/catalog.json")\n'
+              '    verify_parser.add_argument("--po", default="korean/translations/ko.po")\n\n'
+              '    args = parser.parse_args()\n',
+              '    verify_parser = subparsers.add_parser("verify")\n'
+              '    verify_parser.add_argument("--catalog", default="korean/translations/catalog.json")\n'
+              '    verify_parser.add_argument("--po", default="korean/translations/ko.po")\n\n'
+              '    runtime_parser = subparsers.add_parser("verify-runtime")\n'
+              '    runtime_parser.add_argument("--repo-root", default=None)\n'
+              '    runtime_parser.add_argument("--catalog", default="korean/translations/catalog.json")\n'
+              '    runtime_parser.add_argument("--po", default="korean/translations/ko.po")\n\n'
+              '    args = parser.parse_args()\n',
+          )
+          replace_once(
+              po_tool,
+              '    if args.command == "verify":\n'
+              '        import_po(catalog, po_entries, None, False)\n'
+              '        missing = len(catalog.get("entries", [])) - len(po_entries)\n'
+              '        if missing:\n'
+              '            raise ValueError(f"PO catalog is missing {missing} context(s)")\n'
+              '        print(f"Verified {len(po_entries)} PO entries against the current catalog")\n'
+              '        return 0\n\n'
+              '    repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parents[2]\n',
+              '    if args.command in {"verify", "verify-runtime"}:\n'
+              '        import_po(catalog, po_entries, None, False)\n'
+              '        missing = len(catalog.get("entries", [])) - len(po_entries)\n'
+              '        if missing:\n'
+              '            raise ValueError(f"PO catalog is missing {missing} context(s)")\n'
+              '        if args.command == "verify-runtime":\n'
+              '            repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parents[2]\n'
+              '            verified = catalog_po_runtime.verify_runtime_catalog(catalog, po_entries, repo_root)\n'
+              '            print(f"Verified {verified} PO entries against generated runtime overlays")\n'
+              '        else:\n'
+              '            print(f"Verified {len(po_entries)} PO entries against the current catalog")\n'
+              '        return 0\n\n'
+              '    repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parents[2]\n',
+          )
+
+          build_patch = Path('korean/build_patch.py')
+          replace_once(
+              build_patch,
+              '\n\ndef build(repo_root: Path, output_root: Path) -> dict:\n',
+              '''\n\ndef verify_po_runtime_if_available(repo_root: Path) -> None:\n    catalog_path = repo_root / "korean" / "translations" / "catalog.json"\n    po_path = repo_root / "korean" / "translations" / "ko.po"\n    po_tool = repo_root / "korean" / "tools" / "catalog_po.py"\n    if not catalog_path.is_file() or not po_path.is_file() or not po_tool.is_file():\n        return\n\n    subprocess.run(\n        [\n            sys.executable,\n            str(po_tool),\n            "verify-runtime",\n            "--repo-root",\n            str(repo_root),\n            "--catalog",\n            str(catalog_path),\n            "--po",\n            str(po_path),\n        ],\n        check=True,\n    )\n\n\ndef build(repo_root: Path, output_root: Path) -> dict:\n''',
+          )
+          replace_once(
+              build_patch,
+              '    apply_reviewed_feedback_if_available(repo_root)\n    apply_po_if_available(repo_root)\n\n    overlay_root = repo_root / "korean" / "overlay"\n',
+              '    apply_reviewed_feedback_if_available(repo_root)\n    apply_po_if_available(repo_root)\n    verify_po_runtime_if_available(repo_root)\n\n    overlay_root = repo_root / "korean" / "overlay"\n',
+          )
+
+          semantic = Path('korean/tools/apply_source_semantic_corrections.py')
+          replace_once(
+              semantic,
+              '''    if source_has_word(source, "Luck"):\n        if source_name == "items.txt":\n            # Preserve natural prose such as '행운을 빈다'; normalize only\n            # explicit mechanical stat forms inside item descriptions.\n            before = result\n            result = re.sub(r"행운(?=\\s*[+-]\\s*\\d)", "운", result)\n            if result != before:\n                counts["행운(stat) -> 운"] += 1\n        else:\n            result = replace_all(result, (("행운", "운"),), counts)\n\n    return repair_korean_particles(result, counts)\n''',
+              '''    if source_has_word(source, "Luck"):\n        if source_name == "items.txt":\n            # Preserve natural prose such as '행운을 빈다'; normalize only\n            # explicit mechanical stat forms inside item descriptions.\n            before = result\n            result = re.sub(r"행운(?=\\s*[+-]\\s*\\d)", "운", result)\n            if result != before:\n                counts["행운(stat) -> 운"] += 1\n        elif source_name in {\n            "standard_item_enchants.txt",\n            "special_item_enchants.txt",\n            "stats.txt",\n            "skill_des.txt",\n            "spells.txt",\n        }:\n            result = replace_all(result, (("행운", "운"),), counts)\n\n    if source.strip().casefold() == "you are not smart enough!" and result == "지력이 부족합니다!":\n        result = "지능이 부족합니다!"\n        counts["지력이 부족합니다! -> 지능이 부족합니다!"] += 1\n\n    return repair_korean_particles(result, counts)\n''',
+          )
+
+          feedback = Path('korean/tools/apply_mmmerge_116a_feedback.py')
+          old = '''    # This table has no stable numeric record-id column in the generated file,\n    # so synchronize the reviewed record by exact localized display text.\n    special_path = overlay_root / "special_item_enchants.txt"\n    if special_path.is_file():\n        text = special_path.read_text(encoding="utf-8-sig")\n        replacements = (\n            ("7대 능력치 모두 +10.", "모든 능력치 +10."),\n            ("[신들]", "[신]"),\n        )\n        original = text\n        for old, new in replacements:\n            text = text.replace(old, new)\n        if text != original:\n            changed += 1\n            special_path.write_text(text, encoding="utf-8", newline="")\n    return changed\n'''
+          new = '''    # The generated special-enchant table uses synthetic catalog ids rather\n    # than a numeric first-column key. Synchronize display-only columns by the\n    # same stable row convention used by extend_item_enchant_catalog.py.\n    special_path = overlay_root / "special_item_enchants.txt"\n    if special_path.is_file():\n        text = special_path.read_text(encoding="utf-8-sig")\n        rows = list(csv.reader(io.StringIO(text, newline=""), delimiter="\\t", quotechar='"'))\n        header_index = next(\n            (index for index, row in enumerate(rows) if "Localized Display Description" in row),\n            None,\n        )\n        if header_index is None:\n            raise ValueError(f"Could not find special-enchant display header in {special_path}")\n        description_column = rows[header_index].index("Localized Display Description")\n        suffix_column = rows[header_index].index("Localized Display Suffix")\n        special_values = {\n            (int(entry.get("record_id")), str(entry.get("field"))): str(entry.get("translation", ""))\n            for entry in catalog.get("entries", [])\n            if Path(str(entry.get("source_file", ""))).name == "special_item_enchants.txt"\n            and str(entry.get("field", "")) in {"DisplayDescription", "DisplaySuffix"}\n        }\n        for (record_id, field), value in special_values.items():\n            row_index = record_id + 3\n            if row_index >= len(rows):\n                raise ValueError(f"Special-enchant synthetic row is out of range: {record_id}")\n            column = description_column if field == "DisplayDescription" else suffix_column\n            while len(rows[row_index]) <= column:\n                rows[row_index].append("")\n            if rows[row_index][column] != value:\n                rows[row_index][column] = value\n                changed += 1\n        output = io.StringIO(newline="")\n        csv.writer(\n            output, delimiter="\\t", quotechar='"', quoting=csv.QUOTE_MINIMAL, lineterminator="\\n"\n        ).writerows(rows)\n        special_path.write_text(output.getvalue(), encoding="utf-8", newline="")\n    return changed\n'''
+          replace_once(feedback, old, new)
+
+          po_path = Path('korean/translations/ko.po')
+          po_text = po_path.read_text(encoding='utf-8')
+
+          def replace_po_msgstr(context: str, translation: str) -> None:
+              nonlocal_holder = None
+              global po_text
+              ctx = json.dumps(context, ensure_ascii=False)
+              pattern = re.compile(
+                  r'(^msgctxt ' + re.escape(ctx) + r'\nmsgid .*\nmsgstr )([^\n]*)$',
+                  flags=re.MULTILINE,
+              )
+              matches = list(pattern.finditer(po_text))
+              if len(matches) != 1:
+                  raise SystemExit(f'ko.po: context {context!r} matched {len(matches)} time(s)')
+              po_text = pattern.sub(
+                  lambda match: match.group(1) + json.dumps(translation, ensure_ascii=False),
+                  po_text,
+                  count=1,
+              )
+
+          replace_po_msgstr(
+              'engine:npc_greet.txt:302:Greeting1',
+              '마크햄 경의 대회에서 우승했다고요?\n행운을 빕니다…전에 이곳을 정리하려던 사람들은 하몬데일 성에 들어간 뒤 다시 나오지 못했습니다.',
+          )
+          replace_po_msgstr(
+              'engine:npc_greet.txt:302:Greeting2',
+              '마크햄 경의 대회에서 우승했다고요?\n행운을 빕니다…전에 이곳을 정리하려던 사람들은 하몬데일 성에 들어간 뒤 다시 나오지 못했습니다.',
+          )
+          replace_po_msgstr('world:mm6:6D09.STR:14', '지능이 부족합니다!')
+          po_path.write_text(po_text, encoding='utf-8', newline='\n')
+          PY
+
+      - name: Run focused tests
+        run: |
+          set -euo pipefail
+          python3 -m py_compile korean/tools/catalog_po.py korean/tools/catalog_po_runtime.py korean/build_patch.py
+          python3 -m unittest korean/tools/test_catalog_po.py
+
+      - name: Commit hardened PO roundtrip
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            korean/tools/catalog_po.py \
+            korean/tools/catalog_po_runtime.py \
+            korean/build_patch.py \
+            korean/tools/apply_source_semantic_corrections.py \
+            korean/tools/apply_mmmerge_116a_feedback.py \
+            korean/translations/ko.po
+          git diff --cached --check
+          git commit -m 'Harden Korean PO runtime roundtrip'
+          git push origin HEAD:korean-localization
