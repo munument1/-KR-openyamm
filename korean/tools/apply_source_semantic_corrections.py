@@ -146,6 +146,7 @@ def normalize_translation(source_name: str, source: str, translation: str, count
             if result != before:
                 counts["행운(stat) -> 운"] += 1
         elif source_name in {
+            "Global.txt",
             "standard_item_enchants.txt",
             "special_item_enchants.txt",
             "stats.txt",
