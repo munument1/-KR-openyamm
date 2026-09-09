@@ -1,0 +1,66 @@
+name: Temporary Korean cutscene media review
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/korean-cutscene-media-review-temp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect-review-media:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out runtime cutscenes
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /assets_dev/worlds/mm6/videos/Cutscenes/6losegame.ogv
+            /assets_dev/worlds/mm6/videos/Cutscenes/credits.ogv
+            /assets_dev/worlds/mm6/videos/Cutscenes/mm6end2.ogv
+            /assets_dev/worlds/mm7/videos/Cutscenes/endgame 2 evil.ogv
+            /assets_dev/worlds/mm7/videos/Cutscenes/intro post.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/DragonHunters.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/dragonsrevenge.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/intro.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/JVC.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/LoseGame.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/nightshade.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/NWC.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/SaveMino.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/skeltrans.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/Subcut.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/wingame.ogv
+
+      - name: Upload unresolved cutscene media
+        uses: actions/upload-artifact@v7
+        with:
+          name: korean-cutscene-unresolved-media
+          path: |
+            assets_dev/worlds/mm6/videos/Cutscenes/6losegame.ogv
+            assets_dev/worlds/mm6/videos/Cutscenes/credits.ogv
+            assets_dev/worlds/mm6/videos/Cutscenes/mm6end2.ogv
+            assets_dev/worlds/mm7/videos/Cutscenes/endgame 2 evil.ogv
+            assets_dev/worlds/mm7/videos/Cutscenes/intro post.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/DragonHunters.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/dragonsrevenge.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/intro.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/JVC.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/LoseGame.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/nightshade.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/NWC.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/SaveMino.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/skeltrans.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/Subcut.ogv
+            assets_dev/worlds/mm8/videos/Cutscenes/wingame.ogv
+          if-no-files-found: error
+          retention-days: 1
