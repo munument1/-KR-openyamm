@@ -1,0 +1,118 @@
+name: Temporary Korean cutscene ASR review
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/korean-cutscene-asr-review-temp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review-cutscene-speech:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out Korean branch with runtime movies
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+
+      - name: Install media and ASR tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg
+          python3 -m pip install --disable-pip-version-check --no-cache-dir faster-whisper
+
+      - name: Recheck unresolved cutscenes with small.en
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from statistics import mean
+          from faster_whisper import WhisperModel
+
+          root = Path('.')
+          coverage = json.loads((root / 'korean/subtitles/coverage.json').read_text(encoding='utf-8'))
+          unresolved = [entry for entry in coverage['entries'] if entry['status'] == 'review_required' and entry['has_audio']]
+          model = WhisperModel('small.en', device='cpu', compute_type='int8')
+
+          def collect(path, *, vad_filter, rescue):
+              segments, info = model.transcribe(
+                  str(path),
+                  language='en',
+                  beam_size=5,
+                  vad_filter=vad_filter,
+                  condition_on_previous_text=False,
+                  word_timestamps=True,
+                  no_speech_threshold=0.85 if rescue else 0.6,
+                  log_prob_threshold=-2.0 if rescue else -1.0,
+              )
+              result = []
+              for segment in segments:
+                  words = [
+                      {
+                          'start': round(float(word.start), 3),
+                          'end': round(float(word.end), 3),
+                          'text': word.word,
+                          'probability': round(float(word.probability), 4),
+                      }
+                      for word in (segment.words or [])
+                  ]
+                  result.append({
+                      'start': round(float(segment.start), 3),
+                      'end': round(float(segment.end), 3),
+                      'text': segment.text.strip(),
+                      'avg_logprob': round(float(segment.avg_logprob), 4),
+                      'no_speech_prob': round(float(segment.no_speech_prob), 4),
+                      'words': words,
+                  })
+              return {
+                  'language': info.language,
+                  'language_probability': round(float(info.language_probability), 4),
+                  'segments': result,
+              }
+
+          records = []
+          for entry in unresolved:
+              path = root / entry['runtime_path']
+              primary = collect(path, vad_filter=True, rescue=False)
+              probs = [word['probability'] for seg in primary['segments'] for word in seg['words']]
+              primary_avg = round(mean(probs), 4) if probs else None
+              need_rescue = not primary['segments'] or (primary_avg is not None and primary_avg < 0.88)
+              rescue = collect(path, vad_filter=False, rescue=True) if need_rescue else None
+              record = {
+                  'world': entry['world'],
+                  'stem': entry['stem'],
+                  'runtime_path': entry['runtime_path'],
+                  'duration_seconds': entry['duration_seconds'],
+                  'base_asr_segments': entry['asr_segments'],
+                  'base_asr_avg_word_probability': entry['asr_avg_word_probability'],
+                  'small_en_primary_avg_word_probability': primary_avg,
+                  'primary': primary,
+                  'rescue': rescue,
+                  'note': 'Independent ASR review only; compare against game text/media before subtitle authoring.',
+              }
+              records.append(record)
+              print(entry['world'], entry['stem'], 'primary=', len(primary['segments']), 'avg=', primary_avg,
+                    'rescue=', len(rescue['segments']) if rescue else '-')
+
+          output = root / 'cutscene-asr-review-v2.json'
+          output.write_text(
+              json.dumps({'format': 1, 'model': 'faster-whisper small.en', 'records': records}, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          print(f'REVIEWED={len(records)}')
+          PY
+
+      - name: Upload ASR review artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: korean-cutscene-asr-review-v2
+          path: cutscene-asr-review-v2.json
+          if-no-files-found: error
+          retention-days: 7
