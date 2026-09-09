@@ -63,6 +63,34 @@ PLAYER_SINK_MARKERS = (
     'characterLine', 'scoreLine', 'totalTimeLine', 'renderHud', 'drawScreenText',
 )
 
+PLAYER_SINK_CALL_RE = re.compile(
+    r"\b(?:setStatusBarEvent|setStatus|drawText|renderText|displayText|drawScreenText|renderHud|renderLayoutLabel)\s*\("
+)
+PLAYER_NAMED_CALL_RE = re.compile(
+    r"\b(?:show|set|draw|render|display|update)(?:[A-Za-z0-9_]*(?:Message|Title|Label|Description|Tooltip|Prompt|Dialog))\s*\("
+)
+PLAYER_TEXT_ASSIGN_RE = re.compile(
+    r"\b(?:statusText|tooltip|prompt|endingText|characterLine|scoreLine|totalTimeLine)\b\s*(?:=|\+=|\.assign\s*\(|\.append\s*\()"
+)
+NON_PLAYER_LOOKUP_CALL_RE = re.compile(
+    r"\b(?:findHudLayoutElement|resolveHudLayoutElement|defaultHudLayoutZIndexForScreen|readStringMapFromField)\s*\("
+)
+
+
+def is_player_sink_context(source_line: str) -> bool:
+    # Quoted literals are data candidates, never sink evidence themselves.
+    # Require a structural display call/assignment instead of broad substrings
+    # such as "Dialog" appearing inside unrelated identifiers.
+    code_context = LITERAL_RE.sub('""', source_line)
+    if NON_PLAYER_LOOKUP_CALL_RE.search(code_context):
+        return False
+    return bool(
+        PLAYER_SINK_CALL_RE.search(code_context)
+        or PLAYER_NAMED_CALL_RE.search(code_context)
+        or PLAYER_TEXT_ASSIGN_RE.search(code_context)
+    )
+
+
 DEDICATED_DISPLAY = {
     'Only two additional skills can be selected.',
     'Character name cannot be empty.',
@@ -178,7 +206,7 @@ def main() -> int:
             stripped = line.strip()
             if any(marker in stripped for marker in INTERNAL_LINE_MARKERS):
                 continue
-            player_sink = any(marker in stripped for marker in PLAYER_SINK_MARKERS)
+            player_sink = is_player_sink_context(stripped)
             for match in LITERAL_RE.finditer(line):
                 text = decode_cpp(match.group(1)).strip()
                 words = WORD_RE.findall(text)
@@ -220,7 +248,7 @@ def main() -> int:
     covered = [r for r in rows if r['coverage'] != 'uncovered']
 
     result = {
-        'format': 6,
+        'format': 7,
         'scanned_files': len(files),
         'candidate_occurrences': len(rows),
         'covered_occurrences': len(covered),
