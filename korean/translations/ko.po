@@ -50150,7 +50150,7 @@ msgstr "검은색 물약"
 #. assets_dev/engine/data_tables/items.txt record=262 field=Notes status=translated
 msgctxt "engine:items.txt:262:Notes"
 msgid "Cures Stoned.  (To drink, pick the potion up and right-click over a character's portrait.  To mix, pick the potion up and right-click over another potion.)"
-msgstr "취한 상태를 치료합니다. (마시려면 물약을 집어 들고 캐릭터 초상화를 오른쪽 클릭하십시오. 섞으려면 물약을 집어 들고 다른 물약을 오른쪽 클릭하십시오.)"
+msgstr "석화 상태를 치료합니다. (마시려면 물약을 집어 들고 캐릭터 초상화를 오른쪽 클릭하십시오. 섞으려면 물약을 집어 들고 다른 물약을 오른쪽 클릭하십시오.)"
 
 #. assets_dev/engine/data_tables/items.txt record=263 field=Name status=translated
 msgctxt "engine:items.txt:263:Name"
