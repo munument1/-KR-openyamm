@@ -1,0 +1,59 @@
+name: Sync Korean PO catalog
+
+on:
+  push:
+    branches:
+      - release-r9-staging-work
+    paths:
+      - .github/workflows/sync-korean-po.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out Korean localization branch
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Download validated generated catalog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p imported
+          gh run download 34326999614 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name openyamm-korean-translation-import \
+            --dir imported
+          test -s imported/korean/translations/catalog.json
+
+      - name: Export and verify gettext PO
+        run: |
+          set -euo pipefail
+          python3 korean/tools/catalog_po.py export \
+            --catalog imported/korean/translations/catalog.json \
+            --po korean/translations/ko.po
+          python3 korean/tools/catalog_po.py verify \
+            --catalog imported/korean/translations/catalog.json \
+            --po korean/translations/ko.po
+          test -s korean/translations/ko.po
+
+      - name: Commit PO to Korean branch
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add korean/translations/ko.po
+          if git diff --cached --quiet; then
+            echo 'PO is already current.'
+            exit 0
+          fi
+          git commit -m 'Add generated Korean gettext catalog'
+          git push origin HEAD:korean-localization
