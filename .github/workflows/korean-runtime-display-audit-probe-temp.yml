@@ -1,4 +1,4 @@
-name: Temporary Korean runtime display audit probe
+name: Temporary Korean runtime display audit fix
 
 on:
   push:
@@ -9,101 +9,102 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  compare-player-sink-detection:
+  apply-and-verify-player-sink-fix:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Check out audit source tree
+      - name: Check out latest Korean branch
         uses: actions/checkout@v7
         with:
           ref: korean-localization
           fetch-depth: 1
-          persist-credentials: false
-          sparse-checkout-cone-mode: false
-          sparse-checkout: |
-            /game/**
-            /korean/tools/audit_runtime_display_text.py
 
-      - name: Run current audit
+      - name: Apply literal-masked sink detection and regression test
         run: |
-          python3 korean/tools/audit_runtime_display_text.py \
-            --json-out runtime-display-current.json \
-            --tsv-out runtime-display-current.tsv
-
-      - name: Run literal-masked sink audit
-        run: |
-          cp korean/tools/audit_runtime_display_text.py /tmp/audit_runtime_display_text.py
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('/tmp/audit_runtime_display_text.py')
-          text = path.read_text(encoding='utf-8')
-          old = "            player_sink = any(marker in stripped for marker in PLAYER_SINK_MARKERS)\n"
-          new = "            code_context = LITERAL_RE.sub('\\\"\\\"', stripped)\n            player_sink = any(marker in code_context for marker in PLAYER_SINK_MARKERS)\n"
-          if old not in text:
-              raise SystemExit('Expected current player_sink expression not found')
-          path.write_text(text.replace(old, new), encoding='utf-8')
-          PY
-          python3 /tmp/audit_runtime_display_text.py \
-            --root . \
-            --json-out runtime-display-masked.json \
-            --tsv-out runtime-display-masked.tsv
 
-      - name: Compare high-confidence results
+          audit_path = Path('korean/tools/audit_runtime_display_text.py')
+          text = audit_path.read_text(encoding='utf-8')
+          marker = "DEDICATED_DISPLAY = {\n"
+          helper = '''def is_player_sink_context(source_line: str) -> bool:\n    # Sink markers inside quoted literals are data/lookup keys, not evidence that\n    # another literal on the same source line is rendered to the player.\n    code_context = LITERAL_RE.sub('""', source_line)\n    return any(marker in code_context for marker in PLAYER_SINK_MARKERS)\n\n\n'''
+          if helper not in text:
+              if marker not in text:
+                  raise SystemExit('Could not locate helper insertion point')
+              text = text.replace(marker, helper + marker, 1)
+          old = "            player_sink = any(marker in stripped for marker in PLAYER_SINK_MARKERS)\n"
+          new = "            player_sink = is_player_sink_context(stripped)\n"
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit('Could not locate player_sink assignment')
+          text = text.replace("        'format': 6,\n", "        'format': 7,\n", 1)
+          audit_path.write_text(text, encoding='utf-8')
+
+          test_path = Path('korean/tools/test_runtime_display_audit.py')
+          test_path.write_text('''#!/usr/bin/env python3\nfrom __future__ import annotations\n\nimport importlib.util\nfrom pathlib import Path\nimport unittest\n\n\nMODULE_PATH = Path(__file__).with_name("audit_runtime_display_text.py")\nspec = importlib.util.spec_from_file_location("audit_runtime_display_text", MODULE_PATH)\nassert spec is not None and spec.loader is not None\naudit = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(audit)\n\n\nclass RuntimeDisplayAuditSinkTests(unittest.TestCase):\n    def test_real_sink_marker_outside_literal_is_detected(self) -> None:\n        self.assertTrue(audit.is_player_sink_context('drawText(font, "Name");'))\n        self.assertTrue(audit.is_player_sink_context('setStatusBarEvent("Ready");'))\n\n    def test_sink_words_inside_lookup_literals_do_not_count(self) -> None:\n        self.assertFalse(audit.is_player_sink_context('view.findHudLayoutElement("DialogueGoodbyeButton");'))\n        self.assertFalse(audit.is_player_sink_context('equipStat == "Message"'))\n        self.assertFalse(audit.is_player_sink_context('readStringMapFromField(state, -1, "title");'))\n\n    def test_unrelated_literal_does_not_create_sink_context(self) -> None:\n        self.assertFalse(audit.is_player_sink_context('return "<no description>";'))\n\n\nif __name__ == "__main__":\n    unittest.main()\n''', encoding='utf-8')
+
+          workflow_path = Path('.github/workflows/korean-runtime-display-audit.yml')
+          workflow = workflow_path.read_text(encoding='utf-8')
+          checkout_line = '            /korean/tools/audit_runtime_display_text.py\n'
+          test_checkout = '            /korean/tools/test_runtime_display_audit.py\n'
+          if test_checkout not in workflow:
+              if checkout_line not in workflow:
+                  raise SystemExit('Could not update display audit sparse checkout')
+              workflow = workflow.replace(checkout_line, checkout_line + test_checkout, 1)
+          test_step = '''\n      - name: Test runtime display audit heuristics\n        shell: bash\n        run: |\n          set -euo pipefail\n          python3 -m unittest korean/tools/test_runtime_display_audit.py\n'''
+          scan_step = '\n      - name: Scan runtime display literals\n'
+          if test_step not in workflow:
+              if scan_step not in workflow:
+                  raise SystemExit('Could not locate runtime audit scan step')
+              workflow = workflow.replace(scan_step, test_step + scan_step, 1)
+          workflow_path.write_text(workflow, encoding='utf-8')
+          PY
+
+      - name: Run regression test
+        run: python3 -m unittest korean/tools/test_runtime_display_audit.py
+
+      - name: Run patched runtime display audit
         run: |
+          python3 korean/tools/audit_runtime_display_text.py
           python3 - <<'PY'
           import json
           from pathlib import Path
-
-          current = json.loads(Path('runtime-display-current.json').read_text(encoding='utf-8'))
-          masked = json.loads(Path('runtime-display-masked.json').read_text(encoding='utf-8'))
-          fields = [
-              'candidate_occurrences',
-              'uncovered_occurrences',
-              'high_confidence_uncovered_occurrences',
-              'high_confidence_unique_literals',
-              'medium_confidence_uncovered_occurrences',
-              'medium_confidence_unique_literals',
+          result = json.loads(Path('runtime-display-audit.json').read_text(encoding='utf-8'))
+          if result['format'] != 7:
+              raise SystemExit(f"Unexpected audit format: {result['format']}")
+          print('HIGH_UNCOVERED_OCCURRENCES=' + str(result['high_confidence_uncovered_occurrences']))
+          print('HIGH_UNIQUE_LITERALS=' + str(result['high_confidence_unique_literals']))
+          rows = result['rows']
+          bad = [
+              row for row in rows
+              if row['confidence'] == 'high' and row['literal'] in {'DialogueGoodbyeButton', 'DialogueEventDialog'}
           ]
-          for field in fields:
-              print(f'{field}: current={current[field]} masked={masked[field]} delta={masked[field]-current[field]}')
-
-          def high_rows(payload):
-              return {
-                  (r['file'], r['line'], r['literal']): r
-                  for r in payload['rows']
-                  if r['coverage'] == 'uncovered' and r['confidence'] == 'high'
-              }
-
-          before = high_rows(current)
-          after = high_rows(masked)
-          removed = [before[key] for key in sorted(before.keys() - after.keys())]
-          added = [after[key] for key in sorted(after.keys() - before.keys())]
-          print(f'HIGH_ROWS_REMOVED={len(removed)}')
-          print(f'HIGH_ROWS_ADDED={len(added)}')
-          print('--- REMOVED HIGH ROWS ---')
-          for row in removed[:100]:
-              print(f"{row['file']}:{row['line']}\t{row['literal']}\t{row['source_line']}")
-          Path('runtime-display-probe-summary.json').write_text(
-              json.dumps({
-                  'current': {field: current[field] for field in fields},
-                  'masked': {field: masked[field] for field in fields},
-                  'removed_high_rows': removed,
-                  'added_high_rows': added,
-              }, ensure_ascii=False, indent=2) + '\n',
-              encoding='utf-8',
-          )
+          if bad:
+              raise SystemExit(f'Literal-only sink false positives remain: {bad[:5]}')
           PY
 
-      - name: Upload comparison artifact
+      - name: Commit verified audit fix
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add korean/tools/audit_runtime_display_text.py \
+                  korean/tools/test_runtime_display_audit.py \
+                  .github/workflows/korean-runtime-display-audit.yml
+          git diff --cached --check
+          git commit -m "Avoid literal-only runtime display sink matches"
+          git push origin HEAD:korean-localization
+
+      - name: Upload verified audit output
         uses: actions/upload-artifact@v7
         with:
-          name: korean-runtime-display-audit-probe
+          name: korean-runtime-display-audit-fixed
           path: |
-            runtime-display-current.json
-            runtime-display-masked.json
-            runtime-display-probe-summary.json
+            runtime-display-audit.json
+            runtime-display-audit.tsv
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
