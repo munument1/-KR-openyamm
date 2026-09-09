@@ -8,13 +8,15 @@
     "Every runtime OGV must appear exactly once in this file.",
     "subtitle_ready means a Korean SRT is committed and package-tested.",
     "no_audio is reserved for media with no audio stream.",
-    "review_required means no subtitle text is guessed from filenames or low-confidence ASR."
+    "no_dialogue is reserved for reviewed media whose audio contains music/effects but no spoken dialogue requiring subtitles.",
+    "review_required means no subtitle text is guessed from filenames or unresolved/low-confidence speech."
   ],
   "summary": {
     "runtime_videos": 32,
-    "subtitle_ready": 14,
+    "subtitle_ready": 18,
     "no_audio": 2,
-    "review_required": 16
+    "no_dialogue": 11,
+    "review_required": 1
   },
   "entries": [
     {
@@ -41,8 +43,8 @@
       "has_audio": true,
       "asr_segments": 0,
       "asr_avg_word_probability": null,
-      "status": "review_required",
-      "reason": "Audio stream exists but base.en ASR produced no speech segments; manual transcript/listening is required before authoring.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -82,8 +84,8 @@
       "has_audio": true,
       "asr_segments": 0,
       "asr_avg_word_probability": null,
-      "status": "review_required",
-      "reason": "Audio stream exists but base.en ASR produced no speech segments; manual transcript/listening is required before authoring.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -111,8 +113,8 @@
       "has_audio": true,
       "asr_segments": 0,
       "asr_avg_word_probability": null,
-      "status": "review_required",
-      "reason": "Audio stream exists but base.en ASR produced no speech segments; manual transcript/listening is required before authoring.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -212,8 +214,8 @@
       "has_audio": true,
       "asr_segments": 0,
       "asr_avg_word_probability": null,
-      "status": "review_required",
-      "reason": "Audio stream exists but base.en ASR produced no speech segments; manual transcript/listening is required before authoring.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -240,9 +242,11 @@
       "has_audio": true,
       "asr_segments": 14,
       "asr_avg_word_probability": 0.9183,
-      "status": "review_required",
-      "reason": "Speech is present, but wording/timing has not yet passed manual text/context review.",
-      "subtitle_files": []
+      "status": "subtitle_ready",
+      "reason": "Speech was cross-checked across base.en, medium.en, and large-v3 ASR with runtime frames and game context; Korean SRT uses reviewed timing and established terminology.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/intro post.srt"
+      ]
     },
     {
       "world": "mm7",
@@ -313,9 +317,11 @@
       "has_audio": true,
       "asr_segments": 5,
       "asr_avg_word_probability": 0.8767,
-      "status": "review_required",
-      "reason": "Speech is present, but wording/timing has not yet passed manual text/context review.",
-      "subtitle_files": []
+      "status": "subtitle_ready",
+      "reason": "Speech was cross-checked across independent ASR passes and runtime frames; the alliance/Dragon Hunter context was verified against game dialogue.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm8/subtitles/DragonHunters.srt"
+      ]
     },
     {
       "world": "mm8",
@@ -326,9 +332,11 @@
       "has_audio": true,
       "asr_segments": 3,
       "asr_avg_word_probability": 0.7589,
-      "status": "review_required",
-      "reason": "ASR speech exists but confidence is too low for safe subtitle authoring; manual transcript/listening is required.",
-      "subtitle_files": []
+      "status": "subtitle_ready",
+      "reason": "Low-confidence base ASR was resolved by medium.en and large-v3 agreement plus runtime-frame review; the SRT uses only corroborated spoken lines.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm8/subtitles/dragonsrevenge.srt"
+      ]
     },
     {
       "world": "mm8",
@@ -339,8 +347,8 @@
       "has_audio": true,
       "asr_segments": 0,
       "asr_avg_word_probability": null,
-      "status": "review_required",
-      "reason": "Audio stream exists but base.en ASR produced no speech segments; manual transcript/listening is required before authoring.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -352,8 +360,8 @@
       "has_audio": true,
       "asr_segments": 1,
       "asr_avg_word_probability": 0.4146,
-      "status": "review_required",
-      "reason": "ASR speech exists but confidence is too low for safe subtitle authoring; manual transcript/listening is required.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -365,8 +373,8 @@
       "has_audio": true,
       "asr_segments": 0,
       "asr_avg_word_probability": null,
-      "status": "review_required",
-      "reason": "Audio stream exists but base.en ASR produced no speech segments; manual transcript/listening is required before authoring.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -378,8 +386,8 @@
       "has_audio": true,
       "asr_segments": 0,
       "asr_avg_word_probability": null,
-      "status": "review_required",
-      "reason": "Audio stream exists but base.en ASR produced no speech segments; manual transcript/listening is required before authoring.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -391,8 +399,8 @@
       "has_audio": true,
       "asr_segments": 1,
       "asr_avg_word_probability": 0.0058,
-      "status": "review_required",
-      "reason": "ASR speech exists but confidence is too low for safe subtitle authoring; manual transcript/listening is required.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -419,8 +427,8 @@
       "has_audio": true,
       "asr_segments": 0,
       "asr_avg_word_probability": null,
-      "status": "review_required",
-      "reason": "Audio stream exists but base.en ASR produced no speech segments; manual transcript/listening is required before authoring.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -433,7 +441,7 @@
       "asr_segments": 1,
       "asr_avg_word_probability": 0.8304,
       "status": "review_required",
-      "reason": "ASR speech exists but confidence is too low for safe subtitle authoring; manual transcript/listening is required.",
+      "reason": "The main speech is clear, but the final short utterance remains ambiguous across independent large-v3 decoding settings; no guessed SRT is published.",
       "subtitle_files": []
     },
     {
@@ -445,8 +453,8 @@
       "has_audio": true,
       "asr_segments": 0,
       "asr_avg_word_probability": null,
-      "status": "review_required",
-      "reason": "Audio stream exists but base.en ASR produced no speech segments; manual transcript/listening is required before authoring.",
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
       "subtitle_files": []
     },
     {
@@ -458,9 +466,11 @@
       "has_audio": true,
       "asr_segments": 1,
       "asr_avg_word_probability": 0.4773,
-      "status": "review_required",
-      "reason": "ASR speech exists but confidence is too low for safe subtitle authoring; manual transcript/listening is required.",
-      "subtitle_files": []
+      "status": "subtitle_ready",
+      "reason": "The closing spoken line was independently corroborated and timed against the runtime ending movie before Korean subtitle authoring.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm8/subtitles/wingame.srt"
+      ]
     }
   ]
 }
