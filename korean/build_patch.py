@@ -93,6 +93,29 @@ def apply_po_if_available(repo_root: Path) -> None:
     )
 
 
+def verify_po_runtime_if_available(repo_root: Path) -> None:
+    catalog_path = repo_root / "korean" / "translations" / "catalog.json"
+    po_path = repo_root / "korean" / "translations" / "ko.po"
+    po_tool = repo_root / "korean" / "tools" / "catalog_po.py"
+    if not catalog_path.is_file() or not po_path.is_file() or not po_tool.is_file():
+        return
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(po_tool),
+            "verify-runtime",
+            "--repo-root",
+            str(repo_root),
+            "--catalog",
+            str(catalog_path),
+            "--po",
+            str(po_path),
+        ],
+        check=True,
+    )
+
+
 def build(repo_root: Path, output_root: Path) -> dict:
     # Catalog/table importers intentionally remain faithful to their upstream
     # sources. Apply reviewed player-feedback corrections after all generated
@@ -100,6 +123,7 @@ def build(repo_root: Path, output_root: Path) -> dict:
     # before packaging the native runtime files.
     apply_reviewed_feedback_if_available(repo_root)
     apply_po_if_available(repo_root)
+    verify_po_runtime_if_available(repo_root)
 
     overlay_root = repo_root / "korean" / "overlay"
     package_root = output_root / "korean"

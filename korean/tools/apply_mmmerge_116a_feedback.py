@@ -247,21 +247,42 @@ def synchronize_overlay(repo_root: Path, catalog: dict) -> int:
         },
     )
 
-    # This table has no stable numeric record-id column in the generated file,
-    # so synchronize the reviewed record by exact localized display text.
+    # The generated special-enchant table uses synthetic catalog ids rather
+    # than a numeric first-column key. Synchronize display-only columns by the
+    # same stable row convention used by extend_item_enchant_catalog.py.
     special_path = overlay_root / "special_item_enchants.txt"
     if special_path.is_file():
         text = special_path.read_text(encoding="utf-8-sig")
-        replacements = (
-            ("7대 능력치 모두 +10.", "모든 능력치 +10."),
-            ("[신들]", "[신]"),
+        rows = list(csv.reader(io.StringIO(text, newline=""), delimiter="\t", quotechar='"'))
+        header_index = next(
+            (index for index, row in enumerate(rows) if "Localized Display Description" in row),
+            None,
         )
-        original = text
-        for old, new in replacements:
-            text = text.replace(old, new)
-        if text != original:
-            changed += 1
-            special_path.write_text(text, encoding="utf-8", newline="")
+        if header_index is None:
+            raise ValueError(f"Could not find special-enchant display header in {special_path}")
+        description_column = rows[header_index].index("Localized Display Description")
+        suffix_column = rows[header_index].index("Localized Display Suffix")
+        special_values = {
+            (int(entry.get("record_id")), str(entry.get("field"))): str(entry.get("translation", ""))
+            for entry in catalog.get("entries", [])
+            if Path(str(entry.get("source_file", ""))).name == "special_item_enchants.txt"
+            and str(entry.get("field", "")) in {"DisplayDescription", "DisplaySuffix"}
+        }
+        for (record_id, field), value in special_values.items():
+            row_index = record_id + 3
+            if row_index >= len(rows):
+                raise ValueError(f"Special-enchant synthetic row is out of range: {record_id}")
+            column = description_column if field == "DisplayDescription" else suffix_column
+            while len(rows[row_index]) <= column:
+                rows[row_index].append("")
+            if rows[row_index][column] != value:
+                rows[row_index][column] = value
+                changed += 1
+        output = io.StringIO(newline="")
+        csv.writer(
+            output, delimiter="\t", quotechar='"', quoting=csv.QUOTE_MINIMAL, lineterminator="\n"
+        ).writerows(rows)
+        special_path.write_text(output.getvalue(), encoding="utf-8", newline="")
     return changed
 
 

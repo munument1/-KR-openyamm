@@ -19,6 +19,8 @@ from pathlib import Path
 import re
 from typing import Iterable
 
+import catalog_po_runtime
+
 PRINTF_TOKEN_RE = re.compile(
     r"%(?:\d+\$)?\d*(?:\.\d+)?(?:hh|h|ll|l|j|z|t|L)?[diuoxXfFeEgGaAcsn]"
 )
@@ -313,7 +315,7 @@ def import_po(catalog: dict, po_entries: list[dict[str, str]], repo_root: Path |
         if apply_runtime:
             if repo_root is None:
                 raise ValueError("repo_root is required when applying PO translations")
-            materialize_entry(repo_root, entry, translation)
+            catalog_po_runtime.materialize_entry(repo_root, entry, translation)
         entry["translation"] = translation
         entry["translation_origin"] = "po"
         entry["status"] = "translated"
@@ -342,6 +344,11 @@ def main() -> int:
     verify_parser.add_argument("--catalog", default="korean/translations/catalog.json")
     verify_parser.add_argument("--po", default="korean/translations/ko.po")
 
+    runtime_parser = subparsers.add_parser("verify-runtime")
+    runtime_parser.add_argument("--repo-root", default=None)
+    runtime_parser.add_argument("--catalog", default="korean/translations/catalog.json")
+    runtime_parser.add_argument("--po", default="korean/translations/ko.po")
+
     args = parser.parse_args()
     if args.command == "export":
         catalog_path = Path(args.catalog)
@@ -357,12 +364,17 @@ def main() -> int:
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
     po_entries = parse_po(po_path.read_text(encoding="utf-8-sig"))
 
-    if args.command == "verify":
+    if args.command in {"verify", "verify-runtime"}:
         import_po(catalog, po_entries, None, False)
         missing = len(catalog.get("entries", [])) - len(po_entries)
         if missing:
             raise ValueError(f"PO catalog is missing {missing} context(s)")
-        print(f"Verified {len(po_entries)} PO entries against the current catalog")
+        if args.command == "verify-runtime":
+            repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parents[2]
+            verified = catalog_po_runtime.verify_runtime_catalog(catalog, po_entries, repo_root)
+            print(f"Verified {verified} PO entries against generated runtime overlays")
+        else:
+            print(f"Verified {len(po_entries)} PO entries against the current catalog")
         return 0
 
     repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parents[2]

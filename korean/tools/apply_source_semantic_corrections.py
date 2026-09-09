@@ -145,8 +145,18 @@ def normalize_translation(source_name: str, source: str, translation: str, count
             result = re.sub(r"행운(?=\s*[+-]\s*\d)", "운", result)
             if result != before:
                 counts["행운(stat) -> 운"] += 1
-        else:
+        elif source_name in {
+            "standard_item_enchants.txt",
+            "special_item_enchants.txt",
+            "stats.txt",
+            "skill_des.txt",
+            "spells.txt",
+        }:
             result = replace_all(result, (("행운", "운"),), counts)
+
+    if source.strip().casefold() == "you are not smart enough!" and result == "지력이 부족합니다!":
+        result = "지능이 부족합니다!"
+        counts["지력이 부족합니다! -> 지능이 부족합니다!"] += 1
 
     return repair_korean_particles(result, counts)
 

@@ -75365,12 +75365,12 @@ msgstr "스톤 시티를 찾은 방문객들이군요.\n당신들 같은 여행�
 #. assets_dev/engine/data_tables/npc_greet.txt record=302 field=Greeting1 status=translated
 msgctxt "engine:npc_greet.txt:302:Greeting1"
 msgid "You won Lord Markham's contest?\nGood luck…last people who tried to clean this place up went into Castle Harmondale and never came out."
-msgstr "마크햄 경의 대회에서 우승했다고요?\n운을 빕니다…전에 이곳을 정리하려던 사람들은 하몬데일 성에 들어간 뒤 다시 나오지 못했습니다."
+msgstr "마크햄 경의 대회에서 우승했다고요?\n행운을 빕니다…전에 이곳을 정리하려던 사람들은 하몬데일 성에 들어간 뒤 다시 나오지 못했습니다."
 
 #. assets_dev/engine/data_tables/npc_greet.txt record=302 field=Greeting2 status=translated
 msgctxt "engine:npc_greet.txt:302:Greeting2"
 msgid "You won Lord Markham's contest?\nGood luck…last people who tried to clean this place up went into Castle Harmondale and never came out."
-msgstr "마크햄 경의 대회에서 우승했다고요?\n운을 빕니다…전에 이곳을 정리하려던 사람들은 하몬데일 성에 들어간 뒤 다시 나오지 못했습니다."
+msgstr "마크햄 경의 대회에서 우승했다고요?\n행운을 빕니다…전에 이곳을 정리하려던 사람들은 하몬데일 성에 들어간 뒤 다시 나오지 못했습니다."
 
 #. assets_dev/engine/data_tables/npc_greet.txt record=303 field=Greeting1 status=translated
 msgctxt "engine:npc_greet.txt:303:Greeting1"
@@ -123255,7 +123255,7 @@ msgstr "딸깍!"
 #. assets_dev/worlds/mm6/_legacy/events/6D09.STR record=14 field=Text status=translated
 msgctxt "world:mm6:6D09.STR:14"
 msgid "You are not smart enough!"
-msgstr "지력이 부족합니다!"
+msgstr "지능이 부족합니다!"
 
 #. assets_dev/worlds/mm6/_legacy/events/6D09.STR record=6 field=Text status=translated
 msgctxt "world:mm6:6D09.STR:6"
