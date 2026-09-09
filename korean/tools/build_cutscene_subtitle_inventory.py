@@ -25,7 +25,10 @@ MEDIA_EXTENSIONS = {".bik", ".smk"}
 REFERENCE_SUFFIXES = {
     ".cpp", ".h", ".hpp", ".c", ".cc", ".lua", ".txt", ".json", ".md", ".toml", ".ini", ".yml", ".yaml",
 }
-REFERENCE_ROOTS = ("game", "assets_dev", "korean")
+# Runtime/source evidence lives in the engine and asset trees.  Generated Korean
+# catalogs are intentionally excluded: scanning them is expensive and can turn a
+# translated mention of a movie name into a circular false reference.
+REFERENCE_ROOTS = ("game", "assets_dev")
 MAX_REFERENCES_PER_MEDIA = 20
 
 SHOW_MOVIE_RE = re.compile(r"\bevt\.ShowMovie\s*\(\s*\"((?:\\.|[^\"\\])*)\"")
