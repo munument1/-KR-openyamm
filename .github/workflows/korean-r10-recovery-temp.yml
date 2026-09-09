@@ -25,6 +25,7 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /korean/**
+            /game/ui/KoreanDecorationText.h
             /assets_dev/engine/data_tables/**
             /assets_dev/worlds/mm6/_legacy/events/**
             /assets_dev/worlds/mm6/events/maps/**
