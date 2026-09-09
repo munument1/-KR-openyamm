@@ -34,12 +34,12 @@ jobs:
       - name: Verify layout keys are not high-confidence sinks
         run: python3 -c "import json; r=json.load(open('runtime-display-audit.json', encoding='utf-8')); bad=[x for x in r['rows'] if x['confidence']=='high' and x['literal'] in {'DialogueGoodbyeButton','DialogueEventDialog','DialogueHouseTitle'}]; print('HIGH_UNCOVERED_OCCURRENCES='+str(r['high_confidence_uncovered_occurrences'])); print('HIGH_UNIQUE_LITERALS='+str(r['high_confidence_unique_literals'])); assert r['format']==7; assert not bad, bad"
 
-      - name: Commit verified audit fix
+      - name: Commit verified audit source fix
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add korean/tools/audit_runtime_display_text.py korean/tools/test_runtime_display_audit.py .github/workflows/korean-runtime-display-audit.yml
+          git add korean/tools/audit_runtime_display_text.py korean/tools/test_runtime_display_audit.py
           git diff --cached --check
           git commit -m "Use structural runtime display sink detection"
           git push origin HEAD:korean-localization
