@@ -31,12 +31,12 @@ small Korean overlay instead of re-encoding or modifying the original movies.
 - `review_required`: speech exists, but the transcript/timing is not reliable
   enough yet to publish a complete subtitle.
 
-The current reviewed inventory classifies all 32 runtime OGV files: 18 are
+The current reviewed inventory classifies all 32 runtime OGV files: 19 are
 `subtitle_ready`, 2 are confirmed `no_audio`, 11 are confirmed `no_dialogue`,
-and 1 remains `review_required` (`mm8/skeltrans`). The unresolved entry stays
-explicit because its final short utterance remains ambiguous across independent
-ASR decoding settings; no wording is guessed merely to make the review count
-reach zero.
+and none remain `review_required`. The previously unresolved `mm8/skeltrans`
+ending was resolved by cross-checking the runtime OGV and original BIK across
+independent small.en, medium.en, and distil-large-v3 speech-recognition passes
+before authoring the Korean SRT.
 
 `source_inventory.json`, `media_probe.json`, and `asr_draft.json` are audit
 inputs, not translation authority. Machine ASR is used to locate speech and

@@ -13,10 +13,10 @@
   ],
   "summary": {
     "runtime_videos": 32,
-    "subtitle_ready": 18,
+    "subtitle_ready": 19,
     "no_audio": 2,
     "no_dialogue": 11,
-    "review_required": 1
+    "review_required": 0
   },
   "entries": [
     {
@@ -440,9 +440,11 @@
       "has_audio": true,
       "asr_segments": 1,
       "asr_avg_word_probability": 0.8304,
-      "status": "review_required",
-      "reason": "The main speech is clear, but the final short utterance remains ambiguous across independent large-v3 decoding settings; no guessed SRT is published.",
-      "subtitle_files": []
+      "status": "subtitle_ready",
+      "reason": "Runtime OGV and original BIK speech were cross-checked across small.en, medium.en, and distil-large-v3. Independent small/medium passes agree on the final line \"Now, for our escape.\" and its timing; the Korean SRT uses the corroborated runtime timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm8/subtitles/skeltrans.srt"
+      ]
     },
     {
       "world": "mm8",
