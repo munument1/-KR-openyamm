@@ -1,28 +1,1256 @@
 {
-  "format": 1,
-  "purpose": "Korean external SRT subtitle source inventory",
+  "format": 3,
+  "purpose": "Korean external SRT runtime/source inventory",
   "runtime_convention": "subtitles/<video-stem>.srt",
   "source_roots": [
+    "assets_dev/worlds/*/videos/Cutscenes",
     "data/Anims/Magicdod.vid",
     "data/Anims/mightdod.vid"
   ],
   "notes": [
-    "priority_candidate does not prove that a movie contains spoken dialogue.",
-    "needs_review SMK entries include many ambient/building animations and must not receive invented subtitles.",
-    "references are textual repository matches only; they are not transcripts or timing sources."
+    "runtime_stems are derived from evt.ShowMovie, fixed CutsceneStem constants, and losegame-shaped runtime/config references.",
+    "runtime_videos are actual OGV assets under assets_dev/worlds/*/videos/Cutscenes.",
+    "An unreferenced runtime OGV is not automatically unused; data-driven or dynamic references may still require manual review.",
+    "needs_dialogue_review does not prove speech; no subtitle text may be invented from the stem alone.",
+    "building_animation marks source SMKs tied to house animation/movie tables with no runtime cutscene call.",
+    "source_missing refers only to same-stem legacy SMK/BIK under data/Anims, not to runtime OGV availability."
   ],
   "summary": {
     "media": 142,
+    "runtime_stems": 18,
+    "runtime_source_missing": 11,
+    "runtime_stem_video_missing": 2,
+    "runtime_videos": 32,
+    "runtime_videos_referenced": 16,
+    "runtime_videos_unreferenced": 16,
     "by_extension": {
       ".bik": 13,
       ".smk": 129
     },
     "by_candidate": {
-      "needs_review": 129,
-      "priority_candidate": 13
-    },
-    "with_textual_references": 135
+      "ambient_or_building_review": 6,
+      "building_animation": 123,
+      "runtime_candidate": 7,
+      "source_unreferenced": 6
+    }
   },
+  "runtime_stems": [
+    {
+      "stem": "6intro",
+      "subtitle_path": "subtitles/6intro.srt",
+      "worlds": [
+        "mm6"
+      ],
+      "variants": [
+        "base"
+      ],
+      "references": [
+        {
+          "stem": "6intro",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm6/events/maps/oute3_intro.lua",
+          "line": 9,
+          "excerpt": "evt.ShowMovie(\"6intro\", true)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm6/videos/Cutscenes/6intro.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm6"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "6losegame",
+      "subtitle_path": "subtitles/6losegame.srt",
+      "worlds": [],
+      "variants": [
+        "runtime"
+      ],
+      "references": [
+        {
+          "stem": "6losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/worlds/mm6/_legacy/tables/Continent settings.txt",
+          "line": 4,
+          "excerpt": "3 Enroth x x x x 0.97375 0.965 6losegame 6wtrtyl oute3.odm -9728 -11319 160 512 oute3.odm -9728 -11319 160 512 plansky3, plansky1, sky06, cloudsabove, sky03, sky04, 6sky19 6drag5.pcx,6load1.pcx"
+        },
+        {
+          "stem": "6losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/engine/data_tables/continent_settings.txt",
+          "line": 4,
+          "excerpt": "3 Enroth x x x x 0.97375 0.965 6losegame 6wtrtyl oute3.odm -9728 -11319 160 512 oute3.odm -9728 -11319 160 512 plansky3, plansky1, sky06, cloudsabove, sky03, sky04, 6sky19 6drag5.pcx,6load1.pcx"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm6/videos/Cutscenes/6losegame.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm6"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "7losegame",
+      "subtitle_path": "subtitles/7losegame.srt",
+      "worlds": [],
+      "variants": [
+        "runtime"
+      ],
+      "references": [
+        {
+          "stem": "7losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/worlds/mm6/_legacy/tables/Continent settings.txt",
+          "line": 3,
+          "excerpt": "2 Antagarich x 0.82 1.11 7losegame 7wtrtyl 7out01.odm 12552 800 193 512 7out02.odm -16832 12512 372 0 7plansky3, 7sky01, 6sky12, 6sky02, cloudsabove, sky04, 6sky19 7load1.pcx,7load2.pcx,7load3.pcx,7load4.pcx,7load5.pcx"
+        },
+        {
+          "stem": "7losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/engine/data_tables/continent_settings.txt",
+          "line": 3,
+          "excerpt": "2 Antagarich x 0.82 1.11 7losegame 7wtrtyl 7out01.odm 12552 800 193 512 7out02.odm -16832 12512 372 0 7plansky3, 7sky01, 6sky12, 6sky02, cloudsabove, sky04, 6sky19 7load1.pcx,7load2.pcx,7load3.pcx,7load4.pcx,7load5.pcx"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm7/videos/Cutscenes/7losegame.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm7"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "archie",
+      "subtitle_path": "subtitles/archie.srt",
+      "worlds": [
+        "mm6"
+      ],
+      "variants": [
+        "mmmerge"
+      ],
+      "references": [
+        {
+          "stem": "archie",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm6/events/maps/outd3_mmmerge.lua",
+          "line": 18,
+          "excerpt": "evt.ShowMovie(\"archie\", false)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm6/videos/Cutscenes/archie.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm6"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "citytrtr",
+      "subtitle_path": "subtitles/citytrtr.srt",
+      "worlds": [
+        "mm6"
+      ],
+      "variants": [
+        "base"
+      ],
+      "references": [
+        {
+          "stem": "citytrtr",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm6/events/common/mm6_common.lua",
+          "line": 307,
+          "excerpt": "evt.ShowMovie(\"citytrtr\", false)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm6/videos/Cutscenes/citytrtr.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm6"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "family reunion",
+      "subtitle_path": "subtitles/family reunion.srt",
+      "worlds": [
+        "mm7"
+      ],
+      "variants": [
+        "base"
+      ],
+      "references": [
+        {
+          "stem": "family reunion",
+          "kind": "evt.ShowMovie",
+          "world": "mm7",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm7/events/maps/7d27.lua",
+          "line": 87,
+          "excerpt": "evt.ShowMovie(\"\\\"family reunion\\\"\", true)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm7/videos/Cutscenes/family reunion.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm7"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "intro",
+      "subtitle_path": "subtitles/intro.srt",
+      "worlds": [
+        "mm8"
+      ],
+      "variants": [
+        "base"
+      ],
+      "references": [
+        {
+          "stem": "intro",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/out01_intro.lua",
+          "line": 9,
+          "excerpt": "evt.ShowMovie(\"intro\", true)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm8/videos/Cutscenes/intro.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm8"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [
+        "data/Anims/Magicdod.vid/intro.bik"
+      ],
+      "source_missing": false,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "intro post",
+      "subtitle_path": "subtitles/intro post.srt",
+      "worlds": [
+        "mm7"
+      ],
+      "variants": [
+        "base"
+      ],
+      "references": [
+        {
+          "stem": "intro post",
+          "kind": "evt.ShowMovie",
+          "world": "mm7",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm7/events/maps/7out01.lua",
+          "line": 239,
+          "excerpt": "evt.ShowMovie(\"\\\"intro post\\\"\", true)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm7/videos/Cutscenes/intro post.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm7"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "LoseGame",
+      "subtitle_path": "subtitles/LoseGame.srt",
+      "worlds": [],
+      "variants": [
+        "runtime"
+      ],
+      "references": [
+        {
+          "stem": "LoseGame",
+          "kind": "fixed_cutscene_stem",
+          "symbol": "PartyDefeatCutsceneStem",
+          "world": null,
+          "variant": "runtime",
+          "path": "game/app/GameApplication.cpp",
+          "line": 1264
+        },
+        {
+          "stem": "LoseGame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "game/app/GameApplication.cpp",
+          "line": 1264,
+          "excerpt": "constexpr const char *PartyDefeatCutsceneStem = \"LoseGame\";"
+        },
+        {
+          "stem": "losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/worlds/mm6/_legacy/tables/Continent settings.txt",
+          "line": 2,
+          "excerpt": "1 Jadam x 0.9225 1.06 losegame out01.odm 3560 7696 544 0 out02.odm 10219 -15624 265 -12 plansky3, plansky1, sky06, 6sky02, sky03, stormclds, 6sky19 loading1.pcx,loading2.pcx,loading3.pcx,loading4.pcx,loading5.pcx"
+        },
+        {
+          "stem": "losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/engine/data_tables/continent_settings.txt",
+          "line": 2,
+          "excerpt": "1 Jadam x 0.9225 1.06 losegame out01.odm 3560 7696 544 0 out02.odm 10219 -15624 265 -12 plansky3, plansky1, sky06, 6sky02, sky03, stormclds, 6sky19 loading1.pcx,loading2.pcx,loading3.pcx,loading4.pcx,loading5.pcx"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm8/videos/Cutscenes/LoseGame.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm8"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [
+        "data/Anims/Magicdod.vid/LoseGame.bik"
+      ],
+      "source_missing": false,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "mm6end1",
+      "subtitle_path": "subtitles/mm6end1.srt",
+      "worlds": [
+        "mm6"
+      ],
+      "variants": [
+        "mmmerge"
+      ],
+      "references": [
+        {
+          "stem": "mm6end1",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm6/events/maps/hive_mmmerge.lua",
+          "line": 35,
+          "excerpt": "evt.ShowMovie(\"mm6end1\", false)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm6/videos/Cutscenes/mm6end1.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm6"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "mm6end2",
+      "subtitle_path": "subtitles/mm6end2.srt",
+      "worlds": [
+        "mm6"
+      ],
+      "variants": [
+        "mmmerge"
+      ],
+      "references": [
+        {
+          "stem": "mm6end2",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm6/events/maps/hive_mmmerge.lua",
+          "line": 21,
+          "excerpt": "evt.ShowMovie(\"mm6end2\", false)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm6/videos/Cutscenes/mm6end2.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm6"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "Name",
+      "subtitle_path": "subtitles/Name.srt",
+      "worlds": [
+        "mm6"
+      ],
+      "variants": [
+        "base"
+      ],
+      "references": [
+        {
+          "stem": "Name",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm6/events/maps/outd1.lua",
+          "line": 510,
+          "excerpt": "evt.ShowMovie(\"Name\", true)"
+        },
+        {
+          "stem": "Name",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm6/events/maps/oute3.lua",
+          "line": 696,
+          "excerpt": "evt.ShowMovie(\"Name\", true)"
+        }
+      ],
+      "runtime_video_assets": [],
+      "runtime_video_worlds": [],
+      "runtime_video_missing": true,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "overrept",
+      "subtitle_path": "subtitles/overrept.srt",
+      "worlds": [
+        "mm8"
+      ],
+      "variants": [
+        "base"
+      ],
+      "references": [
+        {
+          "stem": "overrept",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/out03.lua",
+          "line": 573,
+          "excerpt": "evt.ShowMovie(\"\\\"overrept\\\"\", true)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm8/videos/Cutscenes/overrept.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm8"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [
+        "data/Anims/Magicdod.vid/overrept.bik"
+      ],
+      "source_missing": false,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "savemino",
+      "subtitle_path": "subtitles/savemino.srt",
+      "worlds": [
+        "mm8"
+      ],
+      "variants": [
+        "base"
+      ],
+      "references": [
+        {
+          "stem": "savemino",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/d24.lua",
+          "line": 420,
+          "excerpt": "evt.ShowMovie(\"\\\"savemino\\\"\", true)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm8/videos/Cutscenes/SaveMino.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm8"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [
+        "data/Anims/Magicdod.vid/SaveMino.bik"
+      ],
+      "source_missing": false,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "skeltrans",
+      "subtitle_path": "subtitles/skeltrans.srt",
+      "worlds": [
+        "mm8"
+      ],
+      "variants": [
+        "mmmerge"
+      ],
+      "references": [
+        {
+          "stem": "skeltrans",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm8/events/maps/d19_mmmerge.lua",
+          "line": 33,
+          "excerpt": "evt.ShowMovie(\"skeltrans\", true)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm8/videos/Cutscenes/skeltrans.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm8"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [
+        "data/Anims/Magicdod.vid/skeltrans.bik"
+      ],
+      "source_missing": false,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "Subcut",
+      "subtitle_path": "subtitles/Subcut.srt",
+      "worlds": [
+        "mm8"
+      ],
+      "variants": [
+        "base",
+        "mmmerge"
+      ],
+      "references": [
+        {
+          "stem": "Subcut",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/d06.lua",
+          "line": 448,
+          "excerpt": "evt.ShowMovie(\"\\\"Subcut\\\"\", true)"
+        },
+        {
+          "stem": "Subcut",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm8/events/maps/d06_mmmerge.lua",
+          "line": 9,
+          "excerpt": "evt.ShowMovie(\"Subcut\", true)"
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm8/videos/Cutscenes/Subcut.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm8"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [
+        "data/Anims/Magicdod.vid/Subcut.bik"
+      ],
+      "source_missing": false,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "t1swbu",
+      "subtitle_path": "subtitles/t1swbu.srt",
+      "worlds": [
+        "mm6"
+      ],
+      "variants": [
+        "base"
+      ],
+      "references": [
+        {
+          "stem": "t1swbu",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm6/events/maps/outb2.lua",
+          "line": 814,
+          "excerpt": "evt.ShowMovie(\"t1swbu\", true)"
+        },
+        {
+          "stem": "t1swbu",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm6/events/maps/outc1.lua",
+          "line": 470,
+          "excerpt": "evt.ShowMovie(\"t1swbu\", true)"
+        }
+      ],
+      "runtime_video_assets": [],
+      "runtime_video_worlds": [],
+      "runtime_video_missing": true,
+      "source_media": [],
+      "source_missing": true,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    },
+    {
+      "stem": "wingame",
+      "subtitle_path": "subtitles/wingame.srt",
+      "worlds": [],
+      "variants": [
+        "runtime"
+      ],
+      "references": [
+        {
+          "stem": "wingame",
+          "kind": "fixed_cutscene_stem",
+          "symbol": "WinGameCutsceneStem",
+          "world": null,
+          "variant": "runtime",
+          "path": "game/app/GameApplication.cpp",
+          "line": 1266
+        }
+      ],
+      "runtime_video_assets": [
+        "assets_dev/worlds/mm8/videos/Cutscenes/wingame.ogv"
+      ],
+      "runtime_video_worlds": [
+        "mm8"
+      ],
+      "runtime_video_missing": false,
+      "source_media": [
+        "data/Anims/Magicdod.vid/wingame.bik"
+      ],
+      "source_missing": false,
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Actual runtime cutscene stem. Spoken dialogue and timing must be verified before authoring SRT."
+    }
+  ],
+  "runtime_videos": [
+    {
+      "world": "mm6",
+      "stem": "6intro",
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/6intro.ogv",
+      "bytes": 12094666,
+      "subtitle_path": "subtitles/6intro.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "6intro",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm6/events/maps/oute3_intro.lua",
+          "line": 9,
+          "excerpt": "evt.ShowMovie(\"6intro\", true)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm6",
+      "stem": "6losegame",
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/6losegame.ogv",
+      "bytes": 2074579,
+      "subtitle_path": "subtitles/6losegame.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "6losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/worlds/mm6/_legacy/tables/Continent settings.txt",
+          "line": 4,
+          "excerpt": "3 Enroth x x x x 0.97375 0.965 6losegame 6wtrtyl oute3.odm -9728 -11319 160 512 oute3.odm -9728 -11319 160 512 plansky3, plansky1, sky06, cloudsabove, sky03, sky04, 6sky19 6drag5.pcx,6load1.pcx"
+        },
+        {
+          "stem": "6losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/engine/data_tables/continent_settings.txt",
+          "line": 4,
+          "excerpt": "3 Enroth x x x x 0.97375 0.965 6losegame 6wtrtyl oute3.odm -9728 -11319 160 512 oute3.odm -9728 -11319 160 512 plansky3, plansky1, sky06, cloudsabove, sky03, sky04, 6sky19 6drag5.pcx,6load1.pcx"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm6",
+      "stem": "archie",
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/archie.ogv",
+      "bytes": 338334,
+      "subtitle_path": "subtitles/archie.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "archie",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm6/events/maps/outd3_mmmerge.lua",
+          "line": 18,
+          "excerpt": "evt.ShowMovie(\"archie\", false)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm6",
+      "stem": "citytrtr",
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/citytrtr.ogv",
+      "bytes": 659010,
+      "subtitle_path": "subtitles/citytrtr.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "citytrtr",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm6/events/common/mm6_common.lua",
+          "line": 307,
+          "excerpt": "evt.ShowMovie(\"citytrtr\", false)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm6",
+      "stem": "credits",
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/credits.ogv",
+      "bytes": 21168668,
+      "subtitle_path": "subtitles/credits.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm6",
+      "stem": "mm6end1",
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/mm6end1.ogv",
+      "bytes": 9645129,
+      "subtitle_path": "subtitles/mm6end1.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "mm6end1",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm6/events/maps/hive_mmmerge.lua",
+          "line": 35,
+          "excerpt": "evt.ShowMovie(\"mm6end1\", false)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm6",
+      "stem": "mm6end2",
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/mm6end2.ogv",
+      "bytes": 4542239,
+      "subtitle_path": "subtitles/mm6end2.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "mm6end2",
+          "kind": "evt.ShowMovie",
+          "world": "mm6",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm6/events/maps/hive_mmmerge.lua",
+          "line": 21,
+          "excerpt": "evt.ShowMovie(\"mm6end2\", false)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm6",
+      "stem": "noarchie",
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/noarchie.ogv",
+      "bytes": 63224,
+      "subtitle_path": "subtitles/noarchie.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm7",
+      "stem": "7intro",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/7intro.ogv",
+      "bytes": 12238535,
+      "subtitle_path": "subtitles/7intro.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm7",
+      "stem": "7losegame",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/7losegame.ogv",
+      "bytes": 484026,
+      "subtitle_path": "subtitles/7losegame.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "7losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/worlds/mm6/_legacy/tables/Continent settings.txt",
+          "line": 3,
+          "excerpt": "2 Antagarich x 0.82 1.11 7losegame 7wtrtyl 7out01.odm 12552 800 193 512 7out02.odm -16832 12512 372 0 7plansky3, 7sky01, 6sky12, 6sky02, cloudsabove, sky04, 6sky19 7load1.pcx,7load2.pcx,7load3.pcx,7load4.pcx,7load5.pcx"
+        },
+        {
+          "stem": "7losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/engine/data_tables/continent_settings.txt",
+          "line": 3,
+          "excerpt": "2 Antagarich x 0.82 1.11 7losegame 7wtrtyl 7out01.odm 12552 800 193 512 7out02.odm -16832 12512 372 0 7plansky3, 7sky01, 6sky12, 6sky02, cloudsabove, sky04, 6sky19 7load1.pcx,7load2.pcx,7load3.pcx,7load4.pcx,7load5.pcx"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm7",
+      "stem": "arbiter evil",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/arbiter evil.ogv",
+      "bytes": 2009384,
+      "subtitle_path": "subtitles/arbiter evil.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm7",
+      "stem": "arbiter good",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/arbiter good.ogv",
+      "bytes": 2625824,
+      "subtitle_path": "subtitles/arbiter good.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm7",
+      "stem": "endgame 1 good",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/endgame 1 good.ogv",
+      "bytes": 4539786,
+      "subtitle_path": "subtitles/endgame 1 good.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm7",
+      "stem": "endgame 2 evil",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/endgame 2 evil.ogv",
+      "bytes": 2337961,
+      "subtitle_path": "subtitles/endgame 2 evil.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm7",
+      "stem": "family reunion",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/family reunion.ogv",
+      "bytes": 1635208,
+      "subtitle_path": "subtitles/family reunion.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "family reunion",
+          "kind": "evt.ShowMovie",
+          "world": "mm7",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm7/events/maps/7d27.lua",
+          "line": 87,
+          "excerpt": "evt.ShowMovie(\"\\\"family reunion\\\"\", true)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm7",
+      "stem": "intro post",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/intro post.ogv",
+      "bytes": 6244731,
+      "subtitle_path": "subtitles/intro post.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "intro post",
+          "kind": "evt.ShowMovie",
+          "world": "mm7",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm7/events/maps/7out01.lua",
+          "line": 239,
+          "excerpt": "evt.ShowMovie(\"\\\"intro post\\\"\", true)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm7",
+      "stem": "mm3 people evil",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/mm3 people evil.ogv",
+      "bytes": 3161637,
+      "subtitle_path": "subtitles/mm3 people evil.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm7",
+      "stem": "mm3 people good",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/mm3 people good.ogv",
+      "bytes": 5315167,
+      "subtitle_path": "subtitles/mm3 people good.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm7",
+      "stem": "pcout01",
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/pcout01.ogv",
+      "bytes": 2442113,
+      "subtitle_path": "subtitles/pcout01.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm8",
+      "stem": "confluxkey",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/confluxkey.ogv",
+      "bytes": 2181111,
+      "subtitle_path": "subtitles/confluxkey.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm8",
+      "stem": "DragonHunters",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/DragonHunters.ogv",
+      "bytes": 1217268,
+      "subtitle_path": "subtitles/DragonHunters.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm8",
+      "stem": "dragonsrevenge",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/dragonsrevenge.ogv",
+      "bytes": 971701,
+      "subtitle_path": "subtitles/dragonsrevenge.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm8",
+      "stem": "intro",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/intro.ogv",
+      "bytes": 3094374,
+      "subtitle_path": "subtitles/intro.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "intro",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/out01_intro.lua",
+          "line": 9,
+          "excerpt": "evt.ShowMovie(\"intro\", true)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm8",
+      "stem": "JVC",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/JVC.ogv",
+      "bytes": 160663,
+      "subtitle_path": "subtitles/JVC.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm8",
+      "stem": "LoseGame",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/LoseGame.ogv",
+      "bytes": 538204,
+      "subtitle_path": "subtitles/LoseGame.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "LoseGame",
+          "kind": "fixed_cutscene_stem",
+          "symbol": "PartyDefeatCutsceneStem",
+          "world": null,
+          "variant": "runtime",
+          "path": "game/app/GameApplication.cpp",
+          "line": 1264
+        },
+        {
+          "stem": "LoseGame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "game/app/GameApplication.cpp",
+          "line": 1264,
+          "excerpt": "constexpr const char *PartyDefeatCutsceneStem = \"LoseGame\";"
+        },
+        {
+          "stem": "losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/worlds/mm6/_legacy/tables/Continent settings.txt",
+          "line": 2,
+          "excerpt": "1 Jadam x 0.9225 1.06 losegame out01.odm 3560 7696 544 0 out02.odm 10219 -15624 265 -12 plansky3, plansky1, sky06, 6sky02, sky03, stormclds, 6sky19 loading1.pcx,loading2.pcx,loading3.pcx,loading4.pcx,loading5.pcx"
+        },
+        {
+          "stem": "losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/engine/data_tables/continent_settings.txt",
+          "line": 2,
+          "excerpt": "1 Jadam x 0.9225 1.06 losegame out01.odm 3560 7696 544 0 out02.odm 10219 -15624 265 -12 plansky3, plansky1, sky06, 6sky02, sky03, stormclds, 6sky19 loading1.pcx,loading2.pcx,loading3.pcx,loading4.pcx,loading5.pcx"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm8",
+      "stem": "nightshade",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/nightshade.ogv",
+      "bytes": 1425473,
+      "subtitle_path": "subtitles/nightshade.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm8",
+      "stem": "NWC",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/NWC.ogv",
+      "bytes": 857678,
+      "subtitle_path": "subtitles/NWC.srt",
+      "referenced": false,
+      "references": [],
+      "review_status": "needs_usage_review",
+      "review_rationale": "Runtime OGV exists, but no direct repository movie reference has been matched yet. Do not infer dialogue or invent subtitles."
+    },
+    {
+      "world": "mm8",
+      "stem": "overrept",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/overrept.ogv",
+      "bytes": 2736902,
+      "subtitle_path": "subtitles/overrept.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "overrept",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/out03.lua",
+          "line": 573,
+          "excerpt": "evt.ShowMovie(\"\\\"overrept\\\"\", true)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm8",
+      "stem": "SaveMino",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/SaveMino.ogv",
+      "bytes": 856481,
+      "subtitle_path": "subtitles/SaveMino.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "savemino",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/d24.lua",
+          "line": 420,
+          "excerpt": "evt.ShowMovie(\"\\\"savemino\\\"\", true)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm8",
+      "stem": "skeltrans",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/skeltrans.ogv",
+      "bytes": 1432794,
+      "subtitle_path": "subtitles/skeltrans.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "skeltrans",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm8/events/maps/d19_mmmerge.lua",
+          "line": 33,
+          "excerpt": "evt.ShowMovie(\"skeltrans\", true)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm8",
+      "stem": "Subcut",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/Subcut.ogv",
+      "bytes": 868042,
+      "subtitle_path": "subtitles/Subcut.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "Subcut",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/d06.lua",
+          "line": 448,
+          "excerpt": "evt.ShowMovie(\"\\\"Subcut\\\"\", true)"
+        },
+        {
+          "stem": "Subcut",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm8/events/maps/d06_mmmerge.lua",
+          "line": 9,
+          "excerpt": "evt.ShowMovie(\"Subcut\", true)"
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    },
+    {
+      "world": "mm8",
+      "stem": "wingame",
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/wingame.ogv",
+      "bytes": 4019897,
+      "subtitle_path": "subtitles/wingame.srt",
+      "referenced": true,
+      "references": [
+        {
+          "stem": "wingame",
+          "kind": "fixed_cutscene_stem",
+          "symbol": "WinGameCutsceneStem",
+          "world": null,
+          "variant": "runtime",
+          "path": "game/app/GameApplication.cpp",
+          "line": 1266
+        }
+      ],
+      "review_status": "needs_dialogue_review",
+      "review_rationale": "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+    }
+  ],
   "entries": [
     {
       "source_path": "data/Anims/Magicdod.vid/3DOLogo.smk",
@@ -31,9 +1259,10 @@
       "extension": ".smk",
       "bytes": 1239024,
       "subtitle_path": "subtitles/3DOLogo.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
-      "references": []
+      "references": [],
+      "runtime_references": [],
+      "subtitle_candidate": "ambient_or_building_review",
+      "candidate_rationale": "Legacy SMK with no runtime cutscene reference; review only if later runtime evidence appears."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/a_p_keep.smk",
@@ -42,8 +1271,6 @@
       "extension": ".smk",
       "bytes": 1211848,
       "subtitle_path": "subtitles/a_p_keep.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -70,7 +1297,10 @@
           "line": 133,
           "excerpt": "131 a_p_keep 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/ab_druid.smk",
@@ -79,8 +1309,6 @@
       "extension": ".smk",
       "bytes": 1961860,
       "subtitle_path": "subtitles/ab_druid.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -112,7 +1340,10 @@
           "line": 129,
           "excerpt": "127 ab_druid 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/ab_tempBD.smk",
@@ -121,8 +1352,6 @@
       "extension": ".smk",
       "bytes": 2816508,
       "subtitle_path": "subtitles/ab_tempBD.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -139,7 +1368,10 @@
           "line": 148,
           "excerpt": "146 ab_tempbd 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/aelmcell.smk",
@@ -148,8 +1380,6 @@
       "extension": ".smk",
       "bytes": 1605312,
       "subtitle_path": "subtitles/aelmcell.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -166,7 +1396,10 @@
           "line": 88,
           "excerpt": "86 aelmcell 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/aelmhs.smk",
@@ -175,8 +1408,6 @@
       "extension": ".smk",
       "bytes": 2056388,
       "subtitle_path": "subtitles/aelmhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -233,7 +1464,10 @@
           "line": 113,
           "excerpt": "111 aelmhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/ch_fire.smk",
@@ -242,8 +1476,6 @@
       "extension": ".smk",
       "bytes": 912756,
       "subtitle_path": "subtitles/ch_fire.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -270,7 +1502,10 @@
           "line": 124,
           "excerpt": "122 ch_fire 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/confluxkey.bik",
@@ -279,9 +1514,10 @@
       "extension": ".bik",
       "bytes": 9967116,
       "subtitle_path": "subtitles/confluxkey.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
-      "references": []
+      "references": [],
+      "runtime_references": [],
+      "subtitle_candidate": "source_unreferenced",
+      "candidate_rationale": "Legacy BIK currently has no matched runtime movie reference; do not invent subtitles."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/cstl_air.smk",
@@ -290,8 +1526,6 @@
       "extension": ".smk",
       "bytes": 2403588,
       "subtitle_path": "subtitles/cstl_air.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -333,7 +1567,10 @@
           "line": 138,
           "excerpt": "136 cstl_air 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/cstl_fir.smk",
@@ -342,8 +1579,6 @@
       "extension": ".smk",
       "bytes": 1164756,
       "subtitle_path": "subtitles/cstl_fir.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -370,7 +1605,10 @@
           "line": 140,
           "excerpt": "138 cstl_fir 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/cyc_lr.smk",
@@ -379,8 +1617,6 @@
       "extension": ".smk",
       "bytes": 1850960,
       "subtitle_path": "subtitles/cyc_lr.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -407,7 +1643,10 @@
           "line": 123,
           "excerpt": "121 cyc_lr 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/debank.smk",
@@ -416,8 +1655,6 @@
       "extension": ".smk",
       "bytes": 1632612,
       "subtitle_path": "subtitles/debank.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -439,7 +1676,10 @@
           "line": 38,
           "excerpt": "36 debank 1113 Bank 17"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/detemple.smk",
@@ -448,8 +1688,6 @@
       "extension": ".smk",
       "bytes": 2276524,
       "subtitle_path": "subtitles/detemple.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -466,7 +1704,10 @@
           "line": 31,
           "excerpt": "29 detemple 1120 Temple 10"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/dh_camp.smk",
@@ -475,8 +1716,6 @@
       "extension": ".smk",
       "bytes": 1825624,
       "subtitle_path": "subtitles/dh_camp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -508,7 +1747,10 @@
           "line": 125,
           "excerpt": "123 dh_camp 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/DragonHunters.bik",
@@ -517,9 +1759,10 @@
       "extension": ".bik",
       "bytes": 7335400,
       "subtitle_path": "subtitles/DragonHunters.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
-      "references": []
+      "references": [],
+      "runtime_references": [],
+      "subtitle_candidate": "source_unreferenced",
+      "candidate_rationale": "Legacy BIK currently has no matched runtime movie reference; do not invent subtitles."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/dragonsrevenge.bik",
@@ -528,9 +1771,10 @@
       "extension": ".bik",
       "bytes": 5235148,
       "subtitle_path": "subtitles/dragonsrevenge.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
-      "references": []
+      "references": [],
+      "runtime_references": [],
+      "subtitle_candidate": "source_unreferenced",
+      "candidate_rationale": "Legacy BIK currently has no matched runtime movie reference; do not invent subtitles."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/eelmcell.smk",
@@ -539,8 +1783,6 @@
       "extension": ".smk",
       "bytes": 1550696,
       "subtitle_path": "subtitles/eelmcell.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -557,7 +1799,10 @@
           "line": 86,
           "excerpt": "84 eelmcell 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/eelmhs.smk",
@@ -566,8 +1811,6 @@
       "extension": ".smk",
       "bytes": 2114692,
       "subtitle_path": "subtitles/eelmhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -639,7 +1882,10 @@
           "line": 112,
           "excerpt": "110 eelmhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/esch_pal.smk",
@@ -648,8 +1894,6 @@
       "extension": ".smk",
       "bytes": 743288,
       "subtitle_path": "subtitles/esch_pal.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -676,7 +1920,10 @@
           "line": 142,
           "excerpt": "140 esch_pal 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/esthrone.smk",
@@ -685,8 +1932,6 @@
       "extension": ".smk",
       "bytes": 1783572,
       "subtitle_path": "subtitles/esthrone.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -703,7 +1948,10 @@
           "line": 105,
           "excerpt": "103 esthrone 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/felmcell.smk",
@@ -712,8 +1960,6 @@
       "extension": ".smk",
       "bytes": 2076560,
       "subtitle_path": "subtitles/felmcell.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -730,7 +1976,10 @@
           "line": 85,
           "excerpt": "83 felmcell 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/felmhs.smk",
@@ -739,8 +1988,6 @@
       "extension": ".smk",
       "bytes": 2114748,
       "subtitle_path": "subtitles/felmhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -782,7 +2029,10 @@
           "line": 110,
           "excerpt": "108 felmhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/gw_air.smk",
@@ -791,8 +2041,6 @@
       "extension": ".smk",
       "bytes": 880684,
       "subtitle_path": "subtitles/gw_air.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -819,7 +2067,10 @@
           "line": 146,
           "excerpt": "144 gw_air 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/gw_earth.smk",
@@ -828,8 +2079,6 @@
       "extension": ".smk",
       "bytes": 1202128,
       "subtitle_path": "subtitles/gw_earth.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -856,7 +2105,10 @@
           "line": 145,
           "excerpt": "143 gw_earth 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/gw_fire.smk",
@@ -865,8 +2117,6 @@
       "extension": ".smk",
       "bytes": 1052332,
       "subtitle_path": "subtitles/gw_fire.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -893,7 +2143,10 @@
           "line": 144,
           "excerpt": "142 gw_fire 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/gw_water.smk",
@@ -902,8 +2155,6 @@
       "extension": ".smk",
       "bytes": 1615708,
       "subtitle_path": "subtitles/gw_water.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -930,7 +2181,10 @@
           "line": 147,
           "excerpt": "145 gw_water 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/INN.smk",
@@ -939,110 +2193,111 @@
       "extension": ".smk",
       "bytes": 1363456,
       "subtitle_path": "subtitles/INN.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
-        {
-          "path": "game/debug/DebugConsole.cpp",
-          "line": 1090,
-          "excerpt": "ImGuiTableFlags_BordersInnerV"
-        },
         {
           "path": "game/mm9/Mm9RudeDialogue.cpp",
           "line": 698,
           "excerpt": "case -7: return \"inn\";"
         },
         {
-          "path": "game/data/GameDataLoader.cpp",
-          "line": 4632,
-          "excerpt": "std::cout << \" terrain_normals=\" << outdoorMapData.terrainNormalCount << '\\n';"
+          "path": "game/ui/KoreanRuntimeTextOverrides.h",
+          "line": 374,
+          "excerpt": "if (service == \"inn\") return \"여관\";"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8275,
-          "excerpt": "const float innerWidth = std::max(2.0f, barWidth - 6.0f * barScale);"
+          "path": "game/ui/KoreanRuntimeTextOverrides.h",
+          "line": 456,
+          "excerpt": "{\"The Adventurer's Inn\", \"모험가의 여관\"},"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8276,
-          "excerpt": "const float innerHeight = std::max(2.0f, barHeight - 4.0f * barScale);"
+          "path": "game/ui/KoreanRuntimeTextOverrides.h",
+          "line": 457,
+          "excerpt": "{\"The Adventurer's Inn is empty.\", \"모험가의 여관에 아무도 없습니다.\"},"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8277,
-          "excerpt": "const float fillWidth = std::max(1.0f, innerWidth * drawItem.healthRatio);"
+          "path": "game/ui/KoreanRuntimeTextOverrides.h",
+          "line": 838,
+          "excerpt": "// Item inspection and adventurers' inn captions are assembled after data lookup."
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8278,
-          "excerpt": "const float fillOffset = (innerWidth - fillWidth) * 0.5f;"
+          "path": "game/ui/KoreanRuntimeTextOverrides.h",
+          "line": 925,
+          "excerpt": "if (endsWith(text, \" waits at the Adventurer's Inn.\")) return text.substr(0, text.size() - 31) + \"은(는) 모험가의 여관에서 기다리고 있습니다.\";"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8290,
-          "excerpt": "cameraUp.x * innerHeight * 0.5f,"
+          "path": "game/ui/GameplayHudCommon.cpp",
+          "line": 233,
+          "excerpt": "{\"Arcomage victory conditions depend on the inn. This tavern flow is not implemented yet.\","
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8291,
-          "excerpt": "cameraUp.y * innerHeight * 0.5f,"
+          "path": "game/gameplay/HouseInteraction.cpp",
+          "line": 2267,
+          "excerpt": "\"Arcomage victory conditions depend on the inn. This tavern flow is not implemented yet.\");"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8292,
-          "excerpt": "cameraUp.z * innerHeight * 0.5f"
+          "path": "game/gameplay/GameplayDialogController.cpp",
+          "line": 985,
+          "excerpt": "return pHouseEntry != nullptr && pHouseEntry->name == \"The Adventurer's Inn\";"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8297,
-          "excerpt": "fillCenter.x + cameraUp.x * innerHeight * 0.22f,"
+          "path": "game/gameplay/GameplayDialogController.cpp",
+          "line": 996,
+          "excerpt": "if (houseEntry.name == \"The Adventurer's Inn\")"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8298,
-          "excerpt": "fillCenter.y + cameraUp.y * innerHeight * 0.22f,"
+          "path": "game/gameplay/GameplayDialogController.cpp",
+          "line": 1118,
+          "excerpt": "context.uiController.setStatusBarEvent(\"The Adventurer's Inn is empty.\");"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8299,
-          "excerpt": "fillCenter.z + cameraUp.z * innerHeight * 0.22f"
+          "path": "game/gameplay/GameplayDialogController.cpp",
+          "line": 3172,
+          "excerpt": "recruit.character.name + \" waits at the Adventurer's Inn.\");"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8302,
-          "excerpt": "cameraUp.x * innerHeight * 0.16f,"
+          "path": "game/gameplay/MercenaryRecruitmentRuntime.cpp",
+          "line": 1189,
+          "excerpt": "|| lowerName.find(\"inn\") != std::string::npos;"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8303,
-          "excerpt": "cameraUp.y * innerHeight * 0.16f,"
+          "path": "game/gameplay/GameplayInputController.cpp",
+          "line": 561,
+          "excerpt": "context.setStatusBarEvent(\"The Adventurer's Inn is empty.\");"
         },
         {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 8304,
-          "excerpt": "cameraUp.z * innerHeight * 0.16f"
+          "path": "game/party/Party.cpp",
+          "line": 3828,
+          "excerpt": "m_lastStatus = \"adventurer moved to inn\";"
         },
         {
-          "path": "game/fx/ParticleRenderer.cpp",
-          "line": 167,
-          "excerpt": "float innerBias,"
+          "path": "game/party/Party.cpp",
+          "line": 3842,
+          "excerpt": "m_lastStatus = \"adventurer hired from inn\";"
         },
         {
-          "path": "game/fx/ParticleRenderer.cpp",
-          "line": 180,
-          "excerpt": "std::max(0.0f, 1.0f - std::clamp(radialDistance * outerScale - innerBias, 0.0f, 1.0f)),"
+          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
+          "line": 18689,
+          "excerpt": "failure = \"could not seed adventurer's inn before save\";"
         },
         {
-          "path": "game/ui/GameplayUiController.h",
-          "line": 35,
-          "excerpt": "AdventurersInn"
+          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
+          "line": 19004,
+          "excerpt": "failure = \"adventurer's inn state did not roundtrip\";"
         },
         {
-          "path": "game/ui/GameplayUiController.h",
-          "line": 268,
-          "excerpt": "bool innRest = false;"
+          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
+          "line": 20361,
+          "excerpt": "failure = \"rest screen did not close after the inn rest completed\";"
+        },
+        {
+          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
+          "line": 20367,
+          "excerpt": "failure = \"inn rest advanced an unexpected amount of time\";"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "ambient_or_building_review",
+      "candidate_rationale": "Legacy SMK with no runtime cutscene reference; review only if later runtime evidence appears."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/intro.bik",
@@ -1051,38 +2306,11 @@
       "extension": ".bik",
       "bytes": 18884484,
       "subtitle_path": "subtitles/intro.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
       "references": [
-        {
-          "path": "game/content/ContentManifest.cpp",
-          "line": 129,
-          "excerpt": "manifest.start.introMovie = scalarStringOrDefault(startNode, \"introMovie\", manifest.start.introMovie);"
-        },
-        {
-          "path": "game/content/ContentManifest.h",
-          "line": 16,
-          "excerpt": "std::string introMovie;"
-        },
-        {
-          "path": "assets_dev/worlds/mm8/events/maps/out01_intro.lua",
-          "line": 4,
-          "excerpt": "if evt.GetGlobalVar(\"OpenYAMM.WorldIntro.MM8\", 0) ~= 0 then"
-        },
-        {
-          "path": "assets_dev/worlds/mm8/events/maps/out01_intro.lua",
-          "line": 8,
-          "excerpt": "evt.SetGlobalVar(\"OpenYAMM.WorldIntro.MM8\", 1)"
-        },
         {
           "path": "assets_dev/worlds/mm8/events/maps/out01_intro.lua",
           "line": 9,
           "excerpt": "evt.ShowMovie(\"intro\", true)"
-        },
-        {
-          "path": "assets_dev/worlds/mm7/events/Global_mm7_mmmerge.lua",
-          "line": 987,
-          "excerpt": "CrossContinents.HandleVerdantIntro()"
         },
         {
           "path": "assets_dev/worlds/mm7/events/maps/7out01.lua",
@@ -1090,71 +2318,29 @@
           "excerpt": "evt.ShowMovie(\"\\\"intro post\\\"\", true)"
         },
         {
-          "path": "assets_dev/worlds/mm7/events/common/mm7_common.lua",
-          "line": 389,
-          "excerpt": "function MM7.HandleVerdantIntro()"
-        },
-        {
-          "path": "assets_dev/worlds/mm7/events/common/mm7_common.lua",
-          "line": 390,
-          "excerpt": "if CrossContinents ~= nil and CrossContinents.HandleVerdantIntro ~= nil then"
-        },
-        {
-          "path": "assets_dev/worlds/mm7/events/common/mm7_common.lua",
-          "line": 391,
-          "excerpt": "CrossContinents.HandleVerdantIntro()"
-        },
-        {
-          "path": "assets_dev/worlds/mm7/events/common/mm7_common.lua",
-          "line": 395,
-          "excerpt": "local step = MM7.GetCrossVar(\"IntroStep\", 0)"
-        },
-        {
-          "path": "assets_dev/worlds/mm7/events/common/mm7_common.lua",
-          "line": 399,
-          "excerpt": "evt.SimpleMessage(\"Verdant introduces herself as a time traveler and says the world needs your help.\")"
-        },
-        {
-          "path": "assets_dev/worlds/mm7/events/common/mm7_common.lua",
-          "line": 400,
-          "excerpt": "MM7.SetCrossVar(\"IntroStep\", 1)"
-        },
-        {
-          "path": "assets_dev/worlds/mm7/events/common/mm7_common.lua",
-          "line": 403,
-          "excerpt": "MM7.SetCrossVar(\"IntroStep\", 2)"
-        },
-        {
-          "path": "assets_dev/worlds/mm7/events/common/mm7_common.lua",
-          "line": 406,
-          "excerpt": "MM7.SetCrossVar(\"IntroStep\", 3)"
-        },
-        {
           "path": "assets_dev/worlds/mm6/_legacy/tables/Sounds.txt",
           "line": 7762,
           "excerpt": "intro 42722 swap -"
-        },
-        {
-          "path": "assets_dev/worlds/mm6/events/maps/oute3_intro.lua",
-          "line": 4,
-          "excerpt": "if evt.GetGlobalVar(\"OpenYAMM.WorldIntro.MM6\", 0) ~= 0 then"
-        },
-        {
-          "path": "assets_dev/worlds/mm6/events/maps/oute3_intro.lua",
-          "line": 8,
-          "excerpt": "evt.SetGlobalVar(\"OpenYAMM.WorldIntro.MM6\", 1)"
-        },
-        {
-          "path": "assets_dev/worlds/mm6/events/maps/oute3_intro.lua",
-          "line": 9,
-          "excerpt": "evt.ShowMovie(\"6intro\", true)"
         },
         {
           "path": "assets_dev/engine/data_tables/sounds.txt",
           "line": 7311,
           "excerpt": "intro 42722 swap 0"
         }
-      ]
+      ],
+      "runtime_references": [
+        {
+          "stem": "intro",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/out01_intro.lua",
+          "line": 9,
+          "excerpt": "evt.ShowMovie(\"intro\", true)"
+        }
+      ],
+      "subtitle_candidate": "runtime_candidate",
+      "candidate_rationale": "Referenced by an actual runtime movie path; dialogue/timing still require verification."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/JVC.bik",
@@ -1163,9 +2349,10 @@
       "extension": ".bik",
       "bytes": 1750496,
       "subtitle_path": "subtitles/JVC.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
-      "references": []
+      "references": [],
+      "runtime_references": [],
+      "subtitle_candidate": "source_unreferenced",
+      "candidate_rationale": "Legacy BIK currently has no matched runtime movie reference; do not invent subtitles."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/LoseGame.bik",
@@ -1174,8 +2361,6 @@
       "extension": ".bik",
       "bytes": 7154588,
       "subtitle_path": "subtitles/LoseGame.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
       "references": [
         {
           "path": "game/app/GameApplication.cpp",
@@ -1188,31 +2373,51 @@
           "excerpt": "1 Jadam x 0.9225 1.06 losegame out01.odm 3560 7696 544 0 out02.odm 10219 -15624 265 -12 plansky3, plansky1, sky06, 6sky02, sky03, stormclds, 6sky19 loading1.pcx,loading2.pcx,loading3.pcx,loading4.pcx,loading5.pcx"
         },
         {
-          "path": "assets_dev/worlds/mm6/_legacy/tables/Continent settings.txt",
-          "line": 3,
-          "excerpt": "2 Antagarich x 0.82 1.11 7losegame 7wtrtyl 7out01.odm 12552 800 193 512 7out02.odm -16832 12512 372 0 7plansky3, 7sky01, 6sky12, 6sky02, cloudsabove, sky04, 6sky19 7load1.pcx,7load2.pcx,7load3.pcx,7load4.pcx,7load5.pcx"
-        },
-        {
-          "path": "assets_dev/worlds/mm6/_legacy/tables/Continent settings.txt",
-          "line": 4,
-          "excerpt": "3 Enroth x x x x 0.97375 0.965 6losegame 6wtrtyl oute3.odm -9728 -11319 160 512 oute3.odm -9728 -11319 160 512 plansky3, plansky1, sky06, cloudsabove, sky03, sky04, 6sky19 6drag5.pcx,6load1.pcx"
-        },
-        {
           "path": "assets_dev/engine/data_tables/continent_settings.txt",
+          "line": 2,
+          "excerpt": "1 Jadam x 0.9225 1.06 losegame out01.odm 3560 7696 544 0 out02.odm 10219 -15624 265 -12 plansky3, plansky1, sky06, 6sky02, sky03, stormclds, 6sky19 loading1.pcx,loading2.pcx,loading3.pcx,loading4.pcx,loading5.pcx"
+        }
+      ],
+      "runtime_references": [
+        {
+          "stem": "LoseGame",
+          "kind": "fixed_cutscene_stem",
+          "symbol": "PartyDefeatCutsceneStem",
+          "world": null,
+          "variant": "runtime",
+          "path": "game/app/GameApplication.cpp",
+          "line": 1264
+        },
+        {
+          "stem": "LoseGame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "game/app/GameApplication.cpp",
+          "line": 1264,
+          "excerpt": "constexpr const char *PartyDefeatCutsceneStem = \"LoseGame\";"
+        },
+        {
+          "stem": "losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
+          "path": "assets_dev/worlds/mm6/_legacy/tables/Continent settings.txt",
           "line": 2,
           "excerpt": "1 Jadam x 0.9225 1.06 losegame out01.odm 3560 7696 544 0 out02.odm 10219 -15624 265 -12 plansky3, plansky1, sky06, 6sky02, sky03, stormclds, 6sky19 loading1.pcx,loading2.pcx,loading3.pcx,loading4.pcx,loading5.pcx"
         },
         {
+          "stem": "losegame",
+          "kind": "defeat_stem_reference",
+          "world": null,
+          "variant": "runtime",
           "path": "assets_dev/engine/data_tables/continent_settings.txt",
-          "line": 3,
-          "excerpt": "2 Antagarich x 0.82 1.11 7losegame 7wtrtyl 7out01.odm 12552 800 193 512 7out02.odm -16832 12512 372 0 7plansky3, 7sky01, 6sky12, 6sky02, cloudsabove, sky04, 6sky19 7load1.pcx,7load2.pcx,7load3.pcx,7load4.pcx,7load5.pcx"
-        },
-        {
-          "path": "assets_dev/engine/data_tables/continent_settings.txt",
-          "line": 4,
-          "excerpt": "3 Enroth x x x x 0.97375 0.965 6losegame 6wtrtyl oute3.odm -9728 -11319 160 512 oute3.odm -9728 -11319 160 512 plansky3, plansky1, sky06, cloudsabove, sky03, sky04, 6sky19 6drag5.pcx,6load1.pcx"
+          "line": 2,
+          "excerpt": "1 Jadam x 0.9225 1.06 losegame out01.odm 3560 7696 544 0 out02.odm 10219 -15624 265 -12 plansky3, plansky1, sky06, 6sky02, sky03, stormclds, 6sky19 loading1.pcx,loading2.pcx,loading3.pcx,loading4.pcx,loading5.pcx"
         }
-      ]
+      ],
+      "subtitle_candidate": "runtime_candidate",
+      "candidate_rationale": "Referenced by an actual runtime movie path; dialogue/timing still require verification."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/mad_lab.smk",
@@ -1221,8 +2426,6 @@
       "extension": ".smk",
       "bytes": 530976,
       "subtitle_path": "subtitles/mad_lab.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1249,7 +2452,10 @@
           "line": 136,
           "excerpt": "134 mad_lab 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/naga_vlt.smk",
@@ -1258,8 +2464,6 @@
       "extension": ".smk",
       "bytes": 1135172,
       "subtitle_path": "subtitles/naga_vlt.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1286,7 +2490,10 @@
           "line": 127,
           "excerpt": "125 naga_vlt 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/New World Logo.bik",
@@ -1295,9 +2502,10 @@
       "extension": ".bik",
       "bytes": 3831972,
       "subtitle_path": "subtitles/New World Logo.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
-      "references": []
+      "references": [],
+      "runtime_references": [],
+      "subtitle_candidate": "source_unreferenced",
+      "candidate_rationale": "Legacy BIK currently has no matched runtime movie reference; do not invent subtitles."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/nightshade.bik",
@@ -1306,8 +2514,6 @@
       "extension": ".bik",
       "bytes": 9182872,
       "subtitle_path": "subtitles/nightshade.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm8/events/maps/out07.lua",
@@ -1404,7 +2610,10 @@
           "line": 608,
           "excerpt": "604 item268 0 0 0 0 0 0 Nightshade Brazier"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "source_unreferenced",
+      "candidate_rationale": "Legacy BIK currently has no matched runtime movie reference; do not invent subtitles."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/ogre_ft.smk",
@@ -1413,8 +2622,6 @@
       "extension": ".smk",
       "bytes": 1050044,
       "subtitle_path": "subtitles/ogre_ft.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1446,7 +2653,10 @@
           "line": 121,
           "excerpt": "119 ogre_ft 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/overrept.bik",
@@ -1455,15 +2665,26 @@
       "extension": ".bik",
       "bytes": 13884420,
       "subtitle_path": "subtitles/overrept.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm8/events/maps/out03.lua",
           "line": 573,
           "excerpt": "evt.ShowMovie(\"\\\"overrept\\\"\", true)"
         }
-      ]
+      ],
+      "runtime_references": [
+        {
+          "stem": "overrept",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/out03.lua",
+          "line": 573,
+          "excerpt": "evt.ShowMovie(\"\\\"overrept\\\"\", true)"
+        }
+      ],
+      "subtitle_candidate": "runtime_candidate",
+      "candidate_rationale": "Referenced by an actual runtime movie path; dialogue/timing still require verification."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/p_outpst.smk",
@@ -1472,8 +2693,6 @@
       "extension": ".smk",
       "bytes": 1253452,
       "subtitle_path": "subtitles/p_outpst.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1500,7 +2719,10 @@
           "line": 115,
           "excerpt": "113 p_outpst 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/p_strong.smk",
@@ -1509,8 +2731,6 @@
       "extension": ".smk",
       "bytes": 1012492,
       "subtitle_path": "subtitles/p_strong.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1537,7 +2757,10 @@
           "line": 132,
           "excerpt": "130 p_strong 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/pr_elords.smk",
@@ -1546,8 +2769,6 @@
       "extension": ".smk",
       "bytes": 608308,
       "subtitle_path": "subtitles/pr_elords.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1574,7 +2795,10 @@
           "line": 143,
           "excerpt": "141 pr_elords 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/pr_lorde.smk",
@@ -1583,8 +2807,6 @@
       "extension": ".smk",
       "bytes": 1430964,
       "subtitle_path": "subtitles/pr_lorde.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1611,7 +2833,10 @@
           "line": 149,
           "excerpt": "147 pr_lorde 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/pr_lordf.smk",
@@ -1620,8 +2845,6 @@
       "extension": ".smk",
       "bytes": 1933412,
       "subtitle_path": "subtitles/pr_lordf.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1648,7 +2871,10 @@
           "line": 150,
           "excerpt": "148 pr_lordf 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/pr_lordw.smk",
@@ -1657,8 +2883,6 @@
       "extension": ".smk",
       "bytes": 1120992,
       "subtitle_path": "subtitles/pr_lordw.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1685,7 +2909,10 @@
           "line": 151,
           "excerpt": "149 pr_lordw 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/rsub.smk",
@@ -1694,24 +2921,7 @@
       "extension": ".smk",
       "bytes": 4787112,
       "subtitle_path": "subtitles/rsub.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
-        {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 3575,
-          "excerpt": "<< \" textured_submitted=\" << diagnostics.renderSubmittedTexturedBatches"
-        },
-        {
-          "path": "game/indoor/IndoorRenderer.cpp",
-          "line": 4459,
-          "excerpt": "m_indoorPerformanceDiagnostics.renderSubmittedTexturedBatches += submittedTexturedBatchCount;"
-        },
-        {
-          "path": "game/indoor/IndoorRenderer.h",
-          "line": 563,
-          "excerpt": "uint64_t renderSubmittedTexturedBatches = 0;"
-        },
         {
           "path": "game/events/EventDialogContent.cpp",
           "line": 380,
@@ -1723,26 +2933,6 @@
           "excerpt": "{\"d33.blv\", \"rsub\"},"
         },
         {
-          "path": "game/outdoor/OutdoorGameView.h",
-          "line": 751,
-          "excerpt": "uint64_t actorSubmits = 0;"
-        },
-        {
-          "path": "game/outdoor/OutdoorRenderer.cpp",
-          "line": 1311,
-          "excerpt": "<< \" actor_submits=\" << spriteStats.actorSubmits"
-        },
-        {
-          "path": "game/outdoor/OutdoorBillboardRenderer.cpp",
-          "line": 3030,
-          "excerpt": "++view.m_outdoorSpriteRenderDiagnostics.actorSubmits;"
-        },
-        {
-          "path": "game/outdoor/OutdoorBillboardRenderer.cpp",
-          "line": 3298,
-          "excerpt": "++view.m_outdoorSpriteRenderDiagnostics.actorSubmits;"
-        },
-        {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
           "line": 104,
           "excerpt": "102 rsub 0 House 0"
@@ -1752,7 +2942,10 @@
           "line": 104,
           "excerpt": "102 rsub 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/s_subpen.smk",
@@ -1761,8 +2954,6 @@
       "extension": ".smk",
       "bytes": 934580,
       "subtitle_path": "subtitles/s_subpen.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1794,7 +2985,10 @@
           "line": 134,
           "excerpt": "132 s_subpen 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/SaveMino.bik",
@@ -1803,15 +2997,26 @@
       "extension": ".bik",
       "bytes": 4360236,
       "subtitle_path": "subtitles/SaveMino.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm8/events/maps/d24.lua",
           "line": 420,
           "excerpt": "evt.ShowMovie(\"\\\"savemino\\\"\", true)"
         }
-      ]
+      ],
+      "runtime_references": [
+        {
+          "stem": "savemino",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/d24.lua",
+          "line": 420,
+          "excerpt": "evt.ShowMovie(\"\\\"savemino\\\"\", true)"
+        }
+      ],
+      "subtitle_candidate": "runtime_candidate",
+      "candidate_rationale": "Referenced by an actual runtime movie path; dialogue/timing still require verification."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/skeltrans.bik",
@@ -1820,15 +3025,26 @@
       "extension": ".bik",
       "bytes": 4666260,
       "subtitle_path": "subtitles/skeltrans.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm8/events/maps/d19_mmmerge.lua",
           "line": 33,
           "excerpt": "evt.ShowMovie(\"skeltrans\", true)"
         }
-      ]
+      ],
+      "runtime_references": [
+        {
+          "stem": "skeltrans",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm8/events/maps/d19_mmmerge.lua",
+          "line": 33,
+          "excerpt": "evt.ShowMovie(\"skeltrans\", true)"
+        }
+      ],
+      "subtitle_candidate": "runtime_candidate",
+      "candidate_rationale": "Referenced by an actual runtime movie path; dialogue/timing still require verification."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/Subcut.bik",
@@ -1837,8 +3053,6 @@
       "extension": ".bik",
       "bytes": 4742516,
       "subtitle_path": "subtitles/Subcut.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm8/events/maps/d06.lua",
@@ -1850,7 +3064,29 @@
           "line": 9,
           "excerpt": "evt.ShowMovie(\"Subcut\", true)"
         }
-      ]
+      ],
+      "runtime_references": [
+        {
+          "stem": "Subcut",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "base",
+          "path": "assets_dev/worlds/mm8/events/maps/d06.lua",
+          "line": 448,
+          "excerpt": "evt.ShowMovie(\"\\\"Subcut\\\"\", true)"
+        },
+        {
+          "stem": "Subcut",
+          "kind": "evt.ShowMovie",
+          "world": "mm8",
+          "variant": "mmmerge",
+          "path": "assets_dev/worlds/mm8/events/maps/d06_mmmerge.lua",
+          "line": 9,
+          "excerpt": "evt.ShowMovie(\"Subcut\", true)"
+        }
+      ],
+      "subtitle_candidate": "runtime_candidate",
+      "candidate_rationale": "Referenced by an actual runtime movie path; dialogue/timing still require verification."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/trol_tmb.smk",
@@ -1859,8 +3095,6 @@
       "extension": ".smk",
       "bytes": 1863836,
       "subtitle_path": "subtitles/trol_tmb.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -1897,7 +3131,10 @@
           "line": 122,
           "excerpt": "120 trol_tmb 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/welmcell.smk",
@@ -1906,8 +3143,6 @@
       "extension": ".smk",
       "bytes": 1942348,
       "subtitle_path": "subtitles/welmcell.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -1924,7 +3159,10 @@
           "line": 87,
           "excerpt": "85 welmcell 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/welmhs.smk",
@@ -1933,8 +3171,6 @@
       "extension": ".smk",
       "bytes": 3988984,
       "subtitle_path": "subtitles/welmhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -1976,7 +3212,10 @@
           "line": 111,
           "excerpt": "109 welmhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/Magicdod.vid/wingame.bik",
@@ -1985,110 +3224,26 @@
       "extension": ".bik",
       "bytes": 23584564,
       "subtitle_path": "subtitles/wingame.srt",
-      "subtitle_candidate": "priority_candidate",
-      "candidate_rationale": "Bink movie; likely full-screen/story media, but dialogue must be verified manually.",
       "references": [
-        {
-          "path": "game/CMakeLists.txt",
-          "line": 215,
-          "excerpt": "ui/screens/WinGameScreen.cpp"
-        },
-        {
-          "path": "game/ui/KoreanRuntimeTextOverrides.h",
-          "line": 1342,
-          "excerpt": "// WinGameCertificate uses NAME the Level NUMBER CLASS. Match the final marker"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 6121,
-          "excerpt": "EventRuntimeState::PendingWinGame ending = {};"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 6125,
-          "excerpt": "pRuntimeState->pendingWinGame = ending;"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 8724,
-          "excerpt": "runtimeState.pendingWinGame.reset();"
-        },
-        {
-          "path": "game/events/EventRuntime.h",
-          "line": 168,
-          "excerpt": "struct PendingWinGame"
-        },
-        {
-          "path": "game/events/EventRuntime.h",
-          "line": 511,
-          "excerpt": "std::optional<PendingWinGame> pendingWinGame;"
-        },
-        {
-          "path": "game/gameplay/GameplayDialogController.cpp",
-          "line": 3940,
-          "excerpt": "if (context.eventRuntimeState.pendingWinGame)"
-        },
-        {
-          "path": "game/app/GameApplication.h",
-          "line": 41,
-          "excerpt": "struct WinGameCertificate;"
-        },
-        {
-          "path": "game/app/GameApplication.h",
-          "line": 173,
-          "excerpt": "bool processPendingWinGame();"
-        },
-        {
-          "path": "game/app/GameApplication.h",
-          "line": 181,
-          "excerpt": "void handleCompletedWinGameScreen();"
-        },
-        {
-          "path": "game/app/GameApplication.h",
-          "line": 182,
-          "excerpt": "WinGameCertificate buildWinGameCertificate() const;"
-        },
-        {
-          "path": "game/app/GameApplication.h",
-          "line": 297,
-          "excerpt": "bool m_pendingWinGameCertificateAfterMovie = false;"
-        },
-        {
-          "path": "game/app/GameApplication.cpp",
-          "line": 31,
-          "excerpt": "#include \"game/ui/screens/WinGameScreen.h\""
-        },
-        {
-          "path": "game/app/GameApplication.cpp",
-          "line": 83,
-          "excerpt": "std::optional<EventRuntimeState::PendingWinGame> pendingWinGame;"
-        },
-        {
-          "path": "game/app/GameApplication.cpp",
-          "line": 656,
-          "excerpt": "outputs.pendingWinGame = std::move(runtimeState.pendingWinGame);"
-        },
-        {
-          "path": "game/app/GameApplication.cpp",
-          "line": 657,
-          "excerpt": "runtimeState.pendingWinGame.reset();"
-        },
-        {
-          "path": "game/app/GameApplication.cpp",
-          "line": 672,
-          "excerpt": "if (outputs.pendingWinGame.has_value())"
-        },
-        {
-          "path": "game/app/GameApplication.cpp",
-          "line": 674,
-          "excerpt": "runtimeState.pendingWinGame = std::move(outputs.pendingWinGame);"
-        },
         {
           "path": "game/app/GameApplication.cpp",
           "line": 1266,
           "excerpt": "constexpr const char *WinGameCutsceneStem = \"wingame\";"
         }
-      ]
+      ],
+      "runtime_references": [
+        {
+          "stem": "wingame",
+          "kind": "fixed_cutscene_stem",
+          "symbol": "WinGameCutsceneStem",
+          "world": null,
+          "variant": "runtime",
+          "path": "game/app/GameApplication.cpp",
+          "line": 1266
+        }
+      ],
+      "subtitle_candidate": "runtime_candidate",
+      "candidate_rationale": "Referenced by an actual runtime movie path; dialogue/timing still require verification."
     },
     {
       "source_path": "data/Anims/mightdod.vid/ab_temp.smk",
@@ -2097,8 +3252,6 @@
       "extension": ".smk",
       "bytes": 337852,
       "subtitle_path": "subtitles/ab_temp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -2116,16 +3269,6 @@
           "excerpt": "112 ab_temp 0 Dungeon Ent 0"
         },
         {
-          "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
-          "line": 148,
-          "excerpt": "146 ab_tempbd 0 Dungeon Ent 0"
-        },
-        {
-          "path": "assets_dev/engine/data_tables/house_animations.txt",
-          "line": 346,
-          "excerpt": "345 146 Backdoor of Abandoned Temple ab_tempbd 0 Dungeon Ent"
-        },
-        {
           "path": "assets_dev/engine/data_tables/house_animations.txt",
           "line": 347,
           "excerpt": "346 112 Abandoned Temple ab_temp 0 Dungeon Ent"
@@ -2134,13 +3277,11 @@
           "path": "assets_dev/engine/data_tables/house_movies.txt",
           "line": 114,
           "excerpt": "112 ab_temp 0 Dungeon Ent 0"
-        },
-        {
-          "path": "assets_dev/engine/data_tables/house_movies.txt",
-          "line": 148,
-          "excerpt": "146 ab_tempbd 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/barb_frt.smk",
@@ -2149,8 +3290,6 @@
       "extension": ".smk",
       "bytes": 1458128,
       "subtitle_path": "subtitles/barb_frt.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -2177,7 +3316,10 @@
           "line": 131,
           "excerpt": "129 barb_frt 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/cave.smk",
@@ -2186,8 +3328,6 @@
       "extension": ".smk",
       "bytes": 28396,
       "subtitle_path": "subtitles/cave.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -2216,38 +3356,8 @@
         },
         {
           "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
-          "line": 9366,
-          "excerpt": "\"indoor_d17_dragon_cave_hostility_stays_friendly_after_reload_restore\","
-        },
-        {
-          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
           "line": 9473,
           "excerpt": "failure = phase + \": no dragon cave group actors checked\";"
-        },
-        {
-          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
-          "line": 10865,
-          "excerpt": "\"outdoor_thjorad_destructible_trigger_destroys_cavein\","
-        },
-        {
-          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
-          "line": 11058,
-          "excerpt": "failure = \"CaveIn did not start intact\";"
-        },
-        {
-          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
-          "line": 11073,
-          "excerpt": "failure = \"Trigger7 did not destroy CaveIn at party position (\""
-        },
-        {
-          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
-          "line": 11086,
-          "excerpt": "failure = \"CaveIn death output did not award MM9 key 35 and experience\";"
-        },
-        {
-          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
-          "line": 11094,
-          "excerpt": "failure = \"CaveIn destruction sound was not queued\";"
         },
         {
           "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
@@ -2271,11 +3381,6 @@
         },
         {
           "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
-          "line": 53,
-          "excerpt": "[201] = { kind = \"enter_house\", source = \"opcode\", houseId = 774, targetName = \"Dragon Leader's Cavern \" },"
-        },
-        {
-          "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
           "line": 230,
           "excerpt": "RegisterEvent(131, \"Ishton's Cave\", function()"
         },
@@ -2288,8 +3393,46 @@
           "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
           "line": 232,
           "excerpt": "end, \"Ishton's Cave\")"
+        },
+        {
+          "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
+          "line": 234,
+          "excerpt": "RegisterEvent(132, \"Ithilgore's Cave\", function()"
+        },
+        {
+          "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
+          "line": 235,
+          "excerpt": "evt.EnterHouse(573) -- Ithilgore's Cave"
+        },
+        {
+          "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
+          "line": 236,
+          "excerpt": "end, \"Ithilgore's Cave\")"
+        },
+        {
+          "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
+          "line": 238,
+          "excerpt": "RegisterEvent(133, \"Scarwing's Cave\", function()"
+        },
+        {
+          "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
+          "line": 239,
+          "excerpt": "evt.EnterHouse(574) -- Scarwing's Cave"
+        },
+        {
+          "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
+          "line": 240,
+          "excerpt": "end, \"Scarwing's Cave\")"
+        },
+        {
+          "path": "assets_dev/worlds/mm8/events/maps/d17.lua",
+          "line": 267,
+          "excerpt": "RegisterEvent(501, \"Leave the dragon cave\", function()"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "ambient_or_building_review",
+      "candidate_rationale": "Legacy SMK with no runtime cutscene reference; review only if later runtime evidence appears."
     },
     {
       "source_path": "data/Anims/mightdod.vid/clporhs.smk",
@@ -2298,8 +3441,6 @@
       "extension": ".smk",
       "bytes": 338752,
       "subtitle_path": "subtitles/clporhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2401,7 +3542,10 @@
           "line": 905,
           "excerpt": "904 66 Lott's Family Home 202 clporhs 0 House"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/cquixote.smk",
@@ -2410,8 +3554,6 @@
       "extension": ".smk",
       "bytes": 1005055,
       "subtitle_path": "subtitles/cquixote.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2428,7 +3570,10 @@
           "line": 66,
           "excerpt": "64 cquixote 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dealcshp.smk",
@@ -2437,8 +3582,6 @@
       "extension": ".smk",
       "bytes": 1007900,
       "subtitle_path": "subtitles/dealcshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2455,7 +3598,10 @@
           "line": 34,
           "excerpt": "32 dealcshp 1117 Alchemist 13"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dearmshp.smk",
@@ -2464,8 +3610,6 @@
       "extension": ".smk",
       "bytes": 1336256,
       "subtitle_path": "subtitles/dearmshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2482,7 +3626,10 @@
           "line": 33,
           "excerpt": "31 dearmshp 1110 Armor Shop 12"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/deboat.smk",
@@ -2491,8 +3638,6 @@
       "extension": ".smk",
       "bytes": 1511476,
       "subtitle_path": "subtitles/deboat.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2519,7 +3664,10 @@
           "line": 41,
           "excerpt": "39 deboat 1111 Boats 19"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/decouncl.smk",
@@ -2528,8 +3676,6 @@
       "extension": ".smk",
       "bytes": 1105956,
       "subtitle_path": "subtitles/decouncl.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2546,7 +3692,10 @@
           "line": 42,
           "excerpt": "40 decouncl 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/demagshp.smk",
@@ -2555,8 +3704,6 @@
       "extension": ".smk",
       "bytes": 935076,
       "subtitle_path": "subtitles/demagshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2578,7 +3725,10 @@
           "line": 35,
           "excerpt": "33 demagshp 1133 Magic Shop 14"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/demedhs.smk",
@@ -2587,8 +3737,6 @@
       "extension": ".smk",
       "bytes": 1222980,
       "subtitle_path": "subtitles/demedhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2690,7 +3838,10 @@
           "line": 535,
           "excerpt": "534 27 House Stellare 283 demedhs 0 House"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/demguild.smk",
@@ -2699,8 +3850,6 @@
       "extension": ".smk",
       "bytes": 1430956,
       "subtitle_path": "subtitles/demguild.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2717,7 +3866,10 @@
           "line": 40,
           "excerpt": "38 demguild 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/derchhs1.smk",
@@ -2726,8 +3878,6 @@
       "extension": ".smk",
       "bytes": 235404,
       "subtitle_path": "subtitles/derchhs1.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2829,7 +3979,10 @@
           "line": 898,
           "excerpt": "897 25 Neblick's House 105 derchhs1 0 House"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/desplshp.smk",
@@ -2838,8 +3991,6 @@
       "extension": ".smk",
       "bytes": 717332,
       "subtitle_path": "subtitles/desplshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2906,7 +4057,10 @@
           "line": 159,
           "excerpt": "157 desplshp 1115 Dark Guild 15"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/detavern.smk",
@@ -2915,8 +4069,6 @@
       "extension": ".smk",
       "bytes": 1264096,
       "subtitle_path": "subtitles/detavern.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2943,7 +4095,10 @@
           "line": 39,
           "excerpt": "37 detavern 1112 Tavern 18"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/detrhall.smk",
@@ -2952,8 +4107,6 @@
       "extension": ".smk",
       "bytes": 1333156,
       "subtitle_path": "subtitles/detrhall.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -2975,7 +4128,10 @@
           "line": 37,
           "excerpt": "35 detrhall 1114 Training 16"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dewpshp.smk",
@@ -2984,8 +4140,6 @@
       "extension": ".smk",
       "bytes": 1766652,
       "subtitle_path": "subtitles/dewpshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3002,7 +4156,10 @@
           "line": 32,
           "excerpt": "30 dewpshp 1119 Weapon Shop 11"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dharmshp.smk",
@@ -3011,8 +4168,6 @@
       "extension": ".smk",
       "bytes": 1374472,
       "subtitle_path": "subtitles/dharmshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3034,7 +4189,10 @@
           "line": 62,
           "excerpt": "60 dharmshp 1104 Armor Shop 31"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dhmagshp.smk",
@@ -3043,8 +4201,6 @@
       "extension": ".smk",
       "bytes": 1087916,
       "subtitle_path": "subtitles/dhmagshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3061,7 +4217,10 @@
           "line": 63,
           "excerpt": "61 dhmagshp 1103 Magic Shop 32"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dhmedhs.smk",
@@ -3070,8 +4229,6 @@
       "extension": ".smk",
       "bytes": 400828,
       "subtitle_path": "subtitles/dhmedhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3163,7 +4320,10 @@
           "line": 58,
           "excerpt": "56 dhmedhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dhporhs.smk",
@@ -3172,8 +4332,6 @@
       "extension": ".smk",
       "bytes": 476768,
       "subtitle_path": "subtitles/dhporhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3225,7 +4383,10 @@
           "line": 59,
           "excerpt": "57 dhporhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dhtavern.smk",
@@ -3234,8 +4395,6 @@
       "extension": ".smk",
       "bytes": 1219904,
       "subtitle_path": "subtitles/dhtavern.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3257,7 +4416,10 @@
           "line": 65,
           "excerpt": "63 dhtavern 1248 Tavern 34"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dhtemple.smk",
@@ -3266,8 +4428,6 @@
       "extension": ".smk",
       "bytes": 1093636,
       "subtitle_path": "subtitles/dhtemple.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3289,7 +4449,10 @@
           "line": 60,
           "excerpt": "58 dhtemple 1247 Temple 29"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dhtrhall.smk",
@@ -3298,8 +4461,6 @@
       "extension": ".smk",
       "bytes": 1316252,
       "subtitle_path": "subtitles/dhtrhall.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3316,7 +4477,10 @@
           "line": 64,
           "excerpt": "62 dhtrhall 1102 Training 33"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dhwepshp.smk",
@@ -3325,8 +4489,6 @@
       "extension": ".smk",
       "bytes": 1257224,
       "subtitle_path": "subtitles/dhwepshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3343,7 +4505,10 @@
           "line": 61,
           "excerpt": "59 dhwepshp 1105 Weapon Shop 30"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dire_lr.smk",
@@ -3352,8 +4517,6 @@
       "extension": ".smk",
       "bytes": 1302608,
       "subtitle_path": "subtitles/dire_lr.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -3385,7 +4548,10 @@
           "line": 117,
           "excerpt": "115 dire_lr 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/dlcavern.smk",
@@ -3394,8 +4560,6 @@
       "extension": ".smk",
       "bytes": 1106916,
       "subtitle_path": "subtitles/dlcavern.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3412,7 +4576,10 @@
           "line": 84,
           "excerpt": "82 dlcavern 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/drgn_cav.smk",
@@ -3421,8 +4588,6 @@
       "extension": ".smk",
       "bytes": 190524,
       "subtitle_path": "subtitles/drgn_cav.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -3479,7 +4644,10 @@
           "line": 126,
           "excerpt": "124 drgn_cav 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/in_cryst.smk",
@@ -3488,8 +4656,6 @@
       "extension": ".smk",
       "bytes": 505144,
       "subtitle_path": "subtitles/in_cryst.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -3521,7 +4687,10 @@
           "line": 119,
           "excerpt": "117 in_cryst 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/lalcshop.smk",
@@ -3530,8 +4699,6 @@
       "extension": ".smk",
       "bytes": 1077292,
       "subtitle_path": "subtitles/lalcshop.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3553,7 +4720,10 @@
           "line": 20,
           "excerpt": "18 lalcshop 1127 Alchemist 4"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/larmshp.smk",
@@ -3562,8 +4732,6 @@
       "extension": ".smk",
       "bytes": 995832,
       "subtitle_path": "subtitles/larmshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3580,7 +4748,10 @@
           "line": 19,
           "excerpt": "17 larmshp 1128 Armor Shop 3"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/lbank.smk",
@@ -3589,24 +4760,7 @@
       "extension": ".smk",
       "bytes": 1066592,
       "subtitle_path": "subtitles/lbank.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 2303,
-          "excerpt": "const int withdrawnGold = party.withdrawAllBankGold();"
-        },
-        {
-          "path": "game/party/Party.h",
-          "line": 438,
-          "excerpt": "int withdrawAllBankGold();"
-        },
-        {
-          "path": "game/party/Party.cpp",
-          "line": 3734,
-          "excerpt": "int Party::withdrawAllBankGold()"
-        },
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
           "line": 24,
@@ -3622,7 +4776,10 @@
           "line": 24,
           "excerpt": "22 lbank 1123 Bank 8"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/lchwar.smk",
@@ -3631,8 +4788,6 @@
       "extension": ".smk",
       "bytes": 913592,
       "subtitle_path": "subtitles/lchwar.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3649,7 +4804,10 @@
           "line": 26,
           "excerpt": "24 lchwar 0 Throne 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/lmagshp.smk",
@@ -3658,8 +4816,6 @@
       "extension": ".smk",
       "bytes": 693968,
       "subtitle_path": "subtitles/lmagshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3676,7 +4832,10 @@
           "line": 21,
           "excerpt": "19 lmagshp 1126 Magic Shop 5"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/lmedhs1.smk",
@@ -3685,8 +4844,6 @@
       "extension": ".smk",
       "bytes": 1278952,
       "subtitle_path": "subtitles/lmedhs1.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3788,7 +4945,10 @@
           "line": 711,
           "excerpt": "710 0 House 491 lmedhs1 0 House"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/lporhs1.smk",
@@ -3797,8 +4957,6 @@
       "extension": ".smk",
       "bytes": 831360,
       "subtitle_path": "subtitles/lporhs1.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3875,7 +5033,10 @@
           "line": 15,
           "excerpt": "13 lporhs1 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/lsplshp.smk",
@@ -3884,8 +5045,6 @@
       "extension": ".smk",
       "bytes": 1859124,
       "subtitle_path": "subtitles/lsplshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3942,7 +5101,10 @@
           "line": 155,
           "excerpt": "153 lsplshp 1125 Dark Guild 6"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/ltavern.smk",
@@ -3951,8 +5113,6 @@
       "extension": ".smk",
       "bytes": 1423064,
       "subtitle_path": "subtitles/ltavern.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -3969,7 +5129,10 @@
           "line": 25,
           "excerpt": "23 ltavern 1122 Tavern 9"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/ltemple.smk",
@@ -3978,8 +5141,6 @@
       "extension": ".smk",
       "bytes": 2087768,
       "subtitle_path": "subtitles/ltemple.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4006,7 +5167,10 @@
           "line": 174,
           "excerpt": "172 ltemple 1130 Temple 1"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/ltrhall.smk",
@@ -4015,8 +5179,6 @@
       "extension": ".smk",
       "bytes": 1180472,
       "subtitle_path": "subtitles/ltrhall.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4033,7 +5195,10 @@
           "line": 23,
           "excerpt": "21 ltrhall 1124 Training 7"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/lwpshp.smk",
@@ -4042,8 +5207,6 @@
       "extension": ".smk",
       "bytes": 847380,
       "subtitle_path": "subtitles/lwpshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4060,7 +5223,10 @@
           "line": 18,
           "excerpt": "16 lwpshp 1129 Weapon Shop 2"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/malcshp.smk",
@@ -4069,8 +5235,6 @@
       "extension": ".smk",
       "bytes": 1007340,
       "subtitle_path": "subtitles/malcshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4087,7 +5251,10 @@
           "line": 50,
           "excerpt": "48 malcshp 1083 Alchemist 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/marmshp.smk",
@@ -4096,8 +5263,6 @@
       "extension": ".smk",
       "bytes": 1297824,
       "subtitle_path": "subtitles/marmshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4114,7 +5279,10 @@
           "line": 49,
           "excerpt": "47 marmshp 1108 Armor Shop 23"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mbank.smk",
@@ -4123,8 +5291,6 @@
       "extension": ".smk",
       "bytes": 922032,
       "subtitle_path": "subtitles/mbank.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4141,7 +5307,10 @@
           "line": 54,
           "excerpt": "52 mbank 1107 Bank 27"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mdrownhs.smk",
@@ -4150,8 +5319,6 @@
       "extension": ".smk",
       "bytes": 1583056,
       "subtitle_path": "subtitles/mdrownhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4178,7 +5345,10 @@
           "line": 46,
           "excerpt": "44 mdrownhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mino_lr.smk",
@@ -4187,8 +5357,6 @@
       "extension": ".smk",
       "bytes": 1144332,
       "subtitle_path": "subtitles/mino_lr.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -4220,7 +5388,10 @@
           "line": 130,
           "excerpt": "128 mino_lr 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mledden.smk",
@@ -4229,8 +5400,6 @@
       "extension": ".smk",
       "bytes": 978172,
       "subtitle_path": "subtitles/mledden.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4247,7 +5416,10 @@
           "line": 56,
           "excerpt": "54 mledden 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mmagshp.smk",
@@ -4256,8 +5428,6 @@
       "extension": ".smk",
       "bytes": 1096412,
       "subtitle_path": "subtitles/mmagshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4274,7 +5444,10 @@
           "line": 51,
           "excerpt": "49 mmagshp 1082 Magic Shop 24"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mporhs.smk",
@@ -4283,8 +5456,6 @@
       "extension": ".smk",
       "bytes": 1026492,
       "subtitle_path": "subtitles/mporhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4316,7 +5487,10 @@
           "line": 45,
           "excerpt": "43 mporhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mrch_hs.smk",
@@ -4325,8 +5499,6 @@
       "extension": ".smk",
       "bytes": 165600,
       "subtitle_path": "subtitles/mrch_hs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -4358,7 +5530,10 @@
           "line": 118,
           "excerpt": "116 mrch_hs 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mrchhs.smk",
@@ -4367,8 +5542,6 @@
       "extension": ".smk",
       "bytes": 923996,
       "subtitle_path": "subtitles/mrchhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4455,7 +5628,10 @@
           "line": 43,
           "excerpt": "41 mrchhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/msplshp.smk",
@@ -4464,8 +5640,6 @@
       "extension": ".smk",
       "bytes": 1144980,
       "subtitle_path": "subtitles/msplshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4532,7 +5706,10 @@
           "line": 163,
           "excerpt": "161 msplshp 1081 Dark Guild 25"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mtavern.smk",
@@ -4541,8 +5718,6 @@
       "extension": ".smk",
       "bytes": 1080700,
       "subtitle_path": "subtitles/mtavern.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4559,7 +5734,10 @@
           "line": 55,
           "excerpt": "53 mtavern 1080 Tavern 28"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mtemple.smk",
@@ -4568,59 +5746,7 @@
       "extension": ".smk",
       "bytes": 1127360,
       "subtitle_path": "subtitles/mtemple.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
-        {
-          "path": "assets_dev/worlds/mm9/events/darkpassageway.lua",
-          "line": 61,
-          "excerpt": "source_name = \"ExitRoomTempleDoor0\","
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/darkpassageway.lua",
-          "line": 63,
-          "excerpt": "hint = \"ExitRoomTempleDoor0\","
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/darkpassageway.lua",
-          "line": 70,
-          "excerpt": "source_name = \"ExitRoomTempleDoor1\","
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/darkpassageway.lua",
-          "line": 72,
-          "excerpt": "hint = \"ExitRoomTempleDoor1\","
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/darkpassageway.lua",
-          "line": 1039,
-          "excerpt": "[30000] = { kind = \"open_door\", source = \"mm9_mechanism\", targetName = \"ExitRoomTempleDoor0\" },"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/darkpassageway.lua",
-          "line": 1040,
-          "excerpt": "[30001] = { kind = \"open_door\", source = \"mm9_mechanism\", targetName = \"ExitRoomTempleDoor1\" },"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/darkpassageway.lua",
-          "line": 1079,
-          "excerpt": "RegisterEvent(30000, \"ExitRoomTempleDoor0\", function()"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/darkpassageway.lua",
-          "line": 1081,
-          "excerpt": "end, \"ExitRoomTempleDoor0\")"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/darkpassageway.lua",
-          "line": 1083,
-          "excerpt": "RegisterEvent(30001, \"ExitRoomTempleDoor1\", function()"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/darkpassageway.lua",
-          "line": 1085,
-          "excerpt": "end, \"ExitRoomTempleDoor1\")"
-        },
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
           "line": 47,
@@ -4636,7 +5762,10 @@
           "line": 47,
           "excerpt": "45 mtemple 1078 Temple 21"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mtrhall.smk",
@@ -4645,8 +5774,6 @@
       "extension": ".smk",
       "bytes": 1112016,
       "subtitle_path": "subtitles/mtrhall.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4663,7 +5790,10 @@
           "line": 53,
           "excerpt": "51 mtrhall 1079 Training 26"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/mwepshp.smk",
@@ -4672,8 +5802,6 @@
       "extension": ".smk",
       "bytes": 1196804,
       "subtitle_path": "subtitles/mwepshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4695,7 +5823,10 @@
           "line": 48,
           "excerpt": "46 mwepshp 1109 Weapon Shop 22"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/nalcshp.smk",
@@ -4704,8 +5835,6 @@
       "extension": ".smk",
       "bytes": 1256332,
       "subtitle_path": "subtitles/nalcshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4722,7 +5851,10 @@
           "line": 77,
           "excerpt": "75 nalcshp 1096 Alchemist 38"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/narmshp.smk",
@@ -4731,8 +5863,6 @@
       "extension": ".smk",
       "bytes": 1488696,
       "subtitle_path": "subtitles/narmshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4749,7 +5879,10 @@
           "line": 76,
           "excerpt": "74 narmshp 1097 Armor Shop 37"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/nbank.smk",
@@ -4758,69 +5891,7 @@
       "extension": ".smk",
       "bytes": 1162564,
       "subtitle_path": "subtitles/nbank.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 2090,
-          "excerpt": "case EvtVariable::GoldInBank:"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 2091,
-          "excerpt": "variable.kind = VariableKind::GoldInBank;"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 2447,
-          "excerpt": "if (variable.kind == VariableKind::GoldInBank)"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 3059,
-          "excerpt": "if (variable.kind == VariableKind::GoldInBank)"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 3786,
-          "excerpt": "if (variable.kind == VariableKind::GoldInBank)"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 4265,
-          "excerpt": "if (variable.kind == VariableKind::GoldInBank)"
-        },
-        {
-          "path": "game/events/EvtEnums.h",
-          "line": 167,
-          "excerpt": "GoldInBank = 0x0132,"
-        },
-        {
-          "path": "game/events/EventRuntime.h",
-          "line": 674,
-          "excerpt": "GoldInBank,"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/frosgardcity.lua",
-          "line": 2048,
-          "excerpt": "{ line = 69, message = \"bank\", callback = \"OnBank\" },"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/frosgardcity.script_ir.yml",
-          "line": 2448,
-          "excerpt": "name: OnBank"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/frosgardcity.script_ir.yml",
-          "line": 2456,
-          "excerpt": "callback: OnBank"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/frosgardcity.script_ir.yml",
-          "line": 2457,
-          "excerpt": "arguments_raw: bank, OnBank"
-        },
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
           "line": 81,
@@ -4835,13 +5906,11 @@
           "path": "assets_dev/engine/data_tables/house_movies.txt",
           "line": 81,
           "excerpt": "79 nbank 1093 Bank 42"
-        },
-        {
-          "path": "assets_dev/engine/scripts/common/event_support.lua",
-          "line": 183,
-          "excerpt": "GoldInBank = 0x0132,"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/nec_gild.smk",
@@ -4850,8 +5919,6 @@
       "extension": ".smk",
       "bytes": 988696,
       "subtitle_path": "subtitles/nec_gild.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -4878,7 +5945,10 @@
           "line": 135,
           "excerpt": "133 nec_gild 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/Nmagshp.smk",
@@ -4887,8 +5957,6 @@
       "extension": ".smk",
       "bytes": 1140512,
       "subtitle_path": "subtitles/Nmagshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -4910,7 +5978,10 @@
           "line": 78,
           "excerpt": "76 nmagshp 1099 Magic Shop 39"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/nporhs.smk",
@@ -4919,8 +5990,6 @@
       "extension": ".smk",
       "bytes": 1125756,
       "subtitle_path": "subtitles/nporhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5002,7 +6071,10 @@
           "line": 73,
           "excerpt": "71 nporhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/nrchhs1.smk",
@@ -5011,8 +6083,6 @@
       "extension": ".smk",
       "bytes": 1134028,
       "subtitle_path": "subtitles/nrchhs1.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5114,7 +6184,10 @@
           "line": 607,
           "excerpt": "606 68 Tantilion's House 93 nrchhs1 0 House"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/Nsplshp.smk",
@@ -5123,8 +6196,6 @@
       "extension": ".smk",
       "bytes": 1124612,
       "subtitle_path": "subtitles/Nsplshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5181,7 +6252,10 @@
           "line": 167,
           "excerpt": "165 nsplshp 1095 Dark Guild 40"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/ntavern.smk",
@@ -5190,49 +6264,7 @@
       "extension": ".smk",
       "bytes": 1332884,
       "subtitle_path": "subtitles/ntavern.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 1265,
-          "excerpt": "HouseActionId::OpenTavernArcomageMenu,"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 2279,
-          "excerpt": "case HouseActionId::OpenTavernArcomageMenu:"
-        },
-        {
-          "path": "game/gameplay/GameplayDialogController.cpp",
-          "line": 585,
-          "excerpt": "case HouseActionId::OpenTavernArcomageMenu:"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.h",
-          "line": 43,
-          "excerpt": "OpenTavernArcomageMenu,"
-        },
-        {
-          "path": "game/outdoor/OutdoorGameView.cpp",
-          "line": 241,
-          "excerpt": "constexpr uint32_t MountNighonTavernHouseId = 116;"
-        },
-        {
-          "path": "game/outdoor/OutdoorGameView.cpp",
-          "line": 4650,
-          "excerpt": "|| houseId == MountNighonTavernHouseId)"
-        },
-        {
-          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
-          "line": 1014,
-          "excerpt": "case HouseActionId::OpenTavernArcomageMenu:"
-        },
-        {
-          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
-          "line": 14634,
-          "excerpt": "failure = \"party remained trapped under SgnTavernW, forward_distance=\""
-        },
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
           "line": 82,
@@ -5247,13 +6279,11 @@
           "path": "assets_dev/engine/data_tables/house_movies.txt",
           "line": 82,
           "excerpt": "80 ntavern 1092 Tavern 43"
-        },
-        {
-          "path": "assets_dev/engine/scripts/common/event_support.lua",
-          "line": 211,
-          "excerpt": "OpenTavernArcomageMenu = 10,"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/ntemple.smk",
@@ -5262,29 +6292,7 @@
       "extension": ".smk",
       "bytes": 1378640,
       "subtitle_path": "subtitles/ntemple.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
-        {
-          "path": "assets_dev/worlds/mm9/events/ruinedtemple.script_ir.yml",
-          "line": 347,
-          "excerpt": "- script_id: suntemplebuttons.scr"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/ruinedtemple.script_ir.yml",
-          "line": 348,
-          "excerpt": "source_path: SUNTEMPLEBUTTONS.scr"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/ruinedtemple.lua",
-          "line": 1486,
-          "excerpt": "map.scripts[\"suntemplebuttons.scr\"] = {"
-        },
-        {
-          "path": "assets_dev/worlds/mm9/events/ruinedtemple.lua",
-          "line": 1487,
-          "excerpt": "source = \"SUNTEMPLEBUTTONS.scr\","
-        },
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
           "line": 74,
@@ -5300,7 +6308,10 @@
           "line": 74,
           "excerpt": "72 ntemple 1099 Temple 35"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/Ntrhall.smk",
@@ -5309,8 +6320,6 @@
       "extension": ".smk",
       "bytes": 1325824,
       "subtitle_path": "subtitles/Ntrhall.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5327,7 +6336,10 @@
           "line": 80,
           "excerpt": "78 ntrhall 1236 Training 41"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/nwepshp.smk",
@@ -5336,8 +6348,6 @@
       "extension": ".smk",
       "bytes": 804612,
       "subtitle_path": "subtitles/nwepshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5354,7 +6364,10 @@
           "line": 75,
           "excerpt": "73 nwepshp 1098 Weapon Shop 36"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/oracle.smk",
@@ -5363,8 +6376,6 @@
       "extension": ".smk",
       "bytes": 1103928,
       "subtitle_path": "subtitles/oracle.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/maps/oracle.scene.yml",
@@ -5466,7 +6477,10 @@
           "line": 452,
           "excerpt": "451 410 The Oracle 793 oracrich 31210 0 Seer"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/ralcshp.smk",
@@ -5475,8 +6489,6 @@
       "extension": ".smk",
       "bytes": 911632,
       "subtitle_path": "subtitles/ralcshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5493,7 +6505,10 @@
           "line": 100,
           "excerpt": "98 ralcshp 1077 Alchemist 47"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/rarmshp.smk",
@@ -5502,8 +6517,6 @@
       "extension": ".smk",
       "bytes": 983164,
       "subtitle_path": "subtitles/rarmshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5520,7 +6533,10 @@
           "line": 99,
           "excerpt": "97 rarmshp 1076 Armor Shop 46"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/rmagshp.smk",
@@ -5529,8 +6545,6 @@
       "extension": ".smk",
       "bytes": 1139416,
       "subtitle_path": "subtitles/rmagshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5547,7 +6561,10 @@
           "line": 101,
           "excerpt": "99 rmagshp 1075 Magic Shop 48"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/rmedhs.smk",
@@ -5556,8 +6573,6 @@
       "extension": ".smk",
       "bytes": 1222824,
       "subtitle_path": "subtitles/rmedhs.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5609,7 +6624,10 @@
           "line": 96,
           "excerpt": "94 rmedhs 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/rrchhs1.smk",
@@ -5618,8 +6636,6 @@
       "extension": ".smk",
       "bytes": 780112,
       "subtitle_path": "subtitles/rrchhs1.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5671,7 +6687,10 @@
           "line": 94,
           "excerpt": "92 rrchhs1 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/Rrsub.smk",
@@ -5680,9 +6699,10 @@
       "extension": ".smk",
       "bytes": 1178332,
       "subtitle_path": "subtitles/Rrsub.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
-      "references": []
+      "references": [],
+      "runtime_references": [],
+      "subtitle_candidate": "ambient_or_building_review",
+      "candidate_rationale": "Legacy SMK with no runtime cutscene reference; review only if later runtime evidence appears."
     },
     {
       "source_path": "data/Anims/mightdod.vid/rsplshp.smk",
@@ -5691,8 +6711,6 @@
       "extension": ".smk",
       "bytes": 1136944,
       "subtitle_path": "subtitles/rsplshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5749,7 +6767,10 @@
           "line": 171,
           "excerpt": "169 rsplshp 1074 Dark Guild 48"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/rtavern.smk",
@@ -5758,33 +6779,11 @@
       "extension": ".smk",
       "bytes": 1110404,
       "subtitle_path": "subtitles/rtavern.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
-        {
-          "path": "assets_dev/worlds/mm7/events/maps/7out01_mmmerge.lua",
-          "line": 4,
-          "excerpt": "MM7.FilterTavernTopicsWithoutArcomage(context)"
-        },
-        {
-          "path": "assets_dev/worlds/mm7/events/common/mm7_common.lua",
-          "line": 18,
-          "excerpt": "function MM7.FilterTavernTopicsWithoutArcomage(context)"
-        },
-        {
-          "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
-          "line": 91,
-          "excerpt": "89 trtavern 1091 Tavern 52"
-        },
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
           "line": 103,
           "excerpt": "101 rtavern 1073 Tavern 50"
-        },
-        {
-          "path": "assets_dev/engine/data_tables/house_animations.txt",
-          "line": 232,
-          "excerpt": "231 89 Parched Throat trtavern 36800 1091 Tavern"
         },
         {
           "path": "assets_dev/engine/data_tables/house_animations.txt",
@@ -5793,15 +6792,13 @@
         },
         {
           "path": "assets_dev/engine/data_tables/house_movies.txt",
-          "line": 91,
-          "excerpt": "89 trtavern 1091 Tavern 52"
-        },
-        {
-          "path": "assets_dev/engine/data_tables/house_movies.txt",
           "line": 103,
           "excerpt": "101 rtavern 1073 Tavern 50"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/rtemple.smk",
@@ -5810,8 +6807,6 @@
       "extension": ".smk",
       "bytes": 265680,
       "subtitle_path": "subtitles/rtemple.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5828,7 +6823,10 @@
           "line": 97,
           "excerpt": "95 rtemple 1171 Temple 44"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/rwepshp.smk",
@@ -5837,8 +6835,6 @@
       "extension": ".smk",
       "bytes": 1136040,
       "subtitle_path": "subtitles/rwepshp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -5855,7 +6851,10 @@
           "line": 98,
           "excerpt": "96 rwepshp 1072 Weapon Shop 45"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/smg_cove.smk",
@@ -5864,8 +6863,6 @@
       "extension": ".smk",
       "bytes": 1169368,
       "subtitle_path": "subtitles/smg_cove.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -5892,7 +6889,10 @@
           "line": 116,
           "excerpt": "114 smg_cove 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/stables.smk",
@@ -5901,8 +6901,6 @@
       "extension": ".smk",
       "bytes": 1057356,
       "subtitle_path": "subtitles/stables.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -5918,21 +6916,6 @@
           "path": "game/gameplay/HouseInteraction.cpp",
           "line": 680,
           "excerpt": "if (pParty == nullptr || houseEntry.type != \"Stables\")"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 1870,
-          "excerpt": "bool allStablesFixed = true;"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 1876,
-          "excerpt": "allStablesFixed = false;"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 1881,
-          "excerpt": "if (allStablesFixed)"
         },
         {
           "path": "game/tables/HouseTable.cpp",
@@ -6003,8 +6986,26 @@
           "path": "assets_dev/worlds/mm6/_legacy/tables/2DEvents.txt",
           "line": 463,
           "excerpt": "461 10 Stables 63 200 The J.V.C Corral Christian Stablemaster 0917 0 0 0 2 1 6 18 0 0 0 0"
+        },
+        {
+          "path": "assets_dev/worlds/mm6/_legacy/tables/2DEvents.txt",
+          "line": 464,
+          "excerpt": "462 11 Stables 64 200 Royal Steeds Arthur Stablemaster 0917 0 0 0 3 1 6 18 0 0 0 0"
+        },
+        {
+          "path": "assets_dev/worlds/mm6/_legacy/tables/2DEvents.txt",
+          "line": 465,
+          "excerpt": "463 12 Stables 65 205 Hu's Stallions Hu Stablemaster 0697 0 0 0 3 1 6 18 0 0 0 0"
+        },
+        {
+          "path": "assets_dev/worlds/mm6/_legacy/tables/2DEvents.txt",
+          "line": 466,
+          "excerpt": "464 13 Stables 66 201 Faithful Steeds Jasper Stablemaster 0508 0 0 0 5 1 18 6 0 0 0 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "ambient_or_building_review",
+      "candidate_rationale": "Legacy SMK with no runtime cutscene reference; review only if later runtime evidence appears."
     },
     {
       "source_path": "data/Anims/mightdod.vid/tavern.smk",
@@ -6013,8 +7014,6 @@
       "extension": ".smk",
       "bytes": 1141068,
       "subtitle_path": "subtitles/tavern.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/ui/KoreanRuntimeTextOverrides.h",
@@ -6027,69 +7026,14 @@
           "excerpt": "{\"Arcomage victory conditions depend on the inn. This tavern flow is not implemented yet.\","
         },
         {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 808,
-          "excerpt": "return SpeechId::TavernPacksFull;"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 810,
-          "excerpt": "return SpeechId::TavernDrink;"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 812,
-          "excerpt": "return SpeechId::TavernGotDrunk;"
-        },
-        {
-          "path": "game/events/EventRuntime.cpp",
-          "line": 814,
-          "excerpt": "return SpeechId::TavernTip;"
-        },
-        {
           "path": "game/events/EventDialogContent.cpp",
           "line": 611,
           "excerpt": "|| houseType == \"Tavern\""
         },
         {
-          "path": "game/events/EventRuntime.h",
-          "line": 47,
-          "excerpt": "TavernArcomage,"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 25,
-          "excerpt": "constexpr int TavernFoodTarget = 14;"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 36,
-          "excerpt": "constexpr uint32_t FirstAntagarichArcomageTavernHouseId = 239;"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 37,
-          "excerpt": "constexpr uint32_t LastAntagarichArcomageTavernHouseId = 252;"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 51,
-          "excerpt": "bool tavernDrinkMakesPartyDrunk()"
-        },
-        {
           "path": "game/gameplay/HouseInteraction.cpp",
           "line": 176,
           "excerpt": "|| serviceType == HouseServiceType::Tavern"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 512,
-          "excerpt": "return houseEntry.id >= FirstAntagarichArcomageTavernHouseId"
-        },
-        {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 513,
-          "excerpt": "&& houseEntry.id <= LastAntagarichArcomageTavernHouseId;"
         },
         {
           "path": "game/gameplay/HouseInteraction.cpp",
@@ -6103,20 +7047,78 @@
         },
         {
           "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 1021,
-          "excerpt": "else if (menuId == DialogueMenuId::TavernArcomage)"
+          "line": 1226,
+          "excerpt": "if (serviceType == HouseServiceType::Tavern)"
         },
         {
           "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 1147,
-          "excerpt": "if (menuId == DialogueMenuId::TavernArcomage)"
+          "line": 2267,
+          "excerpt": "\"Arcomage victory conditions depend on the inn. This tavern flow is not implemented yet.\");"
         },
         {
-          "path": "game/gameplay/HouseInteraction.cpp",
-          "line": 1150,
-          "excerpt": "HouseActionId::TavernArcomageRules,"
+          "path": "game/gameplay/MercenaryRecruitmentRuntime.cpp",
+          "line": 1187,
+          "excerpt": "lowerType == \"tavern\""
+        },
+        {
+          "path": "game/gameplay/MercenaryRecruitmentRuntime.cpp",
+          "line": 1188,
+          "excerpt": "|| lowerName.find(\"tavern\") != std::string::npos"
+        },
+        {
+          "path": "game/gameplay/HouseInteraction.h",
+          "line": 25,
+          "excerpt": "Tavern,"
+        },
+        {
+          "path": "game/app/GameApplication.cpp",
+          "line": 4071,
+          "excerpt": "return commandResult(false, \"Unknown Arcomage tavern house id: \" + std::to_string(houseId));"
+        },
+        {
+          "path": "game/arcomage/ArcomageLoader.cpp",
+          "line": 166,
+          "excerpt": "std::cerr << \"Duplicate Arcomage tavern rule row\\n\";"
+        },
+        {
+          "path": "game/arcomage/ArcomageLoader.cpp",
+          "line": 191,
+          "excerpt": "std::cerr << \"No Arcomage tavern rules resolved from house rules\\n\";"
+        },
+        {
+          "path": "game/arcomage/ArcomageLoader.cpp",
+          "line": 232,
+          "excerpt": "std::cerr << \"Invalid Arcomage tavern rule row\\n\";"
+        },
+        {
+          "path": "game/tables/HouseTable.cpp",
+          "line": 505,
+          "excerpt": "std::cerr << \"merged house rules are missing Arcomage tavern section\\n\";"
+        },
+        {
+          "path": "game/tables/HouseTable.cpp",
+          "line": 655,
+          "excerpt": "if (houseType == \"Tavern\")"
+        },
+        {
+          "path": "game/tables/HouseTable.cpp",
+          "line": 1292,
+          "excerpt": "if (entry.type == \"Tavern\" && !applyArcomageRule(entry, houseRules))"
+        },
+        {
+          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
+          "line": 351,
+          "excerpt": "|| textContains(caseName, \"tavern\")"
+        },
+        {
+          "path": "game/outdoor/HeadlessOutdoorDiagnostics.cpp",
+          "line": 11394,
+          "excerpt": "failure = \"could not open tavern\";"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "ambient_or_building_review",
+      "candidate_rationale": "Legacy SMK with no runtime cutscene reference; review only if later runtime evidence appears."
     },
     {
       "source_path": "data/Anims/mightdod.vid/tpl_sun.smk",
@@ -6125,8 +7127,6 @@
       "extension": ".smk",
       "bytes": 1014456,
       "subtitle_path": "subtitles/tpl_sun.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -6153,7 +7153,10 @@
           "line": 128,
           "excerpt": "126 tpl_sun 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/trporhs1.smk",
@@ -6162,8 +7165,6 @@
       "extension": ".smk",
       "bytes": 117492,
       "subtitle_path": "subtitles/trporhs1.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -6265,7 +7266,10 @@
           "line": 763,
           "excerpt": "762 87 Jack's Hovel 250 trporhs1 0 House"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/trtavern.smk",
@@ -6274,8 +7278,6 @@
       "extension": ".smk",
       "bytes": 1308932,
       "subtitle_path": "subtitles/trtavern.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -6292,7 +7294,10 @@
           "line": 91,
           "excerpt": "89 trtavern 1091 Tavern 52"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/TSthrone.smk",
@@ -6301,8 +7306,6 @@
       "extension": ".smk",
       "bytes": 1315708,
       "subtitle_path": "subtitles/TSthrone.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -6319,7 +7322,10 @@
           "line": 83,
           "excerpt": "81 tsthrone 0 Throne 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/tthrone.smk",
@@ -6328,43 +7334,11 @@
       "extension": ".smk",
       "bytes": 1188152,
       "subtitle_path": "subtitles/tthrone.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
-        {
-          "path": "assets_dev/worlds/mm7/events/maps/7d30_mmmerge.lua",
-          "line": 4,
-          "excerpt": "MM7.EnterCastleLambentThroneRoom()"
-        },
-        {
-          "path": "assets_dev/worlds/mm7/events/common/mm7_common.lua",
-          "line": 102,
-          "excerpt": "function MM7.EnterCastleLambentThroneRoom()"
-        },
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
           "line": 69,
           "excerpt": "67 tthrone 0 Throne 0"
-        },
-        {
-          "path": "assets_dev/worlds/mm6/events/common/mm6_common.lua",
-          "line": 142,
-          "excerpt": "function MM6.EnterIronfistThroneRoom()"
-        },
-        {
-          "path": "assets_dev/worlds/mm6/events/common/mm6_common.lua",
-          "line": 156,
-          "excerpt": "MM6.EnterIronfistThroneRoom()"
-        },
-        {
-          "path": "assets_dev/worlds/mm6/events/common/mm6_common.lua",
-          "line": 175,
-          "excerpt": "MM6.EnterIronfistThroneRoom()"
-        },
-        {
-          "path": "assets_dev/worlds/mm6/events/common/mm6_common.lua",
-          "line": 183,
-          "excerpt": "MM6.EnterIronfistThroneRoom()"
         },
         {
           "path": "assets_dev/engine/data_tables/house_animations.txt",
@@ -6376,7 +7350,10 @@
           "line": 69,
           "excerpt": "67 tthrone 0 Throne 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/war_camp.smk",
@@ -6385,8 +7362,6 @@
       "extension": ".smk",
       "bytes": 468492,
       "subtitle_path": "subtitles/war_camp.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -6413,7 +7388,10 @@
           "line": 141,
           "excerpt": "139 war_camp 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/wasp_nst.smk",
@@ -6422,8 +7400,6 @@
       "extension": ".smk",
       "bytes": 1358360,
       "subtitle_path": "subtitles/wasp_nst.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "game/events/EventDialogContent.cpp",
@@ -6450,7 +7426,10 @@
           "line": 120,
           "excerpt": "118 wasp_nst 0 Dungeon Ent 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/wrboat.smk",
@@ -6459,8 +7438,6 @@
       "extension": ".smk",
       "bytes": 1010984,
       "subtitle_path": "subtitles/wrboat.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -6487,7 +7464,10 @@
           "line": 92,
           "excerpt": "90 wrboat 1069 Boats 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     },
     {
       "source_path": "data/Anims/mightdod.vid/wrthrone.smk",
@@ -6496,8 +7476,6 @@
       "extension": ".smk",
       "bytes": 840932,
       "subtitle_path": "subtitles/wrthrone.srt",
-      "subtitle_candidate": "needs_review",
-      "candidate_rationale": "Smacker animation; many are building/ambient loops, so speech must be verified manually.",
       "references": [
         {
           "path": "assets_dev/worlds/mm6/_legacy/tables/House Movies.txt",
@@ -6514,7 +7492,10 @@
           "line": 93,
           "excerpt": "91 wrthrone 0 House 0"
         }
-      ]
+      ],
+      "runtime_references": [],
+      "subtitle_candidate": "building_animation",
+      "candidate_rationale": "Legacy SMK referenced by house animation/movie tables and not by a runtime cutscene call."
     }
   ]
 }
