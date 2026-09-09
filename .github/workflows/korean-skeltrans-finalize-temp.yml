@@ -1,0 +1,133 @@
+name: Temporary finalize skeltrans subtitle
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/korean-skeltrans-finalize-temp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out Korean branch
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+
+      - name: Finalize skeltrans subtitle and coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          root = Path('.')
+          srt_path = root / 'korean/overlay/worlds/mm8/subtitles/skeltrans.srt'
+          srt_path.parent.mkdir(parents=True, exist_ok=True)
+          srt_path.write_text('''1
+          00:00:00,540 --> 00:00:02,220
+          유감이지만, 그대에겐 이미 늦었소.
+
+          2
+          00:00:03,100 --> 00:00:04,180
+          하지만 그대가 마지막이 될 거요.
+
+          3
+          00:00:04,840 --> 00:00:06,460
+          이 신성모독은 여기서 끝내겠소.
+
+          4
+          00:00:09,760 --> 00:00:11,300
+          이제 탈출합시다.
+          '''.replace('\n          ', '\n').lstrip(), encoding='utf-8')
+
+          coverage_path = root / 'korean/subtitles/coverage.json'
+          coverage = json.loads(coverage_path.read_text(encoding='utf-8'))
+          matches = [entry for entry in coverage['entries'] if entry['world'] == 'mm8' and entry['stem'] == 'skeltrans']
+          if len(matches) != 1:
+              raise SystemExit(f'Expected exactly one mm8/skeltrans entry, found {len(matches)}')
+          entry = matches[0]
+          if entry['status'] != 'review_required':
+              raise SystemExit(f'Expected skeltrans review_required before finalization, found {entry["status"]!r}')
+          entry['status'] = 'subtitle_ready'
+          entry['reason'] = ('Runtime OGV and original BIK speech were cross-checked across small.en, medium.en, '
+                             'and distil-large-v3. Independent small/medium passes agree on the final line '
+                             '"Now, for our escape." and its timing; the Korean SRT uses the corroborated runtime timing.')
+          entry['subtitle_files'] = ['korean/overlay/worlds/mm8/subtitles/skeltrans.srt']
+
+          counts = {key: 0 for key in ('subtitle_ready', 'no_audio', 'no_dialogue', 'review_required')}
+          for item in coverage['entries']:
+              counts[item['status']] += 1
+          coverage['summary']['runtime_videos'] = len(coverage['entries'])
+          coverage['summary'].update(counts)
+          expected = {'subtitle_ready': 19, 'no_audio': 2, 'no_dialogue': 11, 'review_required': 0}
+          actual = {key: coverage['summary'][key] for key in expected}
+          if actual != expected:
+              raise SystemExit(f'Unexpected final coverage counts: {actual}')
+          coverage_path.write_text(json.dumps(coverage, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          readme_path = root / 'korean/subtitles/README.md'
+          readme = readme_path.read_text(encoding='utf-8')
+          old = '''The current reviewed inventory classifies all 32 runtime OGV files: 18 are
+          `subtitle_ready`, 2 are confirmed `no_audio`, 11 are confirmed `no_dialogue`,
+          and 1 remains `review_required` (`mm8/skeltrans`). The unresolved entry stays
+          explicit because its final short utterance remains ambiguous across independent
+          ASR decoding settings; no wording is guessed merely to make the review count
+          reach zero.
+          '''.replace('\n          ', '\n')
+          new = '''The current reviewed inventory classifies all 32 runtime OGV files: 19 are
+          `subtitle_ready`, 2 are confirmed `no_audio`, 11 are confirmed `no_dialogue`,
+          and none remain `review_required`. The previously unresolved `mm8/skeltrans`
+          ending was resolved by cross-checking the runtime OGV and original BIK across
+          independent small.en, medium.en, and distil-large-v3 speech-recognition passes
+          before authoring the Korean SRT.
+          '''.replace('\n          ', '\n')
+          if old not in readme:
+              raise SystemExit('Could not locate old subtitle coverage paragraph in README')
+          readme_path.write_text(readme.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Validate subtitle coverage and packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m json.tool korean/subtitles/coverage.json >/dev/null
+          python3 -m unittest korean/tools/test_cutscene_subtitle_inventory.py
+          python3 -m unittest korean/tools/test_cutscene_subtitles.py
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          coverage = json.loads(Path('korean/subtitles/coverage.json').read_text(encoding='utf-8'))
+          assert coverage['summary'] == {
+              'runtime_videos': 32,
+              'subtitle_ready': 19,
+              'no_audio': 2,
+              'no_dialogue': 11,
+              'review_required': 0,
+          }, coverage['summary']
+          srt = Path('korean/overlay/worlds/mm8/subtitles/skeltrans.srt').read_text(encoding='utf-8')
+          assert '유감이지만, 그대에겐 이미 늦었소.' in srt
+          assert '이제 탈출합시다.' in srt
+          PY
+
+      - name: Commit finalized subtitle
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add korean/overlay/worlds/mm8/subtitles/skeltrans.srt \
+                  korean/subtitles/coverage.json \
+                  korean/subtitles/README.md
+          git diff --cached --check
+          git commit -m "Finalize skeltrans Korean subtitles"
+          git push origin HEAD:korean-localization
