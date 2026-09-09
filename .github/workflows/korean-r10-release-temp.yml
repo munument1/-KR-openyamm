@@ -1,0 +1,45 @@
+name: Temporary OpenYAMM Korean r10 release launcher
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/korean-r10-release-temp.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  launch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Create r10 tag at validated Korean HEAD
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: 0.11-korean-r10
+          TARGET_SHA: 81c0832176e633559109b47357c46c955c60b34b
+        run: |
+          set -euo pipefail
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::$TAG already exists"
+            exit 1
+          fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$TAG" \
+            -f sha="$TARGET_SHA" \
+            >/dev/null
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
+          test "$actual" = "$TARGET_SHA"
+
+      - name: Dispatch tagged package release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: 0.11-korean-r10
+        run: |
+          set -euo pipefail
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/nightly.yml/dispatches" \
+            -f ref="$TAG" \
+            -F 'inputs[publish_release]=true'
