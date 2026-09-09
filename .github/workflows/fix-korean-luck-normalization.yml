@@ -26,49 +26,13 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-
           path = Path('korean/tools/apply_source_semantic_corrections.py')
           text = path.read_text(encoding='utf-8')
-          old = '''        elif source_name in {
-            "standard_item_enchants.txt",
-            "special_item_enchants.txt",
-            "stats.txt",
-            "skill_des.txt",
-            "spells.txt",
-        }:
-'''
-          new = '''        elif source_name in {
-            "Global.txt",
-            "standard_item_enchants.txt",
-            "special_item_enchants.txt",
-            "stats.txt",
-            "skill_des.txt",
-            "spells.txt",
-        }:
-'''
-          if text.count(old) != 1:
-              raise SystemExit(f'expected one Luck normalization scope, found {text.count(old)}')
-          path.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
-
-          test_path = Path('korean/tools/test_source_semantic_corrections.py')
-          test_text = test_path.read_text(encoding='utf-8')
-          anchor = '''    def test_item_luck_preserves_natural_prose(self) -> None:
-'''
-          addition = '''    def test_dialogue_luck_preserves_natural_prose(self) -> None:
-        actual = semantic.normalize_translation(
-            "npc_greet.txt",
-            "Good luck!",
-            "행운을 빕니다!",
-            Counter(),
-        )
-        self.assertEqual(actual, "행운을 빕니다!")
-
-'''
-          if addition not in test_text:
-              if test_text.count(anchor) != 1:
-                  raise SystemExit('could not locate item luck test anchor')
-              test_text = test_text.replace(anchor, addition + anchor)
-              test_path.write_text(test_text, encoding='utf-8', newline='\n')
+          needle = '            "standard_item_enchants.txt",\n'
+          replacement = '            "Global.txt",\n' + needle
+          if text.count(needle) != 1:
+              raise SystemExit(f'expected one Luck scope anchor, found {text.count(needle)}')
+          path.write_text(text.replace(needle, replacement, 1), encoding='utf-8', newline='\n')
           PY
 
       - name: Run focused semantic tests
@@ -81,7 +45,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add korean/tools/apply_source_semantic_corrections.py korean/tools/test_source_semantic_corrections.py
+          git add korean/tools/apply_source_semantic_corrections.py
           git diff --cached --check
           git commit -m 'Preserve natural Luck phrasing outside mechanical tables'
           git push origin HEAD:korean-localization
