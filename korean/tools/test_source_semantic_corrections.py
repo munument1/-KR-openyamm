@@ -40,6 +40,15 @@ class SourceSemanticCorrectionTests(unittest.TestCase):
                 actual = semantic.normalize_translation("Global.txt", source, translation, Counter())
                 self.assertEqual(actual, expected)
 
+    def test_dialogue_luck_preserves_natural_prose(self) -> None:
+        actual = semantic.normalize_translation(
+            "npc_greet.txt",
+            "Good luck!",
+            "행운을 빕니다!",
+            Counter(),
+        )
+        self.assertEqual(actual, "행운을 빕니다!")
+
     def test_item_luck_preserves_natural_prose(self) -> None:
         actual = semantic.normalize_translation(
             "items.txt",
