@@ -29,14 +29,15 @@ small Korean overlay instead of re-encoding or modifying the original movies.
 - `review_required`: speech or audio exists, but the transcript/timing is not
   reliable enough yet to publish a subtitle.
 
-The first reviewed batch classifies all 32 runtime OGV files: 10 are
-`subtitle_ready`, 2 are confirmed `no_audio`, and 20 remain `review_required`.
+The first two reviewed batches classify all 32 runtime OGV files: 14 are
+`subtitle_ready`, 2 are confirmed `no_audio`, and 16 remain `review_required`.
 The review-required entries stay explicit instead of being silently treated as
 complete translation coverage.
 
 `source_inventory.json`, `media_probe.json`, and `asr_draft.json` are audit
 inputs, not translation authority. Machine ASR is used to locate speech and
-draft timing only. Low-confidence or missing ASR is never converted into guessed
+draft timing only. A second independent ASR pass may be used to corroborate a
+candidate, but low-confidence or missing ASR is never converted into guessed
 Korean subtitle text.
 
 The subtitle integration test verifies that coverage contains every runtime OGV,
