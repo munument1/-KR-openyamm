@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Inventory runtime cutscene stems and legacy SMK/BIK media for Korean SRT work.
+"""Inventory runtime cutscene stems, OGV assets, and legacy media for Korean SRT work.
 
 The subtitle runtime consumes ``subtitles/<video-stem>.srt``.  The important
-question is therefore which stems the game actually asks CutsceneVideoScreen to
-play, not merely which movies happen to exist in ``data/Anims``.  This tool
-cross-references Lua ``evt.ShowMovie`` calls, fixed C++ cutscene stems, configured
-``*losegame`` stems, and the legacy media containers.
+questions are therefore which stems the game asks CutsceneVideoScreen to play
+and which OGV files are actually shipped under each world's Videos/Cutscenes
+directory, not merely which movies happen to exist in ``data/Anims``.
 
-Classification remains deliberately conservative: source media and repository
-references can prove that a movie exists and is used, but cannot prove that it
-contains spoken dialogue.  Story/runtime candidates still require transcript and
-timing review before an SRT is authored.
+Classification remains deliberately conservative: repository references and
+media presence can prove that a movie exists and is used, but cannot prove that
+it contains spoken dialogue.  Story/runtime candidates still require transcript
+and timing review before an SRT is authored.
 """
 
 from __future__ import annotations
@@ -22,6 +21,7 @@ import re
 from typing import Iterable
 
 MEDIA_EXTENSIONS = {".bik", ".smk"}
+RUNTIME_VIDEO_EXTENSION = ".ogv"
 REFERENCE_SUFFIXES = {
     ".cpp", ".h", ".hpp", ".c", ".cc", ".lua", ".txt", ".json", ".md", ".toml", ".ini", ".yml", ".yaml",
 }
@@ -70,6 +70,41 @@ def media_entries(repo_root: Path) -> list[dict]:
         )
     if not entries:
         raise ValueError(f"No SMK/BIK media found under {anim_root}")
+    return entries
+
+
+def runtime_video_entries(repo_root: Path) -> list[dict]:
+    """Enumerate actual converted cutscene videos shipped by each world."""
+    worlds_root = repo_root / "assets_dev" / "worlds"
+    entries: list[dict] = []
+    if not worlds_root.is_dir():
+        return entries
+
+    for world_dir in sorted(worlds_root.iterdir(), key=lambda value: value.name.casefold()):
+        if not world_dir.is_dir():
+            continue
+        cutscene_root = world_dir / "videos" / "Cutscenes"
+        if not cutscene_root.is_dir():
+            continue
+        for path in sorted(cutscene_root.iterdir(), key=lambda value: value.name.casefold()):
+            if not path.is_file() or path.suffix.casefold() != RUNTIME_VIDEO_EXTENSION:
+                continue
+            entries.append(
+                {
+                    "world": world_dir.name.casefold(),
+                    "stem": path.stem,
+                    "path": path.relative_to(repo_root).as_posix(),
+                    "bytes": path.stat().st_size,
+                    "subtitle_path": f"subtitles/{path.stem}.srt",
+                    "referenced": False,
+                    "references": [],
+                    "review_status": "needs_usage_review",
+                    "review_rationale": (
+                        "Runtime OGV exists, but no direct repository movie reference has been matched yet. "
+                        "Do not infer dialogue or invent subtitles."
+                    ),
+                }
+            )
     return entries
 
 
@@ -182,7 +217,7 @@ def scan_fixed_runtime_stems(repo_root: Path) -> list[dict]:
                 }
             )
 
-    # Defeat movies are continent-configurable.  Record exact losegame-shaped
+    # Defeat movies are continent-configurable. Record exact losegame-shaped
     # tokens from source/config text so 6losegame/7losegame are not hidden by
     # the generic LoseGame fallback.
     seen_locations: set[tuple[str, str, int]] = set()
@@ -237,6 +272,32 @@ def runtime_stem_entries(repo_root: Path) -> list[dict]:
     return sorted(by_stem.values(), key=lambda entry: entry["stem"].casefold())
 
 
+def attach_runtime_video_evidence(runtime_entries: list[dict], runtime_videos: list[dict]) -> None:
+    videos_by_stem: dict[str, list[dict]] = {}
+    runtime_by_stem: dict[str, dict] = {}
+    for video in runtime_videos:
+        videos_by_stem.setdefault(video["stem"].casefold(), []).append(video)
+    for runtime_entry in runtime_entries:
+        runtime_by_stem[runtime_entry["stem"].casefold()] = runtime_entry
+
+    for runtime_entry in runtime_entries:
+        matches = videos_by_stem.get(runtime_entry["stem"].casefold(), [])
+        runtime_entry["runtime_video_assets"] = [video["path"] for video in matches]
+        runtime_entry["runtime_video_worlds"] = sorted({video["world"] for video in matches})
+        runtime_entry["runtime_video_missing"] = not bool(matches)
+
+    for video in runtime_videos:
+        runtime_entry = runtime_by_stem.get(video["stem"].casefold())
+        if runtime_entry is None:
+            continue
+        video["referenced"] = True
+        video["references"] = runtime_entry["references"]
+        video["review_status"] = "needs_dialogue_review"
+        video["review_rationale"] = (
+            "Runtime OGV is matched by an actual movie reference. Spoken dialogue and timing must still be verified."
+        )
+
+
 def classify_media(entries: list[dict], runtime_entries: list[dict]) -> None:
     media_by_stem: dict[str, list[dict]] = {}
     for entry in entries:
@@ -244,6 +305,8 @@ def classify_media(entries: list[dict], runtime_entries: list[dict]) -> None:
 
     for runtime_entry in runtime_entries:
         matches = media_by_stem.get(runtime_entry["stem"].casefold(), [])
+        # Keep the old source_media/source_missing names for compatibility. They
+        # refer specifically to legacy SMK/BIK source containers, not runtime OGVs.
         runtime_entry["source_media"] = [entry["source_path"] for entry in matches]
         runtime_entry["source_missing"] = not bool(matches)
         runtime_entry["review_status"] = "needs_dialogue_review"
@@ -281,8 +344,10 @@ def classify_media(entries: list[dict], runtime_entries: list[dict]) -> None:
 
 def build_inventory(repo_root: Path) -> dict:
     entries = media_entries(repo_root)
+    runtime_videos = runtime_video_entries(repo_root)
     attach_textual_references(repo_root, entries)
     runtime_entries = runtime_stem_entries(repo_root)
+    attach_runtime_video_evidence(runtime_entries, runtime_videos)
     classify_media(entries, runtime_entries)
 
     extension_counts: dict[str, int] = {}
@@ -293,25 +358,38 @@ def build_inventory(repo_root: Path) -> dict:
         candidate_counts[candidate] = candidate_counts.get(candidate, 0) + 1
 
     source_missing = sum(1 for entry in runtime_entries if entry["source_missing"])
+    runtime_video_missing = sum(1 for entry in runtime_entries if entry["runtime_video_missing"])
+    referenced_runtime_videos = sum(1 for entry in runtime_videos if entry["referenced"])
     return {
-        "format": 2,
+        "format": 3,
         "purpose": "Korean external SRT runtime/source inventory",
         "runtime_convention": "subtitles/<video-stem>.srt",
-        "source_roots": ["data/Anims/Magicdod.vid", "data/Anims/mightdod.vid"],
+        "source_roots": [
+            "assets_dev/worlds/*/videos/Cutscenes",
+            "data/Anims/Magicdod.vid",
+            "data/Anims/mightdod.vid",
+        ],
         "notes": [
             "runtime_stems are derived from evt.ShowMovie, fixed CutsceneStem constants, and losegame-shaped runtime/config references.",
+            "runtime_videos are actual OGV assets under assets_dev/worlds/*/videos/Cutscenes.",
+            "An unreferenced runtime OGV is not automatically unused; data-driven or dynamic references may still require manual review.",
             "needs_dialogue_review does not prove speech; no subtitle text may be invented from the stem alone.",
             "building_animation marks source SMKs tied to house animation/movie tables with no runtime cutscene call.",
-            "source_missing means the runtime stem has no same-stem SMK/BIK under data/Anims; converted/runtime video assets may come from another source.",
+            "source_missing refers only to same-stem legacy SMK/BIK under data/Anims, not to runtime OGV availability.",
         ],
         "summary": {
             "media": len(entries),
             "runtime_stems": len(runtime_entries),
             "runtime_source_missing": source_missing,
+            "runtime_stem_video_missing": runtime_video_missing,
+            "runtime_videos": len(runtime_videos),
+            "runtime_videos_referenced": referenced_runtime_videos,
+            "runtime_videos_unreferenced": len(runtime_videos) - referenced_runtime_videos,
             "by_extension": dict(sorted(extension_counts.items())),
             "by_candidate": dict(sorted(candidate_counts.items())),
         },
         "runtime_stems": runtime_entries,
+        "runtime_videos": runtime_videos,
         "entries": entries,
     }
 
@@ -332,6 +410,10 @@ def main() -> int:
     print(f"CUTSCENE_MEDIA={summary['media']}")
     print(f"CUTSCENE_RUNTIME_STEMS={summary['runtime_stems']}")
     print(f"CUTSCENE_RUNTIME_SOURCE_MISSING={summary['runtime_source_missing']}")
+    print(f"CUTSCENE_RUNTIME_VIDEO_MISSING={summary['runtime_stem_video_missing']}")
+    print(f"CUTSCENE_RUNTIME_OGV={summary['runtime_videos']}")
+    print(f"CUTSCENE_RUNTIME_OGV_REFERENCED={summary['runtime_videos_referenced']}")
+    print(f"CUTSCENE_RUNTIME_OGV_UNREFERENCED={summary['runtime_videos_unreferenced']}")
     for extension, count in summary["by_extension"].items():
         print(f"CUTSCENE_{extension[1:].upper()}={count}")
     print(f"WROTE={output_path}")

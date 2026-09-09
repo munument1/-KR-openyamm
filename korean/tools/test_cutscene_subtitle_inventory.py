@@ -21,7 +21,7 @@ class CutsceneSubtitleInventoryTests(unittest.TestCase):
         might.mkdir(parents=True)
         return magic, might
 
-    def test_inventory_cross_references_runtime_movie_stems(self) -> None:
+    def test_inventory_cross_references_runtime_movie_stems_and_ogv_assets(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             magic, might = self.make_media_root(root)
@@ -37,6 +37,12 @@ class CutsceneSubtitleInventoryTests(unittest.TestCase):
             (event_dir / "out03_mmmerge.lua").write_text(
                 'evt.ShowMovie("\\\"overrept\\\"", true)\n', encoding="utf-8"
             )
+
+            cutscene_dir = root / "assets_dev/worlds/mm8/videos/Cutscenes"
+            cutscene_dir.mkdir(parents=True)
+            (cutscene_dir / "intro.ogv").write_bytes(b"OGV")
+            (cutscene_dir / "overrept.ogv").write_bytes(b"OGV")
+            (cutscene_dir / "unused_logo.ogv").write_bytes(b"OGV")
 
             tables = root / "assets_dev/engine/data_tables"
             tables.mkdir(parents=True)
@@ -55,8 +61,11 @@ class CutsceneSubtitleInventoryTests(unittest.TestCase):
             )
 
             inventory = inventory_tool.build_inventory(root)
-            self.assertEqual(inventory["format"], 2)
+            self.assertEqual(inventory["format"], 3)
             self.assertEqual(inventory["summary"]["media"], 3)
+            self.assertEqual(inventory["summary"]["runtime_videos"], 3)
+            self.assertEqual(inventory["summary"]["runtime_videos_referenced"], 2)
+            self.assertEqual(inventory["summary"]["runtime_videos_unreferenced"], 1)
             self.assertEqual(inventory["summary"]["by_extension"], {".bik": 2, ".smk": 1})
 
             runtime = {entry["stem"].casefold(): entry for entry in inventory["runtime_stems"]}
@@ -69,12 +78,38 @@ class CutsceneSubtitleInventoryTests(unittest.TestCase):
             self.assertEqual(runtime["intro"]["worlds"], ["mm8"])
             self.assertIn("mmmerge", runtime["overrept"]["variants"])
             self.assertEqual(runtime["intro"]["source_media"], ["data/Anims/Magicdod.vid/intro.bik"])
+            self.assertEqual(runtime["intro"]["runtime_video_assets"], ["assets_dev/worlds/mm8/videos/Cutscenes/intro.ogv"])
+            self.assertFalse(runtime["intro"]["runtime_video_missing"])
             self.assertTrue(runtime["6losegame"]["source_missing"])
+            self.assertTrue(runtime["6losegame"]["runtime_video_missing"])
+
+            videos = {entry["stem"].casefold(): entry for entry in inventory["runtime_videos"]}
+            self.assertTrue(videos["intro"]["referenced"])
+            self.assertTrue(videos["overrept"]["referenced"])
+            self.assertFalse(videos["unused_logo"]["referenced"])
+            self.assertEqual(videos["intro"]["subtitle_path"], "subtitles/intro.srt")
 
             media = {entry["stem"].casefold(): entry for entry in inventory["entries"]}
             self.assertEqual(media["intro"]["subtitle_candidate"], "runtime_candidate")
             self.assertEqual(media["overrept"]["subtitle_candidate"], "runtime_candidate")
             self.assertEqual(media["nmagshp"]["subtitle_candidate"], "building_animation")
+
+    def test_runtime_video_inventory_preserves_world_and_stem(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.make_media_root(root)
+            mm6 = root / "assets_dev/worlds/mm6/videos/Cutscenes"
+            mm7 = root / "assets_dev/worlds/mm7/videos/Cutscenes"
+            mm6.mkdir(parents=True)
+            mm7.mkdir(parents=True)
+            (mm6 / "6intro.ogv").write_bytes(b"OGV")
+            (mm7 / "intro post.ogv").write_bytes(b"OGV")
+
+            videos = inventory_tool.runtime_video_entries(root)
+            self.assertEqual(
+                [(entry["world"], entry["stem"]) for entry in videos],
+                [("mm6", "6intro"), ("mm7", "intro post")],
+            )
 
     def test_movie_stem_normalization_only_removes_wrapper_quotes(self) -> None:
         self.assertEqual(inventory_tool.normalize_movie_stem(r'\"overrept\"'), "overrept")

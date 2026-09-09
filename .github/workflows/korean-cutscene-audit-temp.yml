@@ -24,13 +24,18 @@ jobs:
           ref: korean-localization
           fetch-depth: 1
 
+      - name: Install media probe tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg
+
       - name: Test cutscene inventory tooling
         run: python3 -m unittest korean/tools/test_cutscene_subtitle_inventory.py
 
       - name: Build runtime/source cutscene inventory
         run: python3 korean/tools/build_cutscene_subtitle_inventory.py
 
-      - name: Probe legacy BIK media
+      - name: Probe runtime OGV and legacy BIK media
         run: |
           python3 - <<'PY'
           import json
@@ -39,35 +44,62 @@ jobs:
 
           root = Path('.')
           inventory = json.loads((root / 'korean/subtitles/source_inventory.json').read_text(encoding='utf-8'))
-          probes = []
-          for entry in inventory['entries']:
-              if entry['extension'] != '.bik':
-                  continue
-              path = root / entry['source_path']
+
+          def probe(path, metadata):
               command = [
                   'ffprobe', '-v', 'error', '-show_entries',
                   'format=duration:stream=index,codec_type,codec_name,duration',
                   '-of', 'json', str(path),
               ]
               result = subprocess.run(command, check=False, capture_output=True, text=True)
-              record = {
-                  'stem': entry['stem'],
-                  'source_path': entry['source_path'],
-                  'returncode': result.returncode,
-                  'stderr': result.stderr.strip(),
-              }
+              record = dict(metadata)
+              record['path'] = path.as_posix()
+              record['returncode'] = result.returncode
+              record['stderr'] = result.stderr.strip()
               if result.returncode == 0:
                   payload = json.loads(result.stdout)
                   record['duration_seconds'] = float(payload.get('format', {}).get('duration', 0) or 0)
                   record['streams'] = payload.get('streams', [])
                   record['has_audio'] = any(stream.get('codec_type') == 'audio' for stream in record['streams'])
                   record['has_video'] = any(stream.get('codec_type') == 'video' for stream in record['streams'])
-              probes.append(record)
+              return record
+
+          runtime_probes = [
+              probe(root / entry['path'], {
+                  'world': entry['world'],
+                  'stem': entry['stem'],
+                  'referenced': entry['referenced'],
+              })
+              for entry in inventory.get('runtime_videos', [])
+          ]
+          legacy_bik_probes = [
+              probe(root / entry['source_path'], {
+                  'stem': entry['stem'],
+                  'source_path': entry['source_path'],
+              })
+              for entry in inventory['entries']
+              if entry['extension'] == '.bik'
+          ]
+
           output = root / 'korean/subtitles/media_probe.json'
-          output.write_text(json.dumps({'format': 1, 'bik': probes}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-          print(f'PROBED_BIK={len(probes)}')
-          for record in probes:
-              print(record['stem'], 'duration=', record.get('duration_seconds'), 'audio=', record.get('has_audio'), 'rc=', record['returncode'])
+          output.write_text(
+              json.dumps(
+                  {'format': 2, 'runtime_ogv': runtime_probes, 'legacy_bik': legacy_bik_probes},
+                  ensure_ascii=False,
+                  indent=2,
+              ) + '\n',
+              encoding='utf-8',
+          )
+          print(f'PROBED_RUNTIME_OGV={len(runtime_probes)}')
+          print(f'PROBED_LEGACY_BIK={len(legacy_bik_probes)}')
+          for record in runtime_probes:
+              print(
+                  record['world'], record['stem'],
+                  'duration=', record.get('duration_seconds'),
+                  'audio=', record.get('has_audio'),
+                  'referenced=', record['referenced'],
+                  'rc=', record['returncode'],
+              )
           PY
 
       - name: Commit generated audit data
