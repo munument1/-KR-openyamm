@@ -1,0 +1,26 @@
+name: Dispatch Korean r9 release
+
+on:
+  push:
+    branches:
+      - release-r9-staging-work
+    paths:
+      - .github/workflows/dispatch-korean-r9-release.yml
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Dispatch package workflow at r9 tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run nightly.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref 0.11-korean-r9 \
+            -f publish_release=true
