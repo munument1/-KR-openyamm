@@ -1,0 +1,100 @@
+name: Temporary Korean cutscene final ASR review
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/korean-cutscene-asr-final-temp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  transcribe-final-five:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out selected runtime cutscenes
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /assets_dev/worlds/mm7/videos/Cutscenes/intro post.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/DragonHunters.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/dragonsrevenge.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/skeltrans.ogv
+            /assets_dev/worlds/mm8/videos/Cutscenes/wingame.ogv
+
+      - name: Install ASR tools
+        run: python3 -m pip install --disable-pip-version-check --no-cache-dir faster-whisper
+
+      - name: Transcribe final five with medium.en
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from faster_whisper import WhisperModel
+
+          media = [
+              ('mm7', 'intro post'),
+              ('mm8', 'DragonHunters'),
+              ('mm8', 'dragonsrevenge'),
+              ('mm8', 'skeltrans'),
+              ('mm8', 'wingame'),
+          ]
+          model = WhisperModel('medium.en', device='cpu', compute_type='int8')
+          records = []
+          for world, stem in media:
+              path = Path(f'assets_dev/worlds/{world}/videos/Cutscenes/{stem}.ogv')
+              segments, info = model.transcribe(
+                  str(path), language='en', beam_size=5, vad_filter=True,
+                  condition_on_previous_text=False, word_timestamps=True,
+              )
+              out_segments = []
+              for segment in segments:
+                  words = [
+                      {
+                          'start': round(float(word.start), 3),
+                          'end': round(float(word.end), 3),
+                          'text': word.word,
+                          'probability': round(float(word.probability), 4),
+                      }
+                      for word in (segment.words or [])
+                  ]
+                  out_segments.append({
+                      'start': round(float(segment.start), 3),
+                      'end': round(float(segment.end), 3),
+                      'text': segment.text.strip(),
+                      'avg_logprob': round(float(segment.avg_logprob), 4),
+                      'no_speech_prob': round(float(segment.no_speech_prob), 4),
+                      'words': words,
+                  })
+              records.append({
+                  'world': world,
+                  'stem': stem,
+                  'language': info.language,
+                  'language_probability': info.language_probability,
+                  'segments': out_segments,
+              })
+              print(world, stem, 'segments=', len(out_segments))
+              for segment in out_segments:
+                  print(f"  {segment['start']:.3f}-{segment['end']:.3f}: {segment['text']}")
+
+          Path('cutscene-asr-final-five.json').write_text(
+              json.dumps({'format': 1, 'model': 'faster-whisper medium.en', 'records': records}, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Upload final ASR review
+        uses: actions/upload-artifact@v7
+        with:
+          name: korean-cutscene-asr-final-five
+          path: cutscene-asr-final-five.json
+          if-no-files-found: error
+          retention-days: 1
