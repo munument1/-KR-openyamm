@@ -6,6 +6,8 @@ on:
       - korean-localization
     paths:
       - ".github/workflows/korean-cutscene-audit-temp.yml"
+      - "korean/tools/build_cutscene_subtitle_inventory.py"
+      - "korean/tools/test_cutscene_subtitle_inventory.py"
   workflow_dispatch:
 
 permissions:
