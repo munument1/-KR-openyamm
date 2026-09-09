@@ -43,6 +43,7 @@ class CutsceneSubtitleIntegrationTests(unittest.TestCase):
         self.assertEqual(coverage["summary"]["runtime_videos"], len(runtime_keys))
         self.assertEqual(coverage["summary"]["subtitle_ready"], sum(entry["status"] == "subtitle_ready" for entry in coverage["entries"]))
         self.assertEqual(coverage["summary"]["no_audio"], sum(entry["status"] == "no_audio" for entry in coverage["entries"]))
+        self.assertEqual(coverage["summary"]["no_dialogue"], sum(entry["status"] == "no_dialogue" for entry in coverage["entries"]))
         self.assertEqual(coverage["summary"]["review_required"], sum(entry["status"] == "review_required" for entry in coverage["entries"]))
 
     def test_ready_subtitles_are_valid_utf8_srt_and_within_video_duration(self) -> None:
@@ -54,10 +55,15 @@ class CutsceneSubtitleIntegrationTests(unittest.TestCase):
 
         for entry in coverage["entries"]:
             status = entry["status"]
-            self.assertIn(status, {"subtitle_ready", "no_audio", "review_required"})
+            self.assertIn(status, {"subtitle_ready", "no_audio", "no_dialogue", "review_required"})
             if status == "no_audio":
                 self.assertFalse(entry["has_audio"])
                 self.assertEqual(entry["subtitle_files"], [])
+                continue
+            if status == "no_dialogue":
+                self.assertTrue(entry["has_audio"])
+                self.assertEqual(entry["subtitle_files"], [])
+                self.assertTrue(entry["reason"].strip())
                 continue
             if status != "subtitle_ready":
                 self.assertEqual(entry["subtitle_files"], [])
