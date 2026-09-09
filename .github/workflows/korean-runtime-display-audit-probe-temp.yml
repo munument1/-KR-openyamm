@@ -1,0 +1,109 @@
+name: Temporary Korean runtime display audit probe
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/korean-runtime-display-audit-probe-temp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare-player-sink-detection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out audit source tree
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/**
+            /korean/tools/audit_runtime_display_text.py
+
+      - name: Run current audit
+        run: |
+          python3 korean/tools/audit_runtime_display_text.py \
+            --json-out runtime-display-current.json \
+            --tsv-out runtime-display-current.tsv
+
+      - name: Run literal-masked sink audit
+        run: |
+          cp korean/tools/audit_runtime_display_text.py /tmp/audit_runtime_display_text.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('/tmp/audit_runtime_display_text.py')
+          text = path.read_text(encoding='utf-8')
+          old = "            player_sink = any(marker in stripped for marker in PLAYER_SINK_MARKERS)\n"
+          new = "            code_context = LITERAL_RE.sub('\\\"\\\"', stripped)\n            player_sink = any(marker in code_context for marker in PLAYER_SINK_MARKERS)\n"
+          if old not in text:
+              raise SystemExit('Expected current player_sink expression not found')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          python3 /tmp/audit_runtime_display_text.py \
+            --root . \
+            --json-out runtime-display-masked.json \
+            --tsv-out runtime-display-masked.tsv
+
+      - name: Compare high-confidence results
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          current = json.loads(Path('runtime-display-current.json').read_text(encoding='utf-8'))
+          masked = json.loads(Path('runtime-display-masked.json').read_text(encoding='utf-8'))
+          fields = [
+              'candidate_occurrences',
+              'uncovered_occurrences',
+              'high_confidence_uncovered_occurrences',
+              'high_confidence_unique_literals',
+              'medium_confidence_uncovered_occurrences',
+              'medium_confidence_unique_literals',
+          ]
+          for field in fields:
+              print(f'{field}: current={current[field]} masked={masked[field]} delta={masked[field]-current[field]}')
+
+          def high_rows(payload):
+              return {
+                  (r['file'], r['line'], r['literal']): r
+                  for r in payload['rows']
+                  if r['coverage'] == 'uncovered' and r['confidence'] == 'high'
+              }
+
+          before = high_rows(current)
+          after = high_rows(masked)
+          removed = [before[key] for key in sorted(before.keys() - after.keys())]
+          added = [after[key] for key in sorted(after.keys() - before.keys())]
+          print(f'HIGH_ROWS_REMOVED={len(removed)}')
+          print(f'HIGH_ROWS_ADDED={len(added)}')
+          print('--- REMOVED HIGH ROWS ---')
+          for row in removed[:100]:
+              print(f"{row['file']}:{row['line']}\t{row['literal']}\t{row['source_line']}")
+          Path('runtime-display-probe-summary.json').write_text(
+              json.dumps({
+                  'current': {field: current[field] for field in fields},
+                  'masked': {field: masked[field] for field in fields},
+                  'removed_high_rows': removed,
+                  'added_high_rows': added,
+              }, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Upload comparison artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: korean-runtime-display-audit-probe
+          path: |
+            runtime-display-current.json
+            runtime-display-masked.json
+            runtime-display-probe-summary.json
+          if-no-files-found: error
+          retention-days: 1
