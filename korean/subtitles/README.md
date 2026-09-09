@@ -44,6 +44,10 @@ draft timing only. A second independent ASR pass may be used to corroborate a
 candidate, but low-confidence or conflicting ASR is never converted into guessed
 Korean subtitle text.
 
+For short cutscenes, full-length OGV/BIK speech passes take precedence over
+isolated tail-only crops. A crop that truncates an utterance is not treated as
+transcript authority, even when its decoder confidence appears high.
+
 The subtitle integration test verifies that coverage contains every runtime OGV,
 that ready SRT files are valid UTF-8 with valid timing inside the video duration,
 and that every ready SRT is actually included in the corresponding world overlay
