@@ -113,12 +113,19 @@ def main() -> int:
         raise ValueError("Unexpected npc_names.txt header")
     if not ko_rows or ko_rows[0][:2] != ["Male", "Female"]:
         raise ValueError("Unexpected KO_NPCNames.txt header")
-    if len(source_rows) != 541 or len(ko_rows) != 540:
+    if len(source_rows) != 541 or len(ko_rows) not in {540, 541}:
         raise ValueError(
             f"Random NPC name row count drift: source={len(source_rows)}, Korean={len(ko_rows)}"
         )
     if not source_rows[-1] or source_rows[-1][0].strip() != "Zyggie":
         raise ValueError(f"Unexpected final random NPC source row: {source_rows[-1]!r}")
+    if len(ko_rows) == 541:
+        ko_zyggie = ko_rows[-1][0].strip() if ko_rows[-1] else ""
+        reviewed_zyggie = str(zyggie_spec["translation"]).strip()
+        if not ko_zyggie or ko_zyggie != reviewed_zyggie:
+            raise ValueError(
+                f"Upstream Zyggie translation drift: Korean={ko_zyggie!r}, reviewed={reviewed_zyggie!r}"
+            )
 
     output_rows = [list(row) for row in source_rows]
     entries: list[dict] = []
@@ -170,7 +177,9 @@ def main() -> int:
 
     if len(entries) != 850:
         raise ValueError(f"Random NPC name entry count drift: expected 850, got {len(entries)}")
-    if translated_from_mmmerge != 849 or translated_direct != 1:
+    expected_direct = 0 if len(ko_rows) == 541 else 1
+    expected_mmmerge = len(entries) - expected_direct
+    if translated_from_mmmerge != expected_mmmerge or translated_direct != expected_direct:
         raise ValueError(
             f"Random NPC name source count drift: MMMerge={translated_from_mmmerge}, direct={translated_direct}"
         )
@@ -187,7 +196,7 @@ def main() -> int:
 
     table = {
         "overlay_source": "Data/Text localization/KO_NPCNames.txt",
-        "overlay_format": "row-aligned Male/Female columns plus one reviewed direct tail entry",
+        "overlay_format": "row-aligned Male/Female columns with reviewed direct Zyggie fallback when upstream omits it",
         "source_file": source_relpath,
         "source_sha256": sha256_file(source_path),
         "source_encoding": source_encoding,
