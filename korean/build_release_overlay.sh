@@ -42,6 +42,7 @@ python3 korean/tools/extend_item_enchant_catalog.py \
     --mmmerge-root "$mmmerge_root" \
     --fail-on-review
 python3 korean/tools/extend_arcomage_catalog.py --fail-on-review
+python3 korean/tools/extend_decoration_catalog.py --fail-on-review
 python3 korean/tools/build_map_string_overlays.py \
     --mmmerge-root "$mmmerge_root" \
     --fail-on-review
