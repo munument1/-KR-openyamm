@@ -5,72 +5,296 @@ on:
     branches:
       - korean-localization
     paths:
+      - "korean/**"
+      - "game/ui/screens/**"
+      - "game/ui/KoreanDecorationText.h"
+      - "game/gameplay/GameplayInteractionController.cpp"
+      - "game/outdoor/OutdoorInteractionController.cpp"
+      - "game/items/ItemEnchantTables.cpp"
+      - "game/tables/CharacterInspectTable.cpp"
+      - "assets_dev/engine/data_tables/**"
+      - "assets_dev/worlds/mm6/_legacy/events/**"
+      - "assets_dev/worlds/mm6/events/maps/**"
+      - "assets_dev/worlds/mm7/_legacy/events/**"
+      - "assets_dev/worlds/mm7/events/maps/**"
+      - "assets_dev/worlds/mm8/_legacy/events/**"
+      - "assets_dev/worlds/mm8/events/maps/**"
+      - "assets_dev/worlds/mmmerge/events/maps/**"
       - ".github/workflows/korean-translation-import.yml"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  fix-stone-to-flesh:
+  import-translations:
+    name: Build Korean translation catalog and overlay
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
     steps:
       - name: Check out OpenYAMM Korean branch
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /korean/**
+            /game/ui/screens/**
+            /game/ui/KoreanDecorationText.h
+            /game/gameplay/GameplayInteractionController.cpp
+            /game/outdoor/OutdoorInteractionController.cpp
+            /game/items/ItemEnchantTables.cpp
+            /game/tables/CharacterInspectTable.cpp
+            /assets_dev/engine/data_tables/**
+            /assets_dev/worlds/mm6/_legacy/events/**
+            /assets_dev/worlds/mm6/events/maps/**
+            /assets_dev/worlds/mm7/_legacy/events/**
+            /assets_dev/worlds/mm7/events/maps/**
+            /assets_dev/worlds/mm8/_legacy/events/**
+            /assets_dev/worlds/mm8/events/maps/**
+            /assets_dev/worlds/mmmerge/events/maps/**
 
-      - name: Correct Stone to Flesh PO entry
-        shell: bash
+      - name: Check out MMMerge Korean translation source
+        uses: actions/checkout@v7
+        with:
+          repository: munument1/-KR-MMMerge
+          ref: main
+          path: _mmmerge
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /Data/Text localization/**
+
+      - name: Test Korean translation importers
+        run: python3 -m unittest discover -s korean/tools -p 'test_*.py'
+
+      - name: Generate base JSON catalog and native overlay tables
         run: |
           set -euo pipefail
+          python3 korean/tools/build_translation_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-placeholder-mismatch
+
+      - name: Extend catalog with random NPC names
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_npc_names_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+
+      - name: Extend catalog with NPC dialogue
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_npc_dialogue_catalog.py \
+            --mmmerge-root _mmmerge
+
+      - name: Apply audited NPC dialogue overrides
+        run: |
+          set -euo pipefail
+          python3 korean/tools/apply_catalog_overrides.py \
+            --overrides korean/translations/dialogue_overrides.json \
+            --fail-on-review
+
+      - name: Extend catalog with awards map names and monsters
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_misc_catalog.py \
+            --mmmerge-root _mmmerge
+
+      - name: Apply audited misc overrides
+        run: |
+          set -euo pipefail
+          python3 korean/tools/apply_catalog_overrides.py \
+            --overrides korean/translations/misc_overrides.json \
+            --fail-on-review
+
+      - name: Extend catalog with placed monster names
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_place_mon_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+
+      - name: Extend catalog with reviewed stat and skill text
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_stats_skills_catalog.py \
+            --fail-on-review
+
+      - name: Extend catalog with scrolls and classes
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_legacy_text_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+
+      - name: Preserve class logic keys and localized display names
+        run: |
+          set -euo pipefail
+          python3 korean/tools/normalize_class_overlay.py
+
+      - name: Extend catalog with 2D event house text
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_house_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+
+      - name: Extend catalog with NPC news and profession labels
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_npc_runtime_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+
+      - name: Extend catalog with transitions and histories
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_transition_history_catalog.py \
+            --mmmerge-root _mmmerge
+
+      - name: Apply audited transition and history overrides
+        run: |
+          set -euo pipefail
+          python3 korean/tools/apply_catalog_overrides.py \
+            --overrides korean/translations/transition_history_overrides.json \
+            --fail-on-review
+
+      - name: Extend catalog with item enchant display text
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_item_enchant_catalog.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+
+      - name: Extend catalog with reviewed Arcomage card names
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_arcomage_catalog.py \
+            --fail-on-review
+
+      - name: Extend catalog with decoration hints
+        run: |
+          set -euo pipefail
+          python3 korean/tools/extend_decoration_catalog.py \
+            --fail-on-review
+
+      - name: Generate Korean map event overlays
+        run: |
+          set -euo pipefail
+          python3 korean/tools/build_map_string_overlays.py \
+            --mmmerge-root _mmmerge \
+            --fail-on-review
+          python3 -m json.tool korean/translations/catalog.json >/dev/null
+
+      - name: Add Korean fallback font to generated engine overlay
+        run: |
+          set -euo pipefail
+          python3 korean/tools/stage_korean_font.py --output korean/overlay/engine/fonts
+
+      - name: Build overlay-only patch package
+        run: |
+          set -euo pipefail
+          python3 korean/build_patch.py --output dist/korean-translation-import
+          unzip -Z1 dist/korean-translation-import/korean/engine.zip > dist/korean-translation-import/engine-contents.txt
+          for required in \
+            fonts/KoreanFallback.ttf \
+            data_tables/arcomage_cards.txt \
+            data_tables/english/Global.txt \
+            data_tables/english/quests.txt \
+            data_tables/english/autonote.txt \
+            data_tables/spells.txt \
+            data_tables/english/awards.txt \
+            data_tables/english/scroll.txt \
+            data_tables/english/class.txt \
+            data_tables/english/trans.txt \
+            data_tables/english/mm7_history.txt \
+            data_tables/english/history.txt \
+            data_tables/english/place_mon.txt \
+            data_tables/english/stats.txt \
+            data_tables/english/skill_des.txt \
+            data_tables/items.txt \
+            data_tables/npc.txt \
+            data_tables/npc_names.txt \
+            data_tables/npc_greet.txt \
+            data_tables/npc_topic.txt \
+            data_tables/npc_topic_text.txt \
+            data_tables/npc_news.txt \
+            data_tables/npc_professions.txt \
+            data_tables/map_stats.txt \
+            data_tables/monster_data.txt \
+            data_tables/house_data.txt \
+            data_tables/standard_item_enchants.txt \
+            data_tables/special_item_enchants.txt; do
+            grep -Fxq "$required" dist/korean-translation-import/engine-contents.txt
+          done
+          if grep -Fxq 'data_tables/english/spells.txt' dist/korean-translation-import/engine-contents.txt; then
+            echo 'Inactive English spell-table overlay must not be packaged.' >&2
+            exit 1
+          fi
+          if grep -Fxq 'data_tables/decoration_data.txt' dist/korean-translation-import/engine-contents.txt; then
+            echo 'Decoration source Hint values are gameplay keys and must not be packaged as a localized overlay.' >&2
+            exit 1
+          fi
+          for world in mm6 mm7 mm8 mmmerge; do
+            test -s "dist/korean-translation-import/korean/worlds/${world}.zip"
+            echo "${world}: $(unzip -Z1 "dist/korean-translation-import/korean/worlds/${world}.zip" | wc -l) overlay file(s)"
+          done
+          unzip -Z1 dist/korean-translation-import/korean/worlds/mm6.zip | grep -Fxq 'events/maps/6d02.lua'
+
+      - name: Print translation coverage and review queue
+        run: |
           python3 - <<'PY'
+          import json
           from pathlib import Path
 
-          path = Path('korean/translations/ko.po')
-          text = path.read_text(encoding='utf-8')
-          context = 'msgctxt "engine:items.txt:262:Notes"'
-          if text.count(context) != 1:
-              raise SystemExit(f'expected exactly one {context!r}')
-          start = text.index(context)
-          end = text.find('\n\n', start)
-          if end < 0:
-              end = len(text)
-          block = text[start:end]
-          if 'Cures Stoned.' not in block:
-              raise SystemExit('unexpected Stone to Flesh English source')
-          wrong = '취한 상태를 치료합니다.'
-          correct = '석화 상태를 치료합니다.'
-          if wrong in block:
-              block = block.replace(wrong, correct, 1)
-              text = text[:start] + block + text[end:]
-              path.write_text(text, encoding='utf-8')
-              print('OpenYAMM Stone to Flesh PO translation corrected.')
-          elif correct in block:
-              print('OpenYAMM Stone to Flesh PO translation already corrected.')
-          else:
-              raise SystemExit('unexpected Korean Stone to Flesh translation')
-          verify = path.read_text(encoding='utf-8')
-          pos = verify.index(context)
-          end = verify.find('\n\n', pos)
-          if end < 0:
-              end = len(verify)
-          final_block = verify[pos:end]
-          if correct not in final_block or wrong in final_block:
-              raise SystemExit('OpenYAMM Stone to Flesh PO verification failed')
+          data = json.loads(Path('korean/translations/catalog.json').read_text(encoding='utf-8'))
+          print(json.dumps(data['summary'], ensure_ascii=False, indent=2))
+          for table in data['tables']:
+              suffix = ''
+              if table.get('excluded'):
+                  suffix = f", {table['excluded']} excluded"
+              print(
+                  table['source_file'],
+                  table['translated'], '/', table['entries'], 'translated,',
+                  table['untranslated'], 'untranslated,',
+                  table['placeholder_mismatches'], 'review,',
+                  table['overrides'], 'override(s)' + suffix
+              )
+
+          review_entries = [
+              entry for entry in data['entries']
+              if entry['status'] in {'untranslated', 'needs_review'}
+          ]
+          print(f'REVIEW_QUEUE={len(review_entries)}')
+          for entry in review_entries[:250]:
+              print('---')
+              print('key:', entry['key'])
+              print('status:', entry['status'])
+              print('source:', entry['source'])
+              print('translation:', entry['translation'])
+              print('note:', entry.get('note', ''))
+          if len(review_entries) > 250:
+              print(f'... {len(review_entries) - 250} additional review entries are in catalog.json')
           PY
 
-      - name: Commit corrected PO
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- korean/translations/ko.po; then
-            echo 'PO already corrected.'
-            exit 0
-          fi
-          git diff --check -- korean/translations/ko.po
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add korean/translations/ko.po
-          git commit -m 'Fix Stone to Flesh potion description'
-          git push origin HEAD:korean-localization
+      - name: Upload translation import artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openyamm-korean-translation-import
+          path: |
+            korean/translations/catalog.json
+            korean/overlay/engine/**
+            korean/overlay/worlds/mm6/events/maps/
+            korean/overlay/worlds/mm7/events/maps/
+            korean/overlay/worlds/mm8/events/maps/
+            korean/overlay/worlds/mmmerge/events/maps/
+            dist/korean-translation-import/korean/engine.zip
+            dist/korean-translation-import/korean/worlds/*.zip
+            dist/korean-translation-import/manifest.json
+            dist/korean-translation-import/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
