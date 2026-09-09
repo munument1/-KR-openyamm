@@ -16,7 +16,7 @@ permissions:
 jobs:
   audit-cutscenes:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Check out Korean branch with source movies
         uses: actions/checkout@v7
@@ -24,10 +24,11 @@ jobs:
           ref: korean-localization
           fetch-depth: 1
 
-      - name: Install media probe tools
+      - name: Install media and speech probe tools
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y ffmpeg
+          python3 -m pip install --disable-pip-version-check --no-cache-dir faster-whisper
 
       - name: Test cutscene inventory tooling
         run: python3 -m unittest korean/tools/test_cutscene_subtitle_inventory.py
@@ -102,17 +103,77 @@ jobs:
               )
           PY
 
+      - name: Generate timestamped English ASR audit
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from faster_whisper import WhisperModel
+
+          root = Path('.')
+          probe = json.loads((root / 'korean/subtitles/media_probe.json').read_text(encoding='utf-8'))
+          model = WhisperModel('base.en', device='cpu', compute_type='int8')
+          records = []
+          for media in probe['runtime_ogv']:
+              record = {
+                  'world': media['world'],
+                  'stem': media['stem'],
+                  'path': media['path'],
+                  'duration_seconds': media.get('duration_seconds'),
+                  'has_audio': media.get('has_audio', False),
+                  'note': 'Machine ASR audit only; verify against game media/text before subtitle authoring.',
+                  'segments': [],
+              }
+              if media.get('has_audio'):
+                  segments, info = model.transcribe(
+                      str(root / media['path']),
+                      language='en',
+                      beam_size=5,
+                      vad_filter=True,
+                      condition_on_previous_text=False,
+                      word_timestamps=True,
+                  )
+                  record['language'] = info.language
+                  record['language_probability'] = info.language_probability
+                  for segment in segments:
+                      words = []
+                      for word in segment.words or []:
+                          words.append({
+                              'start': round(float(word.start), 3),
+                              'end': round(float(word.end), 3),
+                              'text': word.word,
+                              'probability': round(float(word.probability), 4),
+                          })
+                      record['segments'].append({
+                          'start': round(float(segment.start), 3),
+                          'end': round(float(segment.end), 3),
+                          'text': segment.text.strip(),
+                          'avg_logprob': round(float(segment.avg_logprob), 4),
+                          'no_speech_prob': round(float(segment.no_speech_prob), 4),
+                          'words': words,
+                      })
+              records.append(record)
+              print(media['world'], media['stem'], 'segments=', len(record['segments']))
+
+          output = root / 'korean/subtitles/asr_draft.json'
+          output.write_text(
+              json.dumps({'format': 1, 'model': 'faster-whisper base.en', 'records': records}, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          print(f'ASR_RECORDS={len(records)}')
+          PY
+
       - name: Commit generated audit data
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add korean/subtitles/source_inventory.json korean/subtitles/media_probe.json
+          git add korean/subtitles/source_inventory.json korean/subtitles/media_probe.json korean/subtitles/asr_draft.json
           if git diff --cached --quiet; then
             echo "Audit data already current."
             exit 0
           fi
-          git commit -m "Refresh cutscene runtime source audit [skip ci]"
+          git commit -m "Refresh cutscene speech audit [skip ci]"
           git push origin HEAD:korean-localization
 
       - name: Upload cutscene audit artifact
@@ -122,5 +183,6 @@ jobs:
           path: |
             korean/subtitles/source_inventory.json
             korean/subtitles/media_probe.json
+            korean/subtitles/asr_draft.json
           if-no-files-found: error
           retention-days: 7
