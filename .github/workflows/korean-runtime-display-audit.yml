@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/korean-runtime-display-audit.yml
       - korean/tools/audit_runtime_display_text.py
+      - korean/tools/test_runtime_display_audit.py
       - korean/tools/check_runtime_localization_routes.py
       - game/ui/KoreanRuntimeTextOverrides.h
       - game/ui/GameplayPartyOverlayRenderer.cpp
@@ -34,6 +35,7 @@ jobs:
           sparse-checkout: |
             /game/**
             /korean/tools/audit_runtime_display_text.py
+            /korean/tools/test_runtime_display_audit.py
             /korean/tools/check_runtime_localization_routes.py
 
       - name: Verify Korean runtime localization routes
@@ -41,6 +43,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 korean/tools/check_runtime_localization_routes.py
+
+      - name: Test runtime display audit heuristics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest korean/tools/test_runtime_display_audit.py
 
       - name: Scan runtime display literals
         shell: bash
