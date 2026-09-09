@@ -4,10 +4,14 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 
 MODULE_PATH = Path(__file__).with_name("catalog_po.py")
+TOOLS_PATH = str(MODULE_PATH.parent.resolve())
+if TOOLS_PATH not in sys.path:
+    sys.path.insert(0, TOOLS_PATH)
 SPEC = importlib.util.spec_from_file_location("catalog_po", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 catalog_po = importlib.util.module_from_spec(SPEC)
