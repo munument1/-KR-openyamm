@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  transcribe-final-five:
+  transcribe-ambiguous-four:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -28,12 +28,11 @@ jobs:
             /assets_dev/worlds/mm8/videos/Cutscenes/DragonHunters.ogv
             /assets_dev/worlds/mm8/videos/Cutscenes/dragonsrevenge.ogv
             /assets_dev/worlds/mm8/videos/Cutscenes/skeltrans.ogv
-            /assets_dev/worlds/mm8/videos/Cutscenes/wingame.ogv
 
       - name: Install ASR tools
         run: python3 -m pip install --disable-pip-version-check --no-cache-dir faster-whisper
 
-      - name: Transcribe final five with medium.en
+      - name: Transcribe ambiguous four with large-v3
         run: |
           python3 - <<'PY'
           import json
@@ -45,9 +44,8 @@ jobs:
               ('mm8', 'DragonHunters'),
               ('mm8', 'dragonsrevenge'),
               ('mm8', 'skeltrans'),
-              ('mm8', 'wingame'),
           ]
-          model = WhisperModel('medium.en', device='cpu', compute_type='int8')
+          model = WhisperModel('large-v3', device='cpu', compute_type='int8')
           records = []
           for world, stem in media:
               path = Path(f'assets_dev/worlds/{world}/videos/Cutscenes/{stem}.ogv')
@@ -85,16 +83,16 @@ jobs:
               for segment in out_segments:
                   print(f"  {segment['start']:.3f}-{segment['end']:.3f}: {segment['text']}")
 
-          Path('cutscene-asr-final-five.json').write_text(
-              json.dumps({'format': 1, 'model': 'faster-whisper medium.en', 'records': records}, ensure_ascii=False, indent=2) + '\n',
+          Path('cutscene-asr-large-v3.json').write_text(
+              json.dumps({'format': 1, 'model': 'faster-whisper large-v3', 'records': records}, ensure_ascii=False, indent=2) + '\n',
               encoding='utf-8',
           )
           PY
 
-      - name: Upload final ASR review
+      - name: Upload large-v3 review
         uses: actions/upload-artifact@v7
         with:
-          name: korean-cutscene-asr-final-five
-          path: cutscene-asr-final-five.json
+          name: korean-cutscene-asr-large-v3
+          path: cutscene-asr-large-v3.json
           if-no-files-found: error
           retention-days: 1
