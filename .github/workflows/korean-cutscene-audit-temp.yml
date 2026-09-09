@@ -1,0 +1,92 @@
+name: Temporary Korean cutscene source audit
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - ".github/workflows/korean-cutscene-audit-temp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit-cutscenes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out Korean branch with source movies
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+
+      - name: Test cutscene inventory tooling
+        run: python3 -m unittest korean/tools/test_cutscene_subtitle_inventory.py
+
+      - name: Build runtime/source cutscene inventory
+        run: python3 korean/tools/build_cutscene_subtitle_inventory.py
+
+      - name: Probe legacy BIK media
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import subprocess
+
+          root = Path('.')
+          inventory = json.loads((root / 'korean/subtitles/source_inventory.json').read_text(encoding='utf-8'))
+          probes = []
+          for entry in inventory['entries']:
+              if entry['extension'] != '.bik':
+                  continue
+              path = root / entry['source_path']
+              command = [
+                  'ffprobe', '-v', 'error', '-show_entries',
+                  'format=duration:stream=index,codec_type,codec_name,duration',
+                  '-of', 'json', str(path),
+              ]
+              result = subprocess.run(command, check=False, capture_output=True, text=True)
+              record = {
+                  'stem': entry['stem'],
+                  'source_path': entry['source_path'],
+                  'returncode': result.returncode,
+                  'stderr': result.stderr.strip(),
+              }
+              if result.returncode == 0:
+                  payload = json.loads(result.stdout)
+                  record['duration_seconds'] = float(payload.get('format', {}).get('duration', 0) or 0)
+                  record['streams'] = payload.get('streams', [])
+                  record['has_audio'] = any(stream.get('codec_type') == 'audio' for stream in record['streams'])
+                  record['has_video'] = any(stream.get('codec_type') == 'video' for stream in record['streams'])
+              probes.append(record)
+          output = root / 'korean/subtitles/media_probe.json'
+          output.write_text(json.dumps({'format': 1, 'bik': probes}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          print(f'PROBED_BIK={len(probes)}')
+          for record in probes:
+              print(record['stem'], 'duration=', record.get('duration_seconds'), 'audio=', record.get('has_audio'), 'rc=', record['returncode'])
+          PY
+
+      - name: Commit generated audit data
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add korean/subtitles/source_inventory.json korean/subtitles/media_probe.json
+          if git diff --cached --quiet; then
+            echo "Audit data already current."
+            exit 0
+          fi
+          git commit -m "Refresh cutscene runtime source audit [skip ci]"
+          git push origin HEAD:korean-localization
+
+      - name: Upload cutscene audit artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: korean-cutscene-source-audit
+          path: |
+            korean/subtitles/source_inventory.json
+            korean/subtitles/media_probe.json
+          if-no-files-found: error
+          retention-days: 7
