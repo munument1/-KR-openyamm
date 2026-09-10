@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "entries": {
+    "engine:monster_data.txt:652:Name": {
+      "translation": "원자로",
+      "note": "OpenYAMM adds a duplicate Reactor row at ID 652; IDs 647 and 648 already use the same Korean translation in the MMMerge source."
+    }
+  }
+}

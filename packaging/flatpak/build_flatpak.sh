@@ -12,6 +12,7 @@ build_dir=""
 repo_dir=""
 state_dir=""
 source_dir=""
+korean_overlay_dir="${OPENYAMM_KOREAN_OVERLAY_DIR:-}"
 generated_manifest=""
 bundle_path=""
 install_app=1
@@ -283,6 +284,29 @@ stage_flatpak_assets()
     done
 }
 
+stage_korean_overlay()
+{
+    if [ -z "$korean_overlay_dir" ]; then
+        return
+    fi
+
+    for package_path in \
+        engine.zip \
+        worlds/mm6.zip \
+        worlds/mm7.zip \
+        worlds/mm8.zip \
+        worlds/mmmerge.zip; do
+        if [ ! -f "$korean_overlay_dir/$package_path" ]; then
+            printf 'Required Korean overlay package is missing: %s\n' "$package_path" >&2
+            exit 1
+        fi
+    done
+
+    printf 'Staging Korean release overlay from %s\n' "$korean_overlay_dir"
+    mkdir -p "$source_dir/assets/korean"
+    cp -a "$korean_overlay_dir/." "$source_dir/assets/korean/"
+}
+
 prepare_source_tree()
 {
     printf 'Preparing minimal Flatpak source tree: %s\n' "$source_dir"
@@ -298,6 +322,7 @@ prepare_source_tree()
     copy_source_entry packaging/icons
     copy_source_entry tools/openyamm_shaderc_stubs.cpp
     stage_flatpak_assets
+    stage_korean_overlay
 
     mkdir -p "$(dirname "$generated_manifest")"
     cmake \

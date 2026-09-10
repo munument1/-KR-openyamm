@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
   <id>io.github.openyamm.OpenYAMM</id>
-  <name>OpenYAMM</name>
-  <summary>OpenYAMM game engine</summary>
+  <name>OpenYAMM 0.11-korean</name>
+  <summary>OpenYAMM 0.11 한국어판 게임 엔진</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>LicenseRef-OpenYAMM</project_license>
   <description>
-    <p>OpenYAMM is a modern game engine for running supported Might and Magic worlds from packaged content archives.</p>
+    <p>OpenYAMM 0.11 한국어판은 지원되는 Might and Magic 세계를 패키지 콘텐츠로 실행하는 현대적인 게임 엔진입니다.</p>
   </description>
   <launchable type="desktop-id">io.github.openyamm.OpenYAMM.desktop</launchable>
   <categories>

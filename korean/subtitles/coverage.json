@@ -1,0 +1,478 @@
+{
+  "format": 1,
+  "purpose": "Korean cutscene subtitle coverage for actual OpenYAMM runtime OGV assets",
+  "source_inventory": "korean/subtitles/source_inventory.json",
+  "media_probe": "korean/subtitles/media_probe.json",
+  "asr_audit": "korean/subtitles/asr_draft.json",
+  "policy": [
+    "Every runtime OGV must appear exactly once in this file.",
+    "subtitle_ready means a Korean SRT is committed and package-tested.",
+    "no_audio is reserved for media with no audio stream.",
+    "no_dialogue is reserved for reviewed media whose audio contains music/effects but no spoken dialogue requiring subtitles.",
+    "review_required means no subtitle text is guessed from filenames or unresolved/low-confidence speech."
+  ],
+  "summary": {
+    "runtime_videos": 32,
+    "subtitle_ready": 19,
+    "no_audio": 2,
+    "no_dialogue": 11,
+    "review_required": 0
+  },
+  "entries": [
+    {
+      "world": "mm6",
+      "stem": "6intro",
+      "runtime_path": "assets_dev/worlds/mm6/videos/Cutscenes/6intro.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 136.453021,
+      "has_audio": true,
+      "asr_segments": 10,
+      "asr_avg_word_probability": 0.9322,
+      "status": "subtitle_ready",
+      "reason": "Runtime media ASR reviewed against game context/terminology; Korean SRT authored from the verified speech timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm6/subtitles/6intro.srt"
+      ]
+    },
+    {
+      "world": "mm6",
+      "stem": "6losegame",
+      "runtime_path": "assets_dev/worlds/mm6/videos/Cutscenes/6losegame.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 14.3319,
+      "has_audio": true,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm6",
+      "stem": "archie",
+      "runtime_path": "assets_dev/worlds/mm6/videos/Cutscenes/archie.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 3.466434,
+      "has_audio": false,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_audio",
+      "reason": "ffprobe found no audio stream; subtitle is unnecessary.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm6",
+      "stem": "citytrtr",
+      "runtime_path": "assets_dev/worlds/mm6/videos/Cutscenes/citytrtr.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 10.800045,
+      "has_audio": true,
+      "asr_segments": 3,
+      "asr_avg_word_probability": 0.8977,
+      "status": "subtitle_ready",
+      "reason": "Runtime media ASR reviewed against game context/terminology; Korean SRT authored from the verified speech timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm6/subtitles/citytrtr.srt"
+      ]
+    },
+    {
+      "world": "mm6",
+      "stem": "credits",
+      "runtime_path": "assets_dev/worlds/mm6/videos/Cutscenes/credits.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 124.9875,
+      "has_audio": true,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm6",
+      "stem": "mm6end1",
+      "runtime_path": "assets_dev/worlds/mm6/videos/Cutscenes/mm6end1.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 76.66659,
+      "has_audio": true,
+      "asr_segments": 2,
+      "asr_avg_word_probability": 0.8887,
+      "status": "subtitle_ready",
+      "reason": "Runtime media ASR reviewed against game context/terminology; Korean SRT authored from the verified speech timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm6/subtitles/mm6end1.srt",
+        "korean/overlay/worlds/mmmerge/subtitles/mm6end1.srt"
+      ]
+    },
+    {
+      "world": "mm6",
+      "stem": "mm6end2",
+      "runtime_path": "assets_dev/worlds/mm6/videos/Cutscenes/mm6end2.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 34.333299,
+      "has_audio": true,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm6",
+      "stem": "noarchie",
+      "runtime_path": "assets_dev/worlds/mm6/videos/Cutscenes/noarchie.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 0.39996,
+      "has_audio": false,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_audio",
+      "reason": "ffprobe found no audio stream; subtitle is unnecessary.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm7",
+      "stem": "7intro",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/7intro.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 175.999955,
+      "has_audio": true,
+      "asr_segments": 41,
+      "asr_avg_word_probability": 0.898,
+      "status": "subtitle_ready",
+      "reason": "Base.en and independent small.en ASR agree on the spoken dialogue/timing; names and lore were cross-checked against game data and established Might and Magic references before Korean subtitle authoring.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/7intro.srt"
+      ]
+    },
+    {
+      "world": "mm7",
+      "stem": "7losegame",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/7losegame.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 14.5,
+      "has_audio": true,
+      "asr_segments": 1,
+      "asr_avg_word_probability": 0.9502,
+      "status": "subtitle_ready",
+      "reason": "Runtime media ASR reviewed against game context/terminology; Korean SRT authored from the verified speech timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/7losegame.srt"
+      ]
+    },
+    {
+      "world": "mm7",
+      "stem": "arbiter evil",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/arbiter evil.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 49.066667,
+      "has_audio": true,
+      "asr_segments": 6,
+      "asr_avg_word_probability": 0.9362,
+      "status": "subtitle_ready",
+      "reason": "Runtime media ASR reviewed against game context/terminology; Korean SRT authored from the verified speech timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/arbiter evil.srt"
+      ]
+    },
+    {
+      "world": "mm7",
+      "stem": "arbiter good",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/arbiter good.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 41.533333,
+      "has_audio": true,
+      "asr_segments": 8,
+      "asr_avg_word_probability": 0.9399,
+      "status": "subtitle_ready",
+      "reason": "Runtime media ASR reviewed against game context/terminology; Korean SRT authored from the verified speech timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/arbiter good.srt"
+      ]
+    },
+    {
+      "world": "mm7",
+      "stem": "endgame 1 good",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/endgame 1 good.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 125.533333,
+      "has_audio": true,
+      "asr_segments": 25,
+      "asr_avg_word_probability": 0.9186,
+      "status": "subtitle_ready",
+      "reason": "Base.en and independent small.en ASR agree on the spoken dialogue/timing; names and lore were cross-checked against game data and established Might and Magic references before Korean subtitle authoring.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/endgame 1 good.srt"
+      ]
+    },
+    {
+      "world": "mm7",
+      "stem": "endgame 2 evil",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/endgame 2 evil.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 64.066621,
+      "has_audio": true,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm7",
+      "stem": "family reunion",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/family reunion.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 61.2,
+      "has_audio": true,
+      "asr_segments": 12,
+      "asr_avg_word_probability": 0.9475,
+      "status": "subtitle_ready",
+      "reason": "Runtime media ASR reviewed against game context/terminology; Korean SRT authored from the verified speech timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/family reunion.srt"
+      ]
+    },
+    {
+      "world": "mm7",
+      "stem": "intro post",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/intro post.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 90.733333,
+      "has_audio": true,
+      "asr_segments": 14,
+      "asr_avg_word_probability": 0.9183,
+      "status": "subtitle_ready",
+      "reason": "Speech was cross-checked across base.en, medium.en, and large-v3 ASR with runtime frames and game context; Korean SRT uses reviewed timing and established terminology.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/intro post.srt"
+      ]
+    },
+    {
+      "world": "mm7",
+      "stem": "mm3 people evil",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/mm3 people evil.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 67.2,
+      "has_audio": true,
+      "asr_segments": 16,
+      "asr_avg_word_probability": 0.9342,
+      "status": "subtitle_ready",
+      "reason": "Base.en and independent small.en ASR agree on the spoken dialogue/timing; names and lore were cross-checked against game data and established Might and Magic references before Korean subtitle authoring.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/mm3 people evil.srt"
+      ]
+    },
+    {
+      "world": "mm7",
+      "stem": "mm3 people good",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/mm3 people good.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 89.8,
+      "has_audio": true,
+      "asr_segments": 19,
+      "asr_avg_word_probability": 0.9363,
+      "status": "subtitle_ready",
+      "reason": "Base.en and independent small.en ASR agree on the spoken dialogue/timing; names and lore were cross-checked against game data and established Might and Magic references before Korean subtitle authoring.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/mm3 people good.srt"
+      ]
+    },
+    {
+      "world": "mm7",
+      "stem": "pcout01",
+      "runtime_path": "assets_dev/worlds/mm7/videos/Cutscenes/pcout01.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 44.166667,
+      "has_audio": true,
+      "asr_segments": 11,
+      "asr_avg_word_probability": 0.9427,
+      "status": "subtitle_ready",
+      "reason": "Runtime media ASR reviewed against game context/terminology; Korean SRT authored from the verified speech timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm7/subtitles/pcout01.srt"
+      ]
+    },
+    {
+      "world": "mm8",
+      "stem": "confluxkey",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/confluxkey.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 39.066667,
+      "has_audio": true,
+      "asr_segments": 4,
+      "asr_avg_word_probability": 0.9268,
+      "status": "subtitle_ready",
+      "reason": "Runtime media ASR reviewed against game context/terminology; Korean SRT authored from the verified speech timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm8/subtitles/confluxkey.srt"
+      ]
+    },
+    {
+      "world": "mm8",
+      "stem": "DragonHunters",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/DragonHunters.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 28.4,
+      "has_audio": true,
+      "asr_segments": 5,
+      "asr_avg_word_probability": 0.8767,
+      "status": "subtitle_ready",
+      "reason": "Speech was cross-checked across independent ASR passes and runtime frames; the alliance/Dragon Hunter context was verified against game dialogue.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm8/subtitles/DragonHunters.srt"
+      ]
+    },
+    {
+      "world": "mm8",
+      "stem": "dragonsrevenge",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/dragonsrevenge.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 24.666667,
+      "has_audio": true,
+      "asr_segments": 3,
+      "asr_avg_word_probability": 0.7589,
+      "status": "subtitle_ready",
+      "reason": "Low-confidence base ASR was resolved by medium.en and large-v3 agreement plus runtime-frame review; the SRT uses only corroborated spoken lines.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm8/subtitles/dragonsrevenge.srt"
+      ]
+    },
+    {
+      "world": "mm8",
+      "stem": "intro",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/intro.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 68.066667,
+      "has_audio": true,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm8",
+      "stem": "JVC",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/JVC.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 6.0,
+      "has_audio": true,
+      "asr_segments": 1,
+      "asr_avg_word_probability": 0.4146,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm8",
+      "stem": "LoseGame",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/LoseGame.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 24.6,
+      "has_audio": true,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm8",
+      "stem": "nightshade",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/nightshade.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 37.0,
+      "has_audio": true,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm8",
+      "stem": "NWC",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/NWC.ogv",
+      "runtime_referenced": false,
+      "duration_seconds": 13.0,
+      "has_audio": true,
+      "asr_segments": 1,
+      "asr_avg_word_probability": 0.0058,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm8",
+      "stem": "overrept",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/overrept.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 66.133333,
+      "has_audio": true,
+      "asr_segments": 13,
+      "asr_avg_word_probability": 0.9062,
+      "status": "subtitle_ready",
+      "reason": "Runtime media ASR reviewed against game context/terminology; Korean SRT authored from the verified speech timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm8/subtitles/overrept.srt"
+      ]
+    },
+    {
+      "world": "mm8",
+      "stem": "SaveMino",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/SaveMino.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 16.133333,
+      "has_audio": true,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm8",
+      "stem": "skeltrans",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/skeltrans.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 19.533333,
+      "has_audio": true,
+      "asr_segments": 1,
+      "asr_avg_word_probability": 0.8304,
+      "status": "subtitle_ready",
+      "reason": "Runtime OGV and original BIK speech were cross-checked across small.en, medium.en, and distil-large-v3. Independent small/medium passes agree on the final line \"Now, for our escape.\" and its timing; the Korean SRT uses the corroborated runtime timing.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm8/subtitles/skeltrans.srt"
+      ]
+    },
+    {
+      "world": "mm8",
+      "stem": "Subcut",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/Subcut.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 17.133333,
+      "has_audio": true,
+      "asr_segments": 0,
+      "asr_avg_word_probability": null,
+      "status": "no_dialogue",
+      "reason": "Runtime OGV frames and repeated speech-audit passes confirm music/effects/visual-only content with no spoken dialogue requiring subtitles.",
+      "subtitle_files": []
+    },
+    {
+      "world": "mm8",
+      "stem": "wingame",
+      "runtime_path": "assets_dev/worlds/mm8/videos/Cutscenes/wingame.ogv",
+      "runtime_referenced": true,
+      "duration_seconds": 85.4,
+      "has_audio": true,
+      "asr_segments": 1,
+      "asr_avg_word_probability": 0.4773,
+      "status": "subtitle_ready",
+      "reason": "The closing spoken line was independently corroborated and timed against the runtime ending movie before Korean subtitle authoring.",
+      "subtitle_files": [
+        "korean/overlay/worlds/mm8/subtitles/wingame.srt"
+      ]
+    }
+  ]
+}

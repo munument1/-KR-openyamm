@@ -1,0 +1,120 @@
+# 한국어 패치 작업 디렉터리
+
+이 디렉터리에는 한국어화 소스와 패치 도구만 보관합니다. 원본 OpenYAMM 게임 패키지 전체를 복사해 넣지 않습니다.
+
+## 번역 파일 배치
+
+수정하거나 번역한 파일은 다음 경로에 배치합니다.
+
+```text
+korean/overlay/
+  engine/
+    ... engine.zip에서 교체할 파일 ...
+  worlds/
+    mm6/
+      ... worlds/mm6.zip에서 교체할 파일 ...
+    mm7/
+      ... worlds/mm7.zip에서 교체할 파일 ...
+    mm8/
+      ... worlds/mm8.zip에서 교체할 파일 ...
+    mmmerge/
+      ... worlds/mmmerge.zip에서 교체할 파일 ...
+```
+
+각 오버레이 안의 상대 경로는 대응하는 원본 런타임 패키지 내부 경로와 일치해야 합니다.
+
+변경하지 않은 원본 파일은 오버레이에 복사하지 않습니다.
+
+## gettext PO 편집
+
+`korean/translations/ko.po`는 번역 편집용 gettext 카탈로그입니다. OpenYAMM 런타임이 PO를 직접 읽는 것은 아니며,
+`msgctxt`의 안정 키를 기준으로 변경된 `msgstr`을 기존 TSV/TXT, 표시용 테이블, 월드 Lua 또는 런타임 표시 매핑에 다시 반영합니다.
+
+```sh
+python korean/tools/catalog_po.py verify \
+  --catalog korean/translations/catalog.json \
+  --po korean/translations/ko.po
+
+python korean/tools/catalog_po.py import \
+  --repo-root . \
+  --catalog korean/translations/catalog.json \
+  --po korean/translations/ko.po
+
+python korean/tools/catalog_po.py verify-runtime \
+  --repo-root . \
+  --catalog korean/translations/catalog.json \
+  --po korean/translations/ko.po
+```
+
+`verify`는 원문과 컨텍스트, placeholder 일치를 검사하고, `verify-runtime`은 PO의 25,316개 항목이 생성된 실제 런타임 오버레이와 같은 값을 갖는지 전수검사합니다.
+`class.txt`처럼 영문 로직 키와 한국어 표시 이름을 분리하는 특수 테이블도 표시용 열만 비교합니다. 패치 패키징 시 PO import 뒤 `verify-runtime`이 자동 실행되므로,
+PO와 실제 게임 파일이 어긋나면 패키징이 실패합니다.
+
+## 패치 압축 파일 만들기
+
+저장소 루트에서 실행합니다.
+
+```sh
+python korean/build_patch.py
+```
+
+출력 파일:
+
+```text
+dist/korean-patch/
+  manifest.json
+  SHA256SUMS.txt
+  korean/
+    engine.zip                  # 엔진 교체 파일이 있을 때만 생성
+    worlds/
+      mm6.zip                   # MM6 교체 파일이 있을 때만 생성
+      mm7.zip                   # MM7 교체 파일이 있을 때만 생성
+      mm8.zip                   # MM8 교체 파일이 있을 때만 생성
+      mmmerge.zip               # MMMerge 교체 파일이 있을 때만 생성
+```
+
+교체 파일이 없는 빈 오버레이 패키지는 만들지 않습니다.
+
+## 배포 대상
+
+한국어화 네이티브 스모크 빌드는 다음 두 대상을 검사합니다.
+
+- Windows x64
+- Android arm64
+
+현재 정식 패키지 워크플로는 Windows ZIP, Android 릴리즈 APK와 Linux x86_64 Flatpak을 만듭니다.
+배포 파일과 설치 방법은 저장소 루트의 [README](../README.md)를 참고하세요.
+
+## 런타임 소스 수정
+
+한국어화 소스 수정은 필요한 표시·입력 경로로 제한하고 Windows와 Android에서 빌드 검증합니다.
+캐릭터 이름은 UTF-8 코드 포인트 단위로 입력합니다. 이름의 15자 제한은 바이트가 아닌 코드 포인트를 세며,
+Backspace는 완전한 코드 포인트 하나를 제거합니다.
+
+하드코딩된 영어 문자열은 실제 플레이어 화면이나 상태 메시지에 도달하는 것을 확인한 뒤 번역합니다.
+영어로 된 로직 키는 유지하고 최종 표시 단계에서 한국어로 치환합니다. 집중 회귀 검사 후 네이티브 빌드를 확인합니다.
+
+캐릭터 상세, 버프 정보, 회복 시간, 아이템 감정, 실외 아이템 줍기처럼 렌더러가 직접 만드는 문구는
+내부 키의 조회가 끝난 표시 문구 조립 지점에서 번역합니다.
+
+인벤토리의 아이템 사용 결과는 게임 로직의 영어 문자열을 유지하고 공통 최종 표시 단계에서만 번역합니다.
+행동 불가 상태, 주문·기술 습득, 요술 램프와 운명의 카드 보상 등이 대상입니다.
+능력치와 저항력 명칭은 검수된 한국어 카탈로그 용어를 재사용합니다.
+
+건물 상호작용도 최종 표시 단계에서 번역합니다. 영업시간, 선택 캐릭터 요약, 사원의 치료·기부,
+여관의 숙박·식량 가격, 훈련 조건·결과, 기술 습득과 이동 소요 시간의 동적 문구를 검수합니다.
+`Weapon Shop`, `Fire Guild`처럼 서비스 종류를 선택하는 내부 키로만 쓰는 이름은 영어를 유지합니다.
+
+`resolveGenericNpcName()`의 `Lizardman Peasant`, `Dark Elf Guard` 같은 기본 이름도 유지합니다.
+이 함수의 결과는 `findNpcIdByName()`의 NPC 조회 키로 사용되며 최종 대화에 그대로 복사되는 값이 아닙니다.
+
+숙련도 교사의 결과 문구는 일반 `is now a` 패턴보다 먼저 처리해 직업 전직 문구와 구분합니다.
+Expert, Master, Grandmaster는 기술 숙련도 맥락에서 전문가, 마스터, 그랜드마스터로 표시합니다.
+도둑질 실패나 이용 불가 날짜 안내처럼 확인된 나머지 대화도 같은 최종 표시 단계에서 처리합니다.
+
+## 기준 버전 관리
+
+런타임 바이너리 패치는 대상 원본 OpenYAMM의 정확한 버전과 커밋을 기록해야 합니다.
+알 수 없는 실행 파일이나 APK에는 조용히 적용하지 말고 오류로 중단해야 합니다.
+
+텍스트 전용 오버레이 업데이트는 가능한 한 대용량 원본 미디어 패키지와 분리합니다.

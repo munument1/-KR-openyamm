@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=OpenYAMM
-Comment=OpenYAMM game engine
+Name=OpenYAMM 0.11-korean
+Comment=OpenYAMM 0.11 한국어판
 Exec=openyamm
 Icon=io.github.openyamm.OpenYAMM
 Categories=Game;RolePlaying;

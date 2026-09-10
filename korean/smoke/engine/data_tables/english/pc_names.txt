@@ -1,0 +1,3 @@
+Knight/Cleric Male	Knight/Cleric Female	Dark Elf Pesant Male	Dark Elf Pesant Female	Troll/Minotaur	Vampire/Necro Female	Vampire/Necro Male	Dragon	To make excel work right
+가람	나래	다온	라온	마루	보라	새봄	하늘	*end
+*end	*end	*end	*end	*end	*end	*end	*end	*end

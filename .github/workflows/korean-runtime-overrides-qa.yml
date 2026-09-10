@@ -1,0 +1,188 @@
+name: Korean runtime override QA
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - .github/workflows/korean-runtime-overrides-qa.yml
+      - game/ui/KoreanRuntimeTextOverrides.h
+      - game/ui/screens/NewGameScreen.cpp
+      - game/ui/screens/WinGameScreen.cpp
+      - game/ui/Utf8*.h
+      - game/ui/GameplayHudRenderer.cpp
+      - game/ui/GameplayPartyOverlayRenderer.cpp
+      - game/ui/GameplayHudOverlaySupport.cpp
+      - game/gameplay/GameplayPartyOverlayInputController.cpp
+      - game/gameplay/GameplaySpellService.cpp
+      - game/gameplay/GameplaySpellService.h
+      - game/gameplay/GameplayScreenState.cpp
+      - game/gameplay/GameplayScreenState.h
+      - game/ui/KoreanFontMetrics.h
+      - game/ui/KoreanCalendarText.h
+      - game/party/SkillData.cpp
+      - game/party/SkillData.h
+      - game/tables/SpellTable.cpp
+      - game/tables/SpellTable.h
+      - tests/KoreanSpellTableTests.cpp
+      - tests/KoreanSkillDataTests.cpp
+      - tests/KoreanTextLayoutTests.cpp
+      - tests/KoreanCalendarTextTests.cpp
+      - tests/KoreanServiceTextTests.cpp
+      - tests/Utf8LabelLayoutTests.cpp
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/ui/KoreanRuntimeTextOverrides.h
+            /game/ui/screens/NewGameScreen.cpp
+            /game/ui/Utf8*.h
+            /game/ui/KoreanFontMetrics.h
+            /game/ui/KoreanCalendarText.h
+            /game/party/SkillData.cpp
+            /game/party/SkillData.h
+            /game/tables/SpellTable.cpp
+            /game/tables/SpellTable.h
+            /tests/KoreanSkillDataTests.cpp
+            /tests/KoreanSpellTableTests.cpp
+            /tests/KoreanTextLayoutTests.cpp
+            /tests/KoreanCalendarTextTests.cpp
+            /tests/KoreanServiceTextTests.cpp
+            /tests/Utf8LabelLayoutTests.cpp
+            /tests/UnitTestMain.cpp
+            /third_party/doctest/
+
+      - name: Test Korean wrapping and pixel font metrics
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -I. -Ithird_party/doctest \
+            tests/UnitTestMain.cpp tests/KoreanTextLayoutTests.cpp tests/KoreanServiceTextTests.cpp \
+            tests/Utf8LabelLayoutTests.cpp tests/KoreanCalendarTextTests.cpp \
+            tests/KoreanSkillDataTests.cpp tests/KoreanSpellTableTests.cpp \
+            game/party/SkillData.cpp game/tables/SpellTable.cpp \
+            -o /tmp/korean_layout_test
+          /tmp/korean_layout_test
+
+      - name: Compile and test runtime display overrides
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >/tmp/runtime_override_test.cpp <<'CPP'
+          #include "game/ui/KoreanRuntimeTextOverrides.h"
+          #include <cassert>
+          #include <iostream>
+          #include <string>
+
+          using OpenYAMM::Game::KoreanRuntimeText::koreanRuntimeTextOverride;
+
+          static std::string tr(const std::string &value)
+          {
+              auto translated = koreanRuntimeTextOverride(value);
+              if (!translated.has_value())
+              {
+                  std::cerr << "missing translation: " << value << '\n';
+                  std::abort();
+              }
+              return *translated;
+          }
+
+          static void expect(const std::string &input, const std::string &expected)
+          {
+              const std::string actual = tr(input);
+              if (actual != expected)
+              {
+                  std::cerr << "input:    " << input << '\n'
+                            << "expected: " << expected << '\n'
+                            << "actual:   " << actual << '\n';
+                  std::abort();
+              }
+          }
+
+          int main()
+          {
+              expect("To confirm Alice dismissal press the button again...",
+                  "Alice을(를) 해산하려면 버튼을 다시 누르십시오...");
+              expect("This character cannot learn the skills in Fire Magic",
+                  "이 캐릭터는 해당 기술을 배울 수 없습니다: Fire Magic");
+              expect("You have to be promoted to Knight to learn this skill.",
+                  "이 기술을 배우려면 다음 직업으로 승급해야 합니다: 기사");
+              expect("Good tidings. I am Robin, skilled Knight. I'd love to see the world and taste the adventure, but it'd be foolish to go alone. Perhaps I could come with you?",
+                  "반갑습니다. 나는 Robin, 숙련 기사입니다. 세상을 보고 모험을 맛보고 싶지만 혼자 떠나는 건 어리석겠지요. 당신들과 함께해도 될까요?");
+              expect("I'll tell you what it is for 125 gold pieces.", "125골드에 감정해 드리겠습니다.");
+              expect("Can't cast Prismatic Light outdoors!", "실외에서는 프리즘 광선을 시전할 수 없습니다!");
+              expect("Lloyd's Beacon", "로이드의 봉화");
+              expect("Town Portal to Ravenshore", "Ravenshore(으)로 도시 귀환");
+              expect("OK", "확인");
+              expect("Close", "닫기");
+              expect("Yes", "예");
+              expect("No", "아니요");
+              expect("Join", "합류");
+              expect("Dismiss", "해산");
+              expect("Back", "뒤로");
+              expect("Enter/Space/E/Esc close", "Enter/Space/E/Esc 닫기");
+              expect("Up/Down select  Enter/Space accept  E/Esc close",
+                  "위/아래 선택  Enter/Space 확인  E/Esc 닫기");
+              expect("Type amount  Enter accept  E/Esc cancel", "금액 입력  Enter 확인  E/Esc 취소");
+              expect("Done!", "완료했습니다!");
+              expect("You already have enough followers.", "이미 충분한 동료가 있습니다.");
+              expect("Pick (Longsword)", "줍기 (Longsword)");
+              expect("Loot (Dragon)", "전리품 획득 (Dragon)");
+              expect("Drop Longsword", "버리기: Longsword");
+              expect("Dropped Longsword", "버렸습니다: Longsword");
+              expect("Cast Fireball", "시전: Fireball");
+              expect("Identified Longsword.", "감정 완료: Longsword.");
+              expect("Repaired Longsword.", "수리 완료: Longsword.");
+              expect("Stole Longsword.", "훔쳤습니다: Longsword.");
+              expect("Sold Longsword for 125 gold.", "판매 완료: Longsword (125골드).");
+              expect("You found something (Longsword)!", "무언가를 발견했습니다 (Longsword)!");
+              expect("You have won 500 gold!", "500골드를 획득해 승리했습니다!");
+              expect("House #12", "건물 #12");
+              expect("Save 3", "저장 3");
+              expect("Beacon 2", "봉화 2");
+              expect("2시간 remaining", "2시간 남음");
+              expect("Normal: effect", "일반: effect");
+              expect("Grandmaster: effect", "그랜드마스터: effect");
+              expect("Grand Master: effect", "그랜드마스터: effect");
+              expect("Not identified", "미감정 아이템");
+              expect("Special: Fire damage", "특수 효과: Fire damage");
+              expect("Special: Fire damage\nSet: dragon (2/3, active)",
+                  "특수 효과: Fire damage\n세트: dragon (2/3, 활성)");
+              expect("Set: dragon (2/3, active)", "세트: dragon (2/3, 활성)");
+              expect("Set: dragon (1/3, inactive)", "세트: dragon (1/3, 비활성)");
+              expect("Stunned", "기절");
+              expect("Hammerhands", "망치손");
+              expect("Reanimated", "되살아남");
+              expect("Casting Fireball", "시전 중: Fireball");
+              expect("Duration: 1:yr 2:mo 3:dy 4:hr 5:mn", "지속 시간: 1년 2개월 3일 4시간 5분");
+              expect("Broken   Attack: +2   Damage: 3d4", "파손   공격: +2   피해: 3d4");
+              expect("Value: 100", "가치: 100");
+              expect("5 September 2026", "2026년 9월 5일");
+              expect("2:30 PM", "오후 2:30");
+              expect("Talk 100 Gold", "대화 100골드");
+              expect("Join guild for 500 gold", "길드 가입: 500골드");
+              expect("Might", "힘");
+              expect("Endurance", "체력");
+              expect("Staff", "스태프");
+              expect("Leather", "가죽 갑옷");
+              expect("Fire Magic", "화염 마법");
+              expect("Disarm Traps", "함정 해제");
+              expect("Body Building", "체력 단련");
+              expect("Lizardman Guard", "리자드맨 경비병");
+              expect("Robin gains +2 Might!", "Robin의 힘이(가) 2 증가했습니다!");
+              expect("Robin becomes diseased, but gains an item!",
+                  "Robin은(는) 질병에 걸렸지만 아이템을 얻었습니다!");
+              expect("Spirit Resistance +3 (Permanent)", "영혼 저항 +3 (영구)");
+              std::cout << "runtime override QA passed\n";
+          }
+          CPP
+          g++ -std=c++20 -Wall -Wextra -Werror -I. /tmp/runtime_override_test.cpp -o /tmp/runtime_override_test
+          /tmp/runtime_override_test
+          git diff --check

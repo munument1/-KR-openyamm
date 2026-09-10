@@ -1,0 +1,1094 @@
+{
+  "format": 2,
+  "runtime_ogv": [
+    {
+      "world": "mm6",
+      "stem": "6intro",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/6intro.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 136.453021,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "135.853080"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "136.453021"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm6",
+      "stem": "6losegame",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/6losegame.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 14.3319,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "14.331900"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "14.331882"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm6",
+      "stem": "archie",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/archie.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 3.466434,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "3.466434"
+        }
+      ],
+      "has_audio": false,
+      "has_video": true
+    },
+    {
+      "world": "mm6",
+      "stem": "citytrtr",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/citytrtr.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 10.800045,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "10.800000"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "10.800045"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm6",
+      "stem": "credits",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/credits.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 124.9875,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "124.987500"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "124.986984"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm6",
+      "stem": "mm6end1",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/mm6end1.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 76.66659,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "76.666590"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "76.666583"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm6",
+      "stem": "mm6end2",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/mm6end2.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 34.333299,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "34.333299"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "34.333292"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm6",
+      "stem": "noarchie",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm6/videos/Cutscenes/noarchie.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 0.39996,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "0.399960"
+        }
+      ],
+      "has_audio": false,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "7intro",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/7intro.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 175.999955,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "175.066667"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "175.999955"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "7losegame",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/7losegame.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 14.5,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "14.500000"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "14.500000"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "arbiter evil",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/arbiter evil.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 49.066667,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "49.066667"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "49.066667"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "arbiter good",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/arbiter good.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 41.533333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "41.533333"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "41.533288"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "endgame 1 good",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/endgame 1 good.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 125.533333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "124.766667"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "125.533333"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "endgame 2 evil",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/endgame 2 evil.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 64.066621,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "64.000000"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "64.066621"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "family reunion",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/family reunion.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 61.2,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "61.200000"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "61.200000"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "intro post",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/intro post.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 90.733333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "90.533333"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "90.733333"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "mm3 people evil",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/mm3 people evil.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 67.2,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "66.533333"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "67.200000"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "mm3 people good",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/mm3 people good.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 89.8,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "89.800000"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "89.800000"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm7",
+      "stem": "pcout01",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm7/videos/Cutscenes/pcout01.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 44.166667,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "44.000000"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "44.166667"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "confluxkey",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/confluxkey.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 39.066667,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "38.266667"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "39.066667"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "DragonHunters",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/DragonHunters.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 28.4,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "27.466667"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "28.400000"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "dragonsrevenge",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/dragonsrevenge.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 24.666667,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "23.733333"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "24.666667"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "intro",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/intro.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 68.066667,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "67.133333"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "68.066667"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "JVC",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/JVC.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 6.0,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "6.000000"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "6.000000"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "LoseGame",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/LoseGame.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 24.6,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "24.600000"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "24.600000"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "nightshade",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/nightshade.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 37.0,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "36.933333"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "37.000000"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "NWC",
+      "referenced": false,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/NWC.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 13.0,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "13.000000"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "13.000000"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "overrept",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/overrept.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 66.133333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "65.333333"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "66.133333"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "SaveMino",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/SaveMino.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 16.133333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "15.866667"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "16.133333"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "skeltrans",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/skeltrans.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 19.533333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "19.133333"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "19.533333"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "Subcut",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/Subcut.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 17.133333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "17.133333"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "17.133333"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "world": "mm8",
+      "stem": "wingame",
+      "referenced": true,
+      "path": "assets_dev/worlds/mm8/videos/Cutscenes/wingame.ogv",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 85.4,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "theora",
+          "codec_type": "video",
+          "duration": "84.733333"
+        },
+        {
+          "index": 1,
+          "codec_name": "vorbis",
+          "codec_type": "audio",
+          "duration": "85.400000"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    }
+  ],
+  "legacy_bik": [
+    {
+      "stem": "confluxkey",
+      "source_path": "data/Anims/Magicdod.vid/confluxkey.bik",
+      "path": "data/Anims/Magicdod.vid/confluxkey.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 39.066667,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "39.066667"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "DragonHunters",
+      "source_path": "data/Anims/Magicdod.vid/DragonHunters.bik",
+      "path": "data/Anims/Magicdod.vid/DragonHunters.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 28.4,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "28.400000"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "dragonsrevenge",
+      "source_path": "data/Anims/Magicdod.vid/dragonsrevenge.bik",
+      "path": "data/Anims/Magicdod.vid/dragonsrevenge.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 24.666667,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "24.666667"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "intro",
+      "source_path": "data/Anims/Magicdod.vid/intro.bik",
+      "path": "data/Anims/Magicdod.vid/intro.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 68.066667,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "68.066667"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "JVC",
+      "source_path": "data/Anims/Magicdod.vid/JVC.bik",
+      "path": "data/Anims/Magicdod.vid/JVC.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 6.0,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "6.000000"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "LoseGame",
+      "source_path": "data/Anims/Magicdod.vid/LoseGame.bik",
+      "path": "data/Anims/Magicdod.vid/LoseGame.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 24.6,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "24.600000"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "New World Logo",
+      "source_path": "data/Anims/Magicdod.vid/New World Logo.bik",
+      "path": "data/Anims/Magicdod.vid/New World Logo.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 13.0,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "13.000000"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "nightshade",
+      "source_path": "data/Anims/Magicdod.vid/nightshade.bik",
+      "path": "data/Anims/Magicdod.vid/nightshade.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 37.0,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "37.000000"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "overrept",
+      "source_path": "data/Anims/Magicdod.vid/overrept.bik",
+      "path": "data/Anims/Magicdod.vid/overrept.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 66.133333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "66.133333"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "SaveMino",
+      "source_path": "data/Anims/Magicdod.vid/SaveMino.bik",
+      "path": "data/Anims/Magicdod.vid/SaveMino.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 16.133333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "16.133333"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "skeltrans",
+      "source_path": "data/Anims/Magicdod.vid/skeltrans.bik",
+      "path": "data/Anims/Magicdod.vid/skeltrans.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 19.533333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "19.533333"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "Subcut",
+      "source_path": "data/Anims/Magicdod.vid/Subcut.bik",
+      "path": "data/Anims/Magicdod.vid/Subcut.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 17.133333,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "17.133333"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    },
+    {
+      "stem": "wingame",
+      "source_path": "data/Anims/Magicdod.vid/wingame.bik",
+      "path": "data/Anims/Magicdod.vid/wingame.bik",
+      "returncode": 0,
+      "stderr": "",
+      "duration_seconds": 85.4,
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "binkvideo",
+          "codec_type": "video",
+          "duration": "85.400000"
+        },
+        {
+          "index": 1,
+          "codec_name": "binkaudio_rdft",
+          "codec_type": "audio"
+        }
+      ],
+      "has_audio": true,
+      "has_video": true
+    }
+  ]
+}
