@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - korean-localization
+      - korean-localization-0.12
     paths:
       - "korean/**"
       - "game/ui/screens/**"
