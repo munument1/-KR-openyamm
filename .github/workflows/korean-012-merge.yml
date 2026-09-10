@@ -11,12 +11,11 @@ permissions:
   contents: write
 
 jobs:
-  merge:
-    if: github.event.head_commit.message == 'chore: run OpenYAMM 0.12 Korean merge'
-    runs-on: ubuntu-24.04
+  merge-korean:
+    runs-on: ubuntu-latest
     steps:
       - name: Check out 0.12 staging branch
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           ref: korean-localization-0.12
           fetch-depth: 0
