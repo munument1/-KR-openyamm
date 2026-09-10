@@ -1,0 +1,146 @@
+name: Korean 0.12 migration validation
+
+on:
+  push:
+    branches:
+      - korean-localization-0.12
+    paths:
+      - .github/workflows/korean-012-validation.yml
+      - game/**
+      - engine/**
+      - cmake/**
+      - korean/**
+      - CMakeLists.txt
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-localization:
+    name: Korean runtime localization QA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out migration branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /game/
+            /korean/tools/
+            /tests/KoreanSkillDataTests.cpp
+            /tests/KoreanSpellTableTests.cpp
+            /tests/KoreanTextLayoutTests.cpp
+            /tests/KoreanCalendarTextTests.cpp
+            /tests/KoreanServiceTextTests.cpp
+            /tests/Utf8LabelLayoutTests.cpp
+            /tests/UnitTestMain.cpp
+            /third_party/doctest/
+
+      - name: Verify runtime localization routes
+        run: python3 korean/tools/check_runtime_localization_routes.py
+
+      - name: Test runtime display audit
+        run: python3 -m unittest korean/tools/test_runtime_display_audit.py
+
+      - name: Scan runtime display literals
+        run: python3 korean/tools/audit_runtime_display_text.py
+
+      - name: Test Korean text layout, skills, spells and calendar
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -Wall -Wextra -Werror -I. -Ithird_party/doctest \
+            tests/UnitTestMain.cpp tests/KoreanTextLayoutTests.cpp tests/KoreanServiceTextTests.cpp \
+            tests/Utf8LabelLayoutTests.cpp tests/KoreanCalendarTextTests.cpp \
+            tests/KoreanSkillDataTests.cpp tests/KoreanSpellTableTests.cpp \
+            game/party/SkillData.cpp game/tables/SpellTable.cpp \
+            -o /tmp/korean_layout_test
+          /tmp/korean_layout_test
+
+      - name: Test importer helpers
+        run: python3 -m unittest discover -s korean/tools -p 'test_*.py'
+
+  windows-x64:
+    name: Windows x64 compile on 0.12
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /CMakeLists.txt
+            /cmake/
+            /engine/
+            /game/
+            /packaging/windows/
+            /tools/openyamm_shaderc_stubs.cpp
+
+      - name: Install MSYS2 UCRT64 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            make
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build-korean-windows -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DOPENYAMM_BUILD_DESKTOP_EXECUTABLE=ON
+          -DOPENYAMM_BUILD_TESTS=OFF
+          -DOPENYAMM_BUILD_EDITOR=OFF
+          -DOPENYAMM_BUILD_TOOLS=OFF
+
+      - name: Compile OpenYAMM
+        run: cmake --build build-korean-windows --target openyamm --parallel 4
+
+  overlay-package:
+    name: Korean overlay smoke package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out Korean patch sources
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /korean/
+
+      - name: Stage Korean fallback font
+        run: python3 korean/tools/stage_korean_font.py --output build-korean-overlay/fonts
+
+      - name: Build smoke engine overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build-korean-overlay/data_tables/english
+          cp korean/smoke/engine/data_tables/english/pc_names.txt build-korean-overlay/data_tables/english/pc_names.txt
+          mkdir -p dist/korean-smoke
+          (cd build-korean-overlay && zip -9 -r ../dist/korean-smoke/engine.zip .)
+          unzip -Z1 dist/korean-smoke/engine.zip > dist/korean-smoke/contents.txt
+          grep -Fxq 'fonts/KoreanFallback.ttf' dist/korean-smoke/contents.txt
+          grep -Fxq 'fonts/Galmuri-OFL.txt' dist/korean-smoke/contents.txt
+          grep -Fxq 'data_tables/english/pc_names.txt' dist/korean-smoke/contents.txt
