@@ -1056,3 +1056,34 @@ TEST_CASE("AssetFileSystem resolves engine tables through data_tables")
 
     std::filesystem::remove_all(temporaryRoot);
 }
+
+
+TEST_CASE("AssetFileSystem Korean engine overlay wins for engine-qualified development table paths")
+{
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets_dev";
+    const std::filesystem::path koreanOverlayRoot =
+        temporaryRoot / "korean" / "overlay" / "engine";
+
+    writeTextFile(
+        assetRoot / "engine" / "data_tables" / "npc_topic_text.txt",
+        "english npc topic text");
+    writeTextFile(
+        koreanOverlayRoot / "data_tables" / "npc_topic_text.txt",
+        "korean npc topic text");
+
+    {
+        OpenYAMM::Engine::AssetFileSystem assetFileSystem;
+        REQUIRE(assetFileSystem.initialize(
+            temporaryRoot,
+            assetRoot,
+            OpenYAMM::Engine::AssetScaleTier::X1));
+
+        const std::optional<std::string> topicText =
+            assetFileSystem.readTextFile("engine/data_tables/npc_topic_text.txt");
+        REQUIRE(topicText.has_value());
+        CHECK_EQ(*topicText, "korean npc topic text");
+    }
+
+    std::filesystem::remove_all(temporaryRoot);
+}

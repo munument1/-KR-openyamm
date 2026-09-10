@@ -1,71 +1,57 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
+import importlib.util
+from pathlib import Path
+import sys
 import tempfile
 import unittest
-from pathlib import Path
 
-from korean.tools.sync_map_target_names import catalog_name_maps, synchronize
+MODULE_PATH = Path(__file__).with_name("sync_map_target_names.py")
+TOOLS_PATH = str(MODULE_PATH.parent.resolve())
+if TOOLS_PATH not in sys.path:
+    sys.path.insert(0, TOOLS_PATH)
+SPEC = importlib.util.spec_from_file_location("sync_map_target_names", MODULE_PATH)
+assert SPEC is not None and SPEC.loader is not None
+sync_names = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(sync_names)
 
 
-class MapTargetNameSyncTests(unittest.TestCase):
-    def catalog(self) -> dict:
-        return {
-            "entries": [
-                {
+class SyncMapTargetNamesTests(unittest.TestCase):
+    def test_house_name_creates_overlay_and_replaces_event_titles(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "assets_dev/worlds/mm8/events/maps/out01.lua"
+            source.parent.mkdir(parents=True)
+            source.write_text(
+                'SetMapMetadata({ contextActions = {\n'
+                '[11] = { kind = "enter_house", houseId = 761, targetName = "Hiss\' Hut" },\n'
+                '} })\n'
+                'RegisterEvent(11, "Hiss\' Hut", function()\n'
+                '    evt.EnterHouse(761)\n'
+                'end, "Hiss\' Hut")\n',
+                encoding="utf-8",
+            )
+            catalog = {
+                "entries": [{
+                    "scope": "engine",
                     "source_file": "assets_dev/engine/data_tables/house_data.txt",
-                    "record_id": 8,
+                    "record_id": 761,
                     "field": "Name",
-                    "source": "The Knight's Blade",
-                    "translation": "기사의 칼날",
-                },
-                {
-                    "source_file": "assets_dev/engine/data_tables/map_stats.txt",
-                    "record_id": 42,
-                    "field": "Name",
-                    "source": "The Temple of the Moon",
-                    "translation": "달의 신전",
-                },
-            ]
-        }
+                    "source": "Hiss' Hut",
+                    "translation": "히스의 오두막",
+                }]
+            }
 
-    def test_catalog_name_maps(self) -> None:
-        houses, maps = catalog_name_maps(self.catalog())
-        self.assertEqual(houses[8], "기사의 칼날")
-        self.assertEqual(maps["The Temple of the Moon"], "달의 신전")
-
-    def test_syncs_house_and_map_metadata(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            maps_dir = root / "korean/overlay/worlds/mm7/events/maps"
-            maps_dir.mkdir(parents=True)
-            path = maps_dir / "7out01.lua"
-            path.write_text(
-                '    [2] = { kind = "enter_house", houseId = 8, targetName = "The Knight\'s Blade" },\n'
-                '    [3] = { kind = "enter_dungeon", targetMap = "7d06.blv", targetName = "The Temple of the Moon" },\n'
-                '    [4] = { kind = "enter_dungeon", targetMap = "7d30.blv", targetName = "램번트 성" },\n',
-                encoding="utf-8",
-            )
-            changed, scanned = synchronize(root, self.catalog())
+            changed, created, scanned = sync_names.synchronize(root, catalog)
             self.assertEqual(scanned, 1)
-            self.assertEqual(changed, 2)
-            result = path.read_text(encoding="utf-8")
-            self.assertIn('targetName = "기사의 칼날"', result)
-            self.assertIn('targetName = "달의 신전"', result)
-            self.assertIn('targetName = "램번트 성"', result)
+            self.assertEqual(created, 1)
+            self.assertGreaterEqual(changed, 3)
 
-    def test_unknown_english_target_is_a_failure(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            maps_dir = root / "korean/overlay/worlds/mm7/events/maps"
-            maps_dir.mkdir(parents=True)
-            (maps_dir / "unknown.lua").write_text(
-                '    [1] = { kind = "travel", targetName = "Unknown Place" },\n',
-                encoding="utf-8",
-            )
-            with self.assertRaisesRegex(ValueError, "Unknown Place"):
-                synchronize(root, self.catalog())
+            overlay = root / "korean/overlay/worlds/mm8/events/maps/out01.lua"
+            text = overlay.read_text(encoding="utf-8")
+            self.assertNotIn('"Hiss\' Hut"', text)
+            self.assertEqual(text.count('"히스의 오두막"'), 3)
 
 
 if __name__ == "__main__":

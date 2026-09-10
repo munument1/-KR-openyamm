@@ -1593,10 +1593,14 @@ std::vector<std::string> AssetFileSystem::resolveVirtualPathCandidates(const std
         appendCandidateWithAndroidApkPrefixes(baseTieredVirtualPath(candidate));
     };
 
-    const bool packageQualified = normalizedPath.starts_with("engine/")
-        || normalizedPath.starts_with("worlds/");
+    // World-qualified paths address an explicit package namespace and must
+    // remain exact-first. Engine-qualified paths are different: engine overlays
+    // are mounted at package root, so their alias (for example data_tables/...)
+    // must be tried before a broad development-root engine/... path can return
+    // the untranslated source asset.
+    const bool worldQualified = normalizedPath.starts_with("worlds/");
 
-    if (packageQualified)
+    if (worldQualified)
     {
         appendPathWithTierFallbacks(normalizedPath);
     }
@@ -1606,7 +1610,7 @@ std::vector<std::string> AssetFileSystem::resolveVirtualPathCandidates(const std
         appendPathWithTierFallbacks(candidate);
     }
 
-    if (!packageQualified)
+    if (!worldQualified)
     {
         appendPathWithTierFallbacks(normalizedPath);
     }

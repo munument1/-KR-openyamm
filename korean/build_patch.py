@@ -44,6 +44,38 @@ def write_overlay_zip(source_root: Path, output_path: Path) -> int:
     return len(files)
 
 
+
+def extend_map_runtime_catalog_if_available(repo_root: Path) -> None:
+    catalog_path = repo_root / "korean" / "translations" / "catalog.json"
+    po_path = repo_root / "korean" / "translations" / "ko.po"
+    tool = repo_root / "korean" / "tools" / "extend_map_runtime_catalog.py"
+    if not catalog_path.is_file() or not po_path.is_file() or not tool.is_file():
+        return
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(tool),
+            "--repo-root",
+            str(repo_root),
+            "--catalog",
+            str(catalog_path),
+            "--po",
+            str(po_path),
+        ],
+        check=True,
+    )
+
+
+def sync_map_target_names_if_available(repo_root: Path) -> None:
+    tool = repo_root / "korean" / "tools" / "sync_map_target_names.py"
+    if not tool.is_file():
+        return
+    subprocess.run(
+        [sys.executable, str(tool), "--repo-root", str(repo_root)],
+        check=True,
+    )
+
 def apply_reviewed_feedback_if_available(repo_root: Path) -> None:
     catalog_path = repo_root / "korean" / "translations" / "catalog.json"
     if not catalog_path.is_file():
@@ -54,7 +86,6 @@ def apply_reviewed_feedback_if_available(repo_root: Path) -> None:
         repo_root / "korean" / "tools" / "apply_deep_review_corrections.py",
         repo_root / "korean" / "tools" / "apply_source_semantic_corrections.py",
         repo_root / "korean" / "tools" / "apply_mmmerge_116a_feedback.py",
-        repo_root / "korean" / "tools" / "sync_map_target_names.py",
     )
     for correction_tool in correction_tools:
         if not correction_tool.is_file():
@@ -116,13 +147,78 @@ def verify_po_runtime_if_available(repo_root: Path) -> None:
     )
 
 
+
+def verify_packaged_runtime_regressions(repo_root: Path, package_root: Path) -> None:
+    catalog_path = repo_root / "korean" / "translations" / "catalog.json"
+    engine_zip = package_root / "engine.zip"
+    mm8_zip = package_root / "worlds" / "mm8.zip"
+    if not catalog_path.is_file() or not engine_zip.is_file() or not mm8_zip.is_file():
+        return
+
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    entries = {str(entry["key"]): entry for entry in catalog.get("entries", [])}
+
+    npc_key = "engine:npc_topic_text.txt:2:Text"
+    npc_entry = entries.get(npc_key)
+    if npc_entry is not None:
+        with zipfile.ZipFile(engine_zip) as archive:
+            member = "data_tables/npc_topic_text.txt"
+            if member not in archive.namelist():
+                raise ValueError(f"Final engine overlay is missing {member}")
+            payload = archive.read(member).decode("utf-8-sig")
+        expected = str(npc_entry.get("translation", ""))
+        source = str(npc_entry.get("source", ""))
+        if not expected or expected not in payload:
+            raise ValueError(f"Final engine overlay is missing Korean NPC text for {npc_key}")
+        if source and source != expected and source in payload:
+            raise ValueError(f"Final engine overlay still contains reported English NPC text for {npc_key}")
+
+    with zipfile.ZipFile(mm8_zip) as archive:
+        member = "events/maps/out01.lua"
+        if member not in archive.namelist():
+            raise ValueError(f"Final MM8 overlay is missing {member}")
+        out01 = archive.read(member).decode("utf-8-sig")
+
+    runtime_prefix = "world:mm8:out01.lua:runtime:"
+    runtime_entries = [
+        entry for key, entry in entries.items()
+        if key.startswith(runtime_prefix)
+    ]
+    if not runtime_entries:
+        raise ValueError("No direct MM8 out01 runtime PO entries were generated")
+    for entry in runtime_entries:
+        source = str(entry.get("source", ""))
+        translation = str(entry.get("translation", ""))
+        if not translation or f'"{translation}"' not in out01:
+            raise ValueError(f"Final MM8 overlay is missing runtime translation for {entry['key']}")
+        if source != translation and f'"{source}"' in out01:
+            raise ValueError(f"Final MM8 overlay still contains runtime English for {entry['key']}")
+
+    house_translation = next(
+        (
+            str(entry.get("translation", ""))
+            for entry in catalog.get("entries", [])
+            if Path(str(entry.get("source_file", ""))).name.casefold() == "house_data.txt"
+            and str(entry.get("field", "")).casefold() == "name"
+            and str(entry.get("record_id", "")) == "761"
+        ),
+        "",
+    )
+    if not house_translation or f'"{house_translation}"' not in out01:
+        raise ValueError("Final MM8 overlay is missing translated Hiss' Hut event title")
+    if "\"Hiss' Hut\"" in out01:
+        raise ValueError("Final MM8 overlay still contains quoted Hiss' Hut runtime title")
+
+
 def build(repo_root: Path, output_root: Path) -> dict:
     # Catalog/table importers intentionally remain faithful to their upstream
     # sources. Apply reviewed player-feedback corrections after all generated
     # engine/world overlays exist, then apply optional PO edits immediately
     # before packaging the native runtime files.
+    extend_map_runtime_catalog_if_available(repo_root)
     apply_reviewed_feedback_if_available(repo_root)
     apply_po_if_available(repo_root)
+    sync_map_target_names_if_available(repo_root)
     verify_po_runtime_if_available(repo_root)
 
     overlay_root = repo_root / "korean" / "overlay"
@@ -144,6 +240,8 @@ def build(repo_root: Path, output_root: Path) -> dict:
         file_count = write_overlay_zip(overlay_root / "worlds" / world_id, world_zip)
         if file_count:
             built.append((world_id, world_zip, file_count))
+
+    verify_packaged_runtime_regressions(repo_root, package_root)
 
     manifest = {
         "format": 1,

@@ -62980,7 +62980,7 @@ msgstr "다이어 울프 소굴"
 #. assets_dev/engine/data_tables/map_stats.txt record=1 field=Name status=translated
 msgctxt "engine:map_stats.txt:1:Name"
 msgid "Dagger Wound Island"
-msgstr "대거 운드 섬"
+msgstr "대거운드 섬"
 
 #. assets_dev/engine/data_tables/map_stats.txt record=200 field=Name status=translated
 msgctxt "engine:map_stats.txt:200:Name"
@@ -126581,3 +126581,43 @@ msgstr "문은 꼼짝도 하지 않습니다!"
 msgctxt "world:mmmerge:BrAlvar.str:4"
 msgid "Button won't budge."
 msgstr "버튼은 꼼짝도 하지 않습니다."
+
+#. assets_dev/worlds/mm8/events/maps/out01.lua direct runtime display text
+msgctxt "world:mm8:out01.lua:runtime:drink_from_well"
+msgid "Drink from the well"
+msgstr "우물물을 마십니다."
+
+#. assets_dev/worlds/mm8/events/maps/out01.lua direct runtime display text
+msgctxt "world:mm8:out01.lua:runtime:intellect_plus_15_temporary"
+msgid "Intellect +15 (Temporary)"
+msgstr "지능 +15 (일시적)"
+
+#. assets_dev/worlds/mm8/events/maps/out01.lua direct runtime display text
+msgctxt "world:mm8:out01.lua:runtime:refreshing"
+msgid "Refreshing"
+msgstr "상쾌합니다."
+
+#. assets_dev/worlds/mm8/events/maps/out01.lua direct runtime display text
+msgctxt "world:mm8:out01.lua:runtime:luck_plus_2_permanent"
+msgid "Luck +2 (Permanent)"
+msgstr "운 +2 (영구)"
+
+#. assets_dev/worlds/mm8/events/maps/out01.lua direct runtime display text
+msgctxt "world:mm8:out01.lua:runtime:drink_from_fountain"
+msgid "Drink from the fountain"
+msgstr "분수에서 물을 마십니다."
+
+#. assets_dev/worlds/mm8/events/maps/out01.lua direct runtime display text
+msgctxt "world:mm8:out01.lua:runtime:wounds_begin_to_heal"
+msgid "Your Wounds begin to Heal"
+msgstr "상처가 아물기 시작합니다."
+
+#. assets_dev/worlds/mm8/events/maps/out01.lua direct runtime display text
+msgctxt "world:mm8:out01.lua:runtime:chest"
+msgid "Chest"
+msgstr "상자"
+
+#. assets_dev/worlds/mm8/events/maps/out01.lua direct runtime display text
+msgctxt "world:mm8:out01.lua:runtime:open_crate"
+msgid "Open Crate"
+msgstr "상자 열기"
