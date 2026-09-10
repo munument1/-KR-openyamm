@@ -1,0 +1,164 @@
+name: Temporary Korean runtime localization idempotency validation
+
+on:
+  push:
+    branches:
+      - korean-localization
+    paths:
+      - .github/workflows/korean-runtime-field-fix-retry4-temp.yml
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: korean-localization
+          fetch-depth: 1
+          persist-credentials: true
+
+      - uses: actions/checkout@v7
+        with:
+          repository: munument1/-KR-MMMerge
+          ref: main
+          path: _mmmerge
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /Data/Text localization/**
+
+      - name: Apply localization patch and idempotency fix
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          import base64
+          import gzip
+          import re
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/korean-runtime-field-fix-temp.yml').read_text(encoding='utf-8')
+          match = re.search(r"^\s*payload = ('[^']+')\s*$", workflow, re.MULTILINE)
+          if match is None:
+              raise SystemExit('patch payload missing')
+          payload = ast.literal_eval(match.group(1))
+          Path('/tmp/apply_runtime_fix.py').write_bytes(gzip.decompress(base64.b64decode(payload)))
+          PY
+          python3 /tmp/apply_runtime_fix.py
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('korean/tools/sync_map_target_names.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              'Untranslated house targetName values remain',
+              'Untranslated generated targetName values remain',
+          )
+          stale_guard = '''        elif translated_literal not in text:\n            raise ValueError(\n                f"Target-name literal disappeared from generated overlay {overlay_path}: {source_name!r}"\n            )\n'''
+          if stale_guard not in text:
+              raise SystemExit('non-idempotent translated-literal guard not found')
+          text = text.replace(stale_guard, '')
+          path.write_text(text, encoding='utf-8', newline='\n')
+
+          test_path = Path('korean/tools/test_sync_map_target_names_idempotent.py')
+          test_path.write_text(r'''#!/usr/bin/env python3
+          from __future__ import annotations
+
+          import tempfile
+          import unittest
+          from pathlib import Path
+
+          from korean.tools.sync_map_target_names import synchronize_file
+
+
+          class MapTargetNameIdempotencyTests(unittest.TestCase):
+              def test_prelocalized_overlay_does_not_require_exact_catalog_spelling(self) -> None:
+                  with tempfile.TemporaryDirectory() as temporary:
+                      root = Path(temporary)
+                      source = root / "assets_dev/worlds/mm6/events/maps/oute3.lua"
+                      source.parent.mkdir(parents=True)
+                      source.write_text(
+                          '    [1] = { kind = "enter_house", houseId = 1, targetName = "New Sorpigal Temple" },\n'
+                          '    RegisterEvent(1, "enter_house", "New Sorpigal Temple", function() end)\n',
+                          encoding="utf-8",
+                      )
+                      overlay = root / "korean/overlay/worlds/mm6/events/maps/oute3.lua"
+                      overlay.parent.mkdir(parents=True)
+                      overlay.write_text(
+                          '    [1] = { kind = "enter_house", houseId = 1, targetName = "뉴 소피갈 신전" },\n'
+                          '    RegisterEvent(1, "enter_house", "뉴 소피갈 신전", function() end)\n',
+                          encoding="utf-8",
+                      )
+
+                      changed, created, unresolved = synchronize_file(
+                          root,
+                          "mm6",
+                          source,
+                          {1: "뉴 소피갈 사원"},
+                          {},
+                      )
+                      self.assertEqual(changed, 0)
+                      self.assertFalse(created)
+                      self.assertEqual(unresolved, [])
+                      self.assertNotIn("New Sorpigal Temple", overlay.read_text(encoding="utf-8"))
+
+
+          if __name__ == "__main__":
+              unittest.main()
+          '''.replace('          ', ''), encoding='utf-8', newline='\n')
+          PY
+          python3 -m py_compile korean/tools/extend_map_runtime_catalog.py korean/tools/sync_map_target_names.py korean/tools/test_map_runtime_po.py korean/tools/test_sync_map_target_names.py korean/tools/test_sync_map_target_names_idempotent.py korean/build_patch.py
+          git diff --check
+
+      - name: Test all Korean localization tools
+        run: python3 -m unittest discover -s korean/tools -p 'test_*.py'
+
+      - name: Build release overlay
+        run: bash korean/build_release_overlay.sh _mmmerge dist/runtime-localization-fix
+
+      - name: Verify reported runtime misses in final zips
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          root = Path('dist/runtime-localization-fix/korean')
+          with zipfile.ZipFile(root / 'engine.zip') as archive:
+              npc = archive.read('data_tables/npc_topic_text.txt').decode('utf-8-sig')
+              maps = archive.read('data_tables/map_stats.txt').decode('utf-8-sig')
+          assert '다데로스는 원팽 리자드맨 부족과 토버스크 열매를 거래하기 위해' in npc
+          assert 'Dadeross led us here to trade with the Lizardman Clan of Onefang' not in npc
+          assert '대거운드 섬' in maps
+          assert '대거 운드 섬' not in maps
+
+          with zipfile.ZipFile(root / 'worlds/mm8.zip') as archive:
+              out01 = archive.read('events/maps/out01.lua').decode('utf-8')
+          for expected in (
+              '"우물물을 마십니다."',
+              '"지능 +15 (일시적)"',
+              '"상쾌합니다."',
+              '"히스의 오두막"',
+          ):
+              assert expected in out01, expected
+          assert '"Drink from the well"' not in out01
+          assert '"Hiss\' Hut"' not in out01
+          print('Final ZIP runtime checks passed')
+          PY
+
+      - name: Commit validated fixes
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add engine/AssetFileSystem.cpp tests/AssetFileSystemTests.cpp korean/build_patch.py korean/tools/extend_map_runtime_catalog.py korean/tools/sync_map_target_names.py korean/tools/test_map_runtime_po.py korean/tools/test_sync_map_target_names.py korean/tools/test_sync_map_target_names_idempotent.py korean/translations/ko.po korean/.runtime-localization-validation-trigger
+          git diff --cached --check
+          git commit -m 'Route field runtime text through Korean PO'
+          git push origin HEAD:korean-localization
