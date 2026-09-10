@@ -1,0 +1,6 @@
+file: openyamm_endgame_faithful.ttf
+logical_height: 20
+baseline: 16
+encoding: windows-1252
+# The native certificate font has no shadow pixels.
+presentation: tintable

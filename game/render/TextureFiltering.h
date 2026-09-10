@@ -16,6 +16,7 @@ enum class TextureFilterProfile
     Billboard,
     Ui,
     Text,
+    SmoothText,
 };
 
 enum class TextureFilterMode
@@ -78,4 +79,18 @@ bgfx::TextureHandle createEmptyBgraTexture2D(
     uint16_t height,
     TextureFilterProfile profile,
     uint64_t extraFlags = BGFX_TEXTURE_NONE);
+
+// Adjust only alpha so a reduced cutout retains the closest representable reference coverage.
+void preserveBgraCutoutCoverage(
+    std::vector<uint8_t> &pixels, const std::vector<uint8_t> &referencePixels, uint8_t alphaCutoff);
+
+// Upload an independent mip chain into one array layer. Neighbouring terrain
+// tiles must never contribute to this layer's lower-resolution images.
+void updateBgraTextureArrayLayer(
+    bgfx::TextureHandle texture,
+    uint16_t layer,
+    uint16_t width,
+    uint16_t height,
+    const std::vector<uint8_t> &pixels,
+    uint8_t alphaCutoff = 0);
 }

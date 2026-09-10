@@ -811,6 +811,11 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "video", "terrain_decorations"))
+    {
+        parseBoolValue(*value, settings.terrainDecorations);
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "video", "terrain_filtering"))
     {
         settings.terrainFiltering = trimCopy(*value);
@@ -881,6 +886,27 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         }
     }
 
+    if (const std::optional<std::string> value = getIniValue(document, "fonts", "prefer_ttf"))
+    {
+        parseBoolValue(*value, settings.fonts.preferTtf);
+    }
+    if (const std::optional<std::string> value = getIniValue(document, "fonts", "ttf_fonts"))
+    {
+        settings.fonts.ttfFonts.clear();
+        std::istringstream names(*value);
+        std::string name;
+        while (std::getline(names, name, ','))
+        {
+            name = toLowerCopy(trimCopy(name));
+            if (!name.empty()
+                && std::find(settings.fonts.ttfFonts.begin(), settings.fonts.ttfFonts.end(), name)
+                    == settings.fonts.ttfFonts.end())
+            {
+                settings.fonts.ttfFonts.push_back(name);
+            }
+        }
+    }
+
     if (const std::optional<std::string> value = getIniValue(document, "video", "gameplay_ui_layout"))
     {
         settings.gameplayUiLayout = parseGameplayUiLayout(*value);
@@ -911,6 +937,11 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         {
             settings.verticalSync = parsed;
         }
+    }
+
+    if (const std::optional<std::string> value = getIniValue(document, "video_quality", "prefer_restored_icons"))
+    {
+        parseBoolValue(*value, settings.assetScaleProfile.preferRestoredIcons);
     }
 
     parseAssetScaleProfileValue(
@@ -963,6 +994,11 @@ std::optional<GameSettings> loadGameSettings(const std::filesystem::path &path, 
         "fonts",
         settings.assetScaleProfile,
         Engine::AssetScaleCategory::Fonts);
+
+    if (const std::optional<std::string> value = getIniValue(document, "startup", "save_file"))
+    {
+        settings.startupSaveFile = trimCopy(*value);
+    }
 
     if (const std::optional<std::string> value = getIniValue(document, "startup", "start_in_main_menu"))
     {
@@ -1358,6 +1394,16 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
             << "version=" << settings.settingsProfileVersion << "\n\n";
     }
 
+    std::string ttfFontNames;
+    for (const std::string &name : settings.fonts.ttfFonts)
+    {
+        if (!ttfFontNames.empty())
+        {
+            ttfFontNames += ',';
+        }
+        ttfFontNames += name;
+    }
+
     output
         << "[assets]\n"
         << "root=" << settings.assetRoot << "\n\n"
@@ -1382,7 +1428,8 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "combat_target_panel=" << (settings.combatTargetPanel ? "true" : "false") << '\n'
         << "context_action_popup=" << (settings.contextActionPopup ? "true" : "false") << "\n\n"
         << "[startup]\n"
-        << "start_in_main_menu=" << (settings.startInMainMenu ? "true" : "false") << "\n\n"
+        << "start_in_main_menu=" << (settings.startInMainMenu ? "true" : "false") << '\n'
+        << "save_file=" << settings.startupSaveFile << "\n\n"
         << "[features]\n"
         << "bolster_monsters=" << (settings.bolsterMonsters ? "true" : "false") << '\n'
         << "indoor_pathfinding=" << (settings.indoorPathfinding ? "true" : "false") << '\n'
@@ -1421,6 +1468,7 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "shadows=" << (settings.shadows ? "true" : "false") << '\n'
         << "sprite_outline=" << (settings.spriteOutline ? "true" : "false") << '\n'
         << "texture_filtering=" << (settings.textureFiltering ? "true" : "false") << '\n'
+        << "terrain_decorations=" << (settings.terrainDecorations ? "true" : "false") << '\n'
         << "terrain_filtering=" << settings.terrainFiltering << '\n'
         << "terrain_anisotropy=" << settings.terrainAnisotropy << '\n'
         << "bmodel_filtering=" << settings.bmodelFiltering << '\n'
@@ -1444,10 +1492,14 @@ bool saveGameSettings(const std::filesystem::path &path, const GameSettings &set
         << "sky=" << Engine::assetScaleTierToString(settings.assetScaleProfile.sky) << '\n'
         << "sprites=" << Engine::assetScaleTierToString(settings.assetScaleProfile.sprites) << '\n'
         << "decorations=" << Engine::assetScaleTierToString(settings.assetScaleProfile.decorations) << '\n'
+        << "prefer_restored_icons=" << (settings.assetScaleProfile.preferRestoredIcons ? "true" : "false") << '\n'
         << "icons=" << Engine::assetScaleTierToString(settings.assetScaleProfile.icons) << '\n'
         << "ui=" << Engine::assetScaleTierToString(settings.assetScaleProfile.ui) << '\n'
         << "effects=" << Engine::assetScaleTierToString(settings.assetScaleProfile.effects) << '\n'
         << "fonts=" << Engine::assetScaleTierToString(settings.assetScaleProfile.fonts) << "\n\n"
+        << "[fonts]\n"
+        << "prefer_ttf=" << (settings.fonts.preferTtf ? "true" : "false") << '\n'
+        << "ttf_fonts=" << ttfFontNames << "\n\n"
         << "[debug]\n"
         << "preseed_party=" << (settings.preseedParty ? "true" : "false") << '\n'
         << "party_seed_roster_id=" << settings.partySeedRosterId << '\n'

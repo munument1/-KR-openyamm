@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/AssetScaleTier.h"
+#include "engine/FontAsset.h"
 #include "game/app/KeyboardBindings.h"
 #include "game/gameplay/CharacterAttackTuning.h"
 
@@ -123,6 +124,7 @@ struct GameSettings
     bool shadows = false;
     bool spriteOutline = false;
     bool textureFiltering = true;
+    bool terrainDecorations = false;
     std::string terrainFiltering = "anisotropic";
     std::string terrainAnisotropy = "8x";
     std::string bmodelFiltering = "anisotropic";
@@ -134,6 +136,7 @@ struct GameSettings
     float outdoorBillboardDepthSlice = 256.0f;
     bool skipEventCutscenes = false;
     bool waitForLevelSprites = true;
+    Engine::FontSettings fonts;
     Engine::AssetScaleProfile assetScaleProfile = Engine::createUniformAssetScaleProfile(Engine::AssetScaleTier::X1);
     GameplayUiLayout gameplayUiLayout = GameplayUiLayout::Widescreen;
     WindowMode windowMode = WindowMode::Windowed;
@@ -142,6 +145,7 @@ struct GameSettings
     bool verticalSync = false;
 
     bool startInMainMenu = false;
+    std::string startupSaveFile;
     bool bolsterMonsters = false;
     bool indoorPathfinding = true;
     bool outdoorPathfinding = false;

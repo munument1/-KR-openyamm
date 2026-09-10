@@ -331,9 +331,25 @@ std::optional<bx::Vec3> GameplaySpellService::resolveCursorTargetPoint(
 
 GameplaySpellService::SpellRequestResolution GameplaySpellService::resolveSpellRequest(
     GameplayScreenRuntime &runtime,
-    const PartySpellCastRequest &request,
+    const PartySpellCastRequest &initialRequest,
     const std::string &spellName)
 {
+    PartySpellCastRequest request = initialRequest;
+    const GameplayUiController::UtilitySpellOverlayState &selection = runtime.utilitySpellOverlayReadOnly();
+
+    if (isUtilitySelectionRequest(request) && selection.active
+        && selection.mode != GameplayUiController::UtilitySpellOverlayMode::DimensionDoor
+        && selection.spellId == request.spellId && selection.casterMemberIndex == request.casterMemberIndex)
+    {
+        request.skillLevelOverride = selection.skillLevelOverride;
+        request.skillMasteryOverride = selection.skillMasteryOverride;
+        request.bypassRequiredMastery = selection.bypassRequiredMastery;
+        request.bypassGameplayCasterValidation = selection.bypassGameplayCasterValidation;
+        request.bypassTownPortalFailureChecks = selection.bypassTownPortalFailureChecks;
+        request.spendMana = selection.spendMana;
+        request.applyRecovery = selection.applyRecovery;
+    }
+
     SpellRequestResolution resolution = {};
 
     if (!request.bypassGameplayCasterValidation
@@ -353,6 +369,20 @@ GameplaySpellService::SpellRequestResolution GameplaySpellService::resolveSpellR
 
     if (tryOpenSelectionUi(runtime, request, spellName, resolution.castResult))
     {
+        GameplayUiController::UtilitySpellOverlayState &overlay = runtime.utilitySpellOverlay();
+
+        if (overlay.active && overlay.spellId == request.spellId
+            && overlay.casterMemberIndex == request.casterMemberIndex)
+        {
+            overlay.skillLevelOverride = request.skillLevelOverride;
+            overlay.skillMasteryOverride = request.skillMasteryOverride;
+            overlay.bypassRequiredMastery = request.bypassRequiredMastery;
+            overlay.bypassGameplayCasterValidation = request.bypassGameplayCasterValidation;
+            overlay.bypassTownPortalFailureChecks = request.bypassTownPortalFailureChecks;
+            overlay.spendMana = request.spendMana;
+            overlay.applyRecovery = request.applyRecovery;
+        }
+
         Party *pParty = runtime.party();
 
         if (pParty != nullptr)
@@ -395,6 +425,7 @@ void GameplaySpellService::armPendingTargetSelection(
     pendingTargetState.spellId = request.spellId;
     pendingTargetState.skillLevelOverride = request.skillLevelOverride;
     pendingTargetState.skillMasteryOverride = request.skillMasteryOverride;
+    pendingTargetState.bypassRequiredMastery = request.bypassRequiredMastery;
     pendingTargetState.spendMana = request.spendMana;
     pendingTargetState.applyRecovery = request.applyRecovery;
     pendingTargetState.targetKind = targetKind;
@@ -424,6 +455,7 @@ PartySpellCastRequest GameplaySpellService::makePendingTargetSelectionRequest() 
     request.spellId = pendingTargetState.spellId;
     request.skillLevelOverride = pendingTargetState.skillLevelOverride;
     request.skillMasteryOverride = pendingTargetState.skillMasteryOverride;
+    request.bypassRequiredMastery = pendingTargetState.bypassRequiredMastery;
     request.spendMana = pendingTargetState.spendMana;
     request.applyRecovery = pendingTargetState.applyRecovery;
     return request;

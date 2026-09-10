@@ -1,11 +1,14 @@
 #pragma once
 
+#include "game/render/SpriteAtlasCache.h"
+
 #include "game/app/GameSettings.h"
 #include "game/fx/WorldFxRenderResources.h"
 #include "game/fx/WorldFxSystem.h"
 #include "game/outdoor/OutdoorCollisionData.h"
 #include "game/outdoor/OutdoorLightingRuntime.h"
 #include "game/outdoor/OutdoorSpatialFxRuntime.h"
+#include "game/outdoor/TerrainDecorationRenderer.h"
 #include "game/maps/MapAssetLoader.h"
 #include "game/tables/MapStats.h"
 #include "game/tables/MonsterTable.h"
@@ -313,17 +316,8 @@ private:
 
     static constexpr size_t OutdoorFxUniformLightCount = 8;
 
-    struct BillboardTextureHandle
-    {
-        std::string textureName;
-        int16_t paletteId = 0;
-        int width = 0;
-        int height = 0;
-        int physicalWidth = 0;
-        int physicalHeight = 0;
-        BillboardOpacityMask opacityMask;
-        bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
-    };
+    using BillboardTextureHandle = SpriteBillboardTexture;
+
 
     using HudTextureHandle = GameplayHudTextureData;
 
@@ -341,8 +335,7 @@ private:
 
     struct AnimatedWaterTerrainTileState
     {
-        OutdoorTerrainAtlasRegion region;
-        int tilePadding = 0;
+        uint16_t layer = 0;
         std::vector<std::vector<uint8_t>> framePixels;
         std::vector<uint32_t> frameLengthTicks;
         uint32_t animationLengthTicks = 0;
@@ -685,16 +678,27 @@ private:
     bgfx::ProgramHandle m_spellAreaPreviewProgramHandle;
     bgfx::ProgramHandle m_outdoorLitBillboardProgramHandle;
     bgfx::ProgramHandle m_outdoorTexturedFogProgramHandle;
+    bgfx::ProgramHandle m_outdoorTerrainFogProgramHandle;
+    TerrainDecorationRenderer m_terrainDecorations;
+    struct TerrainDecorationBatch
+    {
+        TerrainDecorationPatch range;
+        OutdoorSelectedFxLights lights;
+    };
+    std::vector<TerrainDecorationBatch> m_terrainDecorationBatches;
+    uint64_t m_terrainDecorationRefreshTick = 0;
+    uint32_t m_terrainDecorationLightCount = 0;
+    std::optional<std::array<std::string, 256>> m_terrainDecorationTileNames;
+    bool m_terrainDecorationsInitializationAttempted = false;
     bgfx::ProgramHandle m_outdoorBModelLightmapProgramHandle;
     bgfx::ProgramHandle m_outdoorForcePerspectiveProgramHandle;
-    bgfx::TextureHandle m_terrainTextureAtlasHandle;
-    int m_terrainTextureAtlasWidth = 0;
-    int m_terrainTextureAtlasHeight = 0;
+    bgfx::TextureHandle m_terrainTextureArrayHandle;
     bgfx::TextureHandle m_bloodSplatTextureHandle;
     bgfx::TextureHandle m_forcePerspectiveSolidTextureHandle;
     std::vector<bgfx::TextureHandle> m_bmodelLightmapTextureHandles;
     bgfx::TextureHandle m_bmodelWhiteLightmapTextureHandle;
     bgfx::UniformHandle m_terrainTextureSamplerHandle;
+    bgfx::UniformHandle m_terrainWaterSamplerHandle;
     bgfx::UniformHandle m_bmodelLightmapSamplerHandle;
     bgfx::UniformHandle m_outdoorBillboardAmbientUniformHandle;
     bgfx::UniformHandle m_outdoorBillboardOverrideColorUniformHandle;
@@ -728,6 +732,7 @@ private:
     std::vector<BModelWorldRenderChunk> m_bmodelWorldRenderChunks;
     uint64_t m_bmodelWorldRenderRevision = std::numeric_limits<uint64_t>::max();
     uint64_t m_bloodSplatVertexBufferRevision = std::numeric_limits<uint64_t>::max();
+    SpriteAtlasCache m_spriteAtlasCache;
     std::deque<BillboardTextureHandle> m_billboardTextureHandles;
     WorldFxRenderResources m_worldFxRenderResources;
     std::array<float, OutdoorFxUniformLightCount * 4> m_cachedOutdoorFxLightPositions = {};
@@ -786,8 +791,6 @@ private:
     std::string m_cachedSkyTextureName;
     float m_lastSkyUpdateElapsedTime = -1.0f;
     std::vector<AnimatedWaterTerrainTileState> m_animatedWaterTerrainTiles;
-    std::vector<uint8_t> m_animatedWaterUploadScratchPixels;
-    std::vector<uint8_t> m_animatedWaterNextMipScratchPixels;
     std::optional<uint32_t> m_lastAnimatedWaterAnimationTicks;
     SpriteLoadCache m_spriteLoadCache;
     std::unordered_set<std::string> m_runtimeBillboardLoadWarningKeys;

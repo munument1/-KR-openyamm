@@ -2939,7 +2939,7 @@ void GameApplication::registerDebugConsoleCommands()
                 << "player add <class-id|class-name> [name], hire <profession-id>, gold get|add|set <amount>, "
                 << "food get|add|set <amount>, hp full, item search <text>, item give <id|text> [qty], "
                 << "tp <x> <y> <z>, config get|set|toggle immortal|unlimited_mana|invisible, "
-                << "memory, reload map";
+                << "config get|set|toggle terrain_decorations, memory, reload map";
             return commandResult(true, out.str());
         }});
 
@@ -4583,7 +4583,8 @@ void GameApplication::registerDebugConsoleCommands()
             {
                 return commandResult(
                     false,
-                    "Usage: config get|set|toggle immortal|unlimited_mana|invisible|start_flying [value]");
+                    "Usage: config get|set|toggle "
+                    "immortal|unlimited_mana|invisible|start_flying|terrain_decorations [value]");
             }
 
             const std::string action = toLowerCopy(context.args[0]);
@@ -4591,6 +4592,11 @@ void GameApplication::registerDebugConsoleCommands()
 
             const auto getSetting = [this, activeParty, &name]() -> std::optional<bool>
             {
+                if (name == "terrain_decorations")
+                {
+                    return m_settings.terrainDecorations;
+                }
+
                 if (name == "immortal")
                 {
                     return m_settings.immortal;
@@ -4619,7 +4625,11 @@ void GameApplication::registerDebugConsoleCommands()
 
             const auto setSetting = [this, &name](bool value) -> bool
             {
-                if (name == "immortal")
+                if (name == "terrain_decorations")
+                {
+                    m_settings.terrainDecorations = value;
+                }
+                else if (name == "immortal")
                 {
                     m_settings.immortal = value;
                 }
@@ -5664,6 +5674,7 @@ void GameApplication::loadOrCreateSettings()
 
 void GameApplication::applyCurrentSettingsToActiveRuntime()
 {
+    m_gameSession.gameplayUiRuntime().setFontSettings(m_settings.fonts);
     configureGameplayDebugTrace(m_settings.gameplayTrace, m_settings.gameplayTraceFile, m_settings.gameplayTraceAppend);
     configureGameplayCombatTrace(m_settings.combatTrace, m_settings.combatTraceFile, m_settings.combatTraceAppend);
     setTextureFilteringConfig(textureFilteringConfigFromSettings(m_settings));
@@ -5891,6 +5902,7 @@ void GameApplication::updateDeferredMainMenuChildWarmup()
             []()
             {
             });
+        warmupScreen.setFontSettings(m_settings.fonts);
         warmupScreen.prepareForFirstFrame();
         m_deferredMainMenuChildWarmupStage = 2;
         return;
@@ -5908,6 +5920,7 @@ void GameApplication::updateDeferredMainMenuChildWarmup()
             []()
             {
             });
+        warmupScreen.setFontSettings(m_settings.fonts);
         warmupScreen.prepareForFirstFrame();
         m_mainMenuChildScreensPrepared = true;
         m_deferredMainMenuChildWarmupStage = 0;
@@ -6036,6 +6049,26 @@ bool GameApplication::initializeStartupSession(bool initializeView)
     {
         std::cerr << "GameApplication: initializeStartupSession failed to load common gameplay data\n";
         return false;
+    }
+
+    if (!m_settings.startupSaveFile.empty())
+    {
+        if (!quickLoadFromPath(m_settings.startupSaveFile, initializeView))
+        {
+            std::cerr << "GameApplication: startup save failed: " << m_settings.startupSaveFile << '\n';
+            return false;
+        }
+
+        // Flushed readiness marker for isolated desktop runs; do not include loading in their timed interval.
+        if (IGameplayWorldRuntime *pWorldRuntime = m_gameSession.activeWorldRuntime())
+        {
+            std::cout << "Startup camera: x=" << pWorldRuntime->partyX()
+                      << " y=" << pWorldRuntime->partyY() << " z=" << pWorldRuntime->partyFootZ()
+                      << " yaw_radians=" << pWorldRuntime->gameplayCameraYawRadians()
+                      << " pitch_radians=" << pWorldRuntime->gameplayCameraPitchRadians() << '\n';
+        }
+        std::cout << "Startup save ready: map=" << m_gameSession.currentMapFileName() << std::endl;
+        return true;
     }
 
     const bool initialized = startNewSession(std::nullopt, initializeView);
@@ -6826,6 +6859,7 @@ void GameApplication::beginLoadingOverlay(LoadingOverlayScreen::Presentation pre
         m_pLoadingOverlayScreen = std::make_unique<LoadingOverlayScreen>(*m_pAssetFileSystem);
     }
 
+    m_pLoadingOverlayScreen->setFontSettings(m_settings.fonts);
     m_pLoadingOverlayScreen->setPresentation(presentation);
     m_loadingOverlayPresentation = presentation;
     m_loadingOverlayCurrentProgressPercent = 0;
@@ -7989,6 +8023,7 @@ void GameApplication::openMainMenuScreen()
             requestApplicationQuit();
         });
 
+    pScreen->setFontSettings(m_settings.fonts);
     pScreen->prepareForFirstFrame();
 
     m_gameAudioSystem.setBackgroundMusicTrack(MainMenuMusicTrack);
@@ -8049,6 +8084,8 @@ void GameApplication::openLoadGameScreen(bool returnToGameplayMenu, const std::s
             }
         });
 
+    pScreen->setFontSettings(m_settings.fonts);
+
     if (!m_mainMenuChildScreensPrepared)
     {
         pScreen->prepareForFirstFrame();
@@ -8086,6 +8123,8 @@ void GameApplication::openNewGameScreen(const std::string &source)
         {
             openMainMenuScreen();
         });
+
+    pScreen->setFontSettings(m_settings.fonts);
 
     if (!m_mainMenuChildScreensPrepared)
     {
@@ -9246,7 +9285,7 @@ bool GameApplication::processPendingArcomageGame()
         winGoldReward = static_cast<int>(pHouseEntry->priceMultiplier * 100.0f);
     }
 
-    m_screenManager.setActiveScreen(std::make_unique<ArcomageScreen>(
+    std::unique_ptr<ArcomageScreen> pScreen = std::make_unique<ArcomageScreen>(
         *m_pAssetFileSystem,
         &m_gameAudioSystem,
         m_gameDataLoader.getArcomageLibrary(),
@@ -9255,7 +9294,9 @@ bool GameApplication::processPendingArcomageGame()
         opponentName,
         winGoldReward,
         SDL_GetTicks()
-    ));
+    );
+    pScreen->setFontSettings(m_settings.fonts);
+    m_screenManager.setActiveScreen(std::move(pScreen));
 
     return true;
 }
@@ -9274,12 +9315,14 @@ bool GameApplication::processPendingPartyDefeat()
     m_pendingPartyDefeatRespawnMapFileName = respawnDestination.mapFileName;
     m_pendingPartyDefeatRespawnStart = respawnDestination.start;
     const std::string cutsceneStem = resolvePartyDefeatCutsceneStem();
-    m_screenManager.setActiveScreen(std::make_unique<CutsceneVideoScreen>(
+    std::unique_ptr<CutsceneVideoScreen> pScreen = std::make_unique<CutsceneVideoScreen>(
         *m_pAssetFileSystem,
         &m_gameAudioSystem,
         PartyDefeatCutsceneDirectory,
         cutsceneStem,
-        m_screenManager.currentMode()));
+        m_screenManager.currentMode());
+    pScreen->setFontSettings(m_settings.fonts);
+    m_screenManager.setActiveScreen(std::move(pScreen));
     return true;
 }
 
@@ -9364,20 +9407,24 @@ bool GameApplication::processPendingWinGame()
 
     if (resolveEventMovieStem(*m_pAssetFileSystem, WinGameCutsceneStem).empty())
     {
-        m_screenManager.setActiveScreen(std::make_unique<WinGameScreen>(
+        std::unique_ptr<WinGameScreen> pScreen = std::make_unique<WinGameScreen>(
             *m_pAssetFileSystem,
             buildWinGameCertificate(),
-            m_screenManager.currentMode()));
+            m_screenManager.currentMode());
+        pScreen->setFontSettings(m_settings.fonts);
+        m_screenManager.setActiveScreen(std::move(pScreen));
         m_pendingWinGameCertificateAfterMovie = false;
         return true;
     }
 
-    m_screenManager.setActiveScreen(std::make_unique<CutsceneVideoScreen>(
+    std::unique_ptr<CutsceneVideoScreen> pScreen = std::make_unique<CutsceneVideoScreen>(
         *m_pAssetFileSystem,
         &m_gameAudioSystem,
         EventMovieCutsceneDirectory,
         WinGameCutsceneStem,
-        m_screenManager.currentMode()));
+        m_screenManager.currentMode());
+    pScreen->setFontSettings(m_settings.fonts);
+    m_screenManager.setActiveScreen(std::move(pScreen));
     return true;
 }
 
@@ -9410,12 +9457,14 @@ bool GameApplication::processPendingEventMovie()
         return false;
     }
 
-    m_screenManager.setActiveScreen(std::make_unique<CutsceneVideoScreen>(
+    std::unique_ptr<CutsceneVideoScreen> pScreen = std::make_unique<CutsceneVideoScreen>(
         *m_pAssetFileSystem,
         &m_gameAudioSystem,
         EventMovieCutsceneDirectory,
         movieStem,
-        m_screenManager.currentMode()));
+        m_screenManager.currentMode());
+    pScreen->setFontSettings(m_settings.fonts);
+    m_screenManager.setActiveScreen(std::move(pScreen));
     return true;
 }
 
@@ -9512,10 +9561,12 @@ void GameApplication::handleCompletedEventMovieScreen()
     if (m_pendingWinGameCertificateAfterMovie && m_pAssetFileSystem != nullptr)
     {
         m_gameInputSystem.suppressMouseButtonsUntilReleased();
-        m_screenManager.setActiveScreen(std::make_unique<WinGameScreen>(
+        std::unique_ptr<WinGameScreen> pScreen = std::make_unique<WinGameScreen>(
             *m_pAssetFileSystem,
             buildWinGameCertificate(),
-            pCutsceneScreen->mode()));
+            pCutsceneScreen->mode());
+        pScreen->setFontSettings(m_settings.fonts);
+        m_screenManager.setActiveScreen(std::move(pScreen));
         m_pendingWinGameCertificateAfterMovie = false;
         return;
     }

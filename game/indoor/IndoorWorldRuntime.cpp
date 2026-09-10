@@ -14829,7 +14829,8 @@ bool IndoorWorldRuntime::tryGetGameplayMinimapState(GameplayMinimapState &state)
         pWizardEyeBuff != nullptr ? pWizardEyeBuff->skillMastery : SkillMastery::None;
     const IndoorMoveState &moveState = m_pPartyRuntime->movementState();
 
-    if (toLowerCopy(m_map->worldId) == "mm9")
+    if ((m_pIndoorMapData != nullptr && m_pIndoorMapData->mapPresentation)
+        || toLowerCopy(m_map->worldId) == "mm9")
     {
         if (m_pIndoorMapData == nullptr || !m_pIndoorMapData->mapPresentation
             || !applyMapPresentationToMinimapState(

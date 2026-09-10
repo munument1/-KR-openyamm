@@ -299,19 +299,6 @@ void applyDimensionDoorCastOverrides(PartySpellCastRequest &request)
     request.utilityMapMoveUseFullscreenLoading = true;
 }
 
-void applyUtilitySpellOverlayCastOverrides(
-    PartySpellCastRequest &request,
-    const GameplayUiController::UtilitySpellOverlayState &overlay)
-{
-    request.skillLevelOverride = overlay.skillLevelOverride;
-    request.skillMasteryOverride = overlay.skillMasteryOverride;
-    request.spendMana = overlay.spendMana;
-    request.applyRecovery = overlay.applyRecovery;
-    request.bypassRequiredMastery = overlay.bypassRequiredMastery;
-    request.bypassGameplayCasterValidation = overlay.bypassGameplayCasterValidation;
-    request.bypassTownPortalFailureChecks = overlay.bypassTownPortalFailureChecks;
-}
-
 std::optional<DimensionDoorLanding> resolveDimensionDoorLanding(
     const Party *pParty,
     const GameplayTownPortalDestination &destination)
@@ -917,7 +904,6 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
                 PartySpellCastRequest request = {};
                 request.casterMemberIndex = context.utilitySpellOverlayReadOnly().casterMemberIndex;
                 request.spellId = context.utilitySpellOverlayReadOnly().spellId;
-                applyUtilitySpellOverlayCastOverrides(request, context.utilitySpellOverlayReadOnly());
                 request.utilityAction = PartySpellUtilityActionKind::TownPortalDestination;
                 request.hasUtilityMapMove = true;
                 request.utilityActionId = destination.id;
@@ -1215,7 +1201,6 @@ void GameplayPartyOverlayInputController::handleUtilitySpellOverlayInput(
             PartySpellCastRequest request = {};
             request.casterMemberIndex = context.utilitySpellOverlayReadOnly().casterMemberIndex;
             request.spellId = context.utilitySpellOverlayReadOnly().spellId;
-            applyUtilitySpellOverlayCastOverrides(request, context.utilitySpellOverlayReadOnly());
 
             if (target.type == GameplayUtilitySpellPointerTargetType::TownPortalDestination)
             {

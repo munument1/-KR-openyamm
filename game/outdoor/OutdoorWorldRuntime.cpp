@@ -5139,6 +5139,8 @@ void OutdoorWorldRuntime::initialize(
     m_timerDefinitionsInitialized = false;
     m_resetLegacyTimersOnInitialize = false;
     m_mapActors.clear();
+    m_monsterKilledHooksEnabled = false;
+    m_pendingMonsterKilledEvents.clear();
     m_mm9FoundPlayerActorIndices.clear();
     m_mm9FoundPlayerEventAttempted.clear();
     m_mm9CivilianActorIndices.clear();
@@ -7440,6 +7442,8 @@ OutdoorWorldRuntime::Snapshot OutdoorWorldRuntime::snapshot() const
 
 void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
 {
+    m_pendingMonsterKilledEvents.clear();
+
     std::unordered_map<uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition>
         mapDerivedOutdoorModelMechanisms;
 
@@ -8147,7 +8151,7 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         m_atmosphereState.rainIntensity = 0.0f;
     }
 
-    const float minutesOfDay = std::fmod(std::max(m_gameMinutes, 0.0f), 1440.0f);
+    const float minutesOfDay = std::fmod(std::max(m_gameMinutes, 0.0), 1440.0);
 
     if (minutesOfDay < 300.0f || minutesOfDay >= 1260.0f)
     {
@@ -14951,6 +14955,7 @@ bool OutdoorWorldRuntime::applyReflectedDamageToActor(
         if (actor.currentHp <= 0)
         {
             beginDyingState(actor, m_pActorSpriteFrameTable);
+            queueMonsterKilledEvent(actorIndex, actor.monsterId);
             activateOutdoorActorCorpsePhysics(actorIndex);
             spawnMonsterDeathDropsForActor(actorIndex, actor);
             const bx::Vec3 knockback = actorKnockbackVelocity(
@@ -15370,6 +15375,7 @@ bool OutdoorWorldRuntime::setMapActorDead(size_t actorIndex, bool isDead, bool e
 
     MapActorState &actor = m_mapActors[actorIndex];
     const bool wasDead = actor.isDead;
+    const bool wasAlive = !wasDead && actor.currentHp > 0;
     actor.isDead = isDead;
     actor.currentHp = isDead ? 0 : actor.maxHp;
     actor.aiState = isDead ? ActorAiState::Dead : ActorAiState::Standing;
@@ -15436,7 +15442,33 @@ bool OutdoorWorldRuntime::setMapActorDead(size_t actorIndex, bool isDead, bool e
         removeBloodSplat(actor.actorId);
     }
 
+    if (wasAlive && isDead)
+    {
+        queueMonsterKilledEvent(actorIndex, actor.monsterId);
+    }
+
     return true;
+}
+
+void OutdoorWorldRuntime::queueMonsterKilledEvent(size_t actorIndex, int16_t monsterId)
+{
+    if (m_monsterKilledHooksEnabled && monsterId > 0)
+    {
+        m_pendingMonsterKilledEvents.push_back({uint32_t(actorIndex), uint32_t(monsterId)});
+    }
+}
+
+void OutdoorWorldRuntime::setMonsterKilledHooksEnabled(bool enabled)
+{
+    m_monsterKilledHooksEnabled = enabled;
+    m_pendingMonsterKilledEvents.clear();
+}
+
+std::vector<OutdoorWorldRuntime::MonsterKilledEvent> OutdoorWorldRuntime::drainMonsterKilledEvents()
+{
+    std::vector<MonsterKilledEvent> events = std::move(m_pendingMonsterKilledEvents);
+    m_pendingMonsterKilledEvents.clear();
+    return events;
 }
 
 bool OutdoorWorldRuntime::applyMonsterActorMeleeAttackToMapActor(
@@ -15568,6 +15600,7 @@ bool OutdoorWorldRuntime::applyMonsterAttackToMapActor(
     if (actor.currentHp <= 0)
     {
         beginDyingState(actor, m_pActorSpriteFrameTable);
+        queueMonsterKilledEvent(actorIndex, actor.monsterId);
         activateOutdoorActorCorpsePhysics(actorIndex);
         spawnMonsterDeathDropsForActor(actorIndex, actor);
         const float sourceX = pSourceActor != nullptr ? pSourceActor->preciseX : actor.preciseX;
@@ -15949,6 +15982,7 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
     if (died)
     {
         beginDyingState(actor, m_pActorSpriteFrameTable);
+        queueMonsterKilledEvent(actorIndex, actor.monsterId);
         activateOutdoorActorCorpsePhysics(actorIndex);
         spawnMonsterDeathDropsForActor(actorIndex, actor);
         const bx::Vec3 knockback = actorKnockbackVelocity(
@@ -19513,7 +19547,8 @@ bool OutdoorWorldRuntime::tryGetGameplayMinimapState(GameplayMinimapState &state
         pWizardEyeBuff != nullptr ? pWizardEyeBuff->skillMastery : SkillMastery::None;
     const OutdoorMoveState &moveState = m_pPartyRuntime->movementState();
 
-    if (toLowerCopy(m_map.worldId) == "mm9")
+    if ((m_pOutdoorMapData != nullptr && m_pOutdoorMapData->mapPresentation)
+        || toLowerCopy(m_map.worldId) == "mm9")
     {
         if (m_pOutdoorMapData == nullptr || !m_pOutdoorMapData->mapPresentation
             || !applyMapPresentationToMinimapState(

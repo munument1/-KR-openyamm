@@ -77,6 +77,7 @@ public:
         size_t &previousMessageCount,
         std::optional<uint8_t> continueStep = std::nullopt);
     bool executeEventHooks(EventRuntimeHookKind kind);
+    bool processMonsterKilledEvents();
 
 private:
     std::string m_mapFileName;

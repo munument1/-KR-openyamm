@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/AssetFileSystem.h"
+#include "engine/FontAsset.h"
 #include "game/ui/IScreen.h"
 
 #include <bgfx/bgfx.h>
@@ -68,6 +69,7 @@ public:
     ~MenuScreenBase() override;
 
     static void shutdownSharedResources();
+    void setFontSettings(const Engine::FontSettings &settings);
 
     void renderFrame(
         int width,
@@ -168,24 +170,11 @@ private:
         bgfx::TextureHandle handle = BGFX_INVALID_HANDLE;
     };
 
-    struct FontGlyphMetrics
-    {
-        int leftSpacing = 0;
-        int width = 0;
-        int rightSpacing = 0;
-    };
+    using FontGlyphMetrics = Engine::FontGlyphMetrics;
 
-    struct FontHandle
+    struct FontHandle : Engine::FontAtlas
     {
         std::string normalizedFontName;
-        int firstChar = 0;
-        int lastChar = 0;
-        int fontHeight = 0;
-        int atlasCellWidth = 0;
-        int atlasWidth = 0;
-        int atlasHeight = 0;
-        std::array<FontGlyphMetrics, 256> glyphMetrics = {{}};
-        std::vector<uint8_t> mainAtlasPixels;
         bgfx::TextureHandle mainTextureHandle = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle shadowTextureHandle = BGFX_INVALID_HANDLE;
     };
@@ -203,6 +192,8 @@ private:
     void destroyRendererResources();
     const TextureHandle *findTexture(const std::string &textureName) const;
     const TextureHandle *ensureTexture(const std::string &textureName);
+    Engine::FontSettings m_fontSettings;
+    std::string fontCacheKey(const std::string &fontName) const;
     const FontHandle *findFont(const std::string &fontName) const;
     const FontHandle *ensureFont(const std::string &fontName);
     bgfx::TextureHandle ensureDynamicTexture(

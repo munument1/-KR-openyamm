@@ -74,6 +74,8 @@ struct MapLootContainerSource
     int trapLevel = 0;
     bool shouldRepopulate = false;
     std::vector<MapFixedContainerItem> fixedItems;
+    std::vector<uint32_t> randomItemPool;
+    uint32_t randomItemCount = 0;
     bool removeWhenEmpty = false;
 };
 

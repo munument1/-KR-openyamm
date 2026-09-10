@@ -239,72 +239,128 @@ AppendGlobalEvent(1347, function()
     MM6.RemoveQuestFollower(802)
 end)
 
-local EnrothClericClassId = 4
-local EnrothPriestClassId = 5
-local EnrothHighPriestClassId = 50
+-- Completed Enroth quests remain available to later recruits. Promotion eligibility is exact.
+local promotionFamilies = {
+    {npc = 789, secondStart = 1328,
+        first = {event = 1327, title = "Crusaders", from = 26, to = 27, bits = {1635, 1636},
+            xp = 15000, quest = 1112, conditionBit = 1699, consumeBit = 1699, gold = 5000,
+            message = 1713, refusal = 1712},
+        second = {event = 1329, title = "Heroes", from = 27, to = 28, bits = {1637, 1638},
+            xp = 30000, quest = 1113, item = 2075, consumeItem = true, consumeBit = 1209,
+            message = 1716, refusal = 1715}},
+    {npc = 790, secondStart = 1372,
+        first = {event = 1371, title = "Wizards", from = 42, to = 43, bits = {1639, 1640},
+            xp = 15000, quest = 1135, message = 1762},
+        second = {event = 1373, title = "Master Wizards", from = 43, to = 51, bits = {1641, 1642},
+            xp = 30000, quest = 1136, item = 2077, consumeItem = true, consumeBit = 1210,
+            message = 1765, refusal = 1764}},
+    {npc = 791, secondStart = 1383,
+        first = {event = 1382, title = "Cavaliers", from = 16, to = 17, bits = {1643, 1644},
+            xp = 15000, quest = 1138, message = 1776},
+        second = {event = 1384, title = "Champions", from = 17, to = 19, bits = {1645, 1646},
+            xp = 40000, quest = 1139, item = 2128, consumeItem = true, consumeBit = 1211,
+            message = 1779, refusal = 1778}},
+    {npc = 801, secondStart = 1350,
+        first = {event = 1349, title = "Priests", from = 4, to = 5, bits = {1647, 1648},
+            xp = 15000, quest = 1129, conditionBit = 1130, message = 1740, refusal = 1739},
+        second = {event = 1351, title = "High Priests", from = 5, to = 50, bits = {1649, 1650},
+            xp = 30000, quest = 1131, conditionBit = 1132, message = 1744, refusal = 1742}},
+    {npc = 799, secondStart = 1397, ceremony = true,
+        first = {event = 1678, title = "Great Druids", from = 12, to = 13, bits = {1651, 1652},
+            xp = 15000, quest = 1142, message = 1792, ceremonyBit = 1197, ceremonyNpc = 1090},
+        second = {event = 1679, title = "Arch Druids", from = 13, to = 15, bits = {1653, 1654},
+            xp = 40000, quest = 1143, message = 1794, ceremonyBit = 1198, ceremonyNpc = 1091}},
+    {npc = 800, secondStart = 1406,
+        first = {event = 1405, title = "Warrior Mages", from = 0, to = 1, bits = {1655, 1656},
+            xp = 15000, quest = 1145, item = 2106, message = 1803, refusal = 1802},
+        second = {event = 1413, title = "Master Archers", from = 1, to = 2, bits = {1657, 1658},
+            xp = 40000, quest = 1146, towerBits = {1180, 1181, 1182, 1183, 1184, 1185},
+            message = 1807, refusal = 1805}},
+}
 
-ReplaceGlobalEvent(1349, "Anthony Stone Priest promotion", function()
-    if not IsQBitSet(QBit(1130)) then
-        evt.SetMessage(
-            "The temple I asked you to rebuild still stands in ruins.\n"
-            .. "The people are deprived of their rightful religious solace, and you return to me empty-handed.\n"
-            .. "Leave here and complete your mission!")
-        return
-    end
+local function promotionCompleted(stage)
+    return IsQBitSet(QBit(stage.bits[1])) or IsQBitSet(QBit(stage.bits[2]))
+end
 
-    evt.SetMessage(
-        "Excellent work!\n"
-        .. "The temple has been rebuilt and the affront to the gods eased.\n"
-        .. "For this service, I am happy to promote all clerics to priests, "
-        .. "and I grant honorary priest status to all non-clerics.\n"
-        .. "Congratulations!")
-    ClearQBit(QBit(1129))
-    evt.SetNPCTopic(801, 1, 1350)
-    AddValue(131307, 2)
-    evt.ForPlayer(Players.All)
-    AddValue(Experience, 15000)
+local function updatePromotionTopics(family)
+    if not promotionCompleted(family.first) then return end
 
-    for _, player in ipairs(PartyMembers()) do
-        if PlayerClassMatches(player, EnrothClericClassId) then
-            SetPlayerClass(player, EnrothPriestClassId)
-            SetQBit(QBit(1647))
-        else
-            SetQBit(QBit(1648))
-        end
-    end
-end)
-
-ReplaceGlobalEvent(1351, "Anthony Stone High Priest promotion", function()
-    evt.ForPlayer(Players.All)
-
-    if IsQBitSet(QBit(1132)) then
-        evt.SetMessage(
-            "You are successful!\n"
-            .. "It looks like I will have to keep my promise and make more irregular, early promotions.\n"
-            .. "I do so with pleasure.\n"
-            .. "I hereby promote all priests to high priests, and all honorary priests to honorary high priests.")
-
-        for _, player in ipairs(PartyMembers()) do
-            if PlayerClassMatches(player, EnrothPriestClassId) then
-                SetPlayerClass(player, EnrothHighPriestClassId)
-                SetQBit(QBit(1649))
-            else
-                SetQBit(QBit(1650))
-            end
-        end
-
-        AddValue(327915, 5)
-        ClearQBit(QBit(1131))
-        evt.ForPlayer(Players.All)
-        AddValue(Experience, 30000)
-        evt.SetNPCTopic(801, 1, 1352)
-    elseif HasItem(2054) then
-        evt.SetMessage(
-            "I see that you have recovered the chalice!\n"
-            .. "Good work, but you still need to ensconce it in the temple.\n"
-            .. "Take it there at once and return to me for your promotion!")
+    -- Slot 5 is unused by these six lords. Keep council quests and Anthony Stone's Ankh topic intact.
+    evt.SetNPCTopic(family.npc, 5, family.first.event)
+    if promotionCompleted(family.second) then
+        evt.SetNPCTopic(family.npc, 1, family.second.event)
+    elseif IsQBitSet(QBit(family.second.quest)) then
+        evt.SetNPCTopic(family.npc, 1, family.ceremony and 1398 or family.second.event)
     else
-        evt.SetMessage("The monks still have the chalice, and our temple is still without it.\nWhy do you delay?")
+        evt.SetNPCTopic(family.npc, 1, family.secondStart)
+    end
+end
+
+local function meetsPromotionConditions(stage)
+    evt.ForPlayer(Players.All)
+    if stage.conditionBit ~= nil and not IsQBitSet(QBit(stage.conditionBit)) then return false end
+    if stage.item ~= nil and not HasItem(stage.item) then return false end
+    for _, bit in ipairs(stage.towerBits or {}) do
+        if not IsQBitSet(QBit(bit)) then return false end
+    end
+    return true
+end
+
+for _, family in ipairs(promotionFamilies) do
+    for stageIndex, stage in ipairs({family.first, family.second}) do
+        ReplaceGlobalEvent(stage.event, stage.title, function()
+            local firstTime = not promotionCompleted(stage)
+            if firstTime and not meetsPromotionConditions(stage) then
+                local message = stage.refusal
+                if stage.event == 1351 and HasItem(2054) then message = 1743 end
+                evt.SetMessage(Game.NPCText[message])
+                return
+            end
+
+            if firstTime then
+                evt.SetMessage(Game.NPCText[stage.message])
+            else
+                evt.SetMessage("Your party has already completed this quest. Eligible companions are promoted to "
+                    .. GetClassName(stage.to) .. ".")
+            end
+
+            for _, player in ipairs(PartyMembers()) do
+                evt.ForPlayer(player)
+                if PlayerClassMatches(player, stage.from) then
+                    SetValue(ClassId, stage.to)
+                    AddValue(Experience, stage.xp)
+                    SetQBit(QBit(stage.bits[1]))
+                elseif firstTime then
+                    AddValue(Experience, stage.xp)
+                    SetQBit(QBit(stage.bits[2]))
+                end
+            end
+
+            evt.ForPlayer(Players.All)
+            if firstTime then
+                ClearQBit(QBit(stage.quest))
+                if stage.consumeItem then RemoveItem(stage.item) end
+                if stage.consumeBit ~= nil then ClearQBit(QBit(stage.consumeBit)) end
+                if stage.gold ~= nil then AddValue(Gold, stage.gold) end
+                -- Retain the authored first-completion reputation effects.
+                if stageIndex == 1 then AddValue(131307, 2) else AddValue(327915, 5) end
+                if stage.ceremonyBit ~= nil then
+                    SetQBit(QBit(stage.ceremonyBit))
+                    evt.SetNPCTopic(stage.ceremonyNpc, 0, 0)
+                end
+                if stage.event == 1382 then evt.SetNPCTopic(792, 0, 1380) end
+            end
+            updatePromotionTopics(family)
+        end)
+    end
+end
+
+RegisterGlobalNpcEnterHook(65302, "Enroth completed promotion topics", function(context)
+    for _, family in ipairs(promotionFamilies) do
+        if context.npcId == family.npc then
+            updatePromotionTopics(family)
+            return
+        end
     end
 end)
 

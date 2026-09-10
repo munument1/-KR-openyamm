@@ -377,6 +377,11 @@ bool headlessRegressionCaseMatchesSuite(const std::string &suiteName, const std:
 
 struct GameApplicationTestAccess
 {
+    static GameSession &gameSession(GameApplication &application)
+    {
+        return application.m_gameSession;
+    }
+
     static bool loadGameData(GameApplication &application, Engine::AssetFileSystem &assetFileSystem)
     {
         return application.loadGameData(assetFileSystem);
@@ -17740,7 +17745,266 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
     );
 
     runCase(
-        "out05_event_dragon_hunter_tracker_completes_immediately",
+        "out05_event_clearance_completes_from_monster_killed_hook",
+        [&](std::string &failure)
+        {
+            for (bool huntDragons : {false, true})
+            {
+                SharedHeadlessApplicationSession applicationSession(m_config);
+
+                if (!prepareSharedHeadlessGameApplication(
+                        applicationSession, assetFileSystem, "out05.odm", false, failure))
+                {
+                    return false;
+                }
+
+                OutdoorSceneRuntime *pScene = dynamic_cast<OutdoorSceneRuntime *>(
+                    GameApplicationTestAccess::mapSceneRuntime(applicationSession.application));
+
+                if (pScene == nullptr)
+                {
+                    failure = "Garrote Gorge did not create an outdoor scene";
+                    return false;
+                }
+
+                OutdoorWorldRuntime &world = pScene->worldRuntime();
+                Party &party = pScene->party();
+                party.seed(createRegressionPartySeed());
+                party.setQuestBit(21, huntDragons);
+                party.setQuestBit(22, !huntDragons);
+                const uint32_t completionBit = huntDragons ? 155 : 158;
+                const int firstMonsterId = huntDragons ? 190 : 43;
+                const std::string completionText = huntDragons
+                    ? "You have killed all of the Dragons"
+                    : "You have killed all of the Dragon Hunters";
+                std::vector<size_t> targets;
+
+                for (size_t actorIndex = 0; actorIndex < world.mapActorCount(); ++actorIndex)
+                {
+                    const OutdoorWorldRuntime::MapActorState *pActor = world.mapActorState(actorIndex);
+
+                    if (pActor != nullptr && pActor->monsterId >= firstMonsterId
+                        && pActor->monsterId <= firstMonsterId + 2 && pActor->currentHp > 0 && !pActor->isInvisible)
+                    {
+                        targets.push_back(actorIndex);
+                    }
+                }
+
+                if (targets.size() < 2 || party.hasQuestBit(completionBit))
+                {
+                    failure = "clearance scenario did not start with living quest monsters";
+                    return false;
+                }
+
+                const float initialGameMinutes = world.gameMinutes();
+                const size_t initialActorCount = world.mapActorCount();
+
+                for (size_t index = 0; index < targets.size(); ++index)
+                {
+                    EventRuntimeState &eventState = *world.eventRuntimeState();
+                    eventState.portraitFxRequests.clear();
+                    eventState.pendingSounds.clear();
+                    const bool campWasCleared = party.hasQuestBit(75);
+                    const size_t actorIndex = targets[index];
+                    const bool killed = index % 2 == 0
+                        ? world.applyPartyAttackToMapActor(actorIndex, 1000000, 0.0f, 0.0f, 0.0f)
+                        : world.applyPartySpellToMapActor(
+                            actorIndex, spellIdValue(SpellId::Blades), 10, SkillMastery::Master,
+                            1000000, 0.0f, 0.0f, 0.0f, 0);
+
+                    if (!killed)
+                    {
+                        failure = "could not kill quest monster through combat";
+                        return false;
+                    }
+
+                    // Exercise both frame and turn-based dispatch without advancing the quest timer.
+                    if (index % 2 == 0)
+                    {
+                        pScene->advanceFrame({}, 0.0f);
+                    }
+                    else
+                    {
+                        pScene->advanceTurnBasedGameMinutes(0.0f);
+                    }
+
+                    if (party.hasQuestBit(completionBit) != (index + 1 == targets.size()))
+                    {
+                        failure = "clearance did not complete exactly when the last matching monster died";
+                        return false;
+                    }
+
+                    const bool completed = index + 1 == targets.size()
+                        || (!campWasCleared && party.hasQuestBit(75));
+                    const auto questSoundCount = std::count_if(
+                        eventState.pendingSounds.begin(), eventState.pendingSounds.end(),
+                        [](const EventRuntimeState::PendingSound &sound)
+                        {
+                            return sound.soundId == static_cast<uint32_t>(SoundId::Quest)
+                                && sound.soundScope == SoundScope::Engine && !sound.positional;
+                        });
+
+                    if (eventState.portraitFxRequests.size() != (completed ? 1u : 0u)
+                        || questSoundCount != (completed ? 1 : 0))
+                    {
+                        failure = "clearance did not announce exactly one quest effect and sound on completion";
+                        return false;
+                    }
+
+                    if (completed)
+                    {
+                        const std::string expectedText = index + 1 == targets.size()
+                            ? completionText : "You have cleared the Dragon Slayer training camp";
+
+                        if (eventState.statusMessages.empty() || eventState.statusMessages.back() != expectedText)
+                        {
+                            failure = "clearance did not report which kill objective completed";
+                            return false;
+                        }
+
+                        const EventRuntimeState::PortraitFxRequest &fx = eventState.portraitFxRequests.front();
+
+                        if (fx.kind != PortraitFxEventKind::QuestComplete
+                            || fx.memberIndices.size() != party.members().size())
+                        {
+                            failure = "clearance quest effect did not target the whole party";
+                            return false;
+                        }
+
+                        for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+                        {
+                            if (fx.memberIndices[memberIndex] != memberIndex)
+                            {
+                                failure = "clearance quest effect skipped a party portrait";
+                                return false;
+                            }
+                        }
+                    }
+                }
+
+                if (world.gameMinutes() != initialGameMinutes || world.mapActorCount() != initialActorCount
+                    || (!huntDragons && (!party.hasQuestBit(75) || !party.hasQuestBit(200))))
+                {
+                    failure = "kill hook advanced time, spawned a sentinel, or missed promotion clearance";
+                    return false;
+                }
+
+                // Neither dead-actor updates nor the retained legacy timer may duplicate completion feedback.
+                world.eventRuntimeState()->portraitFxRequests.clear();
+                world.eventRuntimeState()->pendingSounds.clear();
+                world.setMapActorDead(targets.back(), true, false);
+
+                if (pScene->processMonsterKilledEvents())
+                {
+                    failure = "an already dying actor emitted a second monster-killed hook";
+                    return false;
+                }
+
+                pScene->advanceTurnBasedGameMinutes(20.0f);
+                const std::vector<std::string> &messages = world.eventRuntimeState()->statusMessages;
+
+                if (std::count(messages.begin(), messages.end(), completionText) != 1
+                    || party.hasQuestBit(huntDragons ? 158 : 155)
+                    || !world.eventRuntimeState()->portraitFxRequests.empty()
+                    || !world.eventRuntimeState()->pendingSounds.empty())
+                {
+                    failure = "clearance feedback repeated or the allied faction's quest completed";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    );
+
+    runCase(
+        "out13_event_cannon_timer_advances_at_gameplay_frame_rates",
+        [&](std::string &failure)
+        {
+            if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "out13.odm"))
+            {
+                failure = "could not load Regna";
+                return false;
+            }
+
+            const std::optional<MapAssetInfo> &loadedMap = gameDataLoader.getSelectedMap();
+            if (!loadedMap || !loadedMap->localEventProgram)
+            {
+                failure = "Regna event program missing";
+                return false;
+            }
+
+            struct ClockCase
+            {
+                float startMinutes;
+                int framesPerSecond;
+            };
+            const std::array<ClockCase, 4> clockCases = {{{540.0f, 144}, {70000.0f, 144},
+                {140000.0f, 120}, {300000.0f, 60}}};
+
+            for (const ClockCase &clockCase : clockCases)
+            {
+                const float startMinutes = clockCase.startMinutes;
+                const float deltaSeconds = 1.0f / clockCase.framesPerSecond;
+                RegressionScenario scenario = {};
+                if (!initializeRegressionScenario(gameDataLoader, *loadedMap, scenario))
+                {
+                    failure = "Regna scenario init failed";
+                    return false;
+                }
+
+                scenario.party.grantItem(662);
+                scenario.party.setQuestBit(37, false);
+                scenario.world.advanceGameMinutes(startMinutes - scenario.world.gameMinutes());
+                scenario.world.prepareTimers(loadedMap->localEventProgram, loadedMap->globalEventProgram);
+                if (!scenario.eventRuntime.executeEventById(
+                        loadedMap->localEventProgram, loadedMap->globalEventProgram, 451,
+                        *scenario.pEventRuntimeState, &scenario.party, &scenario.world)
+                    || scenario.party.inventoryItemCount(662) != 0
+                    || scenario.pEventRuntimeState->mapVars[41] != 1)
+                {
+                    failure = "Regna cannon did not consume ammunition and arm the sequence";
+                    return false;
+                }
+
+                // A save made after firing must resume without another cannonball.
+                scenario.world.restoreSnapshot(scenario.world.snapshot());
+                scenario.pEventRuntimeState = scenario.world.eventRuntimeState();
+
+                IndoorWorldRuntime indoorClock = {};
+                indoorClock.advanceGameMinutes(startMinutes - indoorClock.gameMinutes());
+
+                // Run the actual timer dispatcher for eight seconds (four game minutes).
+                for (int frame = 0; frame < 8 * clockCase.framesPerSecond; ++frame)
+                {
+                    indoorClock.advanceGameMinutes(deltaSeconds * 0.5f);
+                    scenario.world.updateTimers(
+                        deltaSeconds, scenario.eventRuntime,
+                        loadedMap->localEventProgram, loadedMap->globalEventProgram);
+                }
+
+                const float elapsedMinutes = scenario.world.gameMinutes() - startMinutes;
+                if (std::abs(elapsedMinutes - 4.0f) > 0.1f
+                    || std::abs(indoorClock.gameMinutes() - startMinutes - 4.0f) > 0.1f
+                    || scenario.pEventRuntimeState->mapVars[41] != 0
+                    || !scenario.party.hasQuestBit(37))
+                {
+                    failure = "Regna cannon stalled: start_minutes=" + std::to_string(startMinutes)
+                        + " fps=" + std::to_string(clockCase.framesPerSecond)
+                        + " elapsed_minutes=" + std::to_string(elapsedMinutes)
+                        + " indoor_elapsed_minutes=" + std::to_string(indoorClock.gameMinutes() - startMinutes)
+                        + " stage=" + std::to_string(scenario.pEventRuntimeState->mapVars[41])
+                        + " sunk=" + std::to_string(scenario.party.hasQuestBit(37));
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    );
+
+    runCase(
+        "out05_event_dragon_hunter_tracker_completes_on_timer",
         [&](std::string &failure)
         {
             if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "out05.odm"))
@@ -17767,37 +18031,21 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                     continue;
                 }
 
-                foundTrackerTimer = timerTrigger.repeating
-                    && std::fabs(timerTrigger.intervalGameMinutes - 2.5f) < 0.001f
-                    && std::fabs(timerTrigger.initialDelayGameMinutes - 2.5f) < 0.001f;
+                foundTrackerTimer = timerTrigger.origin == ScriptedEventTimerOrigin::Legacy
+                    && timerTrigger.scheduleKind == ScriptedEventTimerScheduleKind::Interval
+                    && timerTrigger.intervalHalfMinutes == 20;
                 break;
             }
 
             if (!foundTrackerTimer)
             {
-                failure = "out05 tracker timer is not configured for a repeating 5 real second interval";
+                failure = "out05 tracker timer does not match the legacy 20 half-minute interval";
                 return false;
             }
 
             RegressionScenario scenario = {};
 
-            MapAssetInfo trackerMap = *loadedMap;
-            trackerMap.outdoorMapData->spawns.clear();
-            trackerMap.outdoorMapData->spawnCount = 0;
-            trackerMap.outdoorMapDeltaData->actors.clear();
-            trackerMap.outdoorMapDeltaData->locationInfo.alertStatus = 0;
-
-            for (const int16_t monsterStatsId : {43, 44, 45})
-            {
-                MapDeltaActor actor = {};
-                actor.monsterInfoId = monsterStatsId;
-                actor.hp = 100;
-                actor.radius = 32;
-                actor.height = 128;
-                trackerMap.outdoorMapDeltaData->actors.push_back(actor);
-            }
-
-            if (!initializeRegressionScenario(gameDataLoader, trackerMap, scenario))
+            if (!initializeRegressionScenario(gameDataLoader, *loadedMap, scenario))
             {
                 failure = "scenario init failed";
                 return false;
@@ -17807,40 +18055,94 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             scenario.party.setQuestBit(22, true);
             scenario.party.setQuestBit(158, false);
             scenario.party.setQuestBit(159, false);
+            scenario.party.setQuestBit(75, false);
 
-            if (!scenario.world.setMapActorDead(0, true, false))
+            std::vector<size_t> hunterIndices;
+
+            for (size_t actorIndex = 0; actorIndex < scenario.world.mapActorCount(); ++actorIndex)
             {
-                failure = "could not mark first Dragon Hunter actor dead";
+                GameplayRuntimeActorState actor = {};
+
+                if (scenario.world.actorRuntimeState(actorIndex, actor)
+                    && actor.monsterId >= 43 && actor.monsterId <= 45 && !actor.isDead && !actor.isInvisible)
+                {
+                    hunterIndices.push_back(actorIndex);
+                }
+            }
+
+            if (hunterIndices.size() < 2)
+            {
+                failure = "authored Garrote Gorge map did not contain living Dragon Hunters";
                 return false;
             }
 
-            if (!executeLocalEventInScenario(gameDataLoader, trackerMap, scenario, 131))
+            for (size_t index = 0; index + 1 < hunterIndices.size(); ++index)
             {
-                failure = "partial out05 tracker execution failed";
-                return false;
+                if (!scenario.world.applyPartyAttackToMapActor(hunterIndices[index], 1000000, 0.0f, 0.0f, 0.0f))
+                {
+                    failure = "could not kill authored Dragon Hunter";
+                    return false;
+                }
             }
+
+            EventRuntime eventRuntime = {};
+            scenario.world.updateTimers(
+                20.0f, eventRuntime, loadedMap->localEventProgram, loadedMap->globalEventProgram);
 
             if (scenario.party.hasQuestBit(159) || scenario.party.hasQuestBit(158))
             {
-                failure = "tracker completed while only one Dragon Hunter tier was killed";
+                failure = "tracker completed while an authored Dragon Hunter was still alive";
                 return false;
             }
 
-            if (!scenario.world.setMapActorDead(1, true, false) || !scenario.world.setMapActorDead(2, true, false))
+            if (!scenario.world.applyPartyAttackToMapActor(hunterIndices.back(), 1000000, 0.0f, 0.0f, 0.0f))
             {
-                failure = "could not mark remaining Dragon Hunter actors dead";
+                failure = "could not kill the last authored Dragon Hunter";
                 return false;
             }
 
-            if (!executeLocalEventInScenario(gameDataLoader, trackerMap, scenario, 131))
+            scenario.world.updateTimers(
+                19.0f, eventRuntime, loadedMap->localEventProgram, loadedMap->globalEventProgram);
+
+            if (scenario.party.hasQuestBit(158))
             {
-                failure = "completed out05 tracker execution failed";
+                failure = "hunter quest completed before the next tracker alarm";
                 return false;
             }
 
-            if (!scenario.party.hasQuestBit(159) || !scenario.party.hasQuestBit(158))
+            scenario.world.updateTimers(
+                1.0f, eventRuntime, loadedMap->localEventProgram, loadedMap->globalEventProgram);
+
+            if (!scenario.party.hasQuestBit(159) || !scenario.party.hasQuestBit(75))
             {
-                failure = "tracker pass did not set marker and completion qbits immediately";
+                failure = "first tracker alarm did not set the hunter marker and promotion camp objective";
+                return false;
+            }
+
+            // The legacy tracker creates a hidden sentinel on its first successful pass. Its visibility
+            // change is applied after the event, so the wilderness completion check may need the next alarm.
+            scenario.world.updateTimers(
+                20.0f, eventRuntime, loadedMap->localEventProgram, loadedMap->globalEventProgram);
+
+            if (!scenario.party.hasQuestBit(159) || !scenario.party.hasQuestBit(158) || !scenario.party.hasQuestBit(75))
+            {
+                failure = "tracker alarm did not complete both objectives: marker="
+                    + std::to_string(scenario.party.hasQuestBit(159))
+                    + " hunters=" + std::to_string(scenario.party.hasQuestBit(158))
+                    + " camp=" + std::to_string(scenario.party.hasQuestBit(75));
+
+                for (size_t actorIndex = 0; actorIndex < scenario.world.mapActorCount(); ++actorIndex)
+                {
+                    const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(actorIndex);
+
+                    if (pActor != nullptr && !pActor->isDead && !pActor->isInvisible
+                        && ((pActor->monsterId >= 43 && pActor->monsterId <= 45) || pActor->group == 24))
+                    {
+                        failure += " living actor=" + std::to_string(actorIndex)
+                            + " monster=" + std::to_string(pActor->monsterId)
+                            + " group=" + std::to_string(pActor->group);
+                    }
+                }
                 return false;
             }
 
@@ -17850,7 +18152,30 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                     "You have killed all of the Dragon Hunters")
                 == scenario.pEventRuntimeState->statusMessages.end())
             {
-                failure = "tracker pass did not queue Dragon Hunter status text immediately";
+                failure = "tracker did not queue the Dragon Hunter completion status text";
+                return false;
+            }
+
+            scenario.party.setQuestBit(157, true);
+
+            if (!eventRuntime.executeEventById(
+                    std::nullopt, loadedMap->globalEventProgram, 221,
+                    *scenario.pEventRuntimeState, &scenario.party, &scenario.world)
+                || scenario.party.hasQuestBit(157))
+            {
+                failure = "Jerin did not accept the completed wilderness hunter quest";
+                return false;
+            }
+
+            scenario.party.setMemberClassName(0, "Dragon");
+
+            if (!scenario.party.grantItemToMember(0, 540)
+                || !eventRuntime.executeEventById(
+                    std::nullopt, loadedMap->globalEventProgram, 62,
+                    *scenario.pEventRuntimeState, &scenario.party, &scenario.world)
+                || scenario.party.member(0)->className != "GreatWyrm")
+            {
+                failure = "Deftclaw did not promote a Dragon after camp clearance and sword return";
                 return false;
             }
 
@@ -19557,6 +19882,149 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
     );
 
     SharedHeadlessApplicationSession out01StandaloneSession(m_config);
+
+    runCase(
+        "app_scroll_cast_preserves_power_through_target_selection",
+        [&](std::string &failure)
+        {
+            SharedHeadlessApplicationSession scrollSession(m_config);
+
+            for (const std::string &mapName : {"out01.odm", "d05.blv", "7out01.odm", "oute3.odm"})
+            {
+                if (!prepareSharedHeadlessGameApplication(scrollSession, assetFileSystem, mapName, false, failure))
+                {
+                    return false;
+                }
+
+                GameSession &session = GameApplicationTestAccess::gameSession(scrollSession.application);
+                GameplayScreenRuntime &runtime = session.gameplayScreenRuntime();
+                GameplaySpellService &service = session.gameplaySpellService();
+                Party *pParty = runtime.party();
+
+                if (pParty == nullptr || runtime.worldRuntime() == nullptr)
+                {
+                    failure = mapName + ": missing gameplay runtime";
+                    return false;
+                }
+
+                pParty->seed(createRegressionPartySeed());
+                Character *pCaster = pParty->member(0);
+                pCaster->skills.clear();
+                pCaster->spellPoints = 0;
+                pCaster->recoverySecondsRemaining = 0.0f;
+
+                PartySpellCastRequest scroll = {};
+                scroll.casterMemberIndex = 0;
+                scroll.spellId = spellIdValue(SpellId::Incinerate);
+                scroll.skillLevelOverride = 5;
+                scroll.skillMasteryOverride = SkillMastery::Master;
+                scroll.bypassRequiredMastery = true;
+                scroll.spendMana = false;
+
+                const GameplaySpellService::SpellRequestResolution initial =
+                    service.resolveSpellRequest(runtime, scroll, "Incinerate");
+
+                if (initial.disposition != GameplaySpellService::SpellRequestDisposition::NeedsTargetSelection)
+                {
+                    failure = mapName + ": scroll did not request an actor target: " + initial.castResult.statusText;
+                    return false;
+                }
+
+                service.armPendingTargetSelection(runtime, scroll, initial.castResult.targetKind, "Incinerate");
+                PartySpellCastRequest targeted = service.makePendingTargetSelectionRequest();
+
+                for (size_t actorIndex = 0; actorIndex < runtime.worldRuntime()->mapActorCount(); ++actorIndex)
+                {
+                    GameplayRuntimeActorState actor = {};
+
+                    if (runtime.worldRuntime()->actorRuntimeState(actorIndex, actor)
+                        && !actor.isDead && !actor.isInvisible)
+                    {
+                        targeted.targetActorIndex = actorIndex;
+                        break;
+                    }
+                }
+
+                const GameplaySpellService::PendingTargetResolution cast =
+                    service.resolvePendingTargetSelectionCast(runtime, targeted);
+
+                if (cast.disposition != GameplaySpellService::PendingTargetResolutionDisposition::CastSucceeded
+                    || cast.castResult.skillLevel != 5 || cast.castResult.skillMastery != SkillMastery::Master
+                    || pCaster->spellPoints != 0 || pCaster->recoverySecondsRemaining <= 0.0f)
+                {
+                    failure = mapName + ": targeted scroll failed or lost its power/cost: "
+                        + cast.castResult.statusText;
+                    return false;
+                }
+
+                service.clearPendingTargetSelection(runtime);
+
+                for (SpellId spell : {SpellId::FireAura, SpellId::LloydsBeacon})
+                {
+                    pCaster->recoverySecondsRemaining = 0.0f;
+                    scroll.spellId = spellIdValue(spell);
+                    const GameplaySpellService::SpellRequestResolution opened =
+                        service.resolveSpellRequest(runtime, scroll, "Scroll");
+
+                    if (opened.disposition != GameplaySpellService::SpellRequestDisposition::OpenedSelectionUi)
+                    {
+                        failure = mapName + ": utility scroll did not open selection: " + opened.castResult.statusText;
+                        return false;
+                    }
+
+                    PartySpellCastRequest selected = {};
+                    selected.casterMemberIndex = 0;
+                    selected.spellId = scroll.spellId;
+
+                    if (spell == SpellId::FireAura)
+                    {
+                        pCaster->inventory.clear();
+
+                        if (!pParty->grantItemToMember(0, 1))
+                        {
+                            failure = mapName + ": could not provide a weapon for Fire Aura";
+                            return false;
+                        }
+
+                        selected.targetItemMemberIndex = 0;
+                        selected.targetInventoryGridX = pCaster->inventory.back().gridX;
+                        selected.targetInventoryGridY = pCaster->inventory.back().gridY;
+                    }
+                    else
+                    {
+                        selected.utilityAction = PartySpellUtilityActionKind::LloydsBeaconSet;
+                        selected.utilityMapMoveMapName = mapName;
+                    }
+
+                    const GameplaySpellService::SpellRequestResolution finished =
+                        service.resolveSpellRequest(runtime, selected, "Scroll");
+
+                    if (finished.disposition != GameplaySpellService::SpellRequestDisposition::CastSucceeded
+                        || finished.castResult.skillLevel != 5
+                        || finished.castResult.skillMastery != SkillMastery::Master
+                        || pCaster->spellPoints != 0 || pCaster->recoverySecondsRemaining <= 0.0f)
+                    {
+                        failure = mapName + ": utility scroll failed or lost its power/cost: "
+                            + finished.castResult.statusText;
+                        return false;
+                    }
+                }
+
+                pCaster->recoverySecondsRemaining = 0.0f;
+                PartySpellCastRequest normalCast = {};
+                normalCast.spellId = spellIdValue(SpellId::Incinerate);
+
+                if (service.resolveSpellRequest(runtime, normalCast, "Incinerate").castResult.status
+                    != PartySpellCastStatus::NotSkilledEnough)
+                {
+                    failure = mapName + ": normal casting inherited the previous scroll's skill exemption";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    );
 
     runCase(
         "app_background_music_follows_selected_map",

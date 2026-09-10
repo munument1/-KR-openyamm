@@ -1,4 +1,8 @@
 #include "engine/ImageAssetLoader.h"
+#include "game/app/GameSettings.h"
+#include "game/tables/ItemTable.h"
+
+#include <chrono>
 
 #include <doctest/doctest.h>
 
@@ -154,4 +158,121 @@ TEST_CASE("ImageAssetLoader decodes indexed PCX and applies the teal transparenc
     CHECK(image->pixels[5] == 20);
     CHECK(image->pixels[6] == 10);
     CHECK(image->pixels[7] == 255);
+}
+
+TEST_CASE("ImageAssetLoader restored icons preserve fallback sizes and extension priority")
+{
+    using namespace OpenYAMM::Engine;
+    const std::filesystem::path root = std::filesystem::temp_directory_path()
+        / ("openyamm_restored_icons_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const std::filesystem::path assets = root / "assets_dev";
+    const std::vector<uint8_t> nativePng = {
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 32,
+        0, 0, 0, 32, 8, 6, 0, 0, 0, 115, 122, 122, 244, 0, 0, 0, 53, 73, 68, 65,
+        84, 120, 156, 237, 206, 65, 1, 0, 48, 8, 196, 176, 99, 26, 38, 98, 34, 240, 111, 107,
+        200, 224, 147, 26, 104, 234, 190, 254, 89, 236, 108, 206, 1, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 146, 100, 0, 175, 99, 1, 183, 129, 6, 149, 96, 0, 0,
+        0, 0, 73, 69, 78, 68, 174, 66, 96, 130
+    };
+    const auto writeBytes = [](const std::filesystem::path &path, const std::vector<uint8_t> &bytes)
+    {
+        std::filesystem::create_directories(path.parent_path());
+        std::ofstream file(path, std::ios::binary);
+        file.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+    };
+    writeBytes(assets / "engine/icons/restored.png", nativePng);
+    writeBytes(assets / "engine/icons/fallback.png", nativePng);
+    // Real 64x64 BMP, deliberately a lower-priority extension than the original PNG.
+    std::vector<uint8_t> restoredBmp;
+    restoredBmp.insert(restoredBmp.end(), {'B', 'M'});
+    appendUInt32(restoredBmp, 54 + 64 * 64 * 3);
+    appendUInt32(restoredBmp, 0);
+    appendUInt32(restoredBmp, 54);
+    appendUInt32(restoredBmp, 40);
+    appendUInt32(restoredBmp, 64);
+    appendUInt32(restoredBmp, 64);
+    appendUInt16(restoredBmp, 1);
+    appendUInt16(restoredBmp, 24);
+    restoredBmp.resize(54, 0);
+    restoredBmp.resize(54 + 64 * 64 * 3, 180);
+
+    SUBCASE("partial restoration")
+    {
+        writeBytes(assets / "engine/icons_x2/ReStOrEd.BMP", restoredBmp);
+    }
+    SUBCASE("no restored directory yet")
+    {
+    }
+    SUBCASE("world-local restoration")
+    {
+        writeBytes(assets / "worlds/mm6/icons/portrait.png", nativePng);
+        writeBytes(assets / "worlds/mm6/icons_x2/portrait.bmp", restoredBmp);
+    }
+
+    for (const bool enabled : {false, true})
+    {
+        AssetFileSystem fs;
+        AssetScaleProfile profile;
+        profile.preferRestoredIcons = enabled;
+        // A different global tier must never shrink original icons.
+        REQUIRE(fs.initialize(root, assets, AssetScaleTier::X4, profile, "mm6"));
+        DirectoryAssetPathCache directories;
+        AssetPathLookupCache paths;
+        BinaryAssetCache binaries;
+        for (const std::string &name : {"restored", "fallback"})
+        {
+            const std::optional<ImagePixelsBgra> image = loadImageAssetPixelsBgra(
+                fs, "Data/icons", name, directories, paths, binaries);
+            REQUIRE(image);
+            const bool restored = enabled && name == "restored"
+                && std::filesystem::exists(assets / "engine/icons_x2/ReStOrEd.BMP");
+            CHECK(image->assetScaleTier == (restored ? AssetScaleTier::X2 : AssetScaleTier::X1));
+            CHECK(image->width == (restored ? 64 : 32));
+            CHECK(scalePhysicalPixelsToLogical(image->width, image->assetScaleTier) == 32);
+            CHECK(scalePhysicalPixelsToLogical(image->height, image->assetScaleTier) == 32);
+            const size_t cachedPaths = paths.size();
+            REQUIRE(loadImageAssetPixelsBgra(fs, "Data/icons", name, directories, paths, binaries));
+            CHECK(paths.size() == cachedPaths);
+        }
+        OpenYAMM::Game::ItemTable items;
+        REQUIRE(items.load(fs, {{"1", "restored", "Restored item"}, {"2", "fallback", "Original item"}}, {}));
+        for (const uint32_t id : {1u, 2u})
+        {
+            REQUIRE(items.get(id) != nullptr);
+            CHECK(items.get(id)->inventoryWidth == 1);
+            CHECK(items.get(id)->inventoryHeight == 1);
+        }
+        if (std::filesystem::exists(assets / "worlds/mm6/icons/portrait.png"))
+        {
+            const std::optional<ImagePixelsBgra> portrait = loadImageAssetPixelsBgra(
+                fs, "worlds/mm6/icons", "portrait", directories, paths, binaries);
+            REQUIRE(portrait);
+            CHECK(portrait->assetScaleTier == (enabled ? AssetScaleTier::X2 : AssetScaleTier::X1));
+            CHECK(portrait->width == (enabled ? 64 : 32));
+        }
+    }
+    std::filesystem::remove_all(root);
+}
+
+TEST_CASE("restored icon preference settings round trip without changing explicit tiers")
+{
+    using namespace OpenYAMM;
+    Game::GameSettings settings = Game::GameSettings::createDefault();
+    CHECK_FALSE(settings.assetScaleProfile.preferRestoredIcons);
+    settings.assetScaleProfile.icons = Engine::AssetScaleTier::X4;
+    const std::filesystem::path path = std::filesystem::temp_directory_path()
+        / "openyamm_restored_icons_settings.ini";
+    for (const bool enabled : {true, false})
+    {
+        settings.assetScaleProfile.preferRestoredIcons = enabled;
+        std::string error;
+        REQUIRE(Game::saveGameSettings(path, settings, error));
+        const std::optional<Game::GameSettings> loaded = Game::loadGameSettings(path, error);
+        REQUIRE(loaded);
+        CHECK(loaded->assetScaleProfile.preferRestoredIcons == enabled);
+        CHECK(loaded->assetScaleProfile.icons == Engine::AssetScaleTier::X4);
+        CHECK(Engine::assetScaleTierForCategory(loaded->assetScaleProfile, Engine::AssetScaleCategory::Icons)
+            == (enabled ? Engine::AssetScaleTier::X2 : Engine::AssetScaleTier::X4));
+    }
+    std::filesystem::remove(path);
 }

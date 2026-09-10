@@ -396,6 +396,7 @@ std::string serializeIndoorGeometryMetadata(const EditorIndoorGeometryMetadata &
     emitter << YAML::Key << "generate_bsp" << YAML::Value << metadata.importSettings.generateBsp;
     emitter << YAML::Key << "generate_outlines" << YAML::Value << metadata.importSettings.generateOutlines;
     emitter << YAML::Key << "generate_portals" << YAML::Value << metadata.importSettings.generatePortals;
+    emitter << YAML::Key << "reserve_sector_zero" << YAML::Value << metadata.importSettings.reserveSectorZero;
     emitter << YAML::EndMap;
 
     emitter << YAML::EndMap;
@@ -408,6 +409,8 @@ std::string serializeIndoorGeometryMetadata(const EditorIndoorGeometryMetadata &
         emitter << YAML::Key << "id" << YAML::Value << material.id;
         emitter << YAML::Key << "source_material" << YAML::Value << material.sourceMaterial;
         emitter << YAML::Key << "texture" << YAML::Value << material.texture;
+        emitter << YAML::Key << "texture_width" << YAML::Value << material.textureWidth;
+        emitter << YAML::Key << "texture_height" << YAML::Value << material.textureHeight;
 
         if (!material.flags.empty())
         {
@@ -432,6 +435,7 @@ std::string serializeIndoorGeometryMetadata(const EditorIndoorGeometryMetadata &
         emitter << YAML::BeginMap;
         emitter << YAML::Key << "id" << YAML::Value << (room.id.empty() ? std::to_string(room.roomId) : room.id);
         emitter << YAML::Key << "name" << YAML::Value << room.name;
+        emitter << YAML::Key << "min_ambient_light_level" << YAML::Value << room.minAmbientLightLevel;
 
         if (!room.sourceNodeNames.empty())
         {
@@ -550,6 +554,7 @@ std::string serializeIndoorGeometryMetadata(const EditorIndoorGeometryMetadata &
 
         if (mechanism.doorId
             || !mechanism.initialState.empty()
+            || mechanism.sourcePose != "open"
             || mechanism.moveAxis
             || mechanism.moveLength
             || mechanism.moveDistance
@@ -567,6 +572,8 @@ std::string serializeIndoorGeometryMetadata(const EditorIndoorGeometryMetadata &
             {
                 emitter << YAML::Key << "initial_state" << YAML::Value << mechanism.initialState;
             }
+
+            emitter << YAML::Key << "source_pose" << YAML::Value << mechanism.sourcePose;
 
             if (mechanism.moveAxis)
             {
@@ -809,6 +816,8 @@ std::optional<EditorIndoorGeometryMetadata> loadIndoorGeometryMetadataFromText(
                     errorMessage)
                 || !readScalarNode(importNode, "generate_bsp", metadata.importSettings.generateBsp, errorMessage)
                 || !readScalarNode(
+                    importNode, "reserve_sector_zero", metadata.importSettings.reserveSectorZero, errorMessage)
+                || !readScalarNode(
                     importNode,
                     "generate_outlines",
                     metadata.importSettings.generateOutlines,
@@ -849,6 +858,8 @@ std::optional<EditorIndoorGeometryMetadata> loadIndoorGeometryMetadataFromText(
             if (!readScalarNode(materialNode, "id", material.id, errorMessage)
                 || !readScalarNode(materialNode, "source_material", material.sourceMaterial, errorMessage)
                 || !readScalarNode(materialNode, "texture", material.texture, errorMessage)
+                || !readScalarNode(materialNode, "texture_width", material.textureWidth, errorMessage)
+                || !readScalarNode(materialNode, "texture_height", material.textureHeight, errorMessage)
                 || !readStringSequenceNode(materialNode, "flags", material.flags, errorMessage)
                 || !readScalarNode(materialNode, "facet_type", material.facetType, errorMessage))
             {
@@ -884,12 +895,18 @@ std::optional<EditorIndoorGeometryMetadata> loadIndoorGeometryMetadataFromText(
             if (!readScalarNode(roomNode, "id", room.id, errorMessage)
                 || !readScalarNode(roomNode, "room_id", room.roomId, errorMessage)
                 || !readScalarNode(roomNode, "name", room.name, errorMessage)
+                || !readScalarNode(roomNode, "min_ambient_light_level", room.minAmbientLightLevel, errorMessage)
                 || !readStringSequenceNode(roomNode, "source_nodes", room.sourceNodeNames, errorMessage)
                 || !readOptionalSizeNode(roomNode, "runtime_sector_index", room.runtimeSectorIndex, errorMessage))
             {
                 return std::nullopt;
             }
 
+            if (room.minAmbientLightLevel < 0 || room.minAmbientLightLevel > 31)
+            {
+                errorMessage = "indoor room min_ambient_light_level must be between 0 and 31";
+                return std::nullopt;
+            }
             metadata.rooms.push_back(std::move(room));
         }
     }
@@ -1067,6 +1084,7 @@ std::optional<EditorIndoorGeometryMetadata> loadIndoorGeometryMetadataFromText(
 
                 if (!readOptionalUInt32Node(doorNode, "door_id", mechanism.doorId, errorMessage)
                     || !readScalarNode(doorNode, "initial_state", mechanism.initialState, errorMessage)
+                    || !readScalarNode(doorNode, "source_pose", mechanism.sourcePose, errorMessage)
                     || !readOptionalFloatArrayNode(doorNode, "direction", mechanism.moveAxis, errorMessage)
                     || !readOptionalUInt32Node(doorNode, "move_length", mechanism.moveLength, errorMessage)
                     || !readOptionalFloatNode(doorNode, "open_speed", mechanism.openSpeed, errorMessage)

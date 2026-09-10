@@ -1,5 +1,7 @@
 #include "game/ui/GameplayPartyOverlayRenderer.h"
 
+#include "engine/ImageAssetLoader.h"
+
 #include "game/gameplay/GameMechanics.h"
 #include "game/gameplay/AwardRuntime.h"
 #include "game/gameplay/GameplayInputFrame.h"
@@ -268,6 +270,7 @@ struct NativeBgraLayer
     int width = 0;
     int height = 0;
     std::vector<uint8_t> pixels;
+    Engine::AssetScaleTier assetScaleTier = Engine::AssetScaleTier::X1;
 };
 
 struct NativePaperdollComposite
@@ -291,16 +294,17 @@ std::optional<NativeBgraLayer> loadHudNativeBgraLayer(
 
     int width = 0;
     int height = 0;
+    Engine::AssetScaleTier loadedTier = Engine::AssetScaleTier::X1;
     const std::optional<std::vector<uint8_t>> pixels = itemIconTransparency
-        ? context.gameplayUiRuntime().loadItemIconBitmapPixelsBgraCached(textureName, width, height)
-        : context.gameplayUiRuntime().loadHudBitmapPixelsBgraCached(textureName, width, height);
+        ? context.gameplayUiRuntime().loadItemIconBitmapPixelsBgraCached(textureName, width, height, &loadedTier)
+        : context.gameplayUiRuntime().loadHudBitmapPixelsBgraCached(textureName, width, height, &loadedTier);
 
     if (!pixels.has_value() || width <= 0 || height <= 0 || pixels->empty())
     {
         return std::nullopt;
     }
 
-    return NativeBgraLayer{width, height, *pixels};
+    return NativeBgraLayer{width, height, *pixels, loadedTier};
 }
 
 void blendNativeBgraPixel(
@@ -374,12 +378,19 @@ void compositeNativeBgraLayer(
         return;
     }
 
-    for (int sourceY = 0; sourceY < layer.height; ++sourceY)
+    const int sourceScale = Engine::assetScaleTierFactor(layer.assetScaleTier);
+    const int scaledWidth = std::max(1, layer.width * composite.physicalWidth
+        / (sourceScale * std::max(1, composite.logicalWidth)));
+    const int scaledHeight = std::max(1, layer.height * composite.physicalHeight
+        / (sourceScale * std::max(1, composite.logicalHeight)));
+    for (int y = 0; y < scaledHeight; ++y)
     {
-        for (int sourceX = 0; sourceX < layer.width; ++sourceX)
+        const int sourceY = y * layer.height / scaledHeight;
+        for (int x = 0; x < scaledWidth; ++x)
         {
-            const int destinationX = rotatedCounterClockwise ? targetX + sourceY : targetX + sourceX;
-            const int destinationY = rotatedCounterClockwise ? targetY + layer.width - 1 - sourceX : targetY + sourceY;
+            const int sourceX = x * layer.width / scaledWidth;
+            const int destinationX = rotatedCounterClockwise ? targetX + y : targetX + x;
+            const int destinationY = rotatedCounterClockwise ? targetY + scaledWidth - 1 - x : targetY + y;
 
             if (destinationX < 0
                 || destinationY < 0
@@ -4320,10 +4331,7 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                             + ((static_cast<float>(pixelY) + 0.5f) / static_cast<float>(mapPixelHeight))
                                 * sourceWindowHeight;
                         const int sourceY = static_cast<int>(std::floor(sourceYFloat));
-                        const float revealV =
-                            std::clamp(sourceYFloat / static_cast<float>(mapTextureHeight), 0.0f, 0.999999f);
-                        const int revealCellY =
-                            static_cast<int>(std::floor(revealV * static_cast<float>(JournalRevealHeight)));
+                        const float sourceV = sourceYFloat / static_cast<float>(mapTextureHeight);
 
                         for (int pixelX = 0; pixelX < mapPixelWidth; ++pixelX)
                         {
@@ -4332,10 +4340,14 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                                 + ((static_cast<float>(pixelX) + 0.5f) / static_cast<float>(mapPixelWidth))
                                     * sourceWindowWidth;
                             const int sourceX = static_cast<int>(std::floor(sourceXFloat));
-                            const float revealU =
-                                std::clamp(sourceXFloat / static_cast<float>(mapTextureWidth), 0.0f, 0.999999f);
+                            const GameplayMinimapPoint revealUv = gameplayMinimapUvToOutdoorRevealUv(
+                                minimapState,
+                                sourceXFloat / static_cast<float>(mapTextureWidth),
+                                sourceV);
                             const int revealCellX =
-                                static_cast<int>(std::floor(revealU * static_cast<float>(JournalRevealWidth)));
+                                static_cast<int>(std::floor(revealUv.x * static_cast<float>(JournalRevealWidth)));
+                            const int revealCellY =
+                                static_cast<int>(std::floor(revealUv.y * static_cast<float>(JournalRevealHeight)));
                             const size_t targetOffset =
                                 (static_cast<size_t>(pixelY) * static_cast<size_t>(mapPixelWidth)
                                     + static_cast<size_t>(pixelX))
@@ -8521,12 +8533,21 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
 
             if (backgroundLayer.has_value())
             {
+                const Engine::AssetFileSystem *pAssetFileSystem = context.gameplayUiRuntime().assetFileSystem();
+                const int compositeScale = std::max(
+                    Engine::assetScaleTierFactor(backgroundLayer->assetScaleTier),
+                    pAssetFileSystem != nullptr
+                        ? Engine::assetScaleTierFactor(
+                            pAssetFileSystem->getAssetScaleTier(Engine::AssetScaleCategory::Icons)) : 1);
+                const int compositeWidth = backgroundTexture->width * compositeScale;
+                const int compositeHeight = backgroundTexture->height * compositeScale;
                 nativePaperdollComposite = NativePaperdollComposite{
-                    backgroundLayer->width,
-                    backgroundLayer->height,
+                    compositeWidth,
+                    compositeHeight,
                     backgroundTexture->width,
                     backgroundTexture->height,
-                    backgroundLayer->pixels};
+                    Engine::scalePixelsNearestBgra(backgroundLayer->pixels, backgroundLayer->width,
+                        backgroundLayer->height, compositeWidth, compositeHeight)};
                 const float physicalScaleX = static_cast<float>(nativePaperdollComposite->physicalWidth)
                     / static_cast<float>(std::max(1, nativePaperdollComposite->logicalWidth));
                 const float physicalScaleY = static_cast<float>(nativePaperdollComposite->physicalHeight)

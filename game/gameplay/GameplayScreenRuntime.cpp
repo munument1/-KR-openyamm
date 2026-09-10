@@ -640,9 +640,7 @@ bool GameplayScreenRuntime::mobileInspectControlAvailable() const
 
     if (hudScreenState == GameplayHudScreenState::Character)
     {
-        return characterScreenReadOnly().open
-            && characterScreenReadOnly().page == GameplayUiController::CharacterPage::Inventory
-            && !isAdventurersInnScreenActive();
+        return GameplayUiController::characterScreenSupportsInspection(characterScreenReadOnly());
     }
 
     if (hudScreenState != GameplayHudScreenState::Dialogue)

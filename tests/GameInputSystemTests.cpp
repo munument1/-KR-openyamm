@@ -1,6 +1,7 @@
 #include "doctest/doctest.h"
 
 #include "game/app/GameInputSystem.h"
+#include "game/ui/GameplayUiController.h"
 
 using namespace OpenYAMM::Game;
 
@@ -47,4 +48,30 @@ TEST_CASE("game input reports a held use key press only on its initial frame")
     inputSystem.updateFromEngineInput(640, 480, 0.0f, settings);
 
     CHECK(inputSystem.frame().scancodePressCount(SDL_SCANCODE_E) == 0);
+}
+
+TEST_CASE("mobile inspection follows the character screen instead of its selected tab or source")
+{
+    using CharacterPage = GameplayUiController::CharacterPage;
+    using CharacterScreenSource = GameplayUiController::CharacterScreenSource;
+
+    GameplayUiController::CharacterScreenState screen = {};
+    CHECK_FALSE(GameplayUiController::characterScreenSupportsInspection(screen));
+
+    screen.open = true;
+
+    for (const CharacterPage page : {
+             CharacterPage::Stats,
+             CharacterPage::Skills,
+             CharacterPage::Inventory,
+             CharacterPage::Awards,
+         })
+    {
+        screen.page = page;
+        CHECK(GameplayUiController::characterScreenSupportsInspection(screen));
+    }
+
+    screen.source = CharacterScreenSource::AdventurersInn;
+    screen.adventurersInnRosterOverlayOpen = true;
+    CHECK(GameplayUiController::characterScreenSupportsInspection(screen));
 }

@@ -56,6 +56,7 @@ struct OutdoorTerrainTextureAtlas
     int tilePadding = 0;
     std::vector<uint8_t> pixels;
     std::array<OutdoorTerrainAtlasRegion, 256> tileRegions = {};
+    std::array<std::string, 256> tileTextureNames = {};
     std::vector<OutdoorAnimatedWaterTileSource> animatedWaterTiles;
 };
 

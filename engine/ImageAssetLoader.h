@@ -17,6 +17,7 @@ struct ImagePixelsBgra
     int width = 0;
     int height = 0;
     std::vector<uint8_t> pixels;
+    AssetScaleTier assetScaleTier = AssetScaleTier::X1;
 };
 
 struct ImageDecodeOptions

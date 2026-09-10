@@ -588,6 +588,15 @@ public:
     void setPartyCollisionDimensions(float radius, float height);
     void bindInteractionView(OutdoorGameView *pView);
     void bindGlobalEventProgram(const std::optional<ScriptedEventProgram> *pGlobalEventProgram);
+
+    struct MonsterKilledEvent
+    {
+        uint32_t actorIndex = 0;
+        uint32_t monsterId = 0;
+    };
+
+    void setMonsterKilledHooksEnabled(bool enabled);
+    std::vector<MonsterKilledEvent> drainMonsterKilledEvents();
     int mapId() const;
     const std::string &mapName() const override;
     const MonsterTable *monsterTable() const override;
@@ -1228,6 +1237,7 @@ private:
     void groundMm9LoadedPlacements(bool updateActorHomes, bool includeRuntimeActors);
     void removeDepletedSemanticLootContainer(uint32_t containerId);
     void spawnMonsterDeathDropsForActor(size_t actorIndex, const MapActorState &actor);
+    void queueMonsterKilledEvent(size_t actorIndex, int16_t monsterId);
     bool spawnMonsterDeathDropWorldItem(
         const InventoryItem &item,
         float x,
@@ -1343,7 +1353,8 @@ private:
     int m_mapTreasureLevel = 0;
     MapStatsEntry m_map = {};
     std::string m_mapName;
-    float m_gameMinutes = 9.0f * 60.0f;
+    // Frame-sized increments must remain representable after months of campaign time.
+    double m_gameMinutes = 9.0 * 60.0;
     AtmosphereState m_atmosphereState = {};
     std::optional<OutdoorWeatherProfile> m_outdoorWeatherProfile;
     bool m_mergedWeatherStateCacheValid = false;
@@ -1360,6 +1371,8 @@ private:
     bool m_timerDefinitionsInitialized = false;
     bool m_resetLegacyTimersOnInitialize = false;
     std::vector<MapActorState> m_mapActors;
+    bool m_monsterKilledHooksEnabled = false;
+    std::vector<MonsterKilledEvent> m_pendingMonsterKilledEvents;
     std::vector<size_t> m_mm9FoundPlayerActorIndices;
     std::vector<bool> m_mm9FoundPlayerEventAttempted;
     std::vector<size_t> m_mm9CivilianActorIndices;

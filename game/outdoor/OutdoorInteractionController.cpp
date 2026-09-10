@@ -3290,12 +3290,11 @@ bool OutdoorInteractionController::hitTestActorBillboard(
     const float halfWidth = worldWidth * 0.5f;
     const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
-    const bx::Vec3 center = bottomAnchoredBillboardCenter(
+    const bx::Vec3 center = spriteBillboardCenter(
         static_cast<float>(actorX),
         static_cast<float>(actorY),
         static_cast<float>(actorZ),
-        cameraUp,
-        worldHeight);
+        cameraRight, cameraUp, *pTextureHandle, spriteScale, resolvedTexture.mirrored);
     const bx::Vec3 right = {
         cameraRight.x * halfWidth,
         cameraRight.y * halfWidth,

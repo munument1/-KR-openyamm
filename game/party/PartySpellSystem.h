@@ -89,7 +89,7 @@ struct PartySpellCastRequest
     std::optional<GameplayWorldHit> targetWorldHit;
     uint32_t skillLevelOverride = 0;
     SkillMastery skillMasteryOverride = SkillMastery::None;
-    // Wands provide their own fixed spell power and do not require the caster to know the spell mastery.
+    // Scrolls and wands provide fixed spell power without requiring the caster to know the spell mastery.
     bool bypassRequiredMastery = false;
     // NPC and scripted casts can use a party member as the UI speaker without requiring that member to be ready.
     bool bypassGameplayCasterValidation = false;

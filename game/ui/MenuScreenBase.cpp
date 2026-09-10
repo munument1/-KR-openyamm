@@ -45,23 +45,6 @@ struct PcxHeader
     uint8_t filler[54] = {};
 };
 
-struct ParsedFontGlyphMetrics
-{
-    int leftSpacing = 0;
-    int width = 0;
-    int rightSpacing = 0;
-};
-
-struct ParsedBitmapFont
-{
-    int firstChar = 0;
-    int lastChar = 0;
-    int fontHeight = 0;
-    std::array<ParsedFontGlyphMetrics, 256> glyphMetrics = {{}};
-    std::array<uint32_t, 256> glyphOffsets = {{}};
-    std::vector<uint8_t> pixels;
-};
-
 std::string toLowerCopy(const std::string &value)
 {
     std::string normalized = value;
@@ -158,135 +141,6 @@ std::vector<uint8_t> readBinaryFile(const std::filesystem::path &path)
     }
 
     return bytes;
-}
-
-int32_t readInt32Le(const uint8_t *pBytes)
-{
-    return static_cast<int32_t>(
-        static_cast<uint32_t>(pBytes[0])
-        | (static_cast<uint32_t>(pBytes[1]) << 8)
-        | (static_cast<uint32_t>(pBytes[2]) << 16)
-        | (static_cast<uint32_t>(pBytes[3]) << 24));
-}
-
-uint32_t readUint32Le(const uint8_t *pBytes)
-{
-    return static_cast<uint32_t>(
-        static_cast<uint32_t>(pBytes[0])
-        | (static_cast<uint32_t>(pBytes[1]) << 8)
-        | (static_cast<uint32_t>(pBytes[2]) << 16)
-        | (static_cast<uint32_t>(pBytes[3]) << 24));
-}
-
-bool validateParsedBitmapFont(const ParsedBitmapFont &font, const std::vector<uint8_t> &pixels)
-{
-    if (font.firstChar < 0 || font.firstChar > 255
-        || font.lastChar < 0 || font.lastChar > 255
-        || font.firstChar > font.lastChar
-        || font.fontHeight <= 0)
-    {
-        return false;
-    }
-
-    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-    {
-        const ParsedFontGlyphMetrics &metrics = font.glyphMetrics[glyphIndex];
-
-        if (glyphIndex < font.firstChar || glyphIndex > font.lastChar)
-        {
-            continue;
-        }
-
-        if (metrics.width < 0 || metrics.width > 1024
-            || metrics.leftSpacing < -512 || metrics.leftSpacing > 512
-            || metrics.rightSpacing < -512 || metrics.rightSpacing > 512)
-        {
-            return false;
-        }
-
-        const uint64_t glyphSize = static_cast<uint64_t>(font.fontHeight) * static_cast<uint64_t>(metrics.width);
-        const uint64_t glyphEnd = static_cast<uint64_t>(font.glyphOffsets[glyphIndex]) + glyphSize;
-
-        if (glyphEnd > pixels.size())
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-std::optional<ParsedBitmapFont> parseBitmapFont(const std::vector<uint8_t> &bytes)
-{
-    constexpr size_t FontHeaderSize = 32;
-    constexpr size_t Mm7AtlasSize = 4096;
-    constexpr size_t MmxAtlasSize = 1280;
-
-    if (bytes.size() < FontHeaderSize + MmxAtlasSize)
-    {
-        return std::nullopt;
-    }
-
-    const uint8_t *pBytes = bytes.data();
-
-    if (pBytes[2] != 8 || pBytes[3] != 0 || pBytes[4] != 0 || pBytes[6] != 0 || pBytes[7] != 0)
-    {
-        return std::nullopt;
-    }
-
-    ParsedBitmapFont mm7Font = {};
-    mm7Font.firstChar = pBytes[0];
-    mm7Font.lastChar = pBytes[1];
-    mm7Font.fontHeight = pBytes[5];
-
-    if (bytes.size() >= FontHeaderSize + Mm7AtlasSize)
-    {
-        for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-        {
-            const size_t metricOffset = FontHeaderSize + static_cast<size_t>(glyphIndex) * 12;
-            mm7Font.glyphMetrics[glyphIndex].leftSpacing = readInt32Le(&pBytes[metricOffset]);
-            mm7Font.glyphMetrics[glyphIndex].width = readInt32Le(&pBytes[metricOffset + 4]);
-            mm7Font.glyphMetrics[glyphIndex].rightSpacing = readInt32Le(&pBytes[metricOffset + 8]);
-        }
-
-        for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-        {
-            const size_t offsetPosition = FontHeaderSize + 256 * 12 + static_cast<size_t>(glyphIndex) * 4;
-            mm7Font.glyphOffsets[glyphIndex] = readUint32Le(&pBytes[offsetPosition]);
-        }
-
-        mm7Font.pixels.assign(bytes.begin() + static_cast<ptrdiff_t>(FontHeaderSize + Mm7AtlasSize), bytes.end());
-
-        if (validateParsedBitmapFont(mm7Font, mm7Font.pixels))
-        {
-            return mm7Font;
-        }
-    }
-
-    ParsedBitmapFont mmxFont = {};
-    mmxFont.firstChar = pBytes[0];
-    mmxFont.lastChar = pBytes[1];
-    mmxFont.fontHeight = pBytes[5];
-
-    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-    {
-        mmxFont.glyphMetrics[glyphIndex].width = pBytes[FontHeaderSize + glyphIndex];
-    }
-
-    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-    {
-        const size_t offsetPosition = FontHeaderSize + 256 + static_cast<size_t>(glyphIndex) * 4;
-        mmxFont.glyphOffsets[glyphIndex] = readUint32Le(&pBytes[offsetPosition]);
-    }
-
-    mmxFont.pixels.assign(bytes.begin() + static_cast<ptrdiff_t>(FontHeaderSize + MmxAtlasSize), bytes.end());
-
-    if (!validateParsedBitmapFont(mmxFont, mmxFont.pixels))
-    {
-        return std::nullopt;
-    }
-
-    return mmxFont;
 }
 
 bgfx::ShaderHandle loadShader(const char *pShaderName)
@@ -1052,6 +906,9 @@ bool MenuScreenBase::drawText(
         return false;
     }
 
+    pixelX -= pFont->atlasPadding * scale;
+    pixelY -= pFont->atlasPadding * scale;
+
     const float shadowOffset = std::max(1.0f, scale);
 
     if (drawShadow && bgfx::isValid(pFont->shadowTextureHandle))
@@ -1080,16 +937,16 @@ bool MenuScreenBase::drawText(
 
             if (glyphMetrics.width > 0)
             {
-                const int cellX = (character % 16) * pFont->atlasCellWidth;
-                const int cellY = (character / 16) * pFont->fontHeight;
-                const float u0 = static_cast<float>(cellX) / static_cast<float>(pFont->atlasWidth);
-                const float v0 = static_cast<float>(cellY) / static_cast<float>(pFont->atlasHeight);
-                const float u1 = static_cast<float>(cellX + glyphMetrics.width)
-                    / static_cast<float>(pFont->atlasWidth);
-                const float v1 = static_cast<float>(cellY + pFont->fontHeight)
-                    / static_cast<float>(pFont->atlasHeight);
-                const float glyphWidth = static_cast<float>(glyphMetrics.width) * scale;
-                const float glyphHeight = static_cast<float>(pFont->fontHeight) * scale;
+                const int cellX = (character % 16) * (pFont->atlasCellWidth + 2 * pFont->atlasPadding);
+                const int cellY = (character / 16) * (pFont->fontHeight + 2 * pFont->atlasPadding);
+                const float u0 = static_cast<float>(cellX) / static_cast<float>(pFont->atlasWidth / pFont->atlasScale);
+                const float v0 = static_cast<float>(cellY) / static_cast<float>(pFont->atlasHeight / pFont->atlasScale);
+                const float u1 = static_cast<float>(cellX + glyphMetrics.width + 2 * pFont->atlasPadding)
+                    / static_cast<float>(pFont->atlasWidth / pFont->atlasScale);
+                const float v1 = static_cast<float>(cellY + pFont->fontHeight + 2 * pFont->atlasPadding)
+                    / static_cast<float>(pFont->atlasHeight / pFont->atlasScale);
+                const float glyphWidth = static_cast<float>(glyphMetrics.width + 2 * pFont->atlasPadding) * scale;
+                const float glyphHeight = static_cast<float>(pFont->fontHeight + 2 * pFont->atlasPadding) * scale;
                 const float top = pixelY + shadowOffset;
                 const float bottom = top + glyphHeight;
 
@@ -1106,7 +963,8 @@ bool MenuScreenBase::drawText(
         }
 
         bgfx::setVertexBuffer(0, &shadowBuffer);
-        bindTexture(0, m_textureUniformHandle, pFont->shadowTextureHandle, TextureFilterProfile::Text);
+        bindTexture(0, m_textureUniformHandle, pFont->shadowTextureHandle,
+            pFont->atlasScale > 1 ? TextureFilterProfile::SmoothText : TextureFilterProfile::Text);
         bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_MSAA);
         bgfx::submit(m_renderViewId, m_texturedProgramHandle);
     }
@@ -1135,14 +993,16 @@ bool MenuScreenBase::drawText(
 
         if (glyphMetrics.width > 0)
         {
-            const int cellX = (character % 16) * pFont->atlasCellWidth;
-            const int cellY = (character / 16) * pFont->fontHeight;
-            const float u0 = static_cast<float>(cellX) / static_cast<float>(pFont->atlasWidth);
-            const float v0 = static_cast<float>(cellY) / static_cast<float>(pFont->atlasHeight);
-            const float u1 = static_cast<float>(cellX + glyphMetrics.width) / static_cast<float>(pFont->atlasWidth);
-            const float v1 = static_cast<float>(cellY + pFont->fontHeight) / static_cast<float>(pFont->atlasHeight);
-            const float glyphWidth = static_cast<float>(glyphMetrics.width) * scale;
-            const float glyphHeight = static_cast<float>(pFont->fontHeight) * scale;
+            const int cellX = (character % 16) * (pFont->atlasCellWidth + 2 * pFont->atlasPadding);
+            const int cellY = (character / 16) * (pFont->fontHeight + 2 * pFont->atlasPadding);
+            const float u0 = static_cast<float>(cellX) / static_cast<float>(pFont->atlasWidth / pFont->atlasScale);
+            const float v0 = static_cast<float>(cellY) / static_cast<float>(pFont->atlasHeight / pFont->atlasScale);
+            const float u1 = static_cast<float>(cellX + glyphMetrics.width + 2 * pFont->atlasPadding)
+                / static_cast<float>(pFont->atlasWidth / pFont->atlasScale);
+            const float v1 = static_cast<float>(cellY + pFont->fontHeight + 2 * pFont->atlasPadding)
+                / static_cast<float>(pFont->atlasHeight / pFont->atlasScale);
+            const float glyphWidth = static_cast<float>(glyphMetrics.width + 2 * pFont->atlasPadding) * scale;
+            const float glyphHeight = static_cast<float>(pFont->fontHeight + 2 * pFont->atlasPadding) * scale;
             const float bottom = pixelY + glyphHeight;
 
             pVertices[vertexIndex + 0] = MenuVertex{penX, pixelY, 0.0f, u0, v0};
@@ -1158,7 +1018,8 @@ bool MenuScreenBase::drawText(
     }
 
     bgfx::setVertexBuffer(0, &vertexBuffer);
-    bindTexture(0, m_textureUniformHandle, mainTextureHandle, TextureFilterProfile::Text);
+    bindTexture(0, m_textureUniformHandle, mainTextureHandle,
+        pFont->atlasScale > 1 ? TextureFilterProfile::SmoothText : TextureFilterProfile::Text);
     bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_MSAA);
     bgfx::submit(m_renderViewId, m_texturedProgramHandle);
     return true;
@@ -1407,8 +1268,9 @@ const MenuScreenBase::TextureHandle *MenuScreenBase::ensureTexture(const std::st
 
     TextureHandle textureHandle = {};
     textureHandle.normalizedTextureName = toLowerCopy(textureName);
-    textureHandle.width = Engine::scalePhysicalPixelsToLogical(width, m_pAssetFileSystem->getAssetScaleTier());
-    textureHandle.height = Engine::scalePhysicalPixelsToLogical(height, m_pAssetFileSystem->getAssetScaleTier());
+    const Engine::AssetScaleTier loadedTier = Engine::assetScaleTierFromResolvedPath(*resolvedPath);
+    textureHandle.width = Engine::scalePhysicalPixelsToLogical(width, loadedTier);
+    textureHandle.height = Engine::scalePhysicalPixelsToLogical(height, loadedTier);
     textureHandle.physicalWidth = width;
     textureHandle.physicalHeight = height;
     textureHandle.bgraPixels = *pixels;
@@ -1438,9 +1300,19 @@ const MenuScreenBase::TextureHandle *MenuScreenBase::ensureTexture(const std::st
     return &s_textureHandles.back();
 }
 
+void MenuScreenBase::setFontSettings(const Engine::FontSettings &settings)
+{
+    m_fontSettings = settings;
+}
+
+std::string MenuScreenBase::fontCacheKey(const std::string &fontName) const
+{
+    return toLowerCopy(fontName) + (m_fontSettings.usesTrueType(fontName) ? "|ttf" : "|bitmap");
+}
+
 const MenuScreenBase::FontHandle *MenuScreenBase::findFont(const std::string &fontName) const
 {
-    const std::string normalized = toLowerCopy(fontName);
+    const std::string normalized = fontCacheKey(fontName);
     const std::unordered_map<std::string, size_t>::const_iterator it = s_fontIndexByName.find(normalized);
     return it != s_fontIndexByName.end() ? &s_fontHandles[it->second] : nullptr;
 }
@@ -1466,91 +1338,31 @@ const MenuScreenBase::FontHandle *MenuScreenBase::ensureFont(const std::string &
         return nullptr;
     }
 
-    const std::optional<ParsedBitmapFont> parsedFont = parseBitmapFont(*bytes);
-
-    if (!parsedFont)
+    std::string error;
+    std::optional<Engine::FontAtlasImage> image =
+        Engine::loadFontAtlas(*m_pAssetFileSystem, *bytes, fontName, m_fontSettings, error);
+    if (!image)
     {
+        std::cerr << "Menu font load failed: font=\"" << fontName << "\" reason=" << error << '\n';
         return nullptr;
-    }
-
-    int atlasCellWidth = 1;
-
-    for (const ParsedFontGlyphMetrics &metrics : parsedFont->glyphMetrics)
-    {
-        atlasCellWidth = std::max(atlasCellWidth, metrics.width);
-    }
-
-    const int atlasWidth = atlasCellWidth * 16;
-    const int atlasHeight = parsedFont->fontHeight * 16;
-
-    if (atlasWidth <= 0 || atlasHeight <= 0)
-    {
-        return nullptr;
-    }
-
-    std::vector<uint8_t> mainPixels(static_cast<size_t>(atlasWidth) * static_cast<size_t>(atlasHeight) * 4, 0);
-    std::vector<uint8_t> shadowPixels(static_cast<size_t>(atlasWidth) * static_cast<size_t>(atlasHeight) * 4, 0);
-
-    for (int glyphIndex = parsedFont->firstChar; glyphIndex <= parsedFont->lastChar; ++glyphIndex)
-    {
-        const ParsedFontGlyphMetrics &metrics = parsedFont->glyphMetrics[glyphIndex];
-
-        if (metrics.width <= 0)
-        {
-            continue;
-        }
-
-        const int cellX = (glyphIndex % 16) * atlasCellWidth;
-        const int cellY = (glyphIndex / 16) * parsedFont->fontHeight;
-        const size_t glyphOffset = parsedFont->glyphOffsets[glyphIndex];
-
-        for (int y = 0; y < parsedFont->fontHeight; ++y)
-        {
-            for (int x = 0; x < metrics.width; ++x)
-            {
-                const uint8_t pixelValue =
-                    parsedFont->pixels[glyphOffset + static_cast<size_t>(y) * static_cast<size_t>(metrics.width) + x];
-
-                if (pixelValue == 0)
-                {
-                    continue;
-                }
-
-                const size_t atlasPixelIndex =
-                    (static_cast<size_t>(cellY + y) * static_cast<size_t>(atlasWidth) + static_cast<size_t>(cellX + x))
-                    * 4;
-                std::vector<uint8_t> &targetPixels = (pixelValue == 1) ? shadowPixels : mainPixels;
-                targetPixels[atlasPixelIndex + 0] = (pixelValue == 1) ? 0 : 255;
-                targetPixels[atlasPixelIndex + 1] = (pixelValue == 1) ? 0 : 255;
-                targetPixels[atlasPixelIndex + 2] = (pixelValue == 1) ? 0 : 255;
-                targetPixels[atlasPixelIndex + 3] = 255;
-            }
-        }
     }
 
     FontHandle fontHandle = {};
-    fontHandle.normalizedFontName = toLowerCopy(fontName);
-    fontHandle.firstChar = parsedFont->firstChar;
-    fontHandle.lastChar = parsedFont->lastChar;
-    fontHandle.fontHeight = parsedFont->fontHeight;
-    fontHandle.atlasCellWidth = atlasCellWidth;
-    fontHandle.atlasWidth = atlasWidth;
-    fontHandle.atlasHeight = atlasHeight;
-    fontHandle.mainAtlasPixels = mainPixels;
-
-    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-    {
-        fontHandle.glyphMetrics[glyphIndex].leftSpacing = parsedFont->glyphMetrics[glyphIndex].leftSpacing;
-        fontHandle.glyphMetrics[glyphIndex].width = parsedFont->glyphMetrics[glyphIndex].width;
-        fontHandle.glyphMetrics[glyphIndex].rightSpacing = parsedFont->glyphMetrics[glyphIndex].rightSpacing;
-    }
+    static_cast<Engine::FontAtlas &>(fontHandle) = std::move(image->atlas);
+    fontHandle.normalizedFontName = fontCacheKey(fontName);
+    const int atlasWidth = fontHandle.atlasWidth;
+    const int atlasHeight = fontHandle.atlasHeight;
+    const std::vector<uint8_t> &mainPixels = fontHandle.mainAtlasPixels;
+    const std::vector<uint8_t> &shadowPixels = image->shadowPixels;
+    const TextureFilterProfile filter = fontHandle.atlasScale > 1
+        ? TextureFilterProfile::SmoothText : TextureFilterProfile::Text;
 
     fontHandle.mainTextureHandle = createBgraTexture2D(
         uint16_t(atlasWidth),
         uint16_t(atlasHeight),
         mainPixels.data(),
         uint32_t(mainPixels.size()),
-        TextureFilterProfile::Text,
+        filter,
         BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP
     );
     fontHandle.shadowTextureHandle = createBgraTexture2D(
@@ -1558,7 +1370,7 @@ const MenuScreenBase::FontHandle *MenuScreenBase::ensureFont(const std::string &
         uint16_t(atlasHeight),
         shadowPixels.data(),
         uint32_t(shadowPixels.size()),
-        TextureFilterProfile::Text,
+        filter,
         BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP
     );
 
@@ -1761,7 +1573,7 @@ bgfx::TextureHandle MenuScreenBase::ensureFontColor(const FontHandle &font, uint
     {
         const uint8_t sourceAlpha = tintedPixels[pixelIndex + 3];
 
-        if (sourceAlpha == 0)
+        if (sourceAlpha == 0 && font.atlasScale == 1)
         {
             continue;
         }
@@ -1780,7 +1592,7 @@ bgfx::TextureHandle MenuScreenBase::ensureFontColor(const FontHandle &font, uint
         uint16_t(font.atlasHeight),
         tintedPixels.data(),
         uint32_t(tintedPixels.size()),
-        TextureFilterProfile::Text,
+        font.atlasScale > 1 ? TextureFilterProfile::SmoothText : TextureFilterProfile::Text,
         BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP
     );
 
@@ -1799,53 +1611,8 @@ bgfx::TextureHandle MenuScreenBase::ensureFontColor(const FontHandle &font, uint
 
 std::optional<std::string> MenuScreenBase::resolveTexturePath(const std::string &textureName)
 {
-    const std::string normalizedName = toLowerCopy(textureName);
-    const auto cachedIt = s_resolvedTexturePaths.find(normalizedName);
-
-    if (cachedIt != s_resolvedTexturePaths.end())
-    {
-        return cachedIt->second;
-    }
-
-    const std::array<std::string, 1> directories = {
-        "Data/icons"
-    };
-    const std::array<std::string, 3> extensions = {
-        ".png",
-        ".bmp",
-        ".pcx"
-    };
-
-    for (const std::string &directory : directories)
-    {
-        auto entriesIt = s_directoryEntriesByPath.find(directory);
-
-        if (entriesIt == s_directoryEntriesByPath.end())
-        {
-            std::unordered_map<std::string, std::string> entries;
-
-            for (const std::string &entry : m_pAssetFileSystem->enumerate(directory))
-            {
-                entries.emplace(toLowerCopy(entry), directory + "/" + entry);
-            }
-
-            entriesIt = s_directoryEntriesByPath.emplace(directory, std::move(entries)).first;
-        }
-
-        for (const std::string &extension : extensions)
-        {
-            const auto resolvedIt = entriesIt->second.find(normalizedName + extension);
-
-            if (resolvedIt != entriesIt->second.end())
-            {
-                s_resolvedTexturePaths[normalizedName] = resolvedIt->second;
-                return resolvedIt->second;
-            }
-        }
-    }
-
-    s_resolvedTexturePaths[normalizedName] = std::nullopt;
-    return std::nullopt;
+    return Engine::findImageAssetPath(
+        *m_pAssetFileSystem, "Data/icons", textureName, s_directoryEntriesByPath, s_resolvedTexturePaths);
 }
 
 std::optional<std::string> MenuScreenBase::resolveFontPath(const std::string &fontName)

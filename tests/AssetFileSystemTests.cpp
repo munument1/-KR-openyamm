@@ -1056,3 +1056,34 @@ TEST_CASE("AssetFileSystem resolves engine tables through data_tables")
 
     std::filesystem::remove_all(temporaryRoot);
 }
+
+TEST_CASE("AssetFileSystem restored icons resolve archive tiers and original fallback")
+{
+    using namespace OpenYAMM::Engine;
+    const std::filesystem::path temporaryRoot = makeTemporaryRoot();
+    const std::filesystem::path assetRoot = temporaryRoot / "assets";
+    writeZipFile(assetRoot / "engine.zip", {
+        {"icons/kept.bmp", "original"},
+        {"icons/mixed.bmp", "original"},
+        {"icons_x2/mixed.bmp", "restored"}
+    });
+    {
+        AssetFileSystem fs;
+        AssetScaleProfile profile;
+        profile.preferRestoredIcons = true;
+        REQUIRE(fs.initialize(temporaryRoot, assetRoot, AssetScaleTier::X1, profile, "mm6"));
+        for (const std::string &prefix : {"Data/icons/", "engine/icons/"})
+        {
+            const std::optional<std::string> restored = fs.resolveExistingFilePath(prefix + "mixed.bmp");
+            const std::optional<std::string> original = fs.resolveExistingFilePath(prefix + "kept.bmp");
+            REQUIRE(restored);
+            REQUIRE(original);
+            CHECK(assetScaleTierFromResolvedPath(*restored) == AssetScaleTier::X2);
+            CHECK(assetScaleTierFromResolvedPath(*original) == AssetScaleTier::X1);
+            CHECK(fs.readTextFile(*restored) == std::optional<std::string>("restored"));
+            CHECK(fs.readTextFile(*original) == std::optional<std::string>("original"));
+        }
+        CHECK_FALSE(fs.resolveExistingFilePath("Data/icons/missing.bmp"));
+    }
+    std::filesystem::remove_all(temporaryRoot);
+}

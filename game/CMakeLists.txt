@@ -130,6 +130,7 @@ add_library(openyamm_game STATIC
     indoor/IndoorPortalVisibility.cpp
     indoor/IndoorWorldRuntime.cpp
     maps/MapAssetLoader.cpp
+    maps/MapDecorationTextures.cpp
     maps/MapIdentity.cpp
     maps/MapRegistry.cpp
     tables/MapStats.cpp
@@ -139,6 +140,8 @@ add_library(openyamm_game STATIC
     tables/MergedBaseTables.cpp
     tables/NpcDialogTable.cpp
     tables/ObjectTable.cpp
+    render/SpriteAtlasCache.cpp
+    render/SpriteAtlasMipmaps.cpp
     outdoor/OutdoorBillboardRenderer.cpp
     outdoor/OutdoorSpatialFxRuntime.cpp
     outdoor/OutdoorGameplayInputController.cpp
@@ -150,6 +153,8 @@ add_library(openyamm_game STATIC
     outdoor/OutdoorRenderData.cpp
     outdoor/OutdoorMechanismRuntime.cpp
     outdoor/OutdoorPresentationController.cpp
+    outdoor/TerrainDecorationData.cpp
+    outdoor/TerrainDecorationRenderer.cpp
     outdoor/OutdoorRenderer.cpp
     outdoor/OutdoorGeometryUtils.cpp
     outdoor/OutdoorMovementController.cpp

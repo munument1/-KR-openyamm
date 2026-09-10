@@ -2993,6 +2993,7 @@ bool IndoorRenderer::initialize(
     m_texturedProgramHandle = loadProgram("vs_shadowmaps_texture", "fs_shadowmaps_texture");
     m_indoorLitProgramHandle = loadProgram("vs_indoor_textured_lit", "fs_indoor_textured_lit");
     m_billboardProgramHandle = loadProgram("vs_outdoor_billboard_lit", "fs_outdoor_billboard_lit");
+    m_spriteAtlasCache.setProgram(loadProgram("vs_outdoor_billboard_lit", "fs_sprite_atlas"));
     m_worldFxRenderResources.setParticleProgramHandle(loadProgram("vs_particle", "fs_particle"));
     ParticleRenderer::initializeResources(m_worldFxRenderResources);
     m_textureSamplerHandle = bgfx::createUniform("s_texColor", bgfx::UniformType::Sampler);
@@ -3093,6 +3094,34 @@ bool IndoorRenderer::initialize(
         m_cameraPositionX = static_cast<float>((minX + maxX) / 2);
         m_cameraPositionY = static_cast<float>(minY - 256);
         m_cameraPositionZ = static_cast<float>((minZ + maxZ) / 2);
+    }
+
+    if (m_pAssetFileSystem != nullptr && m_indoorActorPreviewBillboardSet)
+    {
+        const SpriteFrameTable &frames = m_indoorActorPreviewBillboardSet->spriteFrameTable;
+        const auto preloadActor = [&](const auto &actor)
+        {
+            m_spriteAtlasCache.preload(*m_pAssetFileSystem, frames, actor.spriteFrameIndex);
+            for (uint16_t actionFrame : actor.actionSpriteFrameIndices)
+            {
+                m_spriteAtlasCache.preload(*m_pAssetFileSystem, frames, actionFrame);
+            }
+        };
+        if (runtimeMapDeltaData())
+        {
+            for (const RuntimeActorBillboard &actor : buildRuntimeActorBillboards(
+                monsterTable, frames, *runtimeMapDeltaData(), &sceneRuntime.worldRuntime()))
+            {
+                preloadActor(actor);
+            }
+        }
+        else
+        {
+            for (const ActorPreviewBillboard &actor : m_indoorActorPreviewBillboardSet->billboards)
+            {
+                preloadActor(actor);
+            }
+        }
     }
 
     m_isRenderable = true;
@@ -4796,12 +4825,11 @@ IndoorRenderer::gameplayActorPickAtCursor(
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
             const float halfWidth = worldWidth * 0.5f;
-            const bx::Vec3 center = bottomAnchoredBillboardCenter(
+            const bx::Vec3 center = spriteBillboardCenter(
                 static_cast<float>(actor.x),
                 static_cast<float>(actor.y),
                 static_cast<float>(actor.z),
-                cameraUp,
-                worldHeight);
+                cameraRight, cameraUp, *pTexture, spriteScale, resolvedTexture.mirrored);
             const bx::Vec3 right = {
                 cameraRight.x * halfWidth,
                 cameraRight.y * halfWidth,
@@ -6393,6 +6421,7 @@ bool IndoorRenderer::activateGameplayWorldHit(const GameplayWorldHit &hit)
 
 void IndoorRenderer::shutdown()
 {
+    m_spriteAtlasCache.clear(Engine::BgfxContext::isBgfxInitialized());
     m_pIndoorMapData = nullptr;
     m_indoorPortalGraph.reset();
     m_indoorLightingRuntime.clearStaticCache();
@@ -6629,7 +6658,7 @@ void IndoorRenderer::shutdown()
 
     for (BillboardTextureHandle &textureHandle : m_billboardTextureHandles)
     {
-        if (bgfx::isValid(textureHandle.textureHandle))
+        if (!textureHandle.atlas && bgfx::isValid(textureHandle.textureHandle))
         {
             bgfx::destroy(textureHandle.textureHandle);
         }
@@ -6873,6 +6902,18 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
     if (pExistingTexture != nullptr)
     {
         return pExistingTexture;
+    }
+
+    if (textureName.starts_with("atlas:"))
+    {
+        BillboardTextureHandle texture;
+        if (m_pAssetFileSystem == nullptr || !m_spriteAtlasCache.load(*m_pAssetFileSystem, textureName, paletteId, texture))
+        {
+            return nullptr;
+        }
+        m_billboardTextureHandles.push_back(std::move(texture));
+        registerBillboardTextureIndex(m_billboardTextureHandles.size() - 1);
+        return &m_billboardTextureHandles.back();
     }
 
     const BillboardTextureLookupKey warningKey = makeBillboardTextureLookupKey(textureName, paletteId);
@@ -7798,12 +7839,11 @@ void IndoorRenderer::renderActorPreviewBillboards(
             const float spriteScale = std::max(pFrame->scale * billboard.heightScale, 0.01f);
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
-            const bx::Vec3 center = bottomAnchoredBillboardCenter(
+            const bx::Vec3 center = spriteBillboardCenter(
                 static_cast<float>(billboard.x),
                 static_cast<float>(billboard.y),
                 static_cast<float>(billboard.z),
-                cameraUp,
-                worldHeight);
+                cameraRight, cameraUp, *pTexture, spriteScale, resolvedTexture.mirrored);
             const float radius = std::sqrt((worldWidth * 0.5f) * (worldWidth * 0.5f)
                 + (worldHeight * 0.5f) * (worldHeight * 0.5f));
 
@@ -7855,8 +7895,9 @@ void IndoorRenderer::renderActorPreviewBillboards(
                     drawItem.distanceSquared);
             }
 
-            drawItem.healthBarZ = drawItem.z + worldHeight + 26.0f * drawItem.heightScale;
-            drawItem.questMarkerZ = drawItem.z
+            drawItem.healthBarZ = drawItem.z + worldHeight + pTexture->offsetY * spriteScale
+                + 26.0f * drawItem.heightScale;
+            drawItem.questMarkerZ = drawItem.z + pTexture->offsetY * spriteScale
                 + worldHeight * (1.0f - pTexture->opacityMask.opaqueTopNormalized());
             drawItems.push_back(drawItem);
         }
@@ -7892,12 +7933,11 @@ void IndoorRenderer::renderActorPreviewBillboards(
             const float spriteScale = std::max(pFrame->scale, 0.01f);
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
-            const bx::Vec3 center = bottomAnchoredBillboardCenter(
+            const bx::Vec3 center = spriteBillboardCenter(
                 static_cast<float>(billboard.x),
                 static_cast<float>(billboard.y),
                 static_cast<float>(billboard.z),
-                cameraUp,
-                worldHeight);
+                cameraRight, cameraUp, *pTexture, spriteScale, resolvedTexture.mirrored);
             const float radius = std::sqrt((worldWidth * 0.5f) * (worldWidth * 0.5f)
                 + (worldHeight * 0.5f) * (worldHeight * 0.5f));
 
@@ -7985,12 +8025,11 @@ void IndoorRenderer::renderActorPreviewBillboards(
         const float worldWidth = static_cast<float>(texture.width) * spriteScale;
         const float worldHeight = static_cast<float>(texture.height) * spriteScale;
         const float halfWidth = worldWidth * 0.5f;
-        const bx::Vec3 center = bottomAnchoredBillboardCenter(
+        const bx::Vec3 center = spriteBillboardCenter(
             static_cast<float>(drawItem.x),
             static_cast<float>(drawItem.y),
             static_cast<float>(drawItem.z),
-            cameraUp,
-            worldHeight);
+            cameraRight, cameraUp, texture, spriteScale, drawItem.mirrored);
         const bx::Vec3 viewCenter = transformIndoorPoint(center, pViewMatrix);
         const bx::Vec3 right = {halfWidth, 0.0f, 0.0f};
         const bx::Vec3 up = {0.0f, worldHeight * 0.5f, 0.0f};
@@ -8126,7 +8165,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
                 bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
                 bgfx::setState(
                     IndoorBillboardDrawState);
-                bgfx::submit(viewId, m_billboardProgramHandle);
+                bgfx::submit(viewId, m_spriteAtlasCache.bind(texture, m_billboardProgramHandle));
 
                 if (m_logIndoorPerformanceDiagnostics)
                 {
@@ -8208,7 +8247,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
         bgfx::setState(
             IndoorBillboardDrawState
         );
-        bgfx::submit(viewId, m_billboardProgramHandle);
+        bgfx::submit(viewId, m_spriteAtlasCache.bind(texture, m_billboardProgramHandle));
 
         if (m_logIndoorPerformanceDiagnostics)
         {
@@ -11949,12 +11988,11 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
                 const float spriteScale = std::max(pFrame->scale, 0.01f);
                 const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
                 const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
-                const bx::Vec3 center = bottomAnchoredBillboardCenter(
+                const bx::Vec3 center = spriteBillboardCenter(
                     static_cast<float>(actor.x),
                     static_cast<float>(actor.y),
                     static_cast<float>(actor.z),
-                    cameraUp,
-                    worldHeight);
+                    cameraRight, cameraUp, *pTexture, spriteScale, resolvedTexture.mirrored);
                 const bx::Vec3 planeNormal = {
                     -cameraRight.y * cameraUp.z + cameraRight.z * cameraUp.y,
                     -cameraRight.z * cameraUp.x + cameraRight.x * cameraUp.z,

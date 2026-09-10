@@ -13,20 +13,27 @@ class BillboardOpacityMask
 public:
     void assignFromBgra(const std::vector<uint8_t> &pixels, int width, int height)
     {
+        assignFromBgraRegion(pixels, width, height, 0, 0, width, height);
+    }
+
+    void assignFromBgraRegion(const std::vector<uint8_t> &pixels, int sourceWidth, int sourceHeight,
+        int originX, int originY, int width, int height)
+    {
         m_width = 0;
         m_height = 0;
         m_opaqueTop = 0;
         m_hasOpaquePixel = false;
         m_bits.clear();
 
-        if (width <= 0 || height <= 0)
+        if (width <= 0 || height <= 0 || sourceWidth < width || sourceHeight < height
+            || originX < 0 || originY < 0 || originX > sourceWidth - width || originY > sourceHeight - height)
         {
             return;
         }
 
         const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
 
-        if (pixels.size() < pixelCount * 4)
+        if (pixels.size() / 4 < size_t(sourceWidth) * sourceHeight)
         {
             return;
         }
@@ -35,15 +42,20 @@ public:
         m_height = height;
         m_bits.assign((pixelCount + 7) / 8, 0);
 
-        for (size_t pixelIndex = 0; pixelIndex < pixelCount; ++pixelIndex)
+        for (int y = 0; y < height; ++y)
         {
-            if (pixels[pixelIndex * 4 + 3] != 0)
+            const uint8_t *pRow = pixels.data() + (size_t(originY + y) * sourceWidth + originX) * 4;
+            for (int x = 0; x < width; ++x)
             {
-                m_bits[pixelIndex / 8] |= static_cast<uint8_t>(1u << (pixelIndex % 8));
-                if (!m_hasOpaquePixel)
+                if (pRow[size_t(x) * 4 + 3] != 0)
                 {
-                    m_opaqueTop = static_cast<int>(pixelIndex / static_cast<size_t>(m_width));
-                    m_hasOpaquePixel = true;
+                    const size_t pixelIndex = size_t(y) * width + x;
+                    m_bits[pixelIndex / 8] |= uint8_t(1u << (pixelIndex % 8));
+                    if (!m_hasOpaquePixel)
+                    {
+                        m_opaqueTop = y;
+                        m_hasOpaquePixel = true;
+                    }
                 }
             }
         }

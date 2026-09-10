@@ -345,7 +345,7 @@ int EngineApplication::run() const
               << " sky=" << assetScaleTierToString(assetScaleProfile.sky)
               << " sprites=" << assetScaleTierToString(assetScaleProfile.sprites)
               << " decorations=" << assetScaleTierToString(assetScaleProfile.decorations)
-              << " icons=" << assetScaleTierToString(assetScaleProfile.icons)
+              << " icons=" << assetScaleTierToString(assetScaleTierForCategory(assetScaleProfile, AssetScaleCategory::Icons))
               << " ui=" << assetScaleTierToString(assetScaleProfile.ui) << '\n';
     std::cout << "Window mode: " << windowModeName(m_config.windowMode) << '\n';
     std::cout << "Window requested: " << m_config.windowWidth << "x" << m_config.windowHeight << '\n';

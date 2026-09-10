@@ -2,6 +2,7 @@
 #include "game/events/EvtEnums.h"
 #include "game/maps/IndoorSceneYml.h"
 #include "game/maps/MapAssetLoader.h"
+#include "game/maps/MapDecorationTextures.h"
 #include "game/maps/MapIdentity.h"
 #include "game/maps/MapPresentation.h"
 #include "game/maps/OutdoorSceneYml.h"
@@ -2131,6 +2132,7 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
     const Engine::AssetFileSystem &assetFileSystem,
     const std::vector<EntityType> &entities,
     const std::string &worldId,
+    const std::vector<OutdoorBitmapTexture> &decorationTextures,
     BitmapLoadCache &bitmapLoadCache,
     const MapLoadProgressPump &progressPump,
     MapAssetLoadSharedCache *pSharedCache
@@ -2212,8 +2214,20 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
     const Engine::AssetScaleTier decorationAssetScaleTier =
         assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Decorations);
 
+    // Include scripted alternate states even when they have no initial map placement.
+    billboardSet.textures = decorationTextures;
+
     for (const BitmapTextureRequest &textureRequest : textureRequests)
     {
+        if (std::any_of(decorationTextures.begin(), decorationTextures.end(),
+            [&textureRequest](const OutdoorBitmapTexture &texture)
+            {
+                return texture.textureName == textureRequest.textureName
+                    && texture.paletteId == textureRequest.paletteId;
+            }))
+        {
+            continue;
+        }
         pumpMapLoadProgress(progressPump);
         int textureWidth = 0;
         int textureHeight = 0;
@@ -2435,6 +2449,7 @@ std::optional<DecorationBillboardSet> buildOutdoorDecorationBillboardSet(
     const Engine::AssetFileSystem &assetFileSystem,
     const OutdoorMapData &outdoorMapData,
     const std::string &worldId,
+    const std::vector<OutdoorBitmapTexture> &decorationTextures,
     BitmapLoadCache &bitmapLoadCache,
     const MapLoadProgressPump &progressPump,
     MapAssetLoadSharedCache *pSharedCache
@@ -2445,6 +2460,7 @@ std::optional<DecorationBillboardSet> buildOutdoorDecorationBillboardSet(
             assetFileSystem,
             outdoorMapData.entities,
             worldId,
+            decorationTextures,
             bitmapLoadCache,
             progressPump,
             pSharedCache);
@@ -2477,6 +2493,7 @@ std::optional<DecorationBillboardSet> buildIndoorDecorationBillboardSet(
     const Engine::AssetFileSystem &assetFileSystem,
     const IndoorMapData &indoorMapData,
     const std::string &worldId,
+    const std::vector<OutdoorBitmapTexture> &decorationTextures,
     BitmapLoadCache &bitmapLoadCache,
     const MapLoadProgressPump &progressPump,
     MapAssetLoadSharedCache *pSharedCache
@@ -2487,6 +2504,7 @@ std::optional<DecorationBillboardSet> buildIndoorDecorationBillboardSet(
             assetFileSystem,
             indoorMapData.entities,
             worldId,
+            decorationTextures,
             bitmapLoadCache,
             progressPump,
             pSharedCache);
@@ -3688,6 +3706,7 @@ std::optional<OutdoorTerrainTextureAtlas> buildOutdoorTerrainTextureAtlas(
         region.isWater = hasTerrainTileFlag(descriptor, TerrainTileFlagWater)
             || (pSurfaceMaterial != nullptr && pSurfaceMaterial->semantic == SurfaceMaterialSemantic::Water);
         region.isTransitionOverlay = useTransitionOverlay;
+        textureAtlas.tileTextureNames[tileIndex] = textureName;
         textureAtlas.tileRegions[static_cast<size_t>(tileIndex)] = region;
 
         if (!animatedSurfaceFrames.empty())
@@ -4331,6 +4350,20 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
     const bool loadDecorationBillboards = loadFullPresentation || purpose == MapLoadPurpose::BillboardPreviews;
     const bool loadSpriteObjectBillboards = loadFullPresentation;
 
+    std::vector<OutdoorBitmapTexture> decorationTextures;
+    if (loadDecorationBillboards)
+    {
+        std::string error;
+        std::optional<std::vector<OutdoorBitmapTexture>> overrides =
+            loadMapDecorationTextures(assetFileSystem, map.worldId, map.fileName, error);
+        if (!overrides)
+        {
+            std::cerr << "Failed to load map decoration textures: " << error << '\n';
+            return std::nullopt;
+        }
+        decorationTextures = std::move(*overrides);
+    }
+
     std::optional<TextureFrameTable> textureFrameTable;
     std::optional<SurfaceMaterialTable> surfaceMaterialTable;
 
@@ -4633,6 +4666,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         assetFileSystem,
                         *assetInfo.outdoorMapData,
                         map.worldId,
+                        decorationTextures,
                         bitmapLoadCache,
                         progressPump,
                         pSharedCache);
@@ -4807,6 +4841,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                         assetFileSystem,
                         *assetInfo.indoorMapData,
                         map.worldId,
+                        decorationTextures,
                         bitmapLoadCache,
                         progressPump,
                         pSharedCache);

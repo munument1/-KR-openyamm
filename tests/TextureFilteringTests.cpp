@@ -102,6 +102,33 @@ TEST_CASE("Billboard opacity masks expose the visible top for world-space anchor
     CHECK(mask.opaqueTopNormalized() == doctest::Approx(0.5f));
 }
 
+TEST_CASE("Billboard opacity masks read atlas crops with row stride and partial alpha")
+{
+    std::vector<uint8_t> pixels(7 * 6 * 4, 0);
+    pixels[(1 * 7 + 1) * 4 + 3] = 255; // Outside the crop must not affect its top.
+    pixels[(3 * 7 + 2) * 4 + 3] = 1;
+    pixels[(4 * 7 + 4) * 4 + 3] = 255;
+    BillboardOpacityMask mask;
+    mask.assignFromBgraRegion(pixels, 7, 6, 2, 2, 3, 3);
+    REQUIRE(mask.byteSize() == 2);
+    CHECK(mask.opaqueTopNormalized() == doctest::Approx(1.0f / 3));
+    for (int y = 0; y < 3; ++y)
+    {
+        for (int x = 0; x < 3; ++x)
+        {
+            CHECK(mask.isOpaque(x, y) == (pixels[((y + 2) * 7 + x + 2) * 4 + 3] != 0));
+        }
+    }
+    CHECK(mask.isOpaqueNormalized(1, 1));
+    mask.assignFromBgraRegion(pixels, 7, 6, 6, 4, 3, 3);
+    CHECK(mask.empty());
+    mask.assignFromBgraRegion(pixels, 7, 6, -1, 0, 3, 3);
+    CHECK(mask.empty());
+    pixels.resize(8);
+    mask.assignFromBgraRegion(pixels, 7, 6, 2, 2, 3, 3);
+    CHECK(mask.empty());
+}
+
 TEST_CASE("Map render source cleanup releases decoded pixels while preserving texture metadata")
 {
     MapAssetInfo mapAssetInfo = {};
@@ -138,4 +165,40 @@ TEST_CASE("Map render source cleanup releases decoded pixels while preserving te
     REQUIRE_EQ(mapAssetInfo.outdoorBModelTextureSet->textures.size(), 1);
     CHECK_EQ(mapAssetInfo.outdoorBModelTextureSet->textures[0].textureName, "texture");
     CHECK(mapAssetInfo.outdoorTerrainTextureAtlas->animatedWaterTiles[0].framePixels.empty());
+}
+
+TEST_CASE("Cutout mip coverage keeps sparse grass visible without coloring transparent borders")
+{
+    const std::vector<uint8_t> reference = {
+        30, 90, 60, 255, 30, 90, 60, 255, 30, 90, 60, 0, 30, 90, 60, 0};
+    std::vector<uint8_t> reduced = {
+        30, 90, 60, 80, 30, 90, 60, 70, 30, 90, 60, 20, 30, 90, 60, 0};
+    const std::vector<uint8_t> before = reduced;
+    preserveBgraCutoutCoverage(reduced, reference, 102);
+    int covered = 0;
+    for (size_t i = 0; i < reduced.size(); ++i)
+    {
+        if (i % 4 == 3)
+        {
+            covered += reduced[i] >= 102 ? 1 : 0;
+        }
+        else
+        {
+            CHECK(reduced[i] == before[i]);
+        }
+    }
+    CHECK(covered == 2);
+    CHECK(reduced[15] == 0);
+    const std::vector<uint8_t> corrected = reduced;
+    preserveBgraCutoutCoverage(reduced, reference, 102);
+    CHECK(reduced == corrected);
+    reduced = before;
+    preserveBgraCutoutCoverage(reduced, reference, 0);
+    CHECK(reduced == before);
+    const std::vector<uint8_t> emptyReference = {30, 90, 60, 0};
+    preserveBgraCutoutCoverage(reduced, emptyReference, 102);
+    for (size_t i = 3; i < reduced.size(); i += 4)
+    {
+        CHECK(reduced[i] < 102);
+    }
 }

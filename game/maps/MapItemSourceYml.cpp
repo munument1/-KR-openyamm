@@ -5,6 +5,8 @@
 #include <yaml-cpp/yaml.h>
 
 #include <exception>
+#include <algorithm>
+#include <limits>
 #include <utility>
 
 namespace OpenYAMM::Game
@@ -245,7 +247,7 @@ bool readLootContainer(
     MapLootContainerSource &source,
     std::string &errorMessage)
 {
-    return node.IsMap()
+    const bool parsed = node.IsMap()
         && readSourceIdentity(
             node,
             source.sourceId,
@@ -266,6 +268,32 @@ bool readLootContainer(
         && readScalar(node, "should_repopulate", source.shouldRepopulate, errorMessage)
         && readFixedItems(node, source.fixedItems, errorMessage)
         && readScalar(node, "remove_when_empty", source.removeWhenEmpty, errorMessage);
+    if (!parsed)
+    {
+        return false;
+    }
+    if (!node["random_item_pool"] && !node["random_item_count"])
+    {
+        return true;
+    }
+    if (!readUInt32Sequence(node, "random_item_pool", source.randomItemPool, errorMessage)
+        || !readScalar(node, "random_item_count", source.randomItemCount, errorMessage))
+    {
+        return false;
+    }
+    std::vector<uint32_t> sortedPool = source.randomItemPool;
+    std::sort(sortedPool.begin(), sortedPool.end());
+    if (!source.random || source.goldOnly || sortedPool.empty() || sortedPool.front() == 0
+        || sortedPool.back() > uint32_t(std::numeric_limits<int32_t>::max())
+        || std::adjacent_find(sortedPool.begin(), sortedPool.end()) != sortedPool.end()
+        || source.randomItemCount == 0 || source.randomItemCount > sortedPool.size()
+        || source.randomItemCount + source.fixedItems.size() + (source.gold > 0 ? 1 : 0) > 81)
+    {
+        errorMessage = "random chest pool requires unique positive item IDs, random=true, gold_only=false, "
+            "and a positive count within the pool and chest capacity";
+        return false;
+    }
+    return true;
 }
 
 bool readSearchableLootProp(

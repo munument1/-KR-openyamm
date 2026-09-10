@@ -83,6 +83,8 @@ function(openyamm_compile_bgfx_shader_for_target sourcePath shaderType outputNam
         DEPENDS
             "${sourcePath}"
             "${CMAKE_SOURCE_DIR}/game/shaders/varying.def.sc"
+            "${CMAKE_SOURCE_DIR}/game/shaders/billboard_lit.sh"
+            "${CMAKE_SOURCE_DIR}/game/shaders/outdoor_textured_fog.sh"
             "${OPENYAMM_BGFX_SOURCE_DIR}/examples/common/common.sh"
             openyamm_shaderc
         VERBATIM
@@ -379,6 +381,10 @@ function(openyamm_configure_runtime_shaders)
         "${CMAKE_SOURCE_DIR}/game/shaders/fs_outdoor_textured_fog.sc"
         "fragment"
         "fs_outdoor_textured_fog.bin")
+    openyamm_compile_bgfx_shader(
+        "${CMAKE_SOURCE_DIR}/game/shaders/fs_outdoor_terrain_fog.sc"
+        "fragment"
+        "fs_outdoor_terrain_fog.bin")
     if (NOT ANDROID)
         openyamm_compile_bgfx_shader(
             "${CMAKE_SOURCE_DIR}/game/shaders/vs_outdoor_bmodel_lightmap.sc"
@@ -397,6 +403,10 @@ function(openyamm_configure_runtime_shaders)
         "${CMAKE_SOURCE_DIR}/game/shaders/vs_indoor_textured_lit.sc"
         "vertex"
         "vs_indoor_textured_lit.bin")
+    openyamm_compile_bgfx_shader(
+        "${CMAKE_SOURCE_DIR}/game/shaders/fs_sprite_atlas.sc"
+        "fragment"
+        "fs_sprite_atlas.bin")
     openyamm_compile_bgfx_shader(
         "${CMAKE_SOURCE_DIR}/game/shaders/fs_indoor_textured_lit.sc"
         "fragment"
@@ -434,7 +444,18 @@ function(openyamm_configure_runtime_shaders)
         "fragment"
         "fs_editor_preview_material.bin")
 
+    openyamm_compile_bgfx_shader(
+        "${CMAKE_SOURCE_DIR}/game/shaders/vs_terrain_decoration.sc"
+        "vertex"
+        "vs_terrain_decoration.bin")
+    openyamm_compile_bgfx_shader(
+        "${CMAKE_SOURCE_DIR}/game/shaders/fs_terrain_decoration.sc"
+        "fragment"
+        "fs_terrain_decoration.bin")
+
     set(runtimeShaderNames
+        vs_terrain_decoration.bin
+        fs_terrain_decoration.bin
         vs_cubes.bin
         fs_cubes.bin
         vs_shadowmaps_texture.bin
@@ -442,7 +463,9 @@ function(openyamm_configure_runtime_shaders)
         vs_outdoor_textured_fog.bin
         vs_outdoor_billboard_lit.bin
         fs_outdoor_textured_fog.bin
+        fs_outdoor_terrain_fog.bin
         fs_outdoor_billboard_lit.bin
+        fs_sprite_atlas.bin
         vs_indoor_textured_lit.bin
         fs_indoor_textured_lit.bin
         vs_outdoor_force_perspective.bin

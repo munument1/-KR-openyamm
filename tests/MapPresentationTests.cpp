@@ -89,6 +89,32 @@ TEST_CASE("MM9 map transform preserves flipped world coordinates and source aspe
     CHECK(transform.vSpan == doctest::Approx(2.0f));
 }
 
+TEST_CASE("outdoor map presentation crop and flips preserve saved exploration coordinates")
+{
+    OpenYAMM::Game::GameplayMinimapState state = {};
+    const OpenYAMM::Game::GameplayMinimapPoint legacy =
+        OpenYAMM::Game::gameplayMinimapUvToOutdoorRevealUv(state, 0.875f, 0.25f);
+    CHECK(legacy.x == doctest::Approx(0.875f));
+    CHECK(legacy.y == doctest::Approx(0.25f));
+
+    state.worldMinX = -24576.0f;
+    state.worldMaxX = 24576.0f;
+    state.worldMinY = -24576.0f;
+    state.worldMaxY = 24576.0f;
+    const OpenYAMM::Game::GameplayMinimapPoint cropped =
+        OpenYAMM::Game::gameplayMinimapUvToOutdoorRevealUv(state, 0.875f, 0.25f);
+    // World (18432, 12288) must read native reveal cell (68, 27), not (77, 22).
+    CHECK(cropped.x * 88.0f == doctest::Approx(68.75f));
+    CHECK(cropped.y * 88.0f == doctest::Approx(27.5f));
+
+    state.flipU = true;
+    state.flipV = false;
+    const OpenYAMM::Game::GameplayMinimapPoint flipped =
+        OpenYAMM::Game::gameplayMinimapUvToOutdoorRevealUv(state, 0.125f, 0.75f);
+    CHECK(flipped.x == doctest::Approx(cropped.x));
+    CHECK(flipped.y == doctest::Approx(cropped.y));
+}
+
 TEST_CASE("promoted MM9 map catalog and PCX asset are runtime decodable")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/AssetFileSystem.h"
+#include "engine/FontAsset.h"
 #include "game/render/TextureFiltering.h"
 #include "game/ui/GameplayOverlayTypes.h"
 #include "game/ui/UiLayoutManager.h"
@@ -33,28 +34,16 @@ struct GameplayHudTextureData
     int height = 0;
     int physicalWidth = 0;
     int physicalHeight = 0;
+    Engine::AssetScaleTier assetScaleTier = Engine::AssetScaleTier::X1;
     std::vector<uint8_t> bgraPixels;
     bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
 };
 
-struct GameplayHudFontGlyphMetricsData
-{
-    int leftSpacing = 0;
-    int width = 0;
-    int rightSpacing = 0;
-};
+using GameplayHudFontGlyphMetricsData = Engine::FontGlyphMetrics;
 
-struct GameplayHudFontData
+struct GameplayHudFontData : Engine::FontAtlas
 {
     std::string fontName;
-    int firstChar = 0;
-    int lastChar = 0;
-    int fontHeight = 0;
-    int atlasCellWidth = 0;
-    int atlasWidth = 0;
-    int atlasHeight = 0;
-    std::array<GameplayHudFontGlyphMetricsData, 256> glyphMetrics = {{}};
-    std::vector<uint8_t> mainAtlasPixels;
     bgfx::TextureHandle mainTextureHandle = BGFX_INVALID_HANDLE;
     bgfx::TextureHandle shadowTextureHandle = BGFX_INVALID_HANDLE;
 };
@@ -172,7 +161,8 @@ public:
         const std::string &textureName,
         int &width,
         int &height,
-        GameplayHudBitmapTransparencyMode transparencyMode = GameplayHudBitmapTransparencyMode::HudColorKey);
+        GameplayHudBitmapTransparencyMode transparencyMode = GameplayHudBitmapTransparencyMode::HudColorKey,
+        Engine::AssetScaleTier *pLoadedTier = nullptr);
     static std::optional<std::vector<uint8_t>> loadSpriteBitmapPixelsBgraCached(
         const Engine::AssetFileSystem *pAssetFileSystem,
         GameplayAssetLoadCache &cache,
@@ -206,7 +196,8 @@ public:
         const Engine::AssetFileSystem *pAssetFileSystem,
         GameplayAssetLoadCache &cache,
         const std::string &fontName,
-        std::vector<GameplayHudFontData> &fonts);
+        std::vector<GameplayHudFontData> &fonts,
+        const Engine::FontSettings &settings = {});
     static bool tryGetOpaqueHudTextureBounds(
         const GameplayHudTextureData &texture,
         Engine::AssetScaleTier assetScaleTier,

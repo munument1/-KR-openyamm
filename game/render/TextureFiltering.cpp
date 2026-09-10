@@ -1,6 +1,8 @@
 #include "game/render/TextureFiltering.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -32,6 +34,7 @@ bool profileNeedsTransparentEdgeBleed(TextureFilterProfile profile)
         case TextureFilterProfile::Lightmap:
         case TextureFilterProfile::Sky:
         case TextureFilterProfile::Text:
+        case TextureFilterProfile::SmoothText:
             return false;
     }
 
@@ -62,6 +65,9 @@ TextureFilterMode textureFilterModeForProfile(TextureFilterProfile profile)
 
         case TextureFilterProfile::Text:
             return g_textureFilteringConfig.text;
+
+        case TextureFilterProfile::SmoothText:
+            return TextureFilterMode::Linear;
     }
 
     return TextureFilterMode::Linear;
@@ -511,6 +517,92 @@ bgfx::TextureHandle createBgraTexture2D(
         bgraTextureUploadFormat(),
         textureFilterSamplerFlags(profile) | extraFlags,
         copyBgraTextureUploadMemory(pUploadPixels, pixelBytes));
+}
+
+void preserveBgraCutoutCoverage(
+    std::vector<uint8_t> &pixels, const std::vector<uint8_t> &referencePixels, uint8_t alphaCutoff)
+{
+    if (alphaCutoff == 0 || pixels.empty() || referencePixels.empty() ||
+        pixels.size() % 4 != 0 || referencePixels.size() % 4 != 0)
+    {
+        return;
+    }
+    uint64_t referenceCovered = 0;
+    for (size_t i = 3; i < referencePixels.size(); i += 4)
+    {
+        referenceCovered += referencePixels[i] >= alphaCutoff ? 1 : 0;
+    }
+    std::array<uint64_t, 256> histogram = {};
+    for (size_t i = 3; i < pixels.size(); i += 4)
+    {
+        ++histogram[pixels[i]];
+    }
+    const uint64_t referenceCount = referencePixels.size() / 4;
+    const uint64_t desired = referenceCovered * (pixels.size() / 4);
+    const auto errorFor = [&](uint64_t covered)
+    {
+        const uint64_t actual = covered * referenceCount;
+        return actual > desired ? actual - desired : desired - actual;
+    };
+    uint64_t covered = 0;
+    for (int alpha = alphaCutoff; alpha <= 255; ++alpha)
+    {
+        covered += histogram[alpha];
+    }
+    uint64_t bestError = errorFor(covered);
+    int bestThreshold = alphaCutoff;
+    if (errorFor(0) < bestError)
+    {
+        bestError = errorFor(0);
+        bestThreshold = 256;
+    }
+    covered = 0;
+    for (int alpha = 255; alpha >= 1; --alpha)
+    {
+        covered += histogram[alpha];
+        const uint64_t error = errorFor(covered);
+        if (error < bestError)
+        {
+            bestError = error;
+            bestThreshold = alpha;
+        }
+    }
+    if (bestThreshold == alphaCutoff)
+    {
+        return;
+    }
+    const float scale = (float(alphaCutoff) - 0.5f) / (float(bestThreshold) - 0.5f);
+    for (size_t i = 3; i < pixels.size(); i += 4)
+    {
+        pixels[i] = uint8_t(std::clamp(std::lround(pixels[i] * scale), 0L, 255L));
+    }
+}
+
+void updateBgraTextureArrayLayer(
+    bgfx::TextureHandle texture,
+    uint16_t layer,
+    uint16_t width,
+    uint16_t height,
+    const std::vector<uint8_t> &pixels,
+    uint8_t alphaCutoff)
+{
+    if (!bgfx::isValid(texture))
+    {
+        return;
+    }
+
+    std::vector<BgraMipLevel> levels = buildBgraMipLevels(width, height, pixels.data(), pixels.size());
+
+    for (uint8_t index = 0; index < levels.size(); ++index)
+    {
+        BgraMipLevel &level = levels[index];
+        if (index > 0 && alphaCutoff > 0)
+        {
+            preserveBgraCutoutCoverage(level.pixels, pixels, alphaCutoff);
+        }
+        bgfx::updateTexture2D(texture, layer, index, 0, 0, level.width, level.height,
+            copyBgraTextureUploadMemory(level.pixels.data(), level.pixels.size()));
+    }
 }
 
 bgfx::TextureHandle createEmptyBgraTexture2D(

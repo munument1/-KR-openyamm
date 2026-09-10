@@ -1145,6 +1145,28 @@ bool AssetFileSystem::exists(const std::string &virtualPath) const
     return false;
 }
 
+std::optional<std::string> AssetFileSystem::resolveExistingFilePath(const std::string &virtualPath) const
+{
+    if (!isInitialized())
+    {
+        return std::nullopt;
+    }
+    for (const std::string &candidate : resolveVirtualPathCandidates(virtualPath))
+    {
+        PHYSFS_Stat stat = {};
+        if (PHYSFS_stat(candidate.c_str(), &stat) && stat.filetype == PHYSFS_FILETYPE_REGULAR)
+        {
+            return candidate;
+        }
+        const std::optional<std::string> actualPath = findCaseInsensitiveVirtualPath(candidate);
+        if (actualPath && PHYSFS_stat(actualPath->c_str(), &stat) && stat.filetype == PHYSFS_FILETYPE_REGULAR)
+        {
+            return actualPath;
+        }
+    }
+    return std::nullopt;
+}
+
 std::vector<std::string> AssetFileSystem::enumerate(const std::string &virtualPath) const
 {
     std::vector<std::string> entries;
@@ -1417,7 +1439,8 @@ bool AssetFileSystem::validateTierDirectories(const std::filesystem::path &asset
         const AssetScaleTier assetScaleTier =
             assetScaleTierForCategory(m_assetScaleProfile, requiredDirectory.category);
 
-        if (assetScaleTier == AssetScaleTier::X1)
+        if (assetScaleTier == AssetScaleTier::X1
+            || (requiredDirectory.category == AssetScaleCategory::Icons && m_assetScaleProfile.preferRestoredIcons))
         {
             continue;
         }
@@ -1461,7 +1484,8 @@ bool AssetFileSystem::validateTierDirectoriesInMountedPackages() const
         const AssetScaleTier assetScaleTier =
             assetScaleTierForCategory(m_assetScaleProfile, requiredDirectory.category);
 
-        if (assetScaleTier == AssetScaleTier::X1)
+        if (assetScaleTier == AssetScaleTier::X1
+            || (requiredDirectory.category == AssetScaleCategory::Icons && m_assetScaleProfile.preferRestoredIcons))
         {
             continue;
         }
@@ -1684,6 +1708,19 @@ std::vector<std::string> AssetFileSystem::expandPackageAliasCandidates(const std
 
 AssetScaleCategory AssetFileSystem::assetScaleCategoryForVirtualPath(const std::string &virtualPath)
 {
+    if (virtualPath.starts_with("engine/"))
+    {
+        return assetScaleCategoryForVirtualPath(virtualPath.substr(7));
+    }
+    if (virtualPath.starts_with("worlds/"))
+    {
+        const size_t separator = virtualPath.find('/', 7);
+        if (separator != std::string::npos)
+        {
+            return assetScaleCategoryForVirtualPath(virtualPath.substr(separator + 1));
+        }
+    }
+
     if (virtualPath == TerrainTextureFallbackDirectoryName
         || virtualPath.starts_with(std::string(TerrainTextureFallbackDirectoryName) + "/"))
     {
@@ -1748,6 +1785,19 @@ std::string AssetFileSystem::remapTieredVirtualPath(
     const std::string &virtualPath,
     const AssetScaleProfile &assetScaleProfile)
 {
+    if (virtualPath.starts_with("engine/"))
+    {
+        return "engine/" + remapTieredVirtualPath(virtualPath.substr(7), assetScaleProfile);
+    }
+    if (virtualPath.starts_with("worlds/"))
+    {
+        const size_t separator = virtualPath.find('/', 7);
+        if (separator != std::string::npos)
+        {
+            return virtualPath.substr(0, separator + 1)
+                + remapTieredVirtualPath(virtualPath.substr(separator + 1), assetScaleProfile);
+        }
+    }
     if (virtualPath == TerrainTextureFallbackDirectoryName
         || virtualPath.starts_with(std::string(TerrainTextureFallbackDirectoryName) + "/"))
     {

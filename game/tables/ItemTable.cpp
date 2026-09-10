@@ -301,7 +301,8 @@ bool readInt32LittleEndian(const std::vector<uint8_t> &bytes, size_t offset, int
 
 bool loadBitmapDimensions(
     const Engine::AssetFileSystem &assetFileSystem,
-    const std::unordered_map<std::string, std::string> &iconPaths,
+    Engine::DirectoryAssetPathCache &directories,
+    Engine::AssetPathLookupCache &paths,
     const std::string &iconName,
     int &width,
     int &height,
@@ -313,14 +314,15 @@ bool loadBitmapDimensions(
         return false;
     }
 
-    const auto foundPath = iconPaths.find(toLowerCopy(iconName));
+    const std::optional<std::string> imagePath =
+        Engine::findImageAssetPath(assetFileSystem, "Data/icons", iconName, directories, paths);
 
-    if (foundPath == iconPaths.end())
+    if (!imagePath)
     {
         return false;
     }
 
-    const std::optional<std::vector<uint8_t>> imageBytes = assetFileSystem.readBinaryFile(foundPath->second);
+    const std::optional<std::vector<uint8_t>> imageBytes = assetFileSystem.readBinaryFile(*imagePath);
 
     if (!imageBytes || imageBytes->empty())
     {
@@ -344,7 +346,7 @@ bool loadBitmapDimensions(
     else
     {
         const std::optional<Engine::ImagePixelsBgra> decodedImage =
-            Engine::decodeImagePixelsBgra(*imageBytes, foundPath->second);
+            Engine::decodeImagePixelsBgra(*imageBytes, *imagePath);
 
         if (!decodedImage || decodedImage->width <= 0 || decodedImage->height <= 0)
         {
@@ -355,9 +357,10 @@ bool loadBitmapDimensions(
         height = decodedImage->height;
     }
 
-    width = Engine::scalePhysicalPixelsToLogical(width, assetFileSystem.getAssetScaleTier());
-    height = Engine::scalePhysicalPixelsToLogical(height, assetFileSystem.getAssetScaleTier());
-    virtualPath = foundPath->second;
+    const Engine::AssetScaleTier loadedTier = Engine::assetScaleTierFromResolvedPath(*imagePath);
+    width = Engine::scalePhysicalPixelsToLogical(width, loadedTier);
+    height = Engine::scalePhysicalPixelsToLogical(height, loadedTier);
+    virtualPath = *imagePath;
     return true;
 }
 
@@ -367,39 +370,6 @@ uint8_t inventorySlotsFromPixels(int pixelSize)
     const int slots = 1 + (clampedPixels - 14) / 32;
     return static_cast<uint8_t>(std::clamp(slots, 1, 14));
 }
-
-std::unordered_map<std::string, std::string> buildIconPathMap(const Engine::AssetFileSystem &assetFileSystem)
-{
-    std::unordered_map<std::string, std::string> iconPaths;
-    const std::vector<std::string> entries = assetFileSystem.enumerate("Data/icons");
-
-    for (const std::string &entry : entries)
-    {
-        const std::string lowerEntry = toLowerCopy(entry);
-
-        if (lowerEntry.size() <= 4)
-        {
-            continue;
-        }
-
-        if (lowerEntry.substr(lowerEntry.size() - 4) == ".png")
-        {
-            const std::string iconStem = lowerEntry.substr(0, lowerEntry.size() - 4);
-            iconPaths[iconStem] = "Data/icons/" + entry;
-        }
-        else if (lowerEntry.substr(lowerEntry.size() - 4) == ".bmp")
-        {
-            const std::string iconStem = lowerEntry.substr(0, lowerEntry.size() - 4);
-
-            if (!iconPaths.contains(iconStem))
-            {
-                iconPaths[iconStem] = "Data/icons/" + entry;
-            }
-        }
-    }
-
-    return iconPaths;
-}
 }
 
 bool ItemTable::load(
@@ -408,7 +378,8 @@ bool ItemTable::load(
     const std::vector<std::vector<std::string>> &randomItemRows
 )
 {
-    const std::unordered_map<std::string, std::string> iconPaths = buildIconPathMap(assetFileSystem);
+    Engine::DirectoryAssetPathCache directories;
+    Engine::AssetPathLookupCache paths;
     uint32_t maxItemId = 0;
 
     for (const std::vector<std::string> &row : itemRows)
@@ -506,7 +477,8 @@ bool ItemTable::load(
         int iconWidth = 0;
         int iconHeight = 0;
 
-        if (loadBitmapDimensions(assetFileSystem, iconPaths, entry.iconName, iconWidth, iconHeight, entry.iconVirtualPath))
+        if (loadBitmapDimensions(
+                assetFileSystem, directories, paths, entry.iconName, iconWidth, iconHeight, entry.iconVirtualPath))
         {
             entry.inventoryWidth = inventorySlotsFromPixels(iconWidth);
             entry.inventoryHeight = inventorySlotsFromPixels(iconHeight);

@@ -1,5 +1,9 @@
 #pragma once
 
+#include <deque>
+
+#include "game/render/SpriteAtlasCache.h"
+
 #include "engine/AssetFileSystem.h"
 #include "engine/AssetScaleTier.h"
 #include "game/indoor/IndoorMapData.h"
@@ -238,17 +242,8 @@ private:
         bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
     };
 
-    struct BillboardTextureHandle
-    {
-        std::string textureName;
-        int16_t paletteId = 0;
-        int width = 0;
-        int height = 0;
-        int physicalWidth = 0;
-        int physicalHeight = 0;
-        BillboardOpacityMask opacityMask;
-        bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
-    };
+    using BillboardTextureHandle = SpriteBillboardTexture;
+
 
     struct BillboardTextureLookupKey
     {
@@ -692,7 +687,8 @@ private:
     std::vector<TexturedBatch> m_texturedBatches;
     std::unordered_map<uint32_t, CachedIndoorLightSelection> m_indoorLightingSelectionCache;
     std::vector<IndoorTextureHandle> m_indoorTextureHandles;
-    std::vector<BillboardTextureHandle> m_billboardTextureHandles;
+    SpriteAtlasCache m_spriteAtlasCache;
+    std::deque<BillboardTextureHandle> m_billboardTextureHandles;
     std::unordered_map<BillboardTextureLookupKey, size_t, BillboardTextureLookupKeyHash>
         m_billboardTextureIndexByKey;
     std::unordered_set<BillboardTextureLookupKey, BillboardTextureLookupKeyHash>

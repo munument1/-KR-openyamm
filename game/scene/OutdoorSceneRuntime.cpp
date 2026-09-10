@@ -175,6 +175,10 @@ OutdoorSceneRuntime::OutdoorSceneRuntime(
     , m_globalEventProgram(globalEventProgram)
     , m_eventRuntime(pHouseTable, pNpcDialogTable)
 {
+    m_pWorldRuntime->setMonsterKilledHooksEnabled(
+        (m_localEventProgram && !m_localEventProgram->monsterKilledHookEventIds().empty())
+        || (m_globalEventProgram && !m_globalEventProgram->monsterKilledHookEventIds().empty()));
+
     if (pMm9MapTransitionTable != nullptr)
     {
         m_mm9PositionedTransitionRuntime.configure(
@@ -234,6 +238,8 @@ void OutdoorSceneRuntime::advanceGameMinutes(float minutes)
 
 void OutdoorSceneRuntime::advanceTurnBasedGameMinutes(float minutes)
 {
+    processMonsterKilledEvents();
+
     if (minutes <= 0.0f)
     {
         return;
@@ -323,6 +329,8 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
     {
         result.previousMessageCount = pEventRuntimeState->messages.size();
     }
+
+    result.shouldOpenEventDialog = processMonsterKilledEvents();
 
     if (m_pWorldRuntime->updateTimers(
             deltaSeconds,
@@ -674,5 +682,33 @@ bool OutdoorSceneRuntime::executeEventHooks(EventRuntimeHookKind kind)
     m_pWorldRuntime->applyEventRuntimeState();
     m_pPartyRuntime->applyEventRuntimeState(*pEventRuntimeState, false);
     return true;
+}
+
+bool OutdoorSceneRuntime::processMonsterKilledEvents()
+{
+    // Dispatch after combat iteration: a Lua hook may summon actors and reallocate the actor array.
+    const std::vector<OutdoorWorldRuntime::MonsterKilledEvent> events = m_pWorldRuntime->drainMonsterKilledEvents();
+    EventRuntimeState *pState = eventRuntimeState();
+
+    if (events.empty() || pState == nullptr)
+    {
+        return false;
+    }
+
+    const std::optional<EventRuntimeState::ActiveHookContext> previousContext = pState->activeHookContext;
+    bool executed = false;
+
+    for (const OutdoorWorldRuntime::MonsterKilledEvent &event : events)
+    {
+        EventRuntimeState::ActiveHookContext context = {};
+        context.kind = EventRuntimeHookKind::MonsterKilled;
+        context.actorIndex = event.actorIndex;
+        context.monsterId = event.monsterId;
+        pState->activeHookContext = std::move(context);
+        executed = executeEventHooks(EventRuntimeHookKind::MonsterKilled) || executed;
+    }
+
+    pState->activeHookContext = previousContext;
+    return executed;
 }
 }

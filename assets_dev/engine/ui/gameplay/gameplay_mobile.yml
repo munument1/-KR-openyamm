@@ -360,13 +360,6 @@ elements:
         asset:
           default: asiR07
 
-      - id: OutdoorBuffSkull_Immolation
-        anchor: center_in
-        width: 56
-        height: 56
-        asset:
-          default: asiR08
-
   - id: OutdoorMinimapFrame
     anchor_space: screen
     anchor: top_right

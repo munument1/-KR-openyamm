@@ -127,7 +127,13 @@ public:
     ~ScenarioRuntimeDriver();
 
     bool initialize(std::string &failure);
-    bool startNewGame(uint32_t continentId, const std::string &startMapFileName, std::string &failure);
+    bool startNewGame(
+        uint32_t continentId,
+        const std::string &startMapFileName,
+        std::string &failure,
+        const PartySeed *pSeed = nullptr);
+    bool holdGameplayAction(KeyboardAction action, float seconds, std::string &failure);
+    bool selectPartyMember(size_t memberIndex, std::string &failure);
     bool loadMap(const std::string &mapFileName, std::string &failure);
     bool processPendingMapMove(std::string &failure);
     bool openMapTransitionPrompt(uint32_t sourceId, std::string &failure);
@@ -193,6 +199,8 @@ public:
         uint32_t itemId,
         GameplayChestItemState &item,
         std::string &failure);
+    bool takeInventoryItemToCursor(size_t memberIndex, uint8_t gridX, uint8_t gridY, std::string &failure);
+    bool placeHeldItemInInventory(std::string &failure);
     bool triggerIndoorPressurePlate(size_t faceIndex, std::string &failure);
     bool triggerIndoorEventTarget(size_t faceIndex, std::string &failure);
     bool activeCorpseContainsItem(
