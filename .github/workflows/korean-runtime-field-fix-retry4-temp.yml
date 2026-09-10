@@ -54,6 +54,7 @@ jobs:
           PY
           python3 /tmp/apply_runtime_fix.py
           python3 - <<'PY'
+          import textwrap
           from pathlib import Path
 
           path = Path('korean/tools/sync_map_target_names.py')
@@ -69,7 +70,8 @@ jobs:
           path.write_text(text, encoding='utf-8', newline='\n')
 
           test_path = Path('korean/tools/test_sync_map_target_names_idempotent.py')
-          test_path.write_text(r'''#!/usr/bin/env python3
+          test_path.write_text(textwrap.dedent(r'''\
+          #!/usr/bin/env python3
           from __future__ import annotations
 
           import tempfile
@@ -113,7 +115,7 @@ jobs:
 
           if __name__ == "__main__":
               unittest.main()
-          '''.replace('          ', ''), encoding='utf-8', newline='\n')
+          '''), encoding='utf-8', newline='\n')
           PY
           python3 -m py_compile korean/tools/extend_map_runtime_catalog.py korean/tools/sync_map_target_names.py korean/tools/test_map_runtime_po.py korean/tools/test_sync_map_target_names.py korean/tools/test_sync_map_target_names_idempotent.py korean/build_patch.py
           git diff --check
