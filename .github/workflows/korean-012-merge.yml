@@ -1,0 +1,42 @@
+name: One-shot OpenYAMM 0.12 Korean merge
+
+on:
+  push:
+    branches:
+      - korean-localization-0.12
+    paths:
+      - .github/workflows/korean-012-merge.yml
+
+permissions:
+  contents: write
+
+jobs:
+  merge:
+    if: github.event.head_commit.message == 'chore: run OpenYAMM 0.12 Korean merge'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out 0.12 staging branch
+        uses: actions/checkout@v7
+        with:
+          ref: korean-localization-0.12
+          fetch-depth: 0
+
+      - name: Merge Korean localization history onto 0.12
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin korean-localization
+          set +e
+          git merge --no-edit -X ours origin/korean-localization
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo "Unresolved paths:"
+            git diff --name-only --diff-filter=U || true
+            git status --short
+            exit "$status"
+          fi
+          git diff --check HEAD^1..HEAD
+          git push origin HEAD:korean-localization-0.12
