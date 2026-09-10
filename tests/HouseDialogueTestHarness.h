@@ -301,7 +301,7 @@ private:
         const std::optional<Game::ScriptedEventProgram> &globalEventProgram,
         uint16_t eventId)
     {
-        Game::EventRuntime eventRuntime = {};
+        Game::EventRuntime eventRuntime(&m_gameData.houseTable, &m_gameData.npcDialogTable);
         const bool executed = eventRuntime.executeEventById(
             localEventProgram,
             globalEventProgram,

@@ -1,7 +1,9 @@
 #include "game/scenario/ScenarioRuntimeDriver.h"
+#include "game/gameplay/GameplayHeldItemController.h"
 
 #include "game/gameplay/GameplayInteractionController.h"
 #include "game/gameplay/GameplayInputFrame.h"
+#include "game/gameplay/GameplayInputController.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/GameplayScreenState.h"
 #include "game/debug/GameplayDebugTrace.h"
@@ -165,7 +167,8 @@ struct ScenarioGameApplicationAccess
 {
     static bool loadGameData(GameApplication &application, Engine::AssetFileSystem &assetFileSystem)
     {
-        return application.loadGameData(assetFileSystem);
+        // Headless scenarios do not render the menu frames that trigger deferred common-data loading.
+        return application.loadGameData(assetFileSystem) && application.ensureCommonGameDataLoaded();
     }
 
     static bool activateWorldForMapFileName(GameApplication &application, const std::string &mapFileName)
@@ -400,19 +403,113 @@ bool ScenarioRuntimeDriver::initialize(std::string &failure)
 bool ScenarioRuntimeDriver::startNewGame(
     uint32_t continentId,
     const std::string &startMapFileName,
-    std::string &failure)
+    std::string &failure,
+    const PartySeed *pSeed)
 {
     if (!initialize(failure))
     {
         return false;
     }
 
+    // Match the live new-session teardown before installing a fresh party. Loading a map otherwise captures
+    // the previous runtime party and map state over the newly supplied seed.
+    GameSession &session = ScenarioGameApplicationAccess::gameSession(m_application);
+    session.gameplayScreenRuntime().clearSharedUiRuntime();
+    ScenarioGameApplicationAccess::shutdownRenderer(m_application);
+    session.clear();
     Party party;
-    party.seed(Party::createDefaultSeed());
-    ScenarioGameApplicationAccess::gameSession(m_application).setPartyState(party);
-    ScenarioGameApplicationAccess::gameSession(m_application).setGameMinutes(9.0f * 60.0f);
+    if (pSeed != nullptr)
+    {
+        ScenarioGameApplicationAccess::bindPartyDependencies(m_application, party);
+        party.seed(*pSeed);
+        party.restoreAll();
+    }
+    else
+    {
+        party.seed(Party::createDefaultSeed());
+    }
+    session.setPartyState(party);
+    session.setGameMinutes(9.0f * 60.0f);
     static_cast<void>(continentId);
     return loadSelectedMapRuntime(startMapFileName, failure);
+}
+
+bool ScenarioRuntimeDriver::holdGameplayAction(KeyboardAction action, float seconds, std::string &failure)
+{
+    if (!std::isfinite(seconds) || seconds <= 0.0f || worldRuntime() == nullptr)
+    {
+        failure = "gameplay action requires an active world and a positive finite duration";
+        return false;
+    }
+
+    GameSession &session = ScenarioGameApplicationAccess::gameSession(m_application);
+    GameplayInputFrame input = {};
+    input.screenWidth = ScenarioViewWidth;
+    input.screenHeight = ScenarioViewHeight;
+    input.pointerX = ScenarioViewWidth * 0.5f;
+    input.pointerY = ScenarioViewHeight * 0.5f;
+    GameplayButtonInputState &button = input.actions[keyboardActionIndex(action)];
+    button.held = true;
+    button.pressed = true;
+    float remaining = seconds;
+    while (remaining > 0.0f)
+    {
+        const float deltaSeconds = std::min(RuntimeStepSeconds, remaining);
+        // Use the same input, selection, recovery, targeting and combat path as the live game.
+        session.updateGameplay(input, deltaSeconds, false);
+        IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
+        if (pWorldRuntime == nullptr)
+        {
+            session.bindCurrentGameplayInputFrame(nullptr);
+            failure = "gameplay action lost its active world";
+            return false;
+        }
+        if (!session.sharedInputFrameResult().worldInputBlocked
+            && !session.sharedWorldInteractionBlockedThisFrame()
+            && !session.gameplayScreenState().pendingSpellTarget().active)
+        {
+            pWorldRuntime->updateWorld(deltaSeconds);
+            IMapSceneRuntime *pSceneRuntime = ScenarioGameApplicationAccess::mapSceneRuntime(m_application);
+            if (pSceneRuntime != nullptr && pSceneRuntime->kind() == SceneKind::Indoor)
+            {
+                static_cast<IndoorSceneRuntime *>(pSceneRuntime)->advanceSimulation(deltaSeconds * 1000.0f);
+            }
+        }
+        button.pressed = false;
+        remaining -= deltaSeconds;
+    }
+    button.held = false;
+    button.released = true;
+    session.updateGameplay(input, 0.0f, false);
+    session.bindCurrentGameplayInputFrame(nullptr);
+    return true;
+}
+
+bool ScenarioRuntimeDriver::selectPartyMember(size_t memberIndex, std::string &failure)
+{
+    if (party() == nullptr || memberIndex >= 5 || party()->member(memberIndex) == nullptr)
+    {
+        failure = "select_member requires an existing party member index from zero to four";
+        return false;
+    }
+    GameSession &session = ScenarioGameApplicationAccess::gameSession(m_application);
+    GameplayInputFrame input = {};
+    input.screenWidth = ScenarioViewWidth;
+    input.screenHeight = ScenarioViewHeight;
+    const SDL_Scancode scancode = SDL_Scancode(int(SDL_SCANCODE_1) + int(memberIndex));
+    input.keyboardHeld[scancode] = true;
+    input.keyboardPressCounts[scancode] = 1;
+    session.updateGameplay(input, 0.0f, false);
+    input.keyboardHeld[scancode] = false;
+    input.keyboardPressCounts[scancode] = 0;
+    session.updateGameplay(input, 0.0f, false);
+    session.bindCurrentGameplayInputFrame(nullptr);
+    if (party()->activeMemberIndex() != memberIndex)
+    {
+        failure = "shared character-selection input did not select the requested member";
+        return false;
+    }
+    return true;
 }
 
 bool ScenarioRuntimeDriver::loadMap(const std::string &mapFileName, std::string &failure)
@@ -498,6 +595,20 @@ bool ScenarioRuntimeDriver::processPendingMapMove(std::string &failure)
         {
             pState->lastMapTransitionCanceled = lastCanceled;
         }
+    }
+
+    // The live loop refreshes modal state and the transferred camera before the next input.
+    // A neutral shared frame also clears the departing transition dialog's input-block flags.
+    if (worldRuntime() != nullptr)
+    {
+        GameplayInputFrame input = {};
+        input.screenWidth = ScenarioViewWidth;
+        input.screenHeight = ScenarioViewHeight;
+        input.pointerX = ScenarioViewWidth * 0.5f;
+        input.pointerY = ScenarioViewHeight * 0.5f;
+        GameSession &session = ScenarioGameApplicationAccess::gameSession(m_application);
+        session.updateGameplay(input, 0.0f, false);
+        session.bindCurrentGameplayInputFrame(nullptr);
     }
 
     return true;
@@ -824,12 +935,18 @@ bool ScenarioRuntimeDriver::simulateMovementSegment(
             setScenarioCameraAngles(m_application, yawRadians, pitchRadians);
         }
 
-        pWorldRuntime->updateWorldMovement(input, deltaSeconds, true);
-        pWorldRuntime->updateWorld(deltaSeconds);
         if (command.actorAi)
         {
-            pWorldRuntime->updateActorAi(deltaSeconds);
+            GameSession &session = ScenarioGameApplicationAccess::gameSession(m_application);
+            session.updateGameplay(input, deltaSeconds, false);
+            session.bindCurrentGameplayInputFrame(nullptr);
         }
+        else
+        {
+            // Explicit geometry-only diagnostics omit AI and the shared gameplay update.
+            pWorldRuntime->updateWorldMovement(input, deltaSeconds, true);
+        }
+        pWorldRuntime->updateWorld(deltaSeconds);
 
         IMapSceneRuntime *pSceneRuntime = ScenarioGameApplicationAccess::mapSceneRuntime(m_application);
         if (pSceneRuntime != nullptr && pSceneRuntime->kind() == SceneKind::Indoor)
@@ -1234,6 +1351,14 @@ bool ScenarioRuntimeDriver::takeActiveChestItemById(
         return false;
     }
 
+    GameplayScreenRuntime &screenRuntime =
+        ScenarioGameApplicationAccess::gameSession(m_application).gameplayScreenRuntime();
+    if (screenRuntime.heldInventoryItem().active)
+    {
+        failure = "cannot take a chest item while the cursor already holds an item";
+        return false;
+    }
+
     const GameplayChestViewState *pChestView = pWorldRuntime->activeChestView();
 
     if (pChestView == nullptr)
@@ -1266,11 +1391,56 @@ bool ScenarioRuntimeDriver::takeActiveChestItemById(
             return false;
         }
 
+        // Use the same held-item owner as real chest clicks. A Party query-only copy disappears
+        // at save/load because the save serializes GameplayScreenRuntime's cursor state.
+        InventoryItem heldItem = item.item;
+        heldItem.objectDescriptionId = candidateItemId;
+        heldItem.quantity = std::max(1u, heldItem.quantity);
+        GameplayHeldItemController::setHeldInventoryItem(screenRuntime.heldInventoryItem(), heldItem);
+        screenRuntime.party()->setHeldItemForQueries(heldItem);
+
         return true;
     }
 
     failure = "active chest does not contain item " + std::to_string(itemId);
     return false;
+}
+
+bool ScenarioRuntimeDriver::takeInventoryItemToCursor(
+    size_t memberIndex, uint8_t gridX, uint8_t gridY, std::string &failure)
+{
+    GameplayScreenRuntime &runtime =
+        ScenarioGameApplicationAccess::gameSession(m_application).gameplayScreenRuntime();
+    Party *pParty = runtime.party();
+    InventoryItem item;
+    if (pParty == nullptr || runtime.heldInventoryItem().active
+        || !pParty->takeItemFromMemberInventoryCell(memberIndex, gridX, gridY, item))
+    {
+        failure = "could not take inventory item onto the empty cursor";
+        return false;
+    }
+    GameplayHeldItemController::setHeldInventoryItem(runtime.heldInventoryItem(), item);
+    pParty->setHeldItemForQueries(item);
+    return true;
+}
+
+bool ScenarioRuntimeDriver::placeHeldItemInInventory(std::string &failure)
+{
+    GameplayScreenRuntime &runtime =
+        ScenarioGameApplicationAccess::gameSession(m_application).gameplayScreenRuntime();
+    Party *pParty = runtime.party();
+    if (pParty == nullptr || !runtime.heldInventoryItem().active)
+    {
+        failure = "no actual cursor item is available to place in inventory";
+        return false;
+    }
+    if (!runtime.tryAutoPlaceHeldInventoryItemOnPartyMember(pParty->activeMemberIndex(), false))
+    {
+        failure = "held item does not fit the active member's inventory";
+        return false;
+    }
+    pParty->clearHeldItemForQueries();
+    return true;
 }
 
 bool ScenarioRuntimeDriver::triggerIndoorPressurePlate(size_t faceIndex, std::string &failure)
@@ -1603,16 +1773,15 @@ bool ScenarioRuntimeDriver::selectDialogAction(size_t actionIndex, std::string &
         ScenarioGameApplicationAccess::indoorGameView(m_application).executeActiveDialogAction();
     }
 
-    if (EventRuntimeState *pEventRuntimeState = eventRuntimeState())
+    const EventRuntimeState *pEventRuntimeState = eventRuntimeState();
+
+    // Closing a transition dialog transfers its move from event state into the session queue.
+    if ((pEventRuntimeState != nullptr && pEventRuntimeState->pendingMapMove.has_value())
+        || ScenarioGameApplicationAccess::gameSession(m_application).pendingMapMove().has_value())
     {
-        if (pEventRuntimeState->pendingMapMove.has_value())
+        if (!processPendingMapMove(failure))
         {
-            std::string mapMoveFailure;
-            if (!processPendingMapMove(mapMoveFailure))
-            {
-                failure = mapMoveFailure;
-                return false;
-            }
+            return false;
         }
     }
 
@@ -1729,6 +1898,24 @@ bool ScenarioRuntimeDriver::closeDialog(std::string &failure)
 {
     GameplayScreenRuntime &screenRuntime =
         ScenarioGameApplicationAccess::gameSession(m_application).gameplayScreenRuntime();
+    IGameplayWorldRuntime *pWorldRuntime = worldRuntime();
+
+    if (pWorldRuntime != nullptr
+        && (pWorldRuntime->activeChestView() != nullptr || pWorldRuntime->activeCorpseView() != nullptr))
+    {
+        // Chests/corpses are loot overlays, not EventDialogContent. Exercise the shared Escape input path.
+        std::array<bool, SDL_SCANCODE_COUNT> keyboardState = {};
+        GameplayStandardUiHotkeyConfig config = {};
+        config.pKeyboardState = keyboardState.data();
+        screenRuntime.updatePreviousKeyboardStateSnapshot(nullptr);
+        keyboardState[SDL_SCANCODE_ESCAPE] = true;
+        GameplayInputController::handleStandardUiHotkeys(screenRuntime, config);
+        screenRuntime.updatePreviousKeyboardStateSnapshot(keyboardState.data());
+        keyboardState[SDL_SCANCODE_ESCAPE] = false;
+        GameplayInputController::handleStandardUiHotkeys(screenRuntime, config);
+        screenRuntime.updatePreviousKeyboardStateSnapshot(keyboardState.data());
+        return true;
+    }
 
     if (!screenRuntime.activeEventDialog().isActive)
     {
@@ -1755,11 +1942,20 @@ bool ScenarioRuntimeDriver::closeDialog(std::string &failure)
         if (pOutdoorWorldRuntime != nullptr)
         {
             pOutdoorWorldRuntime->handleDialogueCloseRequest();
-            return true;
         }
     }
-
-    screenRuntime.handleDialogueCloseRequest();
+    else
+    {
+        screenRuntime.handleDialogueCloseRequest();
+    }
+    // A direct scenario close must finish the UI frame, as the live application does. Otherwise a previous
+    // character-selection frame can leave worldInputBlocked set and prevent the next pose from reaching the camera.
+    GameplayInputFrame input = {};
+    input.screenWidth = ScenarioViewWidth;
+    input.screenHeight = ScenarioViewHeight;
+    GameSession &session = ScenarioGameApplicationAccess::gameSession(m_application);
+    session.updateGameplay(input, 0.0f, false);
+    session.bindCurrentGameplayInputFrame(nullptr);
     static_cast<void>(failure);
     return true;
 }
@@ -1861,12 +2057,26 @@ bool ScenarioRuntimeDriver::advanceRuntime(float seconds, std::string &failure)
     }
 
     float remaining = seconds;
+    GameSession &session = ScenarioGameApplicationAccess::gameSession(m_application);
+    GameplayInputFrame input = {};
+    input.screenWidth = ScenarioViewWidth;
+    input.screenHeight = ScenarioViewHeight;
+    input.pointerX = ScenarioViewWidth * 0.5f;
+    input.pointerY = ScenarioViewHeight * 0.5f;
 
     while (remaining > 0.0f)
     {
         const float deltaSeconds = std::min(RuntimeStepSeconds, remaining);
+        session.updateGameplay(input, deltaSeconds, false);
+        session.bindCurrentGameplayInputFrame(nullptr);
+        if (session.sharedInputFrameResult().worldInputBlocked
+            || session.sharedWorldInteractionBlockedThisFrame()
+            || session.gameplayScreenState().pendingSpellTarget().active)
+        {
+            remaining -= deltaSeconds;
+            continue;
+        }
         pWorldRuntime->updateWorld(deltaSeconds);
-        pWorldRuntime->updateActorAi(deltaSeconds);
 
         IMapSceneRuntime *pSceneRuntime = ScenarioGameApplicationAccess::mapSceneRuntime(m_application);
         if (pSceneRuntime != nullptr && pSceneRuntime->kind() == SceneKind::Indoor)

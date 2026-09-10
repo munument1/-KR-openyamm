@@ -135,7 +135,18 @@ MapDeltaChest buildLootContainerChest(
         }
     }
 
-    if (!source.goldOnly && (source.random || source.aiDrop) && source.randomTreasureLevel > 0)
+    if (!source.randomItemPool.empty())
+    {
+        // Explicit map-local equipment rewards bypass the merged tier pool. Store ordinary positive
+        // native item records, chosen without replacement from the same persistent session seed.
+        std::vector<uint32_t> pool = source.randomItemPool;
+        std::shuffle(pool.begin(), pool.end(), rng);
+        for (size_t index = 0; index < source.randomItemCount; ++index)
+        {
+            appendRecord(chest, int32_t(pool.at(index)));
+        }
+    }
+    else if (!source.goldOnly && (source.random || source.aiDrop) && source.randomTreasureLevel > 0)
     {
         appendRecord(chest, -std::clamp(source.randomTreasureLevel, 1, 7));
     }

@@ -1756,6 +1756,9 @@ TEST_CASE("generated_lua_event_scripts_are_loaded_from_files")
     REQUIRE(selectedMap->globalEventProgram->luaSourceName().has_value());
     CHECK(selectedMap->globalEventProgram->luaSourceName()->starts_with("@events/Global.lua"));
     CHECK(
+        selectedMap->globalEventProgram->luaSourceName()->find("events/Global_mm8_promotions.lua")
+        != std::string::npos);
+    CHECK(
         selectedMap->globalEventProgram->luaSourceName()->find("events/Global_mm6_mmmerge.lua")
         != std::string::npos);
     CHECK(
@@ -2329,6 +2332,50 @@ TEST_CASE("mm6 New Sorpigal obelisk applies autonote on press-any-key continuati
     CHECK_EQ(runtimeState.portraitFxRequests.front().kind, OpenYAMM::Game::PortraitFxEventKind::AutoNote);
 }
 
+TEST_CASE("Lua quest completion feedback announces the whole party without changing quest state")
+{
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    REQUIRE(supportLua.has_value());
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> program =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            *supportLua + R"lua(
+RegisterEvent(1, "Explicit completion feedback", function()
+    evt.ForPlayer(evt.Players.Player1)
+    evt.QuestCompleteFeedback()
+    evt.QuestCompleteFeedback()
+    evt.Add(eventSupport.varTag.Experience, 7)
+end)
+)lua",
+            "@tests/quest_feedback.lua", OpenYAMM::Game::ScriptedEventScope::Map, error);
+    REQUIRE_MESSAGE(program.has_value(), error.c_str());
+
+    OpenYAMM::Game::PartySeed seed = {};
+    seed.members.resize(5, makeScriptedRegressionMember());
+    OpenYAMM::Game::Party party = {};
+    party.seed(seed);
+    party.setQuestBit(158, true);
+    const OpenYAMM::Game::Party::Snapshot before = party.snapshot();
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    REQUIRE(eventRuntime.executeEventById(program, std::nullopt, 1, runtimeState, &party));
+    CHECK(party.snapshot().questBits == before.questBits);
+    REQUIRE_EQ(runtimeState.portraitFxRequests.size(), 1u);
+    CHECK_EQ(runtimeState.portraitFxRequests.front().kind, OpenYAMM::Game::PortraitFxEventKind::QuestComplete);
+    CHECK_EQ(runtimeState.portraitFxRequests.front().memberIndices, std::vector<size_t>({0, 1, 2, 3, 4}));
+    REQUIRE_EQ(runtimeState.pendingSounds.size(), 1u);
+    CHECK_EQ(runtimeState.pendingSounds.front().soundId, static_cast<uint32_t>(OpenYAMM::Game::SoundId::Quest));
+    CHECK_EQ(runtimeState.pendingSounds.front().soundScope, OpenYAMM::Game::SoundScope::Engine);
+    CHECK_FALSE(runtimeState.pendingSounds.front().positional);
+    // The presentation call must not change the selection used by subsequent event commands.
+    for (size_t index = 0; index < party.members().size(); ++index)
+    {
+        CHECK_EQ(party.members()[index].experience, seed.members[index].experience + (index == 1 ? 7 : 0));
+    }
+}
+
 TEST_CASE("map Lua overlays can remove and replace generated events")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
@@ -2863,7 +2910,7 @@ TEST_CASE("mm8 mmmerge map overlays compile and expose expected event ids")
         {"d42", "d42_mmmerge", {501}, {}},
         {"out01", "out01_mmmerge", {901, 902}, {901}},
         {"out02", "out02_mmmerge", {504}, {}},
-        {"out05", "out05_mmmerge", {131}, {}},
+        {"out05", "out05_mmmerge", {131, 65031}, {}},
         {"out07", "out07_mmmerge", {132, 133, 134, 135, 136, 455, 500, 901, 902}, {901}},
         {"out13", "out13_mmmerge", {451, 452, 901}, {901}},
         {"pbp", "pbp_mmmerge", {502, 503, 504, 505}, {}},
@@ -3763,6 +3810,7 @@ TEST_CASE("merged continent weather settings are applied to selected outdoor map
     CHECK(erathia.mergedSnowEnabled);
 
     const OpenYAMM::Game::OutdoorWeatherProfile bracada = loadWeatherProfile("7out06.odm");
+    CHECK_EQ(bracada.mergedCustomSkyTextureName, "7plansky3");
     CHECK_FALSE(bracada.mergedWeatherEnabled);
     CHECK_FALSE(bracada.mergedRainEnabled);
     CHECK_FALSE(bracada.mergedSnowEnabled);
@@ -3786,6 +3834,12 @@ TEST_CASE("merged continent weather settings are applied to selected outdoor map
     CHECK(frozenHighlands.mergedWeatherEnabled);
     CHECK(frozenHighlands.mergedRainEnabled);
     CHECK_FALSE(frozenHighlands.mergedSnowEnabled);
+
+    const OpenYAMM::Game::OutdoorWeatherProfile newSorpigal = loadWeatherProfile("oute3.odm");
+    REQUIRE_EQ(newSorpigal.mergedSkyTextureNames.size(), 7u);
+    CHECK(newSorpigal.mergedCustomSkyTextureName.empty());
+    CHECK_EQ(newSorpigal.mergedSkyTextureNames[0], "6plansky1");
+    CHECK_EQ(newSorpigal.mergedSkyTextureNames[1], "6plansky1");
 }
 
 TEST_CASE("mm7 emerald island mmmerge tavern topics remove arcomage")
@@ -6355,7 +6409,7 @@ TEST_CASE("mm6 global mmmerge supplement keeps rescue followers and collector to
             {1349, "PriestLight", "PriestLight", {1130}, 0, 1648},
             {1351, "Priest", "HighPriest", {1132}, 0, 1649},
             {1371, "Sorcerer", "Wizard", {}, 0, 1639},
-            {1373, "Wizard", "ArchMage", {}, 2077, 1641},
+            {1373, "Wizard", "MasterWizard", {}, 2077, 1641},
             {1382, "Knight", "Cavalier", {}, 0, 1643},
             {1384, "Cavalier", "Champion", {}, 2128, 1645},
             {1405, "Archer", "WarriorMage", {}, 2106, 1655},

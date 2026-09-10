@@ -325,6 +325,32 @@ int32_t outdoorTerrainChunkCell(float value)
     return static_cast<int32_t>(std::floor(value / OutdoorTerrainChunkWorldSize));
 }
 
+OutdoorSelectedFxLights selectOutdoorFxLightsForBounds(
+    const OutdoorLightingRuntime &lightingRuntime,
+    LightingStats *pLightingStats,
+    const bx::Vec3 &fallbackReferencePosition,
+    const OutdoorLightSelectionBounds &bounds)
+{
+    const uint64_t selectionBeginTickCount = pLightingStats != nullptr ? SDL_GetTicksNS() : 0;
+    const OutdoorSelectedFxLights lights = lightingRuntime.selectForBounds(fallbackReferencePosition, bounds);
+
+    if (pLightingStats != nullptr)
+    {
+        ++pLightingStats->selectionCalls;
+        const uint32_t sourceLightCount = lightingRuntime.sourceLightCount();
+        pLightingStats->outdoorEmitterInputs += sourceLightCount;
+        pLightingStats->outdoorEmitterFiltered += lights.filteredEmitterCount;
+        pLightingStats->outdoorRankedCandidates += lights.rankedCandidateCount;
+        pLightingStats->outdoorSelectedUniformLights += lights.lightCount;
+        pLightingStats->inputLights += sourceLightCount;
+        pLightingStats->inputDynamicLights += sourceLightCount;
+        pLightingStats->clusteredFxLights += lightingRuntime.outputClusterLightCount();
+        pLightingStats->outputLights += lights.lightCount;
+        pLightingStats->outdoorUniformSelectionNanoseconds += SDL_GetTicksNS() - selectionBeginTickCount;
+    }
+    return lights;
+}
+
 void applyOutdoorFxLightUniformsForBounds(
     bgfx::UniformHandle positionsUniformHandle,
     bgfx::UniformHandle colorsUniformHandle,
@@ -341,27 +367,14 @@ void applyOutdoorFxLightUniformsForBounds(
         return;
     }
 
-    const uint64_t selectionBeginTickCount = pLightingStats != nullptr ? SDL_GetTicksNS() : 0;
-    const OutdoorSelectedFxLights lights = lightingRuntime.selectForBounds(fallbackReferencePosition, bounds);
-
+    const OutdoorSelectedFxLights lights =
+        selectOutdoorFxLightsForBounds(lightingRuntime, pLightingStats, fallbackReferencePosition, bounds);
     bgfx::setUniform(positionsUniformHandle, lights.positions.data(), OutdoorSelectedFxLights::MaxLights);
     bgfx::setUniform(colorsUniformHandle, lights.colors.data(), OutdoorSelectedFxLights::MaxLights);
     bgfx::setUniform(paramsUniformHandle, lights.params.data());
-
     if (pLightingStats != nullptr)
     {
         ++pLightingStats->outdoorUniformApplications;
-        ++pLightingStats->selectionCalls;
-        const uint32_t sourceLightCount = lightingRuntime.sourceLightCount();
-        pLightingStats->outdoorEmitterInputs += sourceLightCount;
-        pLightingStats->outdoorEmitterFiltered += lights.filteredEmitterCount;
-        pLightingStats->outdoorRankedCandidates += lights.rankedCandidateCount;
-        pLightingStats->outdoorSelectedUniformLights += lights.lightCount;
-        pLightingStats->inputLights += sourceLightCount;
-        pLightingStats->inputDynamicLights += sourceLightCount;
-        pLightingStats->clusteredFxLights += lightingRuntime.outputClusterLightCount();
-        pLightingStats->outputLights += lights.lightCount;
-        pLightingStats->outdoorUniformSelectionNanoseconds += SDL_GetTicksNS() - selectionBeginTickCount;
     }
 }
 
@@ -609,140 +622,6 @@ float resolveActorAabbBaseZ(
         static_cast<float>(actorX),
         static_cast<float>(actorY),
         static_cast<float>(actorZ));
-}
-
-void updateTerrainAtlasTileTexture(
-    bgfx::TextureHandle textureHandle,
-    int atlasWidth,
-    int atlasHeight,
-    uint16_t innerAtlasX,
-    uint16_t innerAtlasY,
-    int tileSize,
-    int tilePadding,
-    const std::vector<uint8_t> &tilePixels,
-    std::vector<uint8_t> &regionPixels,
-    std::vector<uint8_t> &nextRegionPixels)
-{
-    if (!bgfx::isValid(textureHandle)
-        || atlasWidth <= 0
-        || atlasHeight <= 0
-        || tileSize <= 0
-        || tilePadding < 0
-        || tilePixels.size() < static_cast<size_t>(tileSize * tileSize * 4))
-    {
-        return;
-    }
-
-    const int paddedTileSize = tileSize + tilePadding * 2;
-    const int atlasX = innerAtlasX - tilePadding;
-    const int atlasY = innerAtlasY - tilePadding;
-    int regionX = std::max(0, atlasX);
-    int regionY = std::max(0, atlasY);
-    int regionWidth = std::min(atlasWidth, atlasX + paddedTileSize) - regionX;
-    int regionHeight = std::min(atlasHeight, atlasY + paddedTileSize) - regionY;
-
-    if (regionWidth <= 0 || regionHeight <= 0)
-    {
-        return;
-    }
-
-    regionPixels.resize(static_cast<size_t>(regionWidth * regionHeight * 4));
-
-    for (int targetY = 0; targetY < regionHeight; ++targetY)
-    {
-        const int sourceY = std::clamp(regionY + targetY - static_cast<int>(innerAtlasY), 0, tileSize - 1);
-
-        for (int targetX = 0; targetX < regionWidth; ++targetX)
-        {
-            const int sourceX = std::clamp(regionX + targetX - static_cast<int>(innerAtlasX), 0, tileSize - 1);
-            const size_t sourceOffset = static_cast<size_t>((sourceY * tileSize + sourceX) * 4);
-            const size_t targetOffset = static_cast<size_t>((targetY * regionWidth + targetX) * 4);
-            std::memcpy(
-                regionPixels.data() + static_cast<ptrdiff_t>(targetOffset),
-                tilePixels.data() + static_cast<ptrdiff_t>(sourceOffset),
-                4);
-        }
-    }
-
-    int mipWidth = atlasWidth;
-    int mipHeight = atlasHeight;
-    uint8_t mipLevel = 0;
-
-    while (true)
-    {
-
-        bgfx::updateTexture2D(
-            textureHandle,
-            0,
-            mipLevel,
-            static_cast<uint16_t>(regionX),
-            static_cast<uint16_t>(regionY),
-            static_cast<uint16_t>(regionWidth),
-            static_cast<uint16_t>(regionHeight),
-            copyBgraTextureUploadMemory(regionPixels.data(), static_cast<uint32_t>(regionPixels.size())));
-
-        if (mipWidth == 1 && mipHeight == 1)
-        {
-            break;
-        }
-
-        const int nextMipWidth = std::max(1, (mipWidth + 1) / 2);
-        const int nextMipHeight = std::max(1, (mipHeight + 1) / 2);
-        const int nextRegionX = regionX / 2;
-        const int nextRegionY = regionY / 2;
-        const int nextRegionRight = std::min(nextMipWidth, (regionX + regionWidth + 1) / 2);
-        const int nextRegionBottom = std::min(nextMipHeight, (regionY + regionHeight + 1) / 2);
-        const int nextRegionWidth = std::max(1, nextRegionRight - nextRegionX);
-        const int nextRegionHeight = std::max(1, nextRegionBottom - nextRegionY);
-        nextRegionPixels.resize(static_cast<size_t>(nextRegionWidth * nextRegionHeight * 4));
-
-        for (int targetY = 0; targetY < nextRegionHeight; ++targetY)
-        {
-            for (int targetX = 0; targetX < nextRegionWidth; ++targetX)
-            {
-                uint32_t channels[4] = {};
-
-                for (int offsetY = 0; offsetY < 2; ++offsetY)
-                {
-                    const int sourceY = std::clamp(
-                        (nextRegionY + targetY) * 2 + offsetY,
-                        regionY,
-                        regionY + regionHeight - 1);
-
-                    for (int offsetX = 0; offsetX < 2; ++offsetX)
-                    {
-                        const int sourceX = std::clamp(
-                            (nextRegionX + targetX) * 2 + offsetX,
-                            regionX,
-                            regionX + regionWidth - 1);
-                        const size_t sourceOffset = static_cast<size_t>(
-                            ((sourceY - regionY) * regionWidth + sourceX - regionX) * 4);
-
-                        for (size_t channel = 0; channel < 4; ++channel)
-                        {
-                            channels[channel] += regionPixels[sourceOffset + channel];
-                        }
-                    }
-                }
-
-                const size_t targetOffset = static_cast<size_t>((targetY * nextRegionWidth + targetX) * 4);
-
-                for (size_t channel = 0; channel < 4; ++channel)
-                {
-                    nextRegionPixels[targetOffset + channel] = static_cast<uint8_t>((channels[channel] + 2) / 4);
-                }
-            }
-        }
-
-        regionX = nextRegionX;
-        regionY = nextRegionY;
-        regionWidth = nextRegionWidth;
-        regionHeight = nextRegionHeight;
-        regionPixels.swap(nextRegionPixels);
-        mipWidth = nextMipWidth;
-        mipHeight = nextMipHeight;
-        ++mipLevel;
-    }
 }
 
 std::vector<uint8_t> extractAtlasRegionPixels(
@@ -1950,26 +1829,22 @@ void OutdoorRenderer::initializeAnimatedWaterTileState(
     const std::optional<OutdoorTerrainTextureAtlas> &outdoorTerrainTextureAtlas)
 {
     view.m_animatedWaterTerrainTiles.clear();
-    view.m_animatedWaterUploadScratchPixels = {};
-    view.m_animatedWaterNextMipScratchPixels = {};
     view.m_lastAnimatedWaterAnimationTicks.reset();
-    view.m_terrainTextureAtlasWidth = 0;
-    view.m_terrainTextureAtlasHeight = 0;
 
     if (!outdoorTerrainTextureAtlas || outdoorTerrainTextureAtlas->animatedWaterTiles.empty())
     {
         return;
     }
 
-    view.m_terrainTextureAtlasWidth = outdoorTerrainTextureAtlas->width;
-    view.m_terrainTextureAtlasHeight = outdoorTerrainTextureAtlas->height;
     view.m_animatedWaterTerrainTiles.reserve(outdoorTerrainTextureAtlas->animatedWaterTiles.size());
 
     for (const OutdoorAnimatedWaterTileSource &source : outdoorTerrainTextureAtlas->animatedWaterTiles)
     {
         OutdoorGameView::AnimatedWaterTerrainTileState tileState = {};
-        tileState.region = source.region;
-        tileState.tilePadding = outdoorTerrainTextureAtlas->tilePadding;
+        const int cellSize = outdoorTerrainTextureAtlas->tileSize + outdoorTerrainTextureAtlas->tilePadding * 2;
+        const int column = std::lround(source.region.u0 * outdoorTerrainTextureAtlas->width) / cellSize;
+        const int row = std::lround(source.region.v0 * outdoorTerrainTextureAtlas->height) / cellSize;
+        tileState.layer = row * (outdoorTerrainTextureAtlas->width / cellSize) + column;
         tileState.framePixels = source.framePixels;
         tileState.animationLengthTicks = source.animation.animationLengthTicks;
         tileState.currentFrameIndex = source.currentFrameIndex;
@@ -1985,10 +1860,8 @@ void OutdoorRenderer::initializeAnimatedWaterTileState(
 
 void OutdoorRenderer::updateAnimatedWaterTileTexture(OutdoorGameView &view)
 {
-    if (!bgfx::isValid(view.m_terrainTextureAtlasHandle)
-        || view.m_animatedWaterTerrainTiles.empty()
-        || view.m_terrainTextureAtlasWidth <= 0
-        || view.m_terrainTextureAtlasHeight <= 0)
+    if (!bgfx::isValid(view.m_terrainTextureArrayHandle)
+        || view.m_animatedWaterTerrainTiles.empty())
     {
         return;
     }
@@ -2022,38 +1895,7 @@ void OutdoorRenderer::updateAnimatedWaterTileTexture(OutdoorGameView &view)
         const std::vector<uint8_t> &framePixels = tileState.framePixels[frameIndex];
         const int tileSize = static_cast<int>(std::lround(std::sqrt(framePixels.size() / 4.0)));
 
-        const float regionWidth = tileState.region.u1 - tileState.region.u0;
-        const float regionHeight = tileState.region.v1 - tileState.region.v0;
-
-        if (tileSize <= 0 || regionWidth <= 0.0f || regionHeight <= 0.0f)
-        {
-            continue;
-        }
-
-        const int atlasWidth = view.m_terrainTextureAtlasWidth;
-        const int atlasHeight = view.m_terrainTextureAtlasHeight;
-
-        if (atlasWidth <= 0 || atlasHeight <= 0)
-        {
-            continue;
-        }
-
-        const uint16_t atlasX = static_cast<uint16_t>(
-            std::lround(tileState.region.u0 * static_cast<float>(atlasWidth)));
-        const uint16_t atlasY = static_cast<uint16_t>(
-            std::lround(tileState.region.v0 * static_cast<float>(atlasHeight)));
-
-        updateTerrainAtlasTileTexture(
-            view.m_terrainTextureAtlasHandle,
-            view.m_terrainTextureAtlasWidth,
-            view.m_terrainTextureAtlasHeight,
-            atlasX,
-            atlasY,
-            tileSize,
-            tileState.tilePadding,
-            framePixels,
-            view.m_animatedWaterUploadScratchPixels,
-            view.m_animatedWaterNextMipScratchPixels);
+        updateBgraTextureArrayLayer(view.m_terrainTextureArrayHandle, tileState.layer, tileSize, tileSize, framePixels);
 
         tileState.currentFrameIndex = frameIndex;
     }
@@ -2150,41 +1992,35 @@ std::vector<OutdoorGameView::TexturedTerrainVertex> OutdoorRenderer::buildTextur
             topLeft.x = outdoorGridCornerWorldX(gridX);
             topLeft.y = outdoorGridCornerWorldY(gridY);
             topLeft.z = static_cast<float>(mapData.heightMap[topLeftIndex] * OutdoorMapData::TerrainHeightScale);
-            topLeft.u = region.u0;
-            topLeft.v = region.v0;
+            topLeft.u = 0.0f;
+            topLeft.v = 0.0f;
 
             OutdoorGameView::TexturedTerrainVertex topRight = {};
             topRight.x = outdoorGridCornerWorldX(gridX + 1);
             topRight.y = outdoorGridCornerWorldY(gridY);
             topRight.z = static_cast<float>(mapData.heightMap[topRightIndex] * OutdoorMapData::TerrainHeightScale);
-            topRight.u = region.u1;
-            topRight.v = region.v0;
+            topRight.u = 1.0f;
+            topRight.v = 0.0f;
 
             OutdoorGameView::TexturedTerrainVertex bottomLeft = {};
             bottomLeft.x = outdoorGridCornerWorldX(gridX);
             bottomLeft.y = outdoorGridCornerWorldY(gridY + 1);
             bottomLeft.z = static_cast<float>(mapData.heightMap[bottomLeftIndex] * OutdoorMapData::TerrainHeightScale);
-            bottomLeft.u = region.u0;
-            bottomLeft.v = region.v1;
+            bottomLeft.u = 0.0f;
+            bottomLeft.v = 1.0f;
 
             OutdoorGameView::TexturedTerrainVertex bottomRight = {};
             bottomRight.x = outdoorGridCornerWorldX(gridX + 1);
             bottomRight.y = outdoorGridCornerWorldY(gridY + 1);
             bottomRight.z = static_cast<float>(mapData.heightMap[bottomRightIndex] * OutdoorMapData::TerrainHeightScale);
-            bottomRight.u = region.u1;
-            bottomRight.v = region.v1;
+            bottomRight.u = 1.0f;
+            bottomRight.v = 1.0f;
 
-            if (region.isWater && !region.isTransitionOverlay)
+            for (OutdoorGameView::TexturedTerrainVertex *pVertex :
+                {&topLeft, &topRight, &bottomLeft, &bottomRight})
             {
-                for (OutdoorGameView::TexturedTerrainVertex *pVertex :
-                    {&topLeft, &topRight, &bottomLeft, &bottomRight})
-                {
-                    pVertex->secretPulse = -1.0f;
-                    pVertex->flowUPerSecond = region.u0;
-                    pVertex->flowVPerSecond = region.v0;
-                    pVertex->lavaFlow = region.u1;
-                    pVertex->fluidFlow = region.v1;
-                }
+                pVertex->flowUPerSecond = rawTileId;
+                pVertex->secretPulse = region.isWater && !region.isTransitionOverlay ? -1.0f : 0.0f;
             }
 
             vertices.push_back(topLeft);
@@ -2429,7 +2265,8 @@ std::vector<OutdoorGameView::LightmappedBModelVertex> OutdoorRenderer::buildLigh
 
 std::vector<OutdoorGameView::TerrainVertex> OutdoorRenderer::buildFilledTerrainVertices(
     const OutdoorMapData &mapData,
-    const std::optional<std::vector<uint32_t>> &tileColors)
+    const std::optional<std::vector<uint32_t>> &tileColors,
+    const OutdoorTerrainTextureAtlas *pTextureAtlas)
 {
     std::vector<OutdoorGameView::TerrainVertex> vertices;
     vertices.reserve(
@@ -2444,6 +2281,11 @@ std::vector<OutdoorGameView::TerrainVertex> OutdoorRenderer::buildFilledTerrainV
         for (int gridX = 0; gridX < (OutdoorMapData::TerrainWidth - 1); ++gridX)
         {
             const size_t topLeftIndex = static_cast<size_t>(gridY * OutdoorMapData::TerrainWidth + gridX);
+            if (pTextureAtlas != nullptr && pTextureAtlas->tileRegions[mapData.tileMap[topLeftIndex]].isValid)
+            {
+                // Textured cells own their color and depth, including holes in alpha-tested artwork.
+                continue;
+            }
             const size_t topRightIndex = topLeftIndex + 1;
             const size_t bottomLeftIndex = static_cast<size_t>((gridY + 1) * OutdoorMapData::TerrainWidth + gridX);
             const size_t bottomRightIndex = bottomLeftIndex + 1;
@@ -2841,6 +2683,42 @@ void OutdoorRenderer::createBModelTextureBatches(
     }
 }
 
+void OutdoorRenderer::ensureTerrainDecorations(OutdoorGameView &view, const OutdoorMapData &outdoorMapData)
+{
+    if (!view.m_gameSettings.terrainDecorations || view.m_terrainDecorationsInitializationAttempted ||
+        !view.m_terrainDecorationTileNames || view.m_pAssetFileSystem == nullptr)
+    {
+        return;
+    }
+
+    // Absent/invalid map content is attempted once, never reloaded every frame. Retain resources while disabled.
+    view.m_terrainDecorationsInitializationAttempted = true;
+    std::string error;
+    const std::optional<TerrainDecorationConfig> config =
+        loadTerrainDecorationConfig(*view.m_pAssetFileSystem, outdoorMapData, error);
+    if (!error.empty())
+    {
+        std::cerr << error << '\n';
+    }
+    if (!config)
+    {
+        return;
+    }
+    if ((bgfx::getCaps()->supported & BGFX_CAPS_INSTANCING) == 0)
+    {
+        std::cerr << "Terrain decorations require renderer instancing support.\n";
+        return;
+    }
+
+    TerrainDecorationPlacement placement = scatterTerrainDecorations(
+        outdoorMapData, *view.m_terrainDecorationTileNames, *config);
+    if (!placement.instances.empty())
+    {
+        view.m_terrainDecorations.initialize(*view.m_pAssetFileSystem, *config, std::move(placement),
+            loadProgramHandle("vs_terrain_decoration", "fs_terrain_decoration"));
+    }
+}
+
 bool OutdoorRenderer::initializeWorldRenderResources(
     OutdoorGameView &view,
     const OutdoorMapData &outdoorMapData,
@@ -2865,7 +2743,8 @@ bool OutdoorRenderer::initializeWorldRenderResources(
     std::vector<OutdoorGameView::TexturedTerrainVertex> texturedTerrainVertices;
     const std::vector<OutdoorGameView::TerrainVertex> filledTerrainVertices =
         renderTerrain
-            ? buildFilledTerrainVertices(outdoorMapData, outdoorTileColors)
+            ? buildFilledTerrainVertices(outdoorMapData, outdoorTileColors,
+                                         outdoorTerrainTextureAtlas ? &*outdoorTerrainTextureAtlas : nullptr)
             : std::vector<OutdoorGameView::TerrainVertex>();
     const std::vector<OutdoorGameView::TerrainVertex> bmodelVertices =
         bmodelWorld ? std::vector<OutdoorGameView::TerrainVertex>() : buildBModelWireframeVertices(outdoorMapData);
@@ -2887,6 +2766,13 @@ bool OutdoorRenderer::initializeWorldRenderResources(
     {
         destroyTexturedTerrainChunks(view);
     }
+
+    // Keep only material names so a console enable can build decorations without reloading the map/atlas.
+    if (!outdoorMapData.noTerrain && outdoorTerrainTextureAtlas)
+    {
+        view.m_terrainDecorationTileNames = outdoorTerrainTextureAtlas->tileTextureNames;
+    }
+    ensureTerrainDecorations(view, outdoorMapData);
 
     initializeAnimatedWaterTileState(view, renderTerrain ? outdoorTerrainTextureAtlas : std::nullopt);
 
@@ -2988,7 +2874,10 @@ bool OutdoorRenderer::initializeWorldRenderResources(
     view.m_spellAreaPreviewProgramHandle = loadProgramHandle("vs_spell_area_preview", "fs_spell_area_preview");
     view.m_outdoorLitBillboardProgramHandle =
         loadProgramHandle("vs_outdoor_billboard_lit", "fs_outdoor_billboard_lit");
+    view.m_spriteAtlasCache.setProgram(loadProgramHandle("vs_outdoor_billboard_lit", "fs_sprite_atlas"));
     view.m_worldFxRenderResources.setParticleProgramHandle(loadProgramHandle("vs_particle", "fs_particle"));
+    view.m_outdoorTerrainFogProgramHandle =
+        loadProgramHandle("vs_outdoor_textured_fog", "fs_outdoor_terrain_fog");
     view.m_outdoorTexturedFogProgramHandle =
         loadProgramHandle("vs_outdoor_textured_fog", "fs_outdoor_textured_fog");
 #if !defined(__ANDROID__)
@@ -3003,13 +2892,21 @@ bool OutdoorRenderer::initializeWorldRenderResources(
 
     if (outdoorTerrainTextureAtlas && !outdoorTerrainTextureAtlas->pixels.empty())
     {
-        view.m_terrainTextureAtlasHandle = createBgraTexture2D(
-            uint16_t(outdoorTerrainTextureAtlas->width),
-            uint16_t(outdoorTerrainTextureAtlas->height),
-            outdoorTerrainTextureAtlas->pixels.data(),
-            uint32_t(outdoorTerrainTextureAtlas->pixels.size()),
-            TextureFilterProfile::Terrain,
-            BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+        const OutdoorTerrainTextureAtlas &atlas = *outdoorTerrainTextureAtlas;
+        view.m_terrainTextureArrayHandle = bgfx::createTexture2D(
+            atlas.tileSize, atlas.tileSize, true, 256, bgraTextureUploadFormat(),
+            textureFilterSamplerFlags(TextureFilterProfile::Terrain) | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+
+        for (uint16_t layer = 0; layer < atlas.tileRegions.size(); ++layer)
+        {
+            const OutdoorTerrainAtlasRegion &region = atlas.tileRegions[layer];
+
+            if (region.isValid)
+            {
+                updateBgraTextureArrayLayer(view.m_terrainTextureArrayHandle, layer, atlas.tileSize, atlas.tileSize,
+                    extractAtlasRegionPixels(atlas, region));
+            }
+        }
     }
 
 #if !defined(__ANDROID__)
@@ -3662,8 +3559,9 @@ void OutdoorRenderer::renderWorldPasses(OutdoorGameView &view, uint16_t viewWidt
         }
 
         if (showTerrain && !(view.m_pOutdoorMapData != nullptr && view.m_pOutdoorMapData->noTerrain) &&
-            bgfx::isValid(view.m_outdoorTexturedFogProgramHandle) && bgfx::isValid(view.m_terrainTextureAtlasHandle) &&
+            bgfx::isValid(view.m_outdoorTerrainFogProgramHandle) && bgfx::isValid(view.m_terrainTextureArrayHandle) &&
             bgfx::isValid(view.m_terrainTextureSamplerHandle) &&
+            bgfx::isValid(view.m_terrainWaterSamplerHandle) &&
             bgfx::isValid(view.m_outdoorFxLightPositionsUniformHandle) &&
             bgfx::isValid(view.m_outdoorFxLightColorsUniformHandle) &&
             bgfx::isValid(view.m_outdoorFxLightParamsUniformHandle) &&
@@ -3681,8 +3579,10 @@ void OutdoorRenderer::renderWorldPasses(OutdoorGameView &view, uint16_t viewWidt
                     }
 
                     bgfx::setVertexBuffer(0, chunk.vertexBufferHandle, 0, chunk.vertexCount);
-                    bindTexture(0, view.m_terrainTextureSamplerHandle, view.m_terrainTextureAtlasHandle,
+                    bindTexture(0, view.m_terrainTextureSamplerHandle, view.m_terrainTextureArrayHandle,
                                 TextureFilterProfile::Terrain, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+                    bindTexture(1, view.m_terrainWaterSamplerHandle, view.m_terrainTextureArrayHandle,
+                                TextureFilterProfile::Terrain);
                     OutdoorLightSelectionBounds chunkBounds = {};
                     chunkBounds.min = chunk.boundsMin;
                     chunkBounds.max = chunk.boundsMax;
@@ -3699,14 +3599,16 @@ void OutdoorRenderer::renderWorldPasses(OutdoorGameView &view, uint16_t viewWidt
                     applySecretPulseUniforms(view);
                     bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
                                    BGFX_STATE_DEPTH_TEST_LEQUAL);
-                    bgfx::submit(MainViewId, view.m_outdoorTexturedFogProgramHandle);
+                    bgfx::submit(MainViewId, view.m_outdoorTerrainFogProgramHandle);
                 }
             }
             else if (bgfx::isValid(view.m_texturedTerrainVertexBufferHandle))
             {
                 bgfx::setVertexBuffer(0, view.m_texturedTerrainVertexBufferHandle);
-                bindTexture(0, view.m_terrainTextureSamplerHandle, view.m_terrainTextureAtlasHandle,
+                bindTexture(0, view.m_terrainTextureSamplerHandle, view.m_terrainTextureArrayHandle,
                             TextureFilterProfile::Terrain, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+                bindTexture(1, view.m_terrainWaterSamplerHandle, view.m_terrainTextureArrayHandle,
+                            TextureFilterProfile::Terrain);
                 applyOutdoorFxLightUniforms(view, cameraPosition);
                 applyOutdoorFogUniforms(view.m_outdoorFogColorUniformHandle, view.m_outdoorFogDensitiesUniformHandle,
                                         view.m_outdoorFogDistancesUniformHandle, view.m_outdoorCameraPositionUniformHandle,
@@ -3714,7 +3616,70 @@ void OutdoorRenderer::renderWorldPasses(OutdoorGameView &view, uint16_t viewWidt
                 applySecretPulseUniforms(view);
                 bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
                                BGFX_STATE_DEPTH_TEST_LEQUAL);
-                bgfx::submit(MainViewId, view.m_outdoorTexturedFogProgramHandle);
+                bgfx::submit(MainViewId, view.m_outdoorTerrainFogProgramHandle);
+            }
+        }
+
+        if (showFilledTerrain && view.m_gameSettings.terrainDecorations)
+        {
+            ensureTerrainDecorations(view, *view.m_pOutdoorMapData);
+            const bool viewChanged = view.m_terrainDecorations.setView(
+                cameraPosition, cameraForward, cameraRight, cameraUp, aspectRatio, bx::toRad(CameraVerticalFovDegrees));
+            const uint64_t now = SDL_GetTicksNS();
+            const uint32_t lightCount = view.m_outdoorLightingRuntime.sourceLightCount();
+            // Refresh stationary-camera visibility/lighting at 20 Hz. Camera and light-count changes are immediate.
+            // Wind, fog and actual draws still update every frame.
+            if (viewChanged || now - view.m_terrainDecorationRefreshTick >= 50000000ULL ||
+                lightCount != view.m_terrainDecorationLightCount)
+            {
+                view.m_terrainDecorationBatches.clear();
+                for (const TerrainDecorationPatch &patch : view.m_terrainDecorations.patches())
+                {
+                    if (!view.m_terrainDecorations.visible(patch))
+                    {
+                        continue;
+                    }
+                    OutdoorLightSelectionBounds bounds = {};
+                    bounds.min = {patch.min[0], patch.min[1], patch.min[2]};
+                    bounds.max = {patch.max[0], patch.max[1], patch.max[2]};
+                    bounds.valid = true;
+                    const OutdoorSelectedFxLights lights = selectOutdoorFxLightsForBounds(
+                        view.m_outdoorLightingRuntime,
+                        view.m_gameSettings.performanceTrace ? &view.m_outdoorLightingStats : nullptr,
+                        cameraPosition, bounds);
+                    // Only merge contiguous visible ranges with exactly the same mesh and light uniforms.
+                    if (!view.m_terrainDecorationBatches.empty() && TerrainDecorationRenderer::canMerge(
+                            view.m_terrainDecorationBatches.back().range, view.m_terrainDecorationBatches.back().lights,
+                            patch, lights))
+                    {
+                        view.m_terrainDecorationBatches.back().range.count += patch.count;
+                    }
+                    else
+                    {
+                        view.m_terrainDecorationBatches.push_back({patch, lights});
+                    }
+                }
+                view.m_terrainDecorationRefreshTick = now;
+                view.m_terrainDecorationLightCount = lightCount;
+            }
+            for (const OutdoorGameView::TerrainDecorationBatch &batch : view.m_terrainDecorationBatches)
+            {
+                if (bgfx::isValid(view.m_outdoorFxLightPositionsUniformHandle) &&
+                    bgfx::isValid(view.m_outdoorFxLightColorsUniformHandle) &&
+                    bgfx::isValid(view.m_outdoorFxLightParamsUniformHandle))
+                {
+                    applySelectedOutdoorFxLightUniforms(view.m_outdoorFxLightPositionsUniformHandle,
+                        view.m_outdoorFxLightColorsUniformHandle, view.m_outdoorFxLightParamsUniformHandle, batch.lights);
+                    if (view.m_gameSettings.performanceTrace)
+                    {
+                        ++view.m_outdoorLightingStats.outdoorUniformApplications;
+                    }
+                }
+                applyOutdoorFogUniforms(view.m_outdoorFogColorUniformHandle, view.m_outdoorFogDensitiesUniformHandle,
+                    view.m_outdoorFogDistancesUniformHandle, view.m_outdoorCameraPositionUniformHandle,
+                    cameraPosition, worldFogParameters);
+                applySecretPulseUniforms(view);
+                view.m_terrainDecorations.submit(MainViewId, batch.range, view.m_elapsedTime);
             }
         }
 
@@ -4822,6 +4787,7 @@ void OutdoorRenderer::renderOutdoorSky(
 
     const float skyLeftX = 0.0f;
     const float skyRightX = static_cast<float>(viewWidth);
+    // Keep cloud size and drift independent of the selected sky asset resolution.
     const OutdoorSkyVertex topLeft = computeOutdoorSkyVertex(
         skyLeftX,
         0.0f,
@@ -4832,8 +4798,8 @@ void OutdoorRenderer::renderOutdoorSky(
         cameraPitchRadians,
         renderDistance,
         view.m_elapsedTime,
-        static_cast<float>(pTexture->physicalWidth),
-        static_cast<float>(pTexture->physicalHeight));
+        static_cast<float>(pTexture->width),
+        static_cast<float>(pTexture->height));
     const OutdoorSkyVertex bottomLeft = computeOutdoorSkyVertex(
         skyLeftX,
         skyBottomY,
@@ -4844,8 +4810,8 @@ void OutdoorRenderer::renderOutdoorSky(
         cameraPitchRadians,
         renderDistance,
         view.m_elapsedTime,
-        static_cast<float>(pTexture->physicalWidth),
-        static_cast<float>(pTexture->physicalHeight));
+        static_cast<float>(pTexture->width),
+        static_cast<float>(pTexture->height));
     const OutdoorSkyVertex bottomRight = computeOutdoorSkyVertex(
         skyRightX,
         skyBottomY,
@@ -4856,8 +4822,8 @@ void OutdoorRenderer::renderOutdoorSky(
         cameraPitchRadians,
         renderDistance,
         view.m_elapsedTime,
-        static_cast<float>(pTexture->physicalWidth),
-        static_cast<float>(pTexture->physicalHeight));
+        static_cast<float>(pTexture->width),
+        static_cast<float>(pTexture->height));
     const OutdoorSkyVertex topRight = computeOutdoorSkyVertex(
         skyRightX,
         0.0f,
@@ -4868,8 +4834,8 @@ void OutdoorRenderer::renderOutdoorSky(
         cameraPitchRadians,
         renderDistance,
         view.m_elapsedTime,
-        static_cast<float>(pTexture->physicalWidth),
-        static_cast<float>(pTexture->physicalHeight));
+        static_cast<float>(pTexture->width),
+        static_cast<float>(pTexture->height));
     const uint32_t skyTintAbgr =
         view.m_pOutdoorWorldRuntime != nullptr ? computeOutdoorSkyTintAbgr(*view.m_pOutdoorWorldRuntime) : 0xffffffffu;
     view.m_cachedSkyVertices[0] = {

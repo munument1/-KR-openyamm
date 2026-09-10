@@ -11,6 +11,8 @@
 #include <yaml-cpp/yaml.h>
 
 #include <cstring>
+#include <algorithm>
+#include <set>
 #include <filesystem>
 #include <string>
 
@@ -281,6 +283,70 @@ TEST_CASE("MM9 treasure bag materializes through chest records without bone-pile
     CHECK_EQ(fixedItemId, 10371);
     CHECK_EQ(randomTier, -4);
     CHECK_EQ(chest.flags, 0);
+}
+
+TEST_CASE("Map-local chest item pools validate and produce persistent native item records")
+{
+    const YAML::Node sourceNode = YAML::Load(R"(
+loot_containers:
+  - source_id: mm8:test:chest
+    source_object_index: 0
+    source_name: Cache
+    position: {x: 0, y: 0, z: 0}
+    container_id: 0
+    kind: chest
+    presentation: wooden chest
+    random_treasure_level: 6
+    treasure_type: 0
+    gold: 0
+    gold_only: false
+    random: true
+    ai_drop: false
+    trap_level: 1
+    should_repopulate: true
+    fixed_items: []
+    remove_when_empty: false
+    random_item_pool: [5, 15, 35, 55, 65, 98]
+    random_item_count: 3
+)");
+    OpenYAMM::Game::MapItemSourceData sources;
+    std::string error;
+    REQUIRE(OpenYAMM::Game::parseMapItemSourceData(sourceNode, sources, error));
+    REQUIRE_EQ(sources.lootContainers.size(), 1u);
+    const OpenYAMM::Game::MapLootContainerSource &source = sources.lootContainers.front();
+    std::set<std::vector<uint8_t>> generated;
+    for (uint32_t seed = 1; seed <= 8; ++seed)
+    {
+        const OpenYAMM::Game::MapDeltaChest chest =
+            OpenYAMM::Game::buildLootContainerChest(source, 6, 9082, seed, nullptr, nullptr);
+        CHECK(chest.rawItems ==
+            OpenYAMM::Game::buildLootContainerChest(source, 6, 9082, seed, nullptr, nullptr).rawItems);
+        REQUIRE_EQ(chest.rawItems.size(), 108u);
+        std::set<int32_t> selected;
+        for (size_t offset = 0; offset < chest.rawItems.size(); offset += 36)
+        {
+            int32_t itemId = 0;
+            std::memcpy(&itemId, chest.rawItems.data() + offset, sizeof(itemId));
+            CHECK(std::find(source.randomItemPool.begin(), source.randomItemPool.end(), uint32_t(itemId))
+                != source.randomItemPool.end());
+            selected.insert(itemId);
+        }
+        CHECK_EQ(selected.size(), 3u);
+        generated.insert(chest.rawItems);
+    }
+    CHECK_GT(generated.size(), 1u);
+
+    for (const char *pInvalid : {"random_item_pool: [0, 5, 15]", "random_item_pool: [5, 5, 15]",
+        "random_item_pool: []", "random_item_pool: [4294967295, 5, 15]", "random_item_count: 0",
+        "random_item_count: 7", "gold_only: true", "random: false"})
+    {
+        YAML::Node invalid = YAML::Clone(sourceNode);
+        const YAML::Node change = YAML::Load(pInvalid);
+        invalid["loot_containers"][0][change.begin()->first.as<std::string>()] = change.begin()->second;
+        OpenYAMM::Game::MapItemSourceData rejected;
+        CHECK_FALSE(OpenYAMM::Game::parseMapItemSourceData(invalid, rejected, error));
+        CHECK_FALSE(error.empty());
+    }
 }
 
 TEST_CASE("MM9 destructible treasure bag becomes a dense shared loot container only at trigger time")

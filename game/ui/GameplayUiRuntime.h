@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -127,6 +128,7 @@ public:
 
     void clear();
     void bindDataRepository(const GameDataRepository *pDataRepository);
+    void setFontSettings(const Engine::FontSettings &settings);
     void bindAssetFileSystem(const Engine::AssetFileSystem *pAssetFileSystem);
     const Engine::AssetFileSystem *assetFileSystem() const;
 
@@ -173,11 +175,13 @@ public:
     std::optional<std::vector<uint8_t>> loadHudBitmapPixelsBgraCached(
         const std::string &textureName,
         int &width,
-        int &height);
+        int &height,
+        Engine::AssetScaleTier *pLoadedTier = nullptr);
     std::optional<std::vector<uint8_t>> loadItemIconBitmapPixelsBgraCached(
         const std::string &textureName,
         int &width,
-        int &height);
+        int &height,
+        Engine::AssetScaleTier *pLoadedTier = nullptr);
     std::optional<std::vector<uint8_t>> loadSpriteBitmapPixelsBgraCached(
         const std::string &textureName,
         int16_t paletteId,
@@ -270,9 +274,10 @@ public:
         float quadHeight,
         TextureFilterProfile filterProfile = TextureFilterProfile::Ui) const;
     void submitHudQuadBatch(
-        const std::vector<GameplayHudBatchQuad> &quads,
+        std::span<const GameplayHudBatchQuad> quads,
         int screenWidth,
-        int screenHeight) const;
+        int screenHeight,
+        TextureFilterProfile filterProfile = TextureFilterProfile::Ui) const;
     void renderHudFontLayer(
         const GameplayHudFontHandle &font,
         bgfx::TextureHandle textureHandle,
@@ -371,6 +376,7 @@ private:
     std::vector<GameplayHudTextureData> m_hudTextureHandles;
     std::unordered_map<std::string, size_t> m_hudTextureIndexByName;
     std::unordered_map<std::string, std::string> m_dynamicHudTextureContentSignatures;
+    Engine::FontSettings m_fontSettings;
     std::vector<GameplayHudFontData> m_hudFontHandles;
     std::vector<GameplayHudFontColorTextureData> m_hudFontColorTextureHandles;
     std::vector<GameplayHudTextureColorTextureData> m_hudTextureColorTextureHandles;

@@ -477,6 +477,8 @@ std::optional<std::string> findImageAssetPath(
     const std::string stem = stripKnownImageExtension(textureName);
     const std::array<std::string, 3> candidateFileNames = {stem + ".png", stem + ".bmp", stem + ".pcx"};
 
+    std::optional<std::string> fallbackPath;
+    const AssetScaleTier preferredTier = assetFileSystem.getAssetScaleTierForVirtualPath(directoryPath + "/" + stem);
     for (const std::string &candidateFileName : candidateFileNames)
     {
         const std::optional<std::string> candidatePath = findAssetPathCaseInsensitive(
@@ -488,13 +490,25 @@ std::optional<std::string> findImageAssetPath(
 
         if (candidatePath)
         {
-            assetPathByKey[cacheKey] = candidatePath;
-            return candidatePath;
+            const std::optional<std::string> resolvedPath = assetFileSystem.resolveExistingFilePath(*candidatePath);
+            if (!resolvedPath)
+            {
+                continue;
+            }
+            if (assetScaleTierFromResolvedPath(*resolvedPath) == preferredTier)
+            {
+                assetPathByKey[cacheKey] = resolvedPath;
+                return resolvedPath;
+            }
+            if (!fallbackPath)
+            {
+                fallbackPath = resolvedPath;
+            }
         }
     }
 
-    assetPathByKey[cacheKey] = std::nullopt;
-    return std::nullopt;
+    assetPathByKey[cacheKey] = fallbackPath;
+    return fallbackPath;
 }
 
 std::optional<ImagePixelsBgra> decodeImagePixelsBgra(
@@ -528,7 +542,9 @@ std::optional<ImagePixelsBgra> decodeImagePixelsBgra(
     return std::nullopt;
 }
 
-std::optional<ImagePixelsBgra> loadImageAssetPixelsBgra(
+namespace
+{
+std::optional<ImagePixelsBgra> loadResolvedImagePixelsBgra(
     const AssetFileSystem &assetFileSystem,
     const std::string &virtualPath,
     BinaryAssetCache &binaryFilesByPath,
@@ -553,7 +569,24 @@ std::optional<ImagePixelsBgra> loadImageAssetPixelsBgra(
         return std::nullopt;
     }
 
-    return decodeImagePixelsBgra(*imageBytes, virtualPath, options);
+    std::optional<ImagePixelsBgra> image = decodeImagePixelsBgra(*imageBytes, virtualPath, options);
+    if (image)
+    {
+        image->assetScaleTier = assetScaleTierFromResolvedPath(virtualPath);
+    }
+    return image;
+}
+}
+
+std::optional<ImagePixelsBgra> loadImageAssetPixelsBgra(
+    const AssetFileSystem &assetFileSystem,
+    const std::string &virtualPath,
+    BinaryAssetCache &binaryFilesByPath,
+    const ImageDecodeOptions &options)
+{
+    const std::optional<std::string> resolvedPath = assetFileSystem.resolveExistingFilePath(virtualPath);
+    return resolvedPath ? loadResolvedImagePixelsBgra(assetFileSystem, *resolvedPath, binaryFilesByPath, options)
+                        : std::nullopt;
 }
 
 std::optional<ImagePixelsBgra> loadImageAssetPixelsBgra(
@@ -578,7 +611,7 @@ std::optional<ImagePixelsBgra> loadImageAssetPixelsBgra(
         return std::nullopt;
     }
 
-    return loadImageAssetPixelsBgra(assetFileSystem, *imagePath, binaryFilesByPath, options);
+    return loadResolvedImagePixelsBgra(assetFileSystem, *imagePath, binaryFilesByPath, options);
 }
 
 std::vector<uint8_t> scalePixelsNearestBgra(

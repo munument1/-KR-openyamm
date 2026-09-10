@@ -824,7 +824,8 @@ private:
     IndoorRenderer *m_pRenderer = nullptr;
     IndoorGameView *m_pGameplayView = nullptr;
     std::string m_mapName;
-    float m_gameMinutes = 9.0f * 60.0f;
+    // Frame-sized increments must remain representable after months of campaign time.
+    double m_gameMinutes = 9.0 * 60.0;
     int m_currentLocationReputation = 0;
     uint32_t m_sessionChestSeed = 0;
     std::vector<std::optional<ChestViewState>> m_materializedChestViews;

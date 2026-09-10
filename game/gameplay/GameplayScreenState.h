@@ -36,6 +36,7 @@ public:
         uint32_t spellId = 0;
         uint32_t skillLevelOverride = 0;
         SkillMastery skillMasteryOverride = SkillMastery::None;
+        bool bypassRequiredMastery = false;
         bool spendMana = true;
         bool applyRecovery = true;
         PartySpellCastTargetKind targetKind = PartySpellCastTargetKind::None;

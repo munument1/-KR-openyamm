@@ -67,6 +67,7 @@ struct ScenarioInventoryGrid
 };
 
 bool ensureRuntimeDriver(ScenarioExecutionContext &context, std::vector<std::string> &failures);
+std::optional<EquipmentSlot> parseScenarioEquipmentSlot(const std::string &value);
 
 std::string lowerAscii(const std::string &value)
 {
@@ -2378,6 +2379,120 @@ bool executeRecordedEvent(
     return true;
 }
 
+bool readScenarioPartySeed(
+    ScenarioExecutionContext &context,
+    const YAML::Node &node,
+    PartySeed &seed,
+    std::string &failure)
+{
+    if (!node.IsMap() || !node["members"].IsSequence()
+        || node["members"].size() == 0 || node["members"].size() > 5)
+    {
+        failure = "party fixture requires one to five explicit members";
+        return false;
+    }
+    seed = {};
+    seed.gold = node["gold"].as<int>(0);
+    seed.food = node["food"].as<int>(0);
+    const ClassSkillTable &skillTable = context.gameDataLoader.getClassSkillTable();
+    for (const YAML::Node &memberNode : node["members"])
+    {
+        Character member = {};
+        member.name = memberNode["name"].as<std::string>();
+        member.className = memberNode["class"].as<std::string>();
+        member.level = memberNode["level"].as<uint32_t>();
+        member.portraitPictureId = memberNode["portrait_id"].as<uint32_t>(0);
+        member.characterDataId = member.portraitPictureId + 1;
+        member.raceId = memberNode["race_id"].as<uint32_t>(0);
+        member.birthYear = 1140;
+        member.might = memberNode["might"].as<uint32_t>(15);
+        member.intellect = memberNode["intellect"].as<uint32_t>(15);
+        member.personality = memberNode["personality"].as<uint32_t>(15);
+        member.endurance = memberNode["endurance"].as<uint32_t>(15);
+        member.speed = memberNode["speed"].as<uint32_t>(15);
+        member.accuracy = memberNode["accuracy"].as<uint32_t>(15);
+        member.luck = memberNode["luck"].as<uint32_t>(15);
+        if (member.level == 0 || !skillTable.hasClass(member.className) || !memberNode["skills"].IsSequence())
+        {
+            failure = "party fixture requires a valid class, positive level and explicit skills: " + member.name;
+            return false;
+        }
+        const uint64_t minimumExperience = uint64_t(member.level) * (member.level - 1) * 500;
+        const uint64_t experience = memberNode["experience"].as<uint64_t>(minimumExperience);
+        if (experience < minimumExperience || experience > std::numeric_limits<uint32_t>::max())
+        {
+            failure = "party fixture experience is below its level or exceeds the supported experience range";
+            return false;
+        }
+        member.experience = uint32_t(experience);
+        for (const YAML::Node &skillNode : memberNode["skills"])
+        {
+            CharacterSkill skill = {};
+            skill.name = canonicalSkillName(skillNode["name"].as<std::string>());
+            skill.level = skillNode["level"].as<uint32_t>();
+            const uint32_t mastery = skillNode["mastery"].as<uint32_t>();
+            if (skill.name.empty() || skill.level == 0 || mastery == 0 || mastery > 4
+                || mastery > uint32_t(skillTable.getEffectiveCap(member.className, member.raceId, skill.name))
+                || member.skills.count(skill.name) != 0)
+            {
+                failure = "party fixture has invalid, duplicate or class-ineligible skill: " + member.name
+                    + " / " + skill.name;
+                return false;
+            }
+            skill.mastery = SkillMastery(mastery);
+            member.skills.emplace(skill.name, skill);
+        }
+        if (memberNode["spells"])
+        {
+            for (const YAML::Node &spellNode : memberNode["spells"])
+            {
+                const uint32_t spellId = spellNode.as<uint32_t>();
+                if (context.gameDataLoader.getSpellTable().findById(int(spellId)) == nullptr)
+                {
+                    failure = "party fixture has an unknown spell";
+                    return false;
+                }
+                member.learnSpell(spellId);
+            }
+        }
+        seed.members.push_back(std::move(member));
+    }
+
+    Party fixture;
+    fixture.setItemTable(&context.gameDataLoader.getItemTable());
+    fixture.setCharacterDollTable(&context.gameDataLoader.getCharacterDollTable());
+    fixture.setClassSkillTable(&skillTable);
+    fixture.setClassMultiplierTable(&context.gameDataLoader.getClassMultiplierTable());
+    fixture.setItemEnchantTables(&context.gameDataLoader.getStandardItemEnchantTable(),
+                                &context.gameDataLoader.getSpecialItemEnchantTable());
+    fixture.seed(seed);
+    for (size_t memberIndex = 0; memberIndex < seed.members.size(); ++memberIndex)
+    {
+        const YAML::Node equipmentNode = node["members"][memberIndex]["equipment"];
+        if (!equipmentNode.IsMap())
+        {
+            failure = "party fixture requires explicit equipment for each member";
+            return false;
+        }
+        for (const YAML::const_iterator::value_type &entry : equipmentNode)
+        {
+            const std::optional<EquipmentSlot> slot = parseScenarioEquipmentSlot(entry.first.as<std::string>());
+            InventoryItem item = {};
+            item.objectDescriptionId = entry.second.as<uint32_t>();
+            std::optional<InventoryItem> displaced;
+            if (!slot || !fixture.tryEquipItemOnMember(memberIndex, *slot, item, std::nullopt, true, displaced))
+            {
+                failure = "party fixture cannot equip member " + std::to_string(memberIndex)
+                    + " with item " + std::to_string(item.objectDescriptionId);
+                return false;
+            }
+        }
+    }
+    fixture.restoreAll();
+    seed.members = fixture.snapshot().members;
+    return true;
+}
+
 bool runNewGameFlow(
     ScenarioExecutionContext &context,
     const ScenarioStep &step,
@@ -2407,6 +2522,28 @@ bool runNewGameFlow(
         return false;
     }
 
+    PartySeed seed = Party::createDefaultSeed();
+    const bool hasExplicitParty = bool(step.payload["party"]);
+    if (hasExplicitParty)
+    {
+        std::string failure;
+        if (!readScenarioPartySeed(context, step.payload["party"], seed, failure))
+        {
+            failures.push_back(stepLocation(step) + ": " + failure);
+            return false;
+        }
+        scenarioLog(context, ScenarioLogColor::Cyan, "PARTY explicit fixture members="
+            + std::to_string(seed.members.size()) + " gold=" + std::to_string(seed.gold));
+        for (const Character &member : seed.members)
+        {
+            scenarioLog(context, ScenarioLogColor::Cyan, "PARTY fixture name=" + member.name
+                + " class=" + member.className + " level=" + std::to_string(member.level)
+                + " hp=" + std::to_string(member.health) + "/" + std::to_string(member.maxHealth)
+                + " sp=" + std::to_string(member.spellPoints) + "/" + std::to_string(member.maxSpellPoints)
+                + " skills=" + std::to_string(member.skills.size()));
+        }
+    }
+
     if (context.mode == ScenarioMode::Faithful)
     {
         if (!ensureRuntimeDriver(context, failures))
@@ -2415,14 +2552,13 @@ bool runNewGameFlow(
         }
 
         std::string failure;
-        if (!context.runtimeDriver->startNewGame(0, startMap, failure))
+        if (!context.runtimeDriver->startNewGame(0, startMap, failure, hasExplicitParty ? &seed : nullptr))
         {
             failures.push_back(stepLocation(step) + ": " + failure);
             return context.mode != ScenarioMode::Faithful;
         }
     }
 
-    PartySeed seed = Party::createDefaultSeed();
     if (step.payload["member_count"] && step.payload["member_count"].IsScalar())
     {
         const size_t memberCount = step.payload["member_count"].as<size_t>();
@@ -2910,6 +3046,46 @@ bool runPressAction(
     else if (!readScalarString(step, "action", action, failures, true))
     {
         return false;
+    }
+
+    if (action == "select_member")
+    {
+        if (!step.payload.IsMap() || !step.payload["member_index"].IsScalar())
+        {
+            failures.push_back(stepLocation(step) + ": select_member requires scalar member_index");
+            return false;
+        }
+        if (!ensureRuntimeDriver(context, failures))
+        {
+            return false;
+        }
+        std::string failure;
+        if (!context.runtimeDriver->selectPartyMember(step.payload["member_index"].as<size_t>(), failure))
+        {
+            failures.push_back(stepLocation(step) + ": " + failure);
+            return false;
+        }
+        syncContextFromRuntime(context);
+        return true;
+    }
+
+    if (action == "attack" || action == "cast_ready")
+    {
+        if (!ensureRuntimeDriver(context, failures))
+        {
+            return false;
+        }
+        const float seconds = step.payload.IsMap() ? step.payload["seconds"].as<float>(1.0f / 30.0f)
+                                                  : 1.0f / 30.0f;
+        std::string failure;
+        if (!context.runtimeDriver->holdGameplayAction(
+                action == "attack" ? KeyboardAction::Attack : KeyboardAction::CastReady, seconds, failure))
+        {
+            failures.push_back(stepLocation(step) + ": " + failure);
+            return false;
+        }
+        syncContextFromRuntime(context);
+        return true;
     }
 
     if (action != "escape" && action != "cancel_dialog")
@@ -3504,7 +3680,7 @@ bool runMovementSegment(
     command.strafeLeft = input == "left" || input == "strafe_left" || input == "a";
     command.strafeRight = input == "right" || input == "strafe_right" || input == "d";
 
-    if (!command.forward && !command.backward && !command.strafeLeft && !command.strafeRight)
+    if (!command.forward && !command.backward && !command.strafeLeft && !command.strafeRight && input != "none")
     {
         failures.push_back(stepLocation(step) + ": unsupported movement_segment input '" + input + "'");
         return false;
@@ -4198,7 +4374,39 @@ bool runSelectTopic(
         std::string failure;
         bool selected = false;
 
-        selected = context.runtimeDriver->selectDialogActionById(eventId, failure);
+        if (step.payload["match_label"])
+        {
+            if (!step.payload["match_label"].IsScalar() || step.payload["match_label"].as<std::string>().empty())
+            {
+                failures.push_back(stepLocation(step) + ": match_label must be a nonempty scalar");
+                return false;
+            }
+            const std::string label = step.payload["match_label"].as<std::string>();
+            const ScenarioDialogSnapshot dialog = context.runtimeDriver->activeDialogSnapshot();
+            std::optional<size_t> matchingIndex;
+            for (const ScenarioDialogActionSnapshot &action : dialog.actions)
+            {
+                if (action.id == eventId && action.label == label)
+                {
+                    if (matchingIndex)
+                    {
+                        failures.push_back(stepLocation(step) + ": dialog action label is ambiguous: " + label);
+                        return false;
+                    }
+                    matchingIndex = action.index;
+                }
+            }
+            if (!matchingIndex)
+            {
+                failures.push_back(stepLocation(step) + ": matching dialog action is unavailable: " + label);
+                return false;
+            }
+            selected = context.runtimeDriver->selectDialogAction(*matchingIndex, failure);
+        }
+        else
+        {
+            selected = context.runtimeDriver->selectDialogActionById(eventId, failure);
+        }
 
         if (!selected
             && context.mode != ScenarioMode::Faithful
@@ -4908,7 +5116,26 @@ bool takePartyOverlayHeldItem(
             ? parseInventoryGridText(heldNode["grid"].as<std::string>())
             : std::nullopt;
 
-    InventoryItem heldItem = {};
+    const auto takeFromCell = [&context](size_t memberIndex, uint8_t x, uint8_t y)
+    {
+        if (context.runtimeDriver)
+        {
+            std::string failure;
+            if (!context.runtimeDriver->takeInventoryItemToCursor(memberIndex, x, y, failure))
+            {
+                return false;
+            }
+            syncContextFromRuntime(context);
+            return true;
+        }
+        InventoryItem heldItem = {};
+        if (!context.party.takeItemFromMemberInventoryCell(memberIndex, x, y, heldItem))
+        {
+            return false;
+        }
+        context.party.setHeldItemForQueries(heldItem);
+        return true;
+    };
 
     if (grid)
     {
@@ -4922,15 +5149,8 @@ bool takePartyOverlayHeldItem(
                 continue;
             }
 
-            if (context.party.takeItemFromMemberInventoryCell(memberIndex, grid->x, grid->y, heldItem))
+            if (takeFromCell(memberIndex, grid->x, grid->y))
             {
-                context.party.setHeldItemForQueries(heldItem);
-
-                if (context.runtimeDriver)
-                {
-                    context.runtimeDriver->setPartyState(context.party);
-                }
-
                 return true;
             }
         }
@@ -4952,15 +5172,8 @@ bool takePartyOverlayHeldItem(
                 continue;
             }
 
-            if (context.party.takeItemFromMemberInventoryCell(memberIndex, item.gridX, item.gridY, heldItem))
+            if (takeFromCell(memberIndex, item.gridX, item.gridY))
             {
-                context.party.setHeldItemForQueries(heldItem);
-
-                if (context.runtimeDriver)
-                {
-                    context.runtimeDriver->setPartyState(context.party);
-                }
-
                 return true;
             }
         }
@@ -5000,6 +5213,17 @@ bool assertHeldItem(
         {
             if (expectedItemId == 0 || actualItemId == expectedItemId)
             {
+                if (context.runtimeDriver)
+                {
+                    std::string failure;
+                    if (!context.runtimeDriver->placeHeldItemInInventory(failure))
+                    {
+                        failures.push_back(stepLocation(step) + ": " + failure);
+                        return false;
+                    }
+                    syncContextFromRuntime(context);
+                    return true;
+                }
                 if (context.party.inventoryItemCount(actualItemId) <= 0)
                 {
                     context.party.tryGrantItem(actualItemId);
@@ -5372,6 +5596,21 @@ bool assertActorVisible(
         return false;
     }
 
+    if (actorNode["report_state"].as<bool>(false))
+    {
+        std::ostringstream message;
+        message << "ACTOR index=" << actorIndex << " name=" << inspectState.displayName
+                << " hp=" << inspectState.currentHp << '/' << inspectState.maxHp
+                << " dead=" << boolText(inspectState.isDead);
+        if (hasRuntimeState)
+        {
+            message << " position=" << runtimeState.preciseX << ',' << runtimeState.preciseY
+                    << ',' << runtimeState.preciseZ
+                    << " targeting_party=" << boolText(runtimeState.combatTargetingParty);
+        }
+        scenarioLog(context, ScenarioLogColor::Default, message.str());
+    }
+
     bool success = true;
 
     if (actorNode["monster_id"] && actorNode["monster_id"].IsScalar()
@@ -5395,8 +5634,46 @@ bool assertActorVisible(
         success = false;
     }
 
-    static_cast<void>(runtimeState);
-    static_cast<void>(hasRuntimeState);
+    const auto checkRuntimeField = [&](const char *pKey, const std::string &actual)
+    {
+        const YAML::Node expected = actorNode[pKey];
+
+        if (!expected)
+        {
+            return true;
+        }
+
+        if (!expected.IsScalar())
+        {
+            failures.push_back(stepLocation(step) + ": actor_visible requires scalar field " + pKey);
+            return false;
+        }
+
+        return recordScenarioAssertion(
+            context, step, std::string("actor_visible.") + pKey, expected.as<std::string>(), actual, failures);
+    };
+    success = checkRuntimeField("current_hp", std::to_string(inspectState.currentHp)) && success;
+    success = checkRuntimeField("max_hp", std::to_string(inspectState.maxHp)) && success;
+
+    for (const char *pKey : {"hostile_to_party", "has_detected_party", "combat_targeting_party"})
+    {
+        if (!actorNode[pKey])
+        {
+            continue;
+        }
+
+        if (!hasRuntimeState)
+        {
+            failures.push_back(stepLocation(step) + ": actor_visible requires live runtime state for " + pKey);
+            success = false;
+            continue;
+        }
+
+        const bool value = std::string(pKey) == "hostile_to_party" ? runtimeState.hostileToParty
+            : std::string(pKey) == "has_detected_party" ? runtimeState.hasDetectedParty
+            : runtimeState.combatTargetingParty;
+        success = checkRuntimeField(pKey, boolText(value)) && success;
+    }
     syncContextFromRuntime(context);
     return success;
 }
@@ -6305,20 +6582,6 @@ bool applyItemReceivedObservation(
 
                 if (context.runtimeDriver->takeActiveChestItemById(chestId, itemId, chestItem, failure))
                 {
-                    InventoryItem heldItem = chestItem.item;
-
-                    if (heldItem.objectDescriptionId == 0)
-                    {
-                        heldItem.objectDescriptionId = chestItem.itemId;
-                    }
-
-                    if (heldItem.quantity == 0)
-                    {
-                        heldItem.quantity = 1;
-                    }
-
-                    context.party.setHeldItemForQueries(heldItem);
-                    context.runtimeDriver->setPartyState(context.party);
                     syncContextFromRuntime(context);
                 }
                 else if (context.mode == ScenarioMode::Faithful)
@@ -6468,6 +6731,138 @@ bool assertQuestBits(
     return success;
 }
 
+bool assertRuntimeWorldItemState(
+    ScenarioExecutionContext &context,
+    const ScenarioStep &step,
+    std::vector<std::string> &failures)
+{
+    const YAML::Node node = step.payload["world_item_state"];
+
+    if (!node)
+    {
+        return true;
+    }
+
+    if (!node.IsMap() || !node["item_id"] || !node["item_id"].IsScalar()
+        || !node["present"] || !node["present"].IsScalar())
+    {
+        failures.push_back(stepLocation(step) + ": world_item_state requires scalar item_id and present");
+        return false;
+    }
+
+    if (!ensureRuntimeDriver(context, failures))
+    {
+        return false;
+    }
+
+    bool present = false;
+    std::string failure;
+    const uint32_t itemId = node["item_id"].as<uint32_t>();
+
+    if (!context.runtimeDriver->worldItemContainsItem(std::nullopt, itemId, present, failure))
+    {
+        failures.push_back(stepLocation(step) + ": " + failure);
+        return false;
+    }
+
+    return recordScenarioAssertion(
+        context, step, "world_item_state[" + std::to_string(itemId) + "]",
+        boolText(node["present"].as<bool>()), boolText(present), failures);
+}
+
+bool assertRuntimeEventVariable(
+    ScenarioExecutionContext &context,
+    const ScenarioStep &step,
+    std::vector<std::string> &failures)
+{
+    const YAML::Node node = step.payload["runtime_event_variable"];
+
+    if (!node)
+    {
+        return true;
+    }
+
+    if (!node.IsMap() || !node["id"].IsScalar()
+        || (!node["value"] && !node["min"] && !node["max"]))
+    {
+        failures.push_back(stepLocation(step) + ": runtime_event_variable requires id and value, min or max");
+        return false;
+    }
+
+    for (const char *pKey : {"value", "min", "max"})
+    {
+        if (node[pKey] && !node[pKey].IsScalar())
+        {
+            failures.push_back(stepLocation(step) + ": runtime_event_variable requires scalar " + pKey);
+            return false;
+        }
+    }
+
+    if (!ensureRuntimeDriver(context, failures))
+    {
+        return false;
+    }
+
+    const Party *pParty = context.runtimeDriver->party();
+    const EventRuntimeState *pRuntimeState = context.runtimeDriver->eventRuntimeState();
+
+    if (pParty == nullptr || pRuntimeState == nullptr)
+    {
+        failures.push_back(stepLocation(step) + ": runtime_event_variable requires loaded party and event state");
+        return false;
+    }
+
+    std::optional<size_t> memberIndex;
+
+    if (node["member_index"])
+    {
+        if (!node["member_index"].IsScalar())
+        {
+            failures.push_back(stepLocation(step) + ": runtime_event_variable member_index must be scalar");
+            return false;
+        }
+
+        memberIndex = node["member_index"].as<size_t>();
+
+        if (pParty->member(*memberIndex) == nullptr)
+        {
+            failures.push_back(stepLocation(step) + ": runtime_event_variable member_index is out of range");
+            return false;
+        }
+    }
+
+    const uint32_t id = node["id"].as<uint32_t>();
+    const int32_t actual = EventRuntime::getVariableValue(
+        *pRuntimeState, EventRuntime::decodeVariable(id), pParty, memberIndex);
+    const std::string field = "runtime_event_variable[" + std::to_string(id) + "]"
+        + (memberIndex ? ".member[" + std::to_string(*memberIndex) + "]" : "");
+    bool success = true;
+    if (node["value"])
+    {
+        success = recordScenarioAssertion(
+            context, step, field, node["value"].as<std::string>(), std::to_string(actual), failures);
+    }
+    for (const char *pKey : {"min", "max"})
+    {
+        if (!node[pKey])
+        {
+            continue;
+        }
+        const int32_t bound = node[pKey].as<int32_t>();
+        const bool isMinimum = std::string(pKey) == "min";
+        const bool withinBound = isMinimum ? actual >= bound : actual <= bound;
+        const std::string expected = std::string(isMinimum ? ">=" : "<=") + std::to_string(bound);
+        scenarioLogAssert(context, step, field, expected, std::to_string(actual), withinBound);
+        if (!withinBound)
+        {
+            failures.push_back(stepLocation(step) + ": expected " + field + expected
+                + " but current value=" + std::to_string(actual));
+        }
+        success = withinBound && success;
+    }
+    return success;
+}
+
 bool runAssert(
     ScenarioExecutionContext &context,
     const ScenarioStep &step,
@@ -6499,6 +6894,7 @@ bool runAssert(
     success = assertEquippedItems(context, step, failures) && success;
     success = assertHeldItem(context, step, failures) && success;
     success = assertItemVisible(context, step, failures) && success;
+    success = assertRuntimeWorldItemState(context, step, failures) && success;
     success = applyItemReceivedObservation(context, step, failures) && success;
     success = assertQuestItemLocationObservation(context, step, "world_item_spawned", failures) && success;
     success = assertQuestItemLocationObservation(context, step, "chest_contains_quest_item", failures) && success;
@@ -6507,6 +6903,7 @@ bool runAssert(
     success = assertAwardCleared(context, step, failures) && success;
     success = assertMapObservation(context, step, failures) && success;
     success = assertVariableObservations(context, step, failures) && success;
+    success = assertRuntimeEventVariable(context, step, failures) && success;
     success = assertActorVisible(context, step, failures) && success;
     success = assertMapTransitionTrace(
         context,

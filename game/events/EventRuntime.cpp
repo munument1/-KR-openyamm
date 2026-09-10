@@ -4909,6 +4909,29 @@ int luaSetQuestBit(lua_State *pLuaState)
     return 0;
 }
 
+// Explicit presentation only: all party portraits and the quest sound, independent of ForPlayer and journal QBits.
+int luaQuestCompleteFeedback(lua_State *pLuaState)
+{
+    const Party *pParty = readableParty(pLuaState);
+    EventRuntimeState *pRuntimeState = writableRuntimeState(pLuaState);
+
+    if (pParty == nullptr || pRuntimeState == nullptr)
+    {
+        return 0;
+    }
+
+    std::vector<size_t> memberIndices;
+    memberIndices.reserve(pParty->members().size());
+
+    for (size_t memberIndex = 0; memberIndex < pParty->members().size(); ++memberIndex)
+    {
+        memberIndices.push_back(memberIndex);
+    }
+
+    queuePortraitFxRequest(*pRuntimeState, PortraitFxEventKind::QuestComplete, pParty, memberIndices);
+    return 0;
+}
+
 int luaClearQuestBit(lua_State *pLuaState)
 {
     Party *pParty = writableParty(pLuaState);
@@ -8201,6 +8224,7 @@ void registerEventBindings(LuaSessionCache &session)
     registerLuaFunction(pLuaState, "HasItemAnywhere", luaHasItemAnywhere);
     registerLuaFunction(pLuaState, "HasQuestBit", luaHasQuestBit);
     registerLuaFunction(pLuaState, "SetQuestBit", luaSetQuestBit);
+    registerLuaFunction(pLuaState, "QuestCompleteFeedback", luaQuestCompleteFeedback);
     registerLuaFunction(pLuaState, "ClearQuestBit", luaClearQuestBit);
     registerLuaFunction(pLuaState, "GetPartyPosition", luaGetPartyPosition);
     registerLuaFunction(pLuaState, "GetEnemyDetectorState", luaGetEnemyDetectorState);

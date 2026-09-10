@@ -33,6 +33,7 @@ struct AssetScaleProfile
     AssetScaleTier sprites = AssetScaleTier::X1;
     AssetScaleTier decorations = AssetScaleTier::X1;
     AssetScaleTier icons = AssetScaleTier::X1;
+    bool preferRestoredIcons = false;
     AssetScaleTier ui = AssetScaleTier::X1;
     AssetScaleTier effects = AssetScaleTier::X1;
     AssetScaleTier fonts = AssetScaleTier::X1;
@@ -40,6 +41,7 @@ struct AssetScaleProfile
 
 const char *assetScaleTierToString(AssetScaleTier assetScaleTier);
 std::optional<AssetScaleTier> parseAssetScaleTier(const std::string &value);
+AssetScaleTier assetScaleTierFromResolvedPath(const std::string &path);
 int assetScaleTierFactor(AssetScaleTier assetScaleTier);
 std::string assetScaleTierDirectorySuffix(AssetScaleTier assetScaleTier);
 int scalePhysicalPixelsToLogical(int physicalPixels, AssetScaleTier assetScaleTier);

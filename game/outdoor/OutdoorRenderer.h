@@ -72,6 +72,7 @@ public:
         const bx::Vec3 &cameraPosition);
 
 private:
+    static void ensureTerrainDecorations(OutdoorGameView &view, const OutdoorMapData &outdoorMapData);
     static void initializeAnimatedWaterTileState(
         OutdoorGameView &view,
         const std::optional<OutdoorTerrainTextureAtlas> &outdoorTerrainTextureAtlas);
@@ -98,7 +99,8 @@ private:
         const std::vector<OutdoorGameView::TexturedTerrainVertex> &vertices);
     static std::vector<OutdoorGameView::TerrainVertex> buildFilledTerrainVertices(
         const OutdoorMapData &mapData,
-        const std::optional<std::vector<uint32_t>> &tileColors);
+        const std::optional<std::vector<uint32_t>> &tileColors,
+        const OutdoorTerrainTextureAtlas *pTextureAtlas);
     static std::vector<OutdoorGameView::TerrainVertex> buildBModelWireframeVertices(const OutdoorMapData &mapData);
     static std::vector<OutdoorGameView::TerrainVertex> buildBModelCollisionFaceVertices(
         const OutdoorMapData &mapData);

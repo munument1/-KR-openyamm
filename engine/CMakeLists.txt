@@ -5,7 +5,9 @@ add_library(openyamm_engine
     AssetFileSystem.cpp
     AssetScaleTier.cpp
     AssetPaths.cpp
+    FontAsset.cpp
     ImageAssetLoader.cpp
+    SpriteAtlas.cpp
     EngineApplication.cpp
     scripting/LuaStateOwner.cpp
     TextTable.cpp
@@ -30,5 +32,8 @@ target_link_libraries(openyamm_engine
         openyamm_bgfx
         SDL3::SDL3
         physfs-static
+        yaml-cpp::yaml-cpp
         ${OPENYAMM_LUA_TARGET}
+    PRIVATE
+        freetype
 )

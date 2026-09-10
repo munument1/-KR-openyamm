@@ -1,4 +1,5 @@
 #include "editor/import/IndoorSourceGeometryCompiler.h"
+#include "editor/import/IndoorDerivedGeometry.h"
 
 #include "editor/import/ObjModelImport.h"
 #include "game/FaceEnums.h"
@@ -257,10 +258,19 @@ void inferPortalRoomsFromSourceNode(
     backRoom = "room_" + sanitizeId(suffix.substr(separator + 1));
 }
 
-std::unordered_map<std::string, std::string> buildMaterialTextureLookup(
+struct SourceMaterial
+{
+    std::string texture;
+    uint32_t width = 256;
+    uint32_t height = 256;
+};
+
+using MaterialTextureLookup = std::unordered_map<std::string, SourceMaterial>;
+
+MaterialTextureLookup buildMaterialTextureLookup(
     const EditorIndoorGeometryMetadata &metadata)
 {
-    std::unordered_map<std::string, std::string> lookup;
+    MaterialTextureLookup lookup;
 
     for (const EditorIndoorGeometryMaterialMetadata &material : metadata.materials)
     {
@@ -269,37 +279,37 @@ std::unordered_map<std::string, std::string> buildMaterialTextureLookup(
 
         if (!sourceMaterial.empty() && !texture.empty())
         {
-            lookup[toLowerCopy(sourceMaterial)] = texture;
+            lookup[toLowerCopy(sourceMaterial)] = {texture, material.textureWidth, material.textureHeight};
         }
 
         if (!material.id.empty() && !texture.empty())
         {
-            lookup[toLowerCopy(material.id)] = texture;
+            lookup[toLowerCopy(material.id)] = {texture, material.textureWidth, material.textureHeight};
         }
     }
 
     return lookup;
 }
 
-std::string resolveFaceTextureName(
-    const std::unordered_map<std::string, std::string> &materialTextureLookup,
+SourceMaterial resolveFaceMaterial(
+    const MaterialTextureLookup &materialTextureLookup,
     const std::string &materialName)
 {
     const std::string sourceMaterial = stripIndexedMaterialSuffix(materialName);
 
     if (sourceMaterial.empty())
     {
-        return "untextured";
+        return {"untextured"};
     }
 
     const auto iterator = materialTextureLookup.find(toLowerCopy(sourceMaterial));
 
-    if (iterator != materialTextureLookup.end() && !iterator->second.empty())
+    if (iterator != materialTextureLookup.end() && !iterator->second.texture.empty())
     {
         return iterator->second;
     }
 
-    return sourceMaterial;
+    return {sourceMaterial};
 }
 
 float faceNormalZ(const Game::IndoorMapData &indoorGeometry, const Game::IndoorFace &face)
@@ -527,7 +537,7 @@ bool appendModelVertices(
 
 bool appendImportedFaces(
     const ImportedModel &model,
-    const std::unordered_map<std::string, std::string> &materialTextureLookup,
+    const MaterialTextureLookup &materialTextureLookup,
     const std::vector<uint16_t> &positionVertexIds,
     uint16_t roomNumber,
     uint16_t roomBehindNumber,
@@ -557,7 +567,8 @@ bool appendImportedFaces(
         face.isPortal = isPortal;
         face.roomNumber = roomNumber;
         face.roomBehindNumber = roomBehindNumber;
-        face.textureName = resolveFaceTextureName(materialTextureLookup, importedFace.materialName);
+        const SourceMaterial material = resolveFaceMaterial(materialTextureLookup, importedFace.materialName);
+        face.textureName = material.texture;
         face.vertexIndices.reserve(importedFace.vertices.size());
         face.textureUs.reserve(importedFace.vertices.size());
         face.textureVs.reserve(importedFace.vertices.size());
@@ -580,10 +591,15 @@ bool appendImportedFaces(
 
             if (importedVertex.hasUv)
             {
-                face.textureUs.push_back(static_cast<int16_t>(clampToInt16(
-                    static_cast<int>(std::lround(importedVertex.u * 256.0f)))));
-                face.textureVs.push_back(static_cast<int16_t>(clampToInt16(
-                    static_cast<int>(std::lround((1.0f - importedVertex.v) * 256.0f)))));
+                const double u = std::round(double(importedVertex.u) * material.width);
+                const double v = std::round((1.0 - double(importedVertex.v)) * material.height);
+                if (!std::isfinite(u) || !std::isfinite(v) || u < -32768 || u > 32767 || v < -32768 || v > 32767)
+                {
+                    errorMessage = "indoor source UV exceeds native int16 range in " + model.name;
+                    return false;
+                }
+                face.textureUs.push_back(static_cast<int16_t>(u));
+                face.textureVs.push_back(static_cast<int16_t>(v));
             }
             else
             {
@@ -603,7 +619,7 @@ bool appendImportedFaces(
 
 bool compileRoomModel(
     const ImportedModel &model,
-    const std::unordered_map<std::string, std::string> &materialTextureLookup,
+    const MaterialTextureLookup &materialTextureLookup,
     uint16_t sectorIndex,
     float scale,
     IndoorVertexInterner &vertexInterner,
@@ -703,7 +719,7 @@ bool compilePortalModel(
     const ImportedModel &model,
     const EditorIndoorGeometryPortalMetadata *pPortalMetadata,
     const std::unordered_map<std::string, uint16_t> &roomSectorById,
-    const std::unordered_map<std::string, std::string> &materialTextureLookup,
+    const MaterialTextureLookup &materialTextureLookup,
     float scale,
     IndoorVertexInterner &vertexInterner,
     Game::IndoorMapData &indoorGeometry,
@@ -850,7 +866,7 @@ uint16_t chooseMechanismSector(const Game::IndoorMapData &indoorGeometry, const 
     {
         const Game::IndoorSector &sector = indoorGeometry.sectors[sectorIndex];
 
-        if (centerX >= sector.minX && centerX <= sector.maxX
+        if (!sector.faceIds.empty() && centerX >= sector.minX && centerX <= sector.maxX
             && centerY >= sector.minY && centerY <= sector.maxY
             && centerZ >= sector.minZ && centerZ <= sector.maxZ)
         {
@@ -872,7 +888,7 @@ uint16_t chooseMarkerSector(const Game::IndoorMapData &indoorGeometry, const Gam
     {
         const Game::IndoorSector &sector = indoorGeometry.sectors[sectorIndex];
 
-        if (position.x >= sector.minX && position.x <= sector.maxX
+        if (!sector.faceIds.empty() && position.x >= sector.minX && position.x <= sector.maxX
             && position.y >= sector.minY && position.y <= sector.maxY
             && position.z >= sector.minZ && position.z <= sector.maxZ)
         {
@@ -970,17 +986,66 @@ const MetadataType *findSourceNodeMetadata(
     return nullptr;
 }
 
+bool sourceSurfaceAttributes(
+    const EditorIndoorGeometrySurfaceMetadata *pSurfaceMetadata,
+    uint32_t &attributes,
+    std::string &errorMessage)
+{
+    attributes = Game::faceAttributeBit(Game::FaceAttribute::Clickable);
+    if (pSurfaceMetadata == nullptr)
+    {
+        return true;
+    }
+    const std::unordered_map<std::string, Game::FaceAttribute> flags = {
+        {"clickable", Game::FaceAttribute::Clickable},
+        {"touch", Game::FaceAttribute::TriggerByTouch},
+        {"pressure_plate", Game::FaceAttribute::PressurePlate},
+        {"secret", Game::FaceAttribute::IsSecret},
+        {"invisible", Game::FaceAttribute::Invisible},
+        {"untouchable", Game::FaceAttribute::Untouchable},
+        {"trigger_monster", Game::FaceAttribute::TriggerByMonster},
+        {"trigger_object", Game::FaceAttribute::TriggerByObject},
+        {"has_hint", Game::FaceAttribute::HasHint},
+        {"texture_move_by_door", Game::FaceAttribute::TextureMoveByDoor},
+        {"animated", Game::FaceAttribute::Animated},
+        {"lava", Game::FaceAttribute::Lava},
+    };
+    for (const std::string &name : pSurfaceMetadata->flags)
+    {
+        const auto iterator = flags.find(toLowerCopy(name));
+        if (iterator == flags.end())
+        {
+            errorMessage = "unsupported source surface flag: " + name + " on " + pSurfaceMetadata->id;
+            return false;
+        }
+        attributes |= Game::faceAttributeBit(iterator->second);
+    }
+    const std::string activation = pSurfaceMetadata->trigger
+        ? toLowerCopy(pSurfaceMetadata->trigger->type) : std::string();
+    if (activation == "touch" || activation == "pressure_plate")
+    {
+        attributes &= ~Game::faceAttributeBit(Game::FaceAttribute::Clickable);
+        attributes |= Game::faceAttributeBit(Game::FaceAttribute::TriggerByTouch);
+        if (activation == "pressure_plate")
+        {
+            attributes |= Game::faceAttributeBit(Game::FaceAttribute::PressurePlate);
+        }
+    }
+    return true;
+}
+
 bool compileTriggerSurfaceModel(
     const ImportedModel &model,
     const EditorIndoorGeometrySurfaceMetadata *pSurfaceMetadata,
-    const std::unordered_map<std::string, std::string> &materialTextureLookup,
+    const MaterialTextureLookup &materialTextureLookup,
+    std::optional<uint16_t> sourceSector,
     float scale,
     IndoorVertexInterner &vertexInterner,
     Game::IndoorMapData &indoorGeometry,
     IndoorSourceGeometryCompileResult &result,
     std::string &errorMessage)
 {
-    const uint16_t sectorIndex = chooseMechanismSector(indoorGeometry, model, scale);
+    const uint16_t sectorIndex = sourceSector.value_or(chooseMechanismSector(indoorGeometry, model, scale));
     Game::IndoorSector &sector = indoorGeometry.sectors[sectorIndex];
     bool boundsInitialized = true;
     std::vector<uint16_t> positionVertexIds;
@@ -999,16 +1064,10 @@ bool compileTriggerSurfaceModel(
     }
 
     std::vector<uint16_t> appendedFaceIds;
-    uint32_t attributes = Game::faceAttributeBit(Game::FaceAttribute::Clickable);
-
-    const bool triggerByTouch =
-        pSurfaceMetadata != nullptr
-        && std::find(pSurfaceMetadata->flags.begin(), pSurfaceMetadata->flags.end(), "touch")
-            != pSurfaceMetadata->flags.end();
-
-    if (triggerByTouch)
+    uint32_t attributes = 0;
+    if (!sourceSurfaceAttributes(pSurfaceMetadata, attributes, errorMessage))
     {
-        attributes |= Game::faceAttributeBit(Game::FaceAttribute::TriggerByTouch);
+        return false;
     }
 
     if (!appendImportedFaces(
@@ -1047,12 +1106,13 @@ bool compileTriggerSurfaceModel(
 void compileEntityMarker(
     const ImportedModel &model,
     const EditorIndoorGeometryEntityMetadata *pEntityMetadata,
+    std::optional<uint16_t> sourceSector,
     float scale,
     Game::IndoorMapData &indoorGeometry,
     IndoorSourceGeometryCompileResult &result)
 {
     const Game::IndoorVertex position = markerPosition(model, scale);
-    const uint16_t sectorIndex = chooseMarkerSector(indoorGeometry, position);
+    const uint16_t sectorIndex = sourceSector.value_or(chooseMarkerSector(indoorGeometry, position));
     Game::IndoorEntity entity = {};
     entity.x = position.x;
     entity.y = position.y;
@@ -1085,12 +1145,13 @@ void compileEntityMarker(
 void compileLightMarker(
     const ImportedModel &model,
     const EditorIndoorGeometryLightMetadata *pLightMetadata,
+    std::optional<uint16_t> sourceSector,
     float scale,
     Game::IndoorMapData &indoorGeometry,
     IndoorSourceGeometryCompileResult &result)
 {
     const Game::IndoorVertex position = markerPosition(model, scale);
-    const uint16_t sectorIndex = chooseMarkerSector(indoorGeometry, position);
+    const uint16_t sectorIndex = sourceSector.value_or(chooseMarkerSector(indoorGeometry, position));
     Game::IndoorLight light = {};
     light.x = static_cast<int16_t>(position.x);
     light.y = static_cast<int16_t>(position.y);
@@ -1160,7 +1221,9 @@ void compileSpawnMarker(
 bool compileMechanismModel(
     const ImportedModel &model,
     const EditorIndoorGeometryMechanismMetadata *pMechanismMetadata,
-    const std::unordered_map<std::string, std::string> &materialTextureLookup,
+    const EditorIndoorGeometrySurfaceMetadata *pSurfaceMetadata,
+    const MaterialTextureLookup &materialTextureLookup,
+    std::optional<uint16_t> sourceSector,
     float scale,
     Game::IndoorMapData &indoorGeometry,
     IndoorSourceGeometryCompileResult &result,
@@ -1172,7 +1235,7 @@ bool compileMechanismModel(
         return true;
     }
 
-    const uint16_t sectorIndex = chooseMechanismSector(indoorGeometry, model, scale);
+    const uint16_t sectorIndex = sourceSector.value_or(chooseMechanismSector(indoorGeometry, model, scale));
     Game::IndoorSector &sector = indoorGeometry.sectors[sectorIndex];
     bool boundsInitialized = true;
     IndoorVertexInterner mechanismVertexInterner;
@@ -1222,6 +1285,18 @@ bool compileMechanismModel(
 
     for (uint16_t faceIndex : appendedFaceIds)
     {
+        if (pSurfaceMetadata != nullptr)
+        {
+            Game::IndoorFace &face = indoorGeometry.faces[faceIndex];
+            if (!sourceSurfaceAttributes(pSurfaceMetadata, face.attributes, errorMessage))
+            {
+                return false;
+            }
+            if (pSurfaceMetadata->trigger)
+            {
+                face.cogTriggered = pSurfaceMetadata->trigger->eventId;
+            }
+        }
         appendFaceToSector(sector, faceIndex, indoorGeometry.faces[faceIndex].facetType);
     }
 
@@ -1244,18 +1319,53 @@ bool compileMechanismModel(
     sceneDoor.door.yOffsets.reserve(sceneDoor.door.vertexIds.size());
     sceneDoor.door.zOffsets.reserve(sceneDoor.door.vertexIds.size());
 
-    for (uint16_t vertexId : sceneDoor.door.vertexIds)
+    const std::string sourcePose = toLowerCopy(trimCopy(pMechanismMetadata->sourcePose));
+    if (sourcePose != "open" && sourcePose != "closed")
     {
-        const Game::IndoorVertex &vertex = indoorGeometry.vertices[vertexId];
-        sceneDoor.door.xOffsets.push_back(static_cast<int16_t>(clampToInt16(vertex.x)));
-        sceneDoor.door.yOffsets.push_back(static_cast<int16_t>(clampToInt16(vertex.y)));
-        sceneDoor.door.zOffsets.push_back(static_cast<int16_t>(clampToInt16(vertex.z)));
+        errorMessage = "Mechanism source_pose must be open or closed: " + pMechanismMetadata->id;
+        return false;
     }
-
     const std::array<float, 3> moveAxis = moveAxisOrDefault(*pMechanismMetadata);
+    for (float component : moveAxis)
+    {
+        if (!std::isfinite(component) || std::abs(component) > 1.0f)
+        {
+            errorMessage = "Mechanism direction component is outside [-1,1]: " + pMechanismMetadata->id;
+            return false;
+        }
+    }
     sceneDoor.door.directionX = fixedDirectionComponent(moveAxis[0]);
     sceneDoor.door.directionY = fixedDirectionComponent(moveAxis[1]);
     sceneDoor.door.directionZ = fixedDirectionComponent(moveAxis[2]);
+    const std::array<int, 3> fixedDirection = {
+        sceneDoor.door.directionX, sceneDoor.door.directionY, sceneDoor.door.directionZ};
+
+    for (uint16_t vertexId : sceneDoor.door.vertexIds)
+    {
+        const Game::IndoorVertex &vertex = indoorGeometry.vertices[vertexId];
+        const std::array<int, 3> position = {vertex.x, vertex.y, vertex.z};
+        std::array<int16_t, 3> offsets;
+        for (size_t axis = 0; axis < offsets.size(); ++axis)
+        {
+            const double displacement = double(fixedDirection[axis]) / 65536.0 * sceneDoor.door.moveLength;
+            // Runtime distance is zero when open and moveLength when closed.
+            const double openPosition = position[axis] - (sourcePose == "closed" ? displacement : 0.0);
+            const double closedPosition = openPosition + displacement;
+            if (openPosition < std::numeric_limits<int16_t>::min()
+                || openPosition > std::numeric_limits<int16_t>::max()
+                || closedPosition < std::numeric_limits<int16_t>::min()
+                || closedPosition > std::numeric_limits<int16_t>::max())
+            {
+                errorMessage = "Mechanism endpoint exceeds native coordinate range: " + pMechanismMetadata->id;
+                return false;
+            }
+            offsets[axis] = int16_t(std::lround(openPosition));
+        }
+        sceneDoor.door.xOffsets.push_back(offsets[0]);
+        sceneDoor.door.yOffsets.push_back(offsets[1]);
+        sceneDoor.door.zOffsets.push_back(offsets[2]);
+    }
+
     sceneDoor.door.numVertices = static_cast<uint16_t>(sceneDoor.door.vertexIds.size());
     sceneDoor.door.numFaces = static_cast<uint16_t>(sceneDoor.door.faceIds.size());
     sceneDoor.door.numSectors = static_cast<uint16_t>(sceneDoor.door.sectorIds.size());
@@ -1266,13 +1376,14 @@ bool compileMechanismModel(
 
 bool compileStaticFaceGroupModel(
     const ImportedModel &model,
-    const std::unordered_map<std::string, std::string> &materialTextureLookup,
+    const MaterialTextureLookup &materialTextureLookup,
+    std::optional<uint16_t> sourceSector,
     float scale,
     Game::IndoorMapData &indoorGeometry,
     IndoorSourceGeometryCompileResult &result,
     std::string &errorMessage)
 {
-    const uint16_t sectorIndex = chooseMechanismSector(indoorGeometry, model, scale);
+    const uint16_t sectorIndex = sourceSector.value_or(chooseMechanismSector(indoorGeometry, model, scale));
     Game::IndoorSector &sector = indoorGeometry.sectors[sectorIndex];
     bool boundsInitialized = true;
     IndoorVertexInterner vertexInterner;
@@ -1334,7 +1445,36 @@ bool compileIndoorSourceGeometry(
         return false;
     }
 
-    const std::unordered_map<std::string, std::string> materialTextureLookup = buildMaterialTextureLookup(metadata);
+    if (!std::isfinite(metadata.source.unitScale) || metadata.source.unitScale <= 0.0f)
+    {
+        errorMessage = "indoor source unit scale must be finite and positive";
+        return false;
+    }
+    for (const EditorIndoorGeometryMaterialMetadata &material : metadata.materials)
+    {
+        if (material.textureWidth == 0 || material.textureHeight == 0)
+        {
+            errorMessage = "indoor source texture dimensions must be positive: " + material.id;
+            return false;
+        }
+    }
+    for (const ImportedModel &model : models)
+    {
+        for (const ImportedModelPosition &position : model.positions)
+        {
+            for (float value : {position.x, position.y, position.z})
+            {
+                const double scaled = std::round(double(value) * metadata.source.unitScale);
+                if (!std::isfinite(scaled) || scaled < -32768 || scaled > 32767)
+                {
+                    errorMessage = "indoor source coordinate exceeds native int16 range in " + model.name;
+                    return false;
+                }
+            }
+        }
+    }
+
+    const MaterialTextureLookup materialTextureLookup = buildMaterialTextureLookup(metadata);
     const std::unordered_map<std::string, const EditorIndoorGeometryPortalMetadata *> portalLookup =
         buildPortalLookup(metadata);
     const std::unordered_map<std::string, const EditorIndoorGeometryMechanismMetadata *> mechanismLookup =
@@ -1351,6 +1491,12 @@ bool compileIndoorSourceGeometry(
     IndoorVertexInterner staticVertexInterner;
 
     result.indoorGeometry.version = 8;
+    if (metadata.importSettings.reserveSectorZero)
+    {
+        Game::IndoorSector emptySector = {};
+        emptySector.firstBspNode = -1;
+        result.indoorGeometry.sectors.push_back(emptySector);
+    }
 
     for (const ImportedModel &model : models)
     {
@@ -1363,7 +1509,11 @@ bool compileIndoorSourceGeometry(
 
         const std::string roomId = roomIdFromSourceNode(sourceNodeName);
         const uint16_t sectorIndex = static_cast<uint16_t>(result.indoorGeometry.sectors.size());
-        roomSectorById[roomId] = sectorIndex;
+        if (!roomSectorById.emplace(roomId, sectorIndex).second)
+        {
+            errorMessage = "duplicate indoor source room identity: " + roomId;
+            return false;
+        }
 
         if (!compileRoomModel(
                 model,
@@ -1379,11 +1529,51 @@ bool compileIndoorSourceGeometry(
         }
     }
 
-    if (result.indoorGeometry.sectors.empty())
+    if (roomSectorById.empty())
     {
         errorMessage = "indoor source compiler found no ROOM_* meshes in " + sourcePath.string();
         return false;
     }
+
+    std::unordered_map<std::string, uint16_t> sourceNodeSectors;
+    for (const EditorIndoorGeometryRoomMetadata &room : metadata.rooms)
+    {
+        const auto sector = roomSectorById.find(room.id);
+        if (sector == roomSectorById.end())
+        {
+            errorMessage = "indoor source metadata refers to an unknown room: " + room.id;
+            return false;
+        }
+        if (room.minAmbientLightLevel < 0 || room.minAmbientLightLevel > 31)
+        {
+            errorMessage = "indoor room min_ambient_light_level must be between 0 and 31";
+            return false;
+        }
+        result.indoorGeometry.sectors[sector->second].minAmbientLightLevel = room.minAmbientLightLevel;
+        for (const std::string &name : room.sourceNodeNames)
+        {
+            const bool sourceNodeExists = std::any_of(models.begin(), models.end(), [&name](const ImportedModel &model)
+            {
+                return toLowerCopy(sourceNodeNameFromModelName(model.name)) == toLowerCopy(name);
+            });
+            if (!sourceNodeExists)
+            {
+                errorMessage = "indoor source room refers to a missing node: " + name;
+                return false;
+            }
+            const auto [iterator, inserted] = sourceNodeSectors.emplace(toLowerCopy(name), sector->second);
+            if (!inserted && iterator->second != sector->second)
+            {
+                errorMessage = "indoor source node assigned to multiple rooms: " + name;
+                return false;
+            }
+        }
+    }
+    const auto explicitSector = [&sourceNodeSectors](const std::string &name) -> std::optional<uint16_t>
+    {
+        const auto iterator = sourceNodeSectors.find(toLowerCopy(name));
+        return iterator == sourceNodeSectors.end() ? std::nullopt : std::optional<uint16_t>(iterator->second);
+    };
 
     for (const ImportedModel &model : models)
     {
@@ -1414,14 +1604,22 @@ bool compileIndoorSourceGeometry(
         const std::string sourceNodeName = sourceNodeNameFromModelName(model.name);
 
         if (!startsWithInsensitive(sourceNodeName, "INTERACT_")
-            && !startsWithInsensitive(sourceNodeName, "IPVAR_"))
+            && !startsWithInsensitive(sourceNodeName, "IPVAR_")
+            && !startsWithInsensitive(sourceNodeName, "STATIC_"))
         {
             continue;
+        }
+
+        if (startsWithInsensitive(sourceNodeName, "STATIC_") && !explicitSector(sourceNodeName))
+        {
+            errorMessage = "indoor static source mesh requires explicit room ownership: " + sourceNodeName;
+            return false;
         }
 
         if (!compileStaticFaceGroupModel(
                 model,
                 materialTextureLookup,
+                explicitSector(sourceNodeName),
                 metadata.source.unitScale,
                 result.indoorGeometry,
                 result,
@@ -1444,6 +1642,7 @@ bool compileIndoorSourceGeometry(
                 model,
                 findSurfaceMetadata(surfaceLookup, sourceNodeName),
                 materialTextureLookup,
+                explicitSector(sourceNodeName),
                 metadata.source.unitScale,
                 staticVertexInterner,
                 result.indoorGeometry,
@@ -1466,7 +1665,9 @@ bool compileIndoorSourceGeometry(
         if (!compileMechanismModel(
                 model,
                 findMechanismMetadata(mechanismLookup, sourceNodeName),
+                findSurfaceMetadata(surfaceLookup, sourceNodeName),
                 materialTextureLookup,
+                explicitSector(sourceNodeName),
                 metadata.source.unitScale,
                 result.indoorGeometry,
                 result,
@@ -1485,6 +1686,7 @@ bool compileIndoorSourceGeometry(
             compileEntityMarker(
                 model,
                 findSourceNodeMetadata(entityLookup, sourceNodeName, entityIdFromSourceNode(sourceNodeName)),
+                explicitSector(sourceNodeName),
                 metadata.source.unitScale,
                 result.indoorGeometry,
                 result);
@@ -1494,6 +1696,7 @@ bool compileIndoorSourceGeometry(
             compileLightMarker(
                 model,
                 findSourceNodeMetadata(lightLookup, sourceNodeName, lightIdFromSourceNode(sourceNodeName)),
+                explicitSector(sourceNodeName),
                 metadata.source.unitScale,
                 result.indoorGeometry,
                 result);
@@ -1515,6 +1718,13 @@ bool compileIndoorSourceGeometry(
     result.indoorGeometry.lightCount = result.indoorGeometry.lights.size();
     result.indoorGeometry.spawnCount = result.indoorGeometry.spawns.size();
     result.indoorGeometry.doorCount = static_cast<uint32_t>(result.generatedDoors.size());
-    return true;
+    std::vector<uint16_t> movingFaceIds;
+    for (const Game::IndoorSceneDoor &door : result.generatedDoors)
+    {
+        movingFaceIds.insert(movingFaceIds.end(), door.door.faceIds.begin(), door.door.faceIds.end());
+    }
+    return generateIndoorDerivedGeometry(
+        result.indoorGeometry, movingFaceIds, metadata.importSettings.generateBsp,
+        metadata.importSettings.generateOutlines, errorMessage);
 }
 }

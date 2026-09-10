@@ -940,8 +940,8 @@ void OutdoorBillboardRenderer::preloadPendingLevelSpriteTextures(OutdoorGameView
 
     preloadPendingSpriteFrameWarmupsParallel(view);
 
-    // Saved state and on-load events can change actor visuals after map assets are prepared. Warm only the exact
-    // texture each final runtime actor currently needs; other frames and viewing angles load when first rendered.
+    // Saved state and on-load events can change actor visuals after map assets are prepared. Atlas animations
+    // share large pages, so warm complete packages before gameplay, including other poses and viewing angles.
     if (view.m_pOutdoorWorldRuntime == nullptr || !view.m_outdoorActorPreviewBillboardSet)
     {
         view.m_spriteLoadCache.binaryFilesByPath.clear();
@@ -959,6 +959,12 @@ void OutdoorBillboardRenderer::preloadPendingLevelSpriteTextures(OutdoorGameView
         if (pActorState == nullptr)
         {
             continue;
+        }
+
+        view.m_spriteAtlasCache.preload(*view.m_pAssetFileSystem, spriteFrameTable, pActorState->spriteFrameIndex);
+        for (uint16_t actionFrame : pActorState->actionSpriteFrameIndices)
+        {
+            view.m_spriteAtlasCache.preload(*view.m_pAssetFileSystem, spriteFrameTable, actionFrame);
         }
 
         uint16_t spriteFrameIndex = pActorState->spriteFrameIndex;
@@ -1252,12 +1258,11 @@ void OutdoorBillboardRenderer::prepareKeyboardInteractionBillboardCache(
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
             const float halfWidth = worldWidth * 0.5f;
-            const bx::Vec3 center = bottomAnchoredBillboardCenter(
+            const bx::Vec3 center = spriteBillboardCenter(
                 static_cast<float>(pActorState->x),
                 static_cast<float>(pActorState->y),
                 static_cast<float>(pActorState->z),
-                cameraUp,
-                worldHeight);
+                cameraRight, cameraUp, *pTexture, spriteScale, resolvedTexture.mirrored);
             const bx::Vec3 right = {
                 cameraRight.x * halfWidth,
                 cameraRight.y * halfWidth,
@@ -1611,6 +1616,12 @@ void OutdoorBillboardRenderer::preloadPendingSpriteFrameWarmupsParallel(OutdoorG
                 return;
             }
 
+            if (textureName.starts_with("atlas:"))
+            {
+                ensureSpriteBillboardTexture(view, textureName, paletteId, "level_warmup");
+                return;
+            }
+
             const std::string normalizedTextureName = toLowerCopy(textureName);
 
             if (requestIndexByPaletteAndName[paletteId].contains(normalizedTextureName))
@@ -1900,6 +1911,18 @@ const OutdoorGameView::BillboardTextureHandle *OutdoorBillboardRenderer::ensureS
         return nullptr;
     }
 
+    if (textureName.starts_with("atlas:"))
+    {
+        OutdoorGameView::BillboardTextureHandle texture;
+        if (!view.m_spriteAtlasCache.load(*view.m_pAssetFileSystem, textureName, paletteId, texture))
+        {
+            return nullptr;
+        }
+        view.m_billboardTextureHandles.push_back(std::move(texture));
+        view.m_billboardTextureIndexByPalette[paletteId][textureName] = view.m_billboardTextureHandles.size() - 1;
+        return &view.m_billboardTextureHandles.back();
+    }
+
     const std::string normalizedTextureName = toLowerCopy(textureName);
     const std::string warningKey = std::to_string(paletteId) + ":" + normalizedTextureName;
     const bool logCacheMiss =
@@ -1968,6 +1991,7 @@ const OutdoorGameView::BillboardTextureHandle *OutdoorBillboardRenderer::ensureS
 
 void OutdoorBillboardRenderer::invalidateRenderAssets(OutdoorGameView &view)
 {
+    view.m_spriteAtlasCache.clear(false);
     for (OutdoorGameView::BillboardTextureHandle &textureHandle : view.m_billboardTextureHandles)
     {
         textureHandle.textureHandle = BGFX_INVALID_HANDLE;
@@ -1987,9 +2011,10 @@ void OutdoorBillboardRenderer::invalidateRenderAssets(OutdoorGameView &view)
 
 void OutdoorBillboardRenderer::destroyRenderAssets(OutdoorGameView &view)
 {
+    view.m_spriteAtlasCache.clear(true);
     for (OutdoorGameView::BillboardTextureHandle &textureHandle : view.m_billboardTextureHandles)
     {
-        if (bgfx::isValid(textureHandle.textureHandle))
+        if (!textureHandle.atlas && bgfx::isValid(textureHandle.textureHandle))
         {
             bgfx::destroy(textureHandle.textureHandle);
             textureHandle.textureHandle = BGFX_INVALID_HANDLE;
@@ -2617,7 +2642,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             drawItem.cameraDepth = deltaX * cameraForward.x + deltaY * cameraForward.y + deltaZ * cameraForward.z;
             const float previewScale = std::max(pFrame->scale * drawItem.heightScale, 0.01f);
             const float worldHeight = static_cast<float>(pTexture->height) * previewScale;
-            drawItem.questMarkerZ = drawItem.z
+            drawItem.questMarkerZ = drawItem.z + pTexture->offsetY * previewScale
                 + worldHeight * (1.0f - pTexture->opacityMask.opaqueTopNormalized());
             drawItem.lightContributionAbgr = computeBillboardLightContributionAbgr(
                 view,
@@ -2632,7 +2657,8 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                 && pRuntimeActor->maxHp > 0)
             {
                 const float worldWidth = static_cast<float>(pTexture->width) * previewScale;
-                const bx::Vec3 billboardCenterDelta = {deltaX, deltaY, deltaZ + worldHeight * 0.5f};
+                const bx::Vec3 billboardCenterDelta = spriteBillboardCenter(
+                    deltaX, deltaY, deltaZ, cameraRight, cameraUp, *pTexture, previewScale, resolvedTexture.mirrored);
                 const float billboardCenterDepth = bx::dot(billboardCenterDelta, cameraForward);
                 const float billboardHorizontalOffset = bx::dot(billboardCenterDelta, cameraRight);
                 const float billboardVerticalOffset = bx::dot(billboardCenterDelta, cameraUp);
@@ -2658,7 +2684,8 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                 }
             }
 
-            drawItem.healthBarZ = drawItem.z + worldHeight + 26.0f * drawItem.heightScale;
+            drawItem.healthBarZ = drawItem.z + worldHeight + pTexture->offsetY * previewScale
+                + 26.0f * drawItem.heightScale;
             drawItems.push_back(drawItem);
         };
 
@@ -3019,7 +3046,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                     BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
                 ensureStandardBillboardEffectUniforms();
                 bgfx::setState(BillboardAlphaRenderState);
-                bgfx::submit(viewId, view.m_outdoorLitBillboardProgramHandle);
+                bgfx::submit(viewId, view.m_spriteAtlasCache.bind(*batch.pTexture, view.m_outdoorLitBillboardProgramHandle));
                 ++textureGroupCount;
 
                 if (view.m_gameSettings.performanceTrace)
@@ -3062,12 +3089,11 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
             const float halfWidth = worldWidth * 0.5f;
-            const bx::Vec3 center = bottomAnchoredBillboardCenter(
+            const bx::Vec3 center = spriteBillboardCenter(
                 drawItem.x,
                 drawItem.y,
                 drawItem.z,
-                cameraUp,
-                worldHeight);
+                cameraRight, cameraUp, *pTexture, spriteScale, drawItem.mirrored);
             const bx::Vec3 right = {
                 cameraRight.x * halfWidth,
                 cameraRight.y * halfWidth,
@@ -3123,12 +3149,11 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
             const float worldWidth = static_cast<float>(pTexture->width) * spriteScale;
             const float worldHeight = static_cast<float>(pTexture->height) * spriteScale;
             const float halfWidth = worldWidth * 0.5f;
-            const bx::Vec3 center = bottomAnchoredBillboardCenter(
+            const bx::Vec3 center = spriteBillboardCenter(
                 drawItem.x,
                 drawItem.y,
                 drawItem.z,
-                cameraUp,
-                worldHeight);
+                cameraRight, cameraUp, *pTexture, spriteScale, drawItem.mirrored);
             const bx::Vec3 right = {
                 cameraRight.x * halfWidth,
                 cameraRight.y * halfWidth,
@@ -3229,7 +3254,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                     HoveredActorOutlineThicknessPixels);
                 standardBillboardEffectUniformsActive = false;
                 bgfx::setState(BillboardAlphaRenderState);
-                bgfx::submit(viewId, view.m_outdoorLitBillboardProgramHandle);
+                bgfx::submit(viewId, view.m_spriteAtlasCache.bind(*pTexture, view.m_outdoorLitBillboardProgramHandle));
                 if (collectRenderDiagnostics)
                 {
                     submitStageNanoseconds += SDL_GetTicksNS() - outlineSubmitStageStartTickCount;
@@ -3287,7 +3312,7 @@ void OutdoorBillboardRenderer::renderActorPreviewBillboards(
                 BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
             ensureStandardBillboardEffectUniforms();
             bgfx::setState(BillboardAlphaRenderState);
-            bgfx::submit(viewId, view.m_outdoorLitBillboardProgramHandle);
+            bgfx::submit(viewId, view.m_spriteAtlasCache.bind(*pTexture, view.m_outdoorLitBillboardProgramHandle));
 
             ++textureGroupCount;
 

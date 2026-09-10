@@ -1,0 +1,428 @@
+#include "engine/FontAsset.h"
+
+#include "engine/AssetFileSystem.h"
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include <yaml-cpp/yaml.h>
+
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+
+namespace OpenYAMM::Engine
+{
+namespace
+{
+struct BitmapFont
+{
+    int firstChar = 0;
+    int lastChar = 0;
+    int fontHeight = 0;
+    std::array<FontGlyphMetrics, 256> glyphMetrics = {{}};
+    std::array<uint32_t, 256> glyphOffsets = {{}};
+    std::vector<uint8_t> pixels;
+};
+
+std::string normalizedFontName(std::string name)
+{
+    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char character)
+    {
+        return std::tolower(character);
+    });
+    return name;
+}
+
+int32_t readInt32Le(const uint8_t *pBytes)
+{
+    return static_cast<int32_t>(
+        static_cast<uint32_t>(pBytes[0])
+        | (static_cast<uint32_t>(pBytes[1]) << 8)
+        | (static_cast<uint32_t>(pBytes[2]) << 16)
+        | (static_cast<uint32_t>(pBytes[3]) << 24));
+}
+
+uint32_t readUint32Le(const uint8_t *pBytes)
+{
+    return static_cast<uint32_t>(
+        static_cast<uint32_t>(pBytes[0])
+        | (static_cast<uint32_t>(pBytes[1]) << 8)
+        | (static_cast<uint32_t>(pBytes[2]) << 16)
+        | (static_cast<uint32_t>(pBytes[3]) << 24));
+}
+
+bool validateBitmapFont(
+    const BitmapFont &font,
+    const std::vector<uint8_t> &pixels)
+{
+    if (font.firstChar < 0
+        || font.firstChar > 255
+        || font.lastChar < 0
+        || font.lastChar > 255
+        || font.firstChar > font.lastChar
+        || font.fontHeight <= 0)
+    {
+        return false;
+    }
+
+    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
+    {
+        const FontGlyphMetrics &metrics = font.glyphMetrics[glyphIndex];
+
+        if (glyphIndex < font.firstChar || glyphIndex > font.lastChar)
+        {
+            continue;
+        }
+
+        if (metrics.width < 0 || metrics.width > 1024 || metrics.leftSpacing < -512 || metrics.leftSpacing > 512
+            || metrics.rightSpacing < -512 || metrics.rightSpacing > 512)
+        {
+            return false;
+        }
+
+        const uint64_t glyphSize = static_cast<uint64_t>(font.fontHeight) * static_cast<uint64_t>(metrics.width);
+        const uint64_t glyphEnd = static_cast<uint64_t>(font.glyphOffsets[glyphIndex]) + glyphSize;
+
+        if (glyphEnd > pixels.size())
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+std::optional<BitmapFont> parseBitmapFont(const std::vector<uint8_t> &bytes)
+{
+    constexpr size_t FontHeaderSize = 32;
+    constexpr size_t Mm7AtlasSize = 4096;
+    constexpr size_t MmxAtlasSize = 1280;
+
+    if (bytes.size() < FontHeaderSize + MmxAtlasSize)
+    {
+        return std::nullopt;
+    }
+
+    const uint8_t *pBytes = bytes.data();
+
+    if (pBytes[2] != 8 || pBytes[3] != 0 || pBytes[4] != 0 || pBytes[6] != 0 || pBytes[7] != 0)
+    {
+        return std::nullopt;
+    }
+
+    BitmapFont mm7Font = {};
+    mm7Font.firstChar = pBytes[0];
+    mm7Font.lastChar = pBytes[1];
+    mm7Font.fontHeight = pBytes[5];
+
+    if (bytes.size() >= FontHeaderSize + Mm7AtlasSize)
+    {
+        for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
+        {
+            const size_t metricOffset = FontHeaderSize + static_cast<size_t>(glyphIndex) * 12;
+            mm7Font.glyphMetrics[glyphIndex].leftSpacing = readInt32Le(&pBytes[metricOffset]);
+            mm7Font.glyphMetrics[glyphIndex].width = readInt32Le(&pBytes[metricOffset + 4]);
+            mm7Font.glyphMetrics[glyphIndex].rightSpacing = readInt32Le(&pBytes[metricOffset + 8]);
+        }
+
+        for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
+        {
+            const size_t offsetPosition = FontHeaderSize + 256 * 12 + static_cast<size_t>(glyphIndex) * 4;
+            mm7Font.glyphOffsets[glyphIndex] = readUint32Le(&pBytes[offsetPosition]);
+        }
+
+        mm7Font.pixels.assign(bytes.begin() + static_cast<ptrdiff_t>(FontHeaderSize + Mm7AtlasSize), bytes.end());
+
+        if (validateBitmapFont(mm7Font, mm7Font.pixels))
+        {
+            return mm7Font;
+        }
+    }
+
+    BitmapFont mmxFont = {};
+    mmxFont.firstChar = pBytes[0];
+    mmxFont.lastChar = pBytes[1];
+    mmxFont.fontHeight = pBytes[5];
+
+    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
+    {
+        mmxFont.glyphMetrics[glyphIndex].width = pBytes[FontHeaderSize + glyphIndex];
+    }
+
+    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
+    {
+        const size_t offsetPosition = FontHeaderSize + 256 + static_cast<size_t>(glyphIndex) * 4;
+        mmxFont.glyphOffsets[glyphIndex] = readUint32Le(&pBytes[offsetPosition]);
+    }
+
+    mmxFont.pixels.assign(bytes.begin() + static_cast<ptrdiff_t>(FontHeaderSize + MmxAtlasSize), bytes.end());
+
+    if (!validateBitmapFont(mmxFont, mmxFont.pixels))
+    {
+        return std::nullopt;
+    }
+
+    return mmxFont;
+}
+
+
+struct FreeTypeFace
+{
+    FT_Library library = nullptr;
+    FT_Face face = nullptr;
+
+    ~FreeTypeFace()
+    {
+        if (face != nullptr)
+        {
+            FT_Done_Face(face);
+        }
+        if (library != nullptr)
+        {
+            FT_Done_FreeType(library);
+        }
+    }
+};
+
+uint32_t cp1252CodePoint(int character)
+{
+    constexpr std::array<uint32_t, 32> Extended = {
+        0x20ac, 0, 0x201a, 0x192, 0x201e, 0x2026, 0x2020, 0x2021,
+        0x2c6, 0x2030, 0x160, 0x2039, 0x152, 0, 0x17d, 0,
+        0, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014,
+        0x2dc, 0x2122, 0x161, 0x203a, 0x153, 0, 0x17e, 0x178};
+    if (character < 32 || character == 127)
+    {
+        return 0;
+    }
+    return character >= 128 && character < 160 ? Extended[character - 128] : uint32_t(character);
+}
+
+void allocateAtlas(FontAtlasImage &image)
+{
+    FontAtlas &atlas = image.atlas;
+    const size_t byteCount = size_t(atlas.atlasWidth) * atlas.atlasHeight * 4;
+    atlas.mainAtlasPixels.resize(byteCount, atlas.atlasScale > 1 ? 255 : 0);
+    image.shadowPixels.resize(byteCount, 0);
+    // White even outside the ink prevents dark fringes with straight-alpha bilinear filtering.
+    for (size_t offset = 3; offset < byteCount; offset += 4)
+    {
+        atlas.mainAtlasPixels[offset] = 0;
+    }
+}
+
+void copyBitmapGlyph(const BitmapFont &font, int character, FontAtlasImage &image)
+{
+    FontAtlas &atlas = image.atlas;
+    const int scale = atlas.atlasScale;
+    const int cellX = (character % 16) * (atlas.atlasCellWidth + 2 * atlas.atlasPadding) * scale;
+    const int cellY = (character / 16) * (atlas.fontHeight + 2 * atlas.atlasPadding) * scale;
+    const int width = font.glyphMetrics[character].width;
+    for (int y = 0; y < font.fontHeight * scale; ++y)
+    {
+        for (int x = 0; x < width * scale; ++x)
+        {
+            const uint8_t value = font.pixels[font.glyphOffsets[character] + size_t(y / scale) * width + x / scale];
+            const size_t offset = (size_t(cellY + atlas.atlasPadding * scale + y) * atlas.atlasWidth
+                + cellX + atlas.atlasPadding * scale + x) * 4;
+            if (value > 1)
+            {
+                atlas.mainAtlasPixels[offset + 0] = 255;
+                atlas.mainAtlasPixels[offset + 1] = 255;
+                atlas.mainAtlasPixels[offset + 2] = 255;
+                atlas.mainAtlasPixels[offset + 3] = 255;
+            }
+            image.shadowPixels[offset + 3] = value == 1 ? 255 : 0;
+        }
+    }
+}
+}
+
+bool FontSettings::usesTrueType(const std::string &fontName) const
+{
+    if (!preferTtf)
+    {
+        return false;
+    }
+    const std::string name = normalizedFontName(fontName);
+    return std::any_of(ttfFonts.begin(), ttfFonts.end(), [&name](const std::string &candidate)
+    {
+        return normalizedFontName(candidate) == name;
+    });
+}
+
+std::optional<FontAtlasImage> loadFontAtlas(
+    const AssetFileSystem &assetFileSystem,
+    const std::vector<uint8_t> &bitmapBytes,
+    const std::string &fontName,
+    const FontSettings &settings,
+    std::string &error)
+{
+    error.clear();
+    const std::optional<BitmapFont> bitmap = parseBitmapFont(bitmapBytes);
+    if (!bitmap)
+    {
+        error = "invalid legacy FNT";
+        return std::nullopt;
+    }
+
+    FontAtlasImage image;
+    FontAtlas &atlas = image.atlas;
+    atlas.firstChar = bitmap->firstChar;
+    atlas.lastChar = bitmap->lastChar;
+    atlas.fontHeight = bitmap->fontHeight;
+    atlas.glyphMetrics = bitmap->glyphMetrics;
+    atlas.atlasCellWidth = 1;
+    for (int character = atlas.firstChar; character <= atlas.lastChar; ++character)
+    {
+        atlas.atlasCellWidth = std::max(atlas.atlasCellWidth, atlas.glyphMetrics[character].width);
+    }
+    const bool trueType = settings.usesTrueType(fontName);
+    atlas.atlasScale = trueType ? 4 : 1;
+    // Includes reconstructed italic overhangs (notably Z-caron) and the one-pixel shadow.
+    atlas.atlasPadding = trueType ? 5 : 0;
+    atlas.atlasWidth = (atlas.atlasCellWidth + 2 * atlas.atlasPadding) * 16 * atlas.atlasScale;
+    atlas.atlasHeight = (atlas.fontHeight + 2 * atlas.atlasPadding) * 16 * atlas.atlasScale;
+    if (atlas.atlasWidth > 8192 || atlas.atlasHeight > 8192)
+    {
+        error = "font atlas exceeds 8192 pixels";
+        return std::nullopt;
+    }
+
+    if (!trueType)
+    {
+        allocateAtlas(image);
+        for (int character = atlas.firstChar; character <= atlas.lastChar; ++character)
+        {
+            copyBitmapGlyph(*bitmap, character, image);
+        }
+        return image;
+    }
+
+    const std::string name = normalizedFontName(fontName);
+    if (name.empty() || name.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_-") != std::string::npos)
+    {
+        error = "invalid TTF replacement name";
+        return std::nullopt;
+    }
+    const std::string descriptorPath = "fonts/truetype/" + name + ".yml";
+    const std::optional<std::string> descriptorText = assetFileSystem.readTextFile(descriptorPath);
+    if (!descriptorText)
+    {
+        error = "missing TTF descriptor: " + descriptorPath;
+        return std::nullopt;
+    }
+
+    std::string fileName;
+    int baseline = 0;
+    bool blackInk = false;
+    bool synthesizeShadow = true;
+    try
+    {
+        const YAML::Node descriptor = YAML::Load(*descriptorText);
+        fileName = descriptor["file"].as<std::string>();
+        baseline = descriptor["baseline"].as<int>();
+        const std::string presentation = descriptor["presentation"].as<std::string>("tintable-with-shadow");
+        if (presentation != "tintable-with-shadow" && presentation != "black-ink" && presentation != "tintable")
+        {
+            error = "unsupported TTF presentation: " + descriptorPath;
+            return std::nullopt;
+        }
+        blackInk = presentation == "black-ink";
+        synthesizeShadow = presentation == "tintable-with-shadow";
+        if (descriptor["logical_height"].as<int>() != atlas.fontHeight
+            || descriptor["encoding"].as<std::string>() != "windows-1252"
+            || baseline < 0 || baseline > atlas.fontHeight
+            || fileName.empty() || fileName.find_first_of("/\\") != std::string::npos)
+        {
+            error = "TTF descriptor metrics, encoding or filename invalid: " + descriptorPath;
+            return std::nullopt;
+        }
+    }
+    catch (const YAML::Exception &exception)
+    {
+        error = "invalid TTF descriptor: " + descriptorPath + ": " + exception.what();
+        return std::nullopt;
+    }
+
+    const std::string fontPath = "fonts/truetype/" + fileName;
+    const std::optional<std::vector<uint8_t>> bytes = assetFileSystem.readBinaryFile(fontPath);
+    if (!bytes || bytes->empty() || bytes->size() > 32 * 1024 * 1024)
+    {
+        error = "missing, empty or oversized TTF: " + fontPath;
+        return std::nullopt;
+    }
+    FreeTypeFace font;
+    if (FT_Init_FreeType(&font.library) != 0
+        || FT_New_Memory_Face(font.library, bytes->data(), FT_Long(bytes->size()), 0, &font.face) != 0
+        || !FT_IS_SCALABLE(font.face)
+        || FT_Select_Charmap(font.face, FT_ENCODING_UNICODE) != 0
+        || FT_Set_Pixel_Sizes(font.face, 0, atlas.fontHeight * atlas.atlasScale) != 0)
+    {
+        error = "FreeType could not open scalable Unicode font: " + fontPath;
+        return std::nullopt;
+    }
+
+    allocateAtlas(image);
+    for (int character = atlas.firstChar; character <= atlas.lastChar; ++character)
+    {
+        const uint32_t codePoint = cp1252CodePoint(character);
+        // Reserved byte slots are legacy UI symbols, outside the replacement's printable encoding.
+        if (codePoint == 0)
+        {
+            copyBitmapGlyph(*bitmap, character, image);
+            continue;
+        }
+        const FT_UInt glyphIndex = FT_Get_Char_Index(font.face, codePoint);
+        if (glyphIndex == 0
+            || FT_Load_Glyph(font.face, glyphIndex, FT_LOAD_NO_HINTING | FT_LOAD_NO_BITMAP) != 0
+            || FT_Render_Glyph(font.face->glyph, FT_RENDER_MODE_NORMAL) != 0)
+        {
+            error = "TTF missing or unable to rasterize CP1252 byte " + std::to_string(character) + ": " + fontPath;
+            return std::nullopt;
+        }
+        const FT_GlyphSlot pGlyph = font.face->glyph;
+        const FT_Bitmap &raster = pGlyph->bitmap;
+        const int scale = atlas.atlasScale;
+        const int width = (atlas.glyphMetrics[character].width + 2 * atlas.atlasPadding) * scale;
+        const int height = (atlas.fontHeight + 2 * atlas.atlasPadding) * scale;
+        const int originX = pGlyph->bitmap_left
+            + (atlas.atlasPadding - atlas.glyphMetrics[character].leftSpacing) * scale;
+        const int originY = (baseline + atlas.atlasPadding) * scale - pGlyph->bitmap_top;
+        const int cellX = (character % 16) * (atlas.atlasCellWidth + 2 * atlas.atlasPadding) * scale;
+        const int cellY = (character / 16) * (atlas.fontHeight + 2 * atlas.atlasPadding) * scale;
+        if (raster.width != 0 && raster.rows != 0
+            && (raster.pixel_mode != FT_PIXEL_MODE_GRAY || originX < 0 || originY < 0
+                || originX + int(raster.width) > width || originY + int(raster.rows) > height))
+        {
+            error = "TTF glyph exceeds padded legacy cell at CP1252 byte "
+                + std::to_string(character) + ": " + fontPath;
+            return std::nullopt;
+        }
+        for (unsigned int y = 0; y < raster.rows; ++y)
+        {
+            const uint8_t *pRow = raster.buffer + (raster.pitch >= 0 ? y : raster.rows - 1 - y)
+                * size_t(std::abs(raster.pitch));
+            for (unsigned int x = 0; x < raster.width; ++x)
+            {
+                const size_t offset = (size_t(cellY + originY + y) * atlas.atlasWidth + cellX + originX + x) * 4;
+                // Black-ink sources use the native black layer at the original coordinates.
+                // Preserve caller offsets and avoid adding a second, shifted copy of the ink.
+                if (blackInk)
+                {
+                    image.shadowPixels[offset + 3] = pRow[x];
+                    continue;
+                }
+                atlas.mainAtlasPixels[offset + 3] = pRow[x];
+                // Legacy HUD callers expect a shadow already shifted one logical pixel.
+                if (synthesizeShadow && originX + int(x) + scale < width && originY + int(y) + scale < height)
+                {
+                    const size_t shadowOffset = offset + (size_t(scale) * atlas.atlasWidth + scale) * 4;
+                    image.shadowPixels[shadowOffset + 3] = pRow[x];
+                }
+            }
+        }
+    }
+    return image;
+}
+}

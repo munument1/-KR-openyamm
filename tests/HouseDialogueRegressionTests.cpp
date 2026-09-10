@@ -6921,6 +6921,279 @@ TEST_CASE("mm8 Balthazar axe completion promotes minotaurs through Tessalar topi
         0));
 }
 
+namespace
+{
+OpenYAMM::Tests::RegressionGameData promotionRegressionData(const std::string &world = "mm8")
+{
+    OpenYAMM::Tests::RegressionGameData data = requireRegressionGameData();
+    REQUIRE(data.globalEventProgram.has_value());
+    std::string source = *data.globalEventProgram->luaSourceText();
+    std::vector<std::string> paths = {"assets_dev/worlds/mm8/events/Global_mm8_promotions.lua"};
+    if (world != "mm8")
+    {
+        paths.push_back("assets_dev/worlds/" + world + "/events/common/" + world + "_common.lua");
+        paths.push_back("assets_dev/worlds/" + world + "/events/Global_" + world + "_mmmerge.lua");
+    }
+    for (const std::string &path : paths)
+    {
+        const std::vector<uint8_t> bytes = readBinaryFileBytes(std::filesystem::path(OPENYAMM_SOURCE_DIR) / path);
+        source += "\n" + std::string(bytes.begin(), bytes.end());
+    }
+    std::string error;
+    data.globalEventProgram = OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+        source, "@tests/promotion_sidecars.lua", OpenYAMM::Game::ScriptedEventScope::Global, error);
+    REQUIRE_MESSAGE(data.globalEventProgram.has_value(), error);
+    return data;
+}
+}
+
+TEST_CASE("MM8 promotion sidecars exclude promoted and opposite classes on initial and repeat visits")
+{
+    const OpenYAMM::Tests::RegressionGameData data = promotionRegressionData();
+    struct PromotionCase
+    {
+        uint16_t firstEvent;
+        uint16_t repeatEvent;
+        const char *pBase;
+        const char *pTarget;
+        const char *pOtherBranch;
+        uint32_t completionBit;
+        std::vector<uint32_t> questItems;
+    };
+    const std::vector<PromotionCase> cases = {
+        {25, 733, "DarkElf", "Patriarch", "Archer", 1537, {}},
+        {36, 734, "Troll", "WarTroll", "Archer", 1538, {}},
+        {58, 735, "Knight", "Champion", "BlackKnight", 1540, {539}},
+        {62, 736, "Dragon", "GreatWyrm", "Archer", 1543, {540}},
+        {71, 740, "Minotaur", "MinotaurLord", "Archer", 1545, {541, 732}},
+        {81, 737, "Cleric", "PriestLight", "PriestDark", 1546, {626}},
+        {89, 738, "Necromancer", "Lich", "ArchMage", 1548, {611}},
+        {90, 739, "Vampire", "Nosferatu", "Archer", 1547, {627, 612}},
+    };
+    for (const PromotionCase &test : cases)
+    {
+        CAPTURE(test.firstEvent);
+        for (bool repeat : {false, true})
+        {
+            CAPTURE(repeat);
+            OpenYAMM::Tests::HouseDialogueTestHarness harness(data);
+            REQUIRE(harness.party().setMemberClassName(0, test.pTarget));
+            REQUIRE(harness.party().setMemberClassName(1, test.pBase));
+            REQUIRE(harness.party().setMemberClassName(2, test.pOtherBranch));
+            REQUIRE(harness.party().setMemberClassName(3, "Archer"));
+            if (repeat)
+            {
+                harness.party().setQuestBit(test.completionBit, true);
+            }
+            else
+            {
+                for (uint32_t item : test.questItems)
+                {
+                    REQUIRE(harness.party().grantItemToMember(3, item));
+                }
+            }
+            if (test.repeatEvent == 738)
+            {
+                REQUIRE(harness.party().grantItemToMember(1, 628));
+            }
+            REQUIRE(harness.executeGlobalEvent(repeat ? test.repeatEvent : test.firstEvent));
+            CHECK_EQ(harness.party().member(0)->className, test.pTarget);
+            CHECK_EQ(harness.party().member(1)->className, test.pTarget);
+            CHECK_EQ(harness.party().member(2)->className, test.pOtherBranch);
+            CHECK(harness.party().hasQuestBit(test.completionBit));
+            CHECK_EQ(harness.party().inventoryItemCount(628), 0);
+            for (uint32_t item : test.questItems)
+            {
+                CHECK_EQ(harness.party().inventoryItemCount(item), 0);
+            }
+            REQUIRE_FALSE(harness.eventRuntimeState().messages.empty());
+            CHECK_FALSE(harness.eventRuntimeState().messages.back().empty());
+            const uint32_t originalExperience = harness.party().member(1)->experience;
+
+            // A further recruit must still be promotable after all unique quest items have been returned.
+            REQUIRE(harness.party().setMemberClassName(3, test.pBase));
+            if (test.repeatEvent == 738)
+            {
+                REQUIRE(harness.party().grantItemToMember(3, 628));
+            }
+            REQUIRE(harness.executeGlobalEvent(test.repeatEvent));
+            CHECK_EQ(harness.party().member(3)->className, test.pTarget);
+            CHECK_EQ(harness.party().member(1)->experience, originalExperience);
+            CHECK_EQ(harness.party().member(2)->className, test.pOtherBranch);
+        }
+    }
+}
+
+TEST_CASE("Lathean promotes a new Necromancer with Nathaniel still present and validates all jars first")
+{
+    const OpenYAMM::Tests::RegressionGameData data = promotionRegressionData();
+    for (bool missingJar : {false, true})
+    {
+        CAPTURE(missingJar);
+        OpenYAMM::Tests::HouseDialogueTestHarness harness(data);
+        REQUIRE(harness.party().setMemberClassName(0, "Lich"));
+        harness.party().member(0)->name = "Nathaniel Roberts";
+        REQUIRE(harness.party().setMemberClassName(1, "Necromancer"));
+        REQUIRE(harness.party().setMemberClassName(2, missingJar ? "Necromancer" : "Archer"));
+        REQUIRE(harness.party().setMemberClassName(3, "Archer"));
+        harness.party().setQuestBit(1548, true);
+        REQUIRE(harness.party().grantItemToMember(1, 628));
+        // A jar on an unrelated member cannot satisfy another Necromancer's requirement.
+        REQUIRE(harness.party().grantItemToMember(3, 628));
+        const OpenYAMM::Game::EventDialogContent &dialog = harness.openNpcDialogue(62);
+        const std::optional<size_t> action = findActionIndexByKindAndId(
+            dialog, OpenYAMM::Game::EventDialogActionKind::NpcTopic, 738);
+        REQUIRE(action.has_value());
+        harness.executeAndPresent(*action);
+        CHECK_EQ(harness.party().member(0)->className, "Lich");
+        CHECK_EQ(harness.party().member(1)->className, missingJar ? "Necromancer" : "Lich");
+        CHECK_EQ(harness.party().inventoryItemCount(628), missingJar ? 2 : 1);
+        REQUIRE_EQ(harness.eventRuntimeState().messages.size(), 1u);
+        if (missingJar)
+        {
+            CHECK(harness.eventRuntimeState().messages.back().find("party slot 3") != std::string::npos);
+        }
+        else
+        {
+            CHECK_EQ(harness.party().member(1)->characterDataId, 27u);
+        }
+    }
+}
+
+TEST_CASE("MM8 permanent first character retains honorary completion for later Necromancers")
+{
+    const OpenYAMM::Tests::RegressionGameData data = promotionRegressionData();
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(data);
+    for (size_t index = 0; index < harness.party().memberCount(); ++index)
+    {
+        REQUIRE(harness.party().setMemberClassName(index, "Knight"));
+    }
+    REQUIRE(harness.party().grantItemToMember(0, 611));
+    REQUIRE(harness.executeGlobalEvent(89));
+    CHECK(harness.party().hasAward(0, 35));
+    CHECK_FALSE(harness.party().hasQuestBit(1548));
+    CHECK_EQ(harness.party().inventoryItemCount(611), 0);
+    const uint32_t mainCharacterExperience = harness.party().member(0)->experience;
+
+    REQUIRE(harness.party().setMemberClassName(1, "Necromancer"));
+    REQUIRE(harness.party().grantItemToMember(1, 628));
+    REQUIRE(harness.executeGlobalEvent(738));
+    CHECK_EQ(harness.party().member(1)->className, "Lich");
+    CHECK_EQ(harness.party().member(0)->experience, mainCharacterExperience);
+    CHECK_EQ(harness.party().inventoryItemCount(628), 0);
+}
+
+TEST_CASE("MM6 promotion sidecars keep both stages reachable for later recruits after save restoration")
+{
+    const OpenYAMM::Tests::RegressionGameData data = promotionRegressionData("mm6");
+    struct FamilyCase
+    {
+        uint32_t npc;
+        uint16_t firstEvent;
+        uint16_t secondEvent;
+        const char *pBase;
+        const char *pMiddle;
+        const char *pFinal;
+        const char *pOtherBranch;
+        uint32_t firstCondition;
+        uint32_t secondCondition;
+        uint32_t firstItem;
+        uint32_t secondItem;
+    };
+    const std::vector<FamilyCase> cases = {
+        {789, 1327, 1329, "Paladin", "Crusader", "Hero", "Villain", 1699, 0, 0, 2075},
+        {790, 1371, 1373, "Sorcerer", "Wizard", "MasterWizard", "Lich", 0, 0, 0, 2077},
+        {791, 1382, 1384, "Knight", "Cavalier", "Champion", "BlackKnight", 0, 0, 0, 2128},
+        {801, 1349, 1351, "Cleric", "Priest", "HighPriest", "PriestDark", 1130, 1132, 0, 0},
+        {799, 1678, 1679, "Druid", "GreatDruid", "ArchDruid", "Warlock", 0, 0, 0, 0},
+        {800, 1405, 1413, "Archer", "WarriorMage", "MasterArcher", "Sniper", 0, 0, 2106, 0},
+    };
+    for (const FamilyCase &test : cases)
+    {
+        CAPTURE(test.npc);
+        OpenYAMM::Tests::HouseDialogueTestHarness harness(data);
+        REQUIRE(harness.party().setMemberClassName(0, test.pBase));
+        REQUIRE(harness.party().setMemberClassName(1, test.pFinal));
+        REQUIRE(harness.party().setMemberClassName(2, test.pOtherBranch));
+        REQUIRE(harness.party().setMemberClassName(3, "Vampire"));
+        if (test.firstCondition != 0)
+        {
+            harness.party().setQuestBit(test.firstCondition, true);
+        }
+        if (test.firstItem != 0)
+        {
+            REQUIRE(harness.party().grantItemToMember(3, test.firstItem));
+        }
+        REQUIRE(harness.executeGlobalEvent(test.firstEvent));
+        CHECK_EQ(harness.party().member(0)->className, test.pMiddle);
+        CHECK_EQ(harness.party().member(1)->className, test.pFinal);
+        CHECK_EQ(harness.party().member(2)->className, test.pOtherBranch);
+        if (test.secondCondition != 0)
+        {
+            harness.party().setQuestBit(test.secondCondition, true);
+        }
+        if (test.secondItem != 0)
+        {
+            REQUIRE(harness.party().grantItemToMember(3, test.secondItem));
+        }
+        if (test.secondEvent == 1413)
+        {
+            for (uint32_t bit = 1180; bit <= 1185; ++bit)
+            {
+                harness.party().setQuestBit(bit, true);
+            }
+        }
+        REQUIRE(harness.executeGlobalEvent(test.secondEvent));
+        CHECK_EQ(harness.party().member(0)->className, test.pFinal);
+        CHECK_EQ(harness.party().member(1)->className, test.pFinal);
+        CHECK_EQ(harness.party().member(2)->className, test.pOtherBranch);
+        if (test.secondItem != 0)
+        {
+            CHECK_EQ(harness.party().inventoryItemCount(test.secondItem), 0);
+        }
+
+        // Restore persisted party state into a fresh dialogue runtime, as when loading an existing save.
+        OpenYAMM::Tests::HouseDialogueTestHarness restored(data);
+        restored.party().restoreSnapshot(harness.party().snapshot());
+        REQUIRE(restored.party().setMemberClassName(3, test.pBase));
+        const uint32_t veteranExperience = restored.party().member(0)->experience;
+        const int gold = restored.party().gold();
+        for (uint16_t event : {test.firstEvent, test.secondEvent})
+        {
+            const OpenYAMM::Game::EventDialogContent &dialog = restored.openNpcDialogue(test.npc);
+            const std::optional<size_t> action = findActionIndexByKindAndId(
+                dialog, OpenYAMM::Game::EventDialogActionKind::NpcTopic, event);
+            REQUIRE(action.has_value());
+            restored.executeAndPresent(*action);
+        }
+        CHECK_EQ(restored.party().member(3)->className, test.pFinal);
+        CHECK_EQ(restored.party().member(0)->experience, veteranExperience);
+        CHECK_EQ(restored.party().gold(), gold);
+        CHECK_EQ(restored.party().member(2)->className, test.pOtherBranch);
+    }
+}
+
+TEST_CASE("MM7 promotion sidecars still accept later recruits alongside promoted members")
+{
+    const OpenYAMM::Tests::RegressionGameData data = promotionRegressionData("mm7");
+    OpenYAMM::Tests::HouseDialogueTestHarness harness(data);
+    REQUIRE(harness.party().setMemberClassName(0, "Lich"));
+    REQUIRE(harness.party().setMemberClassName(1, "Wizard"));
+    REQUIRE(harness.party().setMemberClassName(2, "PriestDark"));
+    REQUIRE(harness.party().setMemberClassName(3, "Cleric"));
+    REQUIRE(harness.party().grantItemToMember(1, 1417));
+    REQUIRE(harness.executeGlobalEvent(847));
+    CHECK_EQ(harness.party().member(0)->className, "Lich");
+    CHECK_EQ(harness.party().member(1)->className, "Lich");
+    CHECK_EQ(harness.party().inventoryItemCount(1417), 0);
+
+    // Priest quest was completed earlier; the old unique quest item is no longer needed.
+    harness.party().setQuestBit(1607, true);
+    REQUIRE(harness.executeGlobalEvent(839));
+    CHECK_EQ(harness.party().member(2)->className, "PriestDark");
+    CHECK_EQ(harness.party().member(3)->className, "Priest");
+}
+
 TEST_CASE("mm8 lich promotion only requires jars from necromancers")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();

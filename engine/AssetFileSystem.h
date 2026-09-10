@@ -68,6 +68,8 @@ public:
     bool switchActiveWorld(const std::string &activeWorldId);
     bool mountDevelopmentRoot(const std::filesystem::path &assetRoot);
     bool exists(const std::string &virtualPath) const;
+    // Returns the selected virtual file path, including its actual scale directory, also inside archives.
+    std::optional<std::string> resolveExistingFilePath(const std::string &virtualPath) const;
     std::vector<std::string> enumerate(const std::string &virtualPath) const;
     std::unique_ptr<AssetReadStream> openReadStream(const std::string &virtualPath) const;
     std::optional<std::vector<uint8_t>> readBinaryFile(const std::string &virtualPath) const;

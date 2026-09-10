@@ -17,7 +17,9 @@ add_executable(openyamm_unit_tests
     GameInputSystemTests.cpp
     AwardRuntimeTests.cpp
     GameplayProjectileServiceTests.cpp
+    FontAssetTests.cpp
     ImageAssetLoaderTests.cpp
+    SpriteAtlasTests.cpp
     IndoorCollisionPrimitivesTests.cpp
     IndoorActorActivationTests.cpp
     IndoorLightingRuntimeTests.cpp
@@ -39,6 +41,7 @@ add_executable(openyamm_unit_tests
     Mm9TransportRouteTests.cpp
     Mm9QuestMarkerTests.cpp
     MapItemSourceTests.cpp
+    MapDecorationTexturesTests.cpp
     MapPresentationTests.cpp
     MonsterTableRegressionTests.cpp
     MobileJumpDoubleTapGestureTests.cpp
@@ -61,6 +64,9 @@ add_executable(openyamm_unit_tests
     SpellbookUiLayoutTests.cpp
     TableRegressionTests.cpp
     TextTableTests.cpp
+    TerrainDecorationTests.cpp
+    ../game/outdoor/TerrainDecorationData.cpp
+    ../game/outdoor/TerrainDecorationRenderer.cpp
     TextureFilteringTests.cpp
     TurnBasedCombatRuntimeTests.cpp
     UiLayoutManagerTests.cpp
@@ -72,7 +78,10 @@ add_executable(openyamm_unit_tests
     ../engine/AudioSystem.cpp
     ../engine/AssetFileSystem.cpp
     ../engine/AssetScaleTier.cpp
+    ../engine/FontAsset.cpp
     ../engine/ImageAssetLoader.cpp
+    ../engine/SpriteAtlas.cpp
+    ../game/render/SpriteAtlasMipmaps.cpp
     ../engine/TextTable.cpp
     ../game/render/TextureFiltering.cpp
     ../game/arcomage/ArcomageAi.cpp
@@ -124,6 +133,7 @@ add_executable(openyamm_unit_tests
     ../game/gameplay/SavePreviewImage.cpp
     ../game/maps/MapDeltaData.cpp
     ../game/maps/MapAssetLoader.cpp
+    ../game/maps/MapDecorationTextures.cpp
     ../game/maps/MapIdentity.cpp
     ../game/maps/SaveGame.cpp
     ../game/maps/MapRegistry.cpp
@@ -244,6 +254,7 @@ target_link_libraries(openyamm_unit_tests
         physfs-static
         ${OPENYAMM_LUA_TARGET}
         yaml-cpp::yaml-cpp
+        freetype
 )
 
 target_include_directories(openyamm_unit_tests

@@ -379,6 +379,8 @@ public:
         size_t adventurersInnScrollOffset = 0;
     };
 
+    static bool characterScreenSupportsInspection(const CharacterScreenState &screen);
+
     struct InventoryNestedOverlayState
     {
         bool active = false;

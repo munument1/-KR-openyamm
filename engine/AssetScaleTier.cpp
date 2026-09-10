@@ -97,6 +97,48 @@ int scalePhysicalPixelsToLogical(int physicalPixels, AssetScaleTier assetScaleTi
     return std::max(1, (physicalPixels + scaleFactor - 1) / scaleFactor);
 }
 
+AssetScaleTier assetScaleTierFromResolvedPath(const std::string &path)
+{
+    // Only asset directory components carry scale; names and world ids do not.
+    size_t start = path.starts_with("assets/") ? 7 : 0;
+    if (path.compare(start, 7, "engine/") == 0)
+    {
+        start += 7;
+    }
+    else if (path.compare(start, 7, "worlds/") == 0)
+    {
+        const size_t separator = path.find('/', start + 7);
+        start = separator == std::string::npos ? path.size() : separator + 1;
+    }
+    while (start < path.size())
+    {
+        const size_t end = path.find('/', start);
+        if (end == std::string::npos)
+        {
+            break;
+        }
+        std::string component = path.substr(start, end - start);
+        std::transform(component.begin(), component.end(), component.begin(), [](unsigned char character)
+        {
+            return static_cast<char>(std::tolower(character));
+        });
+        for (const char *pDirectory : {"icons", "ui", "textures", "bitmaps", "terrain", "sky",
+                                      "sprites", "decorations", "effects", "fonts"})
+        {
+            if (component == std::string(pDirectory) + "_x2")
+            {
+                return AssetScaleTier::X2;
+            }
+            if (component == std::string(pDirectory) + "_x4")
+            {
+                return AssetScaleTier::X4;
+            }
+        }
+        start = end + 1;
+    }
+    return AssetScaleTier::X1;
+}
+
 AssetScaleProfile createUniformAssetScaleProfile(AssetScaleTier assetScaleTier)
 {
     AssetScaleProfile assetScaleProfile;
@@ -134,7 +176,7 @@ AssetScaleTier assetScaleTierForCategory(
             return assetScaleProfile.decorations;
 
         case AssetScaleCategory::Icons:
-            return assetScaleProfile.icons;
+            return assetScaleProfile.preferRestoredIcons ? AssetScaleTier::X2 : assetScaleProfile.icons;
 
         case AssetScaleCategory::Ui:
             return assetScaleProfile.ui;

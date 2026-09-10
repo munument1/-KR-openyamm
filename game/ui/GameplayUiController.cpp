@@ -39,6 +39,11 @@ const std::vector<std::string> GameplayLayoutFiles = {
 };
 }
 
+bool GameplayUiController::characterScreenSupportsInspection(const CharacterScreenState &screen)
+{
+    return screen.open;
+}
+
 bool GameplayUiController::houseShopModeSupportsItemInspection(HouseShopMode mode)
 {
     switch (mode)

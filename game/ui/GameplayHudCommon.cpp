@@ -21,23 +21,6 @@ constexpr float HudReferenceHeight = 480.0f;
 constexpr float HudFontIntegerSnapThreshold = 0.1f;
 constexpr float MaxUiViewportAspect = 4.0f / 3.0f;
 
-struct ParsedHudFontGlyphMetrics
-{
-    int leftSpacing = 0;
-    int width = 0;
-    int rightSpacing = 0;
-};
-
-struct ParsedHudBitmapFont
-{
-    int firstChar = 0;
-    int lastChar = 0;
-    int fontHeight = 0;
-    std::array<ParsedHudFontGlyphMetrics, 256> glyphMetrics = {{}};
-    std::array<uint32_t, 256> glyphOffsets = {{}};
-    std::vector<uint8_t> pixels;
-};
-
 std::string actPaletteCacheKey(int16_t paletteId, const std::string &worldId)
 {
     const std::string normalizedWorldId = worldId.empty() ? std::string() : normalizeWorldId(worldId);
@@ -58,138 +41,6 @@ std::vector<std::string> actPaletteCandidatePaths(int16_t paletteId, const std::
 
     paths.push_back(std::string("Data/bitmaps/") + paletteFileName);
     return paths;
-}
-
-int32_t readInt32Le(const uint8_t *pBytes)
-{
-    return static_cast<int32_t>(
-        static_cast<uint32_t>(pBytes[0])
-        | (static_cast<uint32_t>(pBytes[1]) << 8)
-        | (static_cast<uint32_t>(pBytes[2]) << 16)
-        | (static_cast<uint32_t>(pBytes[3]) << 24));
-}
-
-uint32_t readUint32Le(const uint8_t *pBytes)
-{
-    return static_cast<uint32_t>(
-        static_cast<uint32_t>(pBytes[0])
-        | (static_cast<uint32_t>(pBytes[1]) << 8)
-        | (static_cast<uint32_t>(pBytes[2]) << 16)
-        | (static_cast<uint32_t>(pBytes[3]) << 24));
-}
-
-bool validateParsedHudBitmapFont(
-    const ParsedHudBitmapFont &font,
-    const std::vector<uint8_t> &pixels)
-{
-    if (font.firstChar < 0
-        || font.firstChar > 255
-        || font.lastChar < 0
-        || font.lastChar > 255
-        || font.firstChar > font.lastChar
-        || font.fontHeight <= 0)
-    {
-        return false;
-    }
-
-    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-    {
-        const ParsedHudFontGlyphMetrics &metrics = font.glyphMetrics[glyphIndex];
-
-        if (glyphIndex < font.firstChar || glyphIndex > font.lastChar)
-        {
-            continue;
-        }
-
-        if (metrics.width < 0 || metrics.width > 1024 || metrics.leftSpacing < -512 || metrics.leftSpacing > 512
-            || metrics.rightSpacing < -512 || metrics.rightSpacing > 512)
-        {
-            return false;
-        }
-
-        const uint64_t glyphSize = static_cast<uint64_t>(font.fontHeight) * static_cast<uint64_t>(metrics.width);
-        const uint64_t glyphEnd = static_cast<uint64_t>(font.glyphOffsets[glyphIndex]) + glyphSize;
-
-        if (glyphEnd > pixels.size())
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-std::optional<ParsedHudBitmapFont> parseHudBitmapFont(const std::vector<uint8_t> &bytes)
-{
-    constexpr size_t FontHeaderSize = 32;
-    constexpr size_t Mm7AtlasSize = 4096;
-    constexpr size_t MmxAtlasSize = 1280;
-
-    if (bytes.size() < FontHeaderSize + MmxAtlasSize)
-    {
-        return std::nullopt;
-    }
-
-    const uint8_t *pBytes = bytes.data();
-
-    if (pBytes[2] != 8 || pBytes[3] != 0 || pBytes[4] != 0 || pBytes[6] != 0 || pBytes[7] != 0)
-    {
-        return std::nullopt;
-    }
-
-    ParsedHudBitmapFont mm7Font = {};
-    mm7Font.firstChar = pBytes[0];
-    mm7Font.lastChar = pBytes[1];
-    mm7Font.fontHeight = pBytes[5];
-
-    if (bytes.size() >= FontHeaderSize + Mm7AtlasSize)
-    {
-        for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-        {
-            const size_t metricOffset = FontHeaderSize + static_cast<size_t>(glyphIndex) * 12;
-            mm7Font.glyphMetrics[glyphIndex].leftSpacing = readInt32Le(&pBytes[metricOffset]);
-            mm7Font.glyphMetrics[glyphIndex].width = readInt32Le(&pBytes[metricOffset + 4]);
-            mm7Font.glyphMetrics[glyphIndex].rightSpacing = readInt32Le(&pBytes[metricOffset + 8]);
-        }
-
-        for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-        {
-            const size_t offsetPosition = FontHeaderSize + 256 * 12 + static_cast<size_t>(glyphIndex) * 4;
-            mm7Font.glyphOffsets[glyphIndex] = readUint32Le(&pBytes[offsetPosition]);
-        }
-
-        mm7Font.pixels.assign(bytes.begin() + static_cast<ptrdiff_t>(FontHeaderSize + Mm7AtlasSize), bytes.end());
-
-        if (validateParsedHudBitmapFont(mm7Font, mm7Font.pixels))
-        {
-            return mm7Font;
-        }
-    }
-
-    ParsedHudBitmapFont mmxFont = {};
-    mmxFont.firstChar = pBytes[0];
-    mmxFont.lastChar = pBytes[1];
-    mmxFont.fontHeight = pBytes[5];
-
-    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-    {
-        mmxFont.glyphMetrics[glyphIndex].width = pBytes[FontHeaderSize + glyphIndex];
-    }
-
-    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-    {
-        const size_t offsetPosition = FontHeaderSize + 256 + static_cast<size_t>(glyphIndex) * 4;
-        mmxFont.glyphOffsets[glyphIndex] = readUint32Le(&pBytes[offsetPosition]);
-    }
-
-    mmxFont.pixels.assign(bytes.begin() + static_cast<ptrdiff_t>(FontHeaderSize + MmxAtlasSize), bytes.end());
-
-    if (!validateParsedHudBitmapFont(mmxFont, mmxFont.pixels))
-    {
-        return std::nullopt;
-    }
-
-    return mmxFont;
 }
 
 bool usesBlackTransparencyKey(std::string_view textureName)
@@ -896,7 +747,8 @@ std::optional<std::vector<uint8_t>> GameplayHudCommon::loadHudBitmapPixelsBgraCa
     const std::string &textureName,
     int &width,
     int &height,
-    GameplayHudBitmapTransparencyMode transparencyMode)
+    GameplayHudBitmapTransparencyMode transparencyMode,
+    Engine::AssetScaleTier *pLoadedTier)
 {
     if (pAssetFileSystem == nullptr)
     {
@@ -934,6 +786,10 @@ std::optional<std::vector<uint8_t>> GameplayHudCommon::loadHudBitmapPixelsBgraCa
 
     width = image->width;
     height = image->height;
+    if (pLoadedTier != nullptr)
+    {
+        *pLoadedTier = image->assetScaleTier;
+    }
     return image->pixels;
 }
 
@@ -1010,8 +866,9 @@ bool GameplayHudCommon::loadHudTexture(
 
     int width = 0;
     int height = 0;
-    const std::optional<std::vector<uint8_t>> pixels =
-        loadHudBitmapPixelsBgraCached(pAssetFileSystem, cache, textureName, width, height, transparencyMode);
+    Engine::AssetScaleTier loadedTier = Engine::AssetScaleTier::X1;
+    const std::optional<std::vector<uint8_t>> pixels = loadHudBitmapPixelsBgraCached(
+        pAssetFileSystem, cache, textureName, width, height, transparencyMode, &loadedTier);
 
     if (!pixels || width <= 0 || height <= 0 || pAssetFileSystem == nullptr)
     {
@@ -1020,8 +877,9 @@ bool GameplayHudCommon::loadHudTexture(
 
     GameplayHudTextureData textureHandle = {};
     textureHandle.textureName = toLowerCopy(textureName);
-    textureHandle.width = Engine::scalePhysicalPixelsToLogical(width, pAssetFileSystem->getAssetScaleTier());
-    textureHandle.height = Engine::scalePhysicalPixelsToLogical(height, pAssetFileSystem->getAssetScaleTier());
+    textureHandle.width = Engine::scalePhysicalPixelsToLogical(width, loadedTier);
+    textureHandle.height = Engine::scalePhysicalPixelsToLogical(height, loadedTier);
+    textureHandle.assetScaleTier = loadedTier;
     textureHandle.physicalWidth = width;
     textureHandle.physicalHeight = height;
     textureHandle.bgraPixels = *pixels;
@@ -1157,7 +1015,8 @@ bool GameplayHudCommon::loadHudFont(
     const Engine::AssetFileSystem *pAssetFileSystem,
     GameplayAssetLoadCache &cache,
     const std::string &fontName,
-    std::vector<GameplayHudFontData> &fonts)
+    std::vector<GameplayHudFontData> &fonts,
+    const Engine::FontSettings &settings)
 {
     if (fontName.empty())
     {
@@ -1216,100 +1075,37 @@ bool GameplayHudCommon::loadHudFont(
         return false;
     }
 
-    const std::optional<ParsedHudBitmapFont> parsedFont = parseHudBitmapFont(*fontBytes);
-
-    if (!parsedFont)
+    std::string error;
+    std::optional<Engine::FontAtlasImage> image =
+        Engine::loadFontAtlas(*pAssetFileSystem, *fontBytes, fontName, settings, error);
+    if (!image)
     {
-        std::cout << "HUD font load failed: font=\"" << fontName << "\" path=\"" << *fontPath
-                  << "\" bytes=" << fontBytes->size() << " reason=parse-failed\n";
+        std::cout << "HUD font load failed: font=\"" << fontName << "\" reason=" << error << '\n';
         return false;
-    }
-
-    int atlasCellWidth = 1;
-
-    for (const ParsedHudFontGlyphMetrics &metrics : parsedFont->glyphMetrics)
-    {
-        atlasCellWidth = std::max(atlasCellWidth, metrics.width);
-    }
-
-    const int atlasWidth = atlasCellWidth * 16;
-    const int atlasHeight = parsedFont->fontHeight * 16;
-
-    if (atlasWidth <= 0 || atlasHeight <= 0)
-    {
-        std::cout << "HUD font load failed: font=\"" << fontName << "\" path=\"" << *fontPath
-                  << "\" atlas=" << atlasWidth << "x" << atlasHeight << " reason=invalid-atlas\n";
-        return false;
-    }
-
-    std::vector<uint8_t> mainPixels(static_cast<size_t>(atlasWidth) * atlasHeight * 4, 0);
-    std::vector<uint8_t> shadowPixels(static_cast<size_t>(atlasWidth) * atlasHeight * 4, 0);
-
-    for (int glyphIndex = parsedFont->firstChar; glyphIndex <= parsedFont->lastChar; ++glyphIndex)
-    {
-        const ParsedHudFontGlyphMetrics &metrics = parsedFont->glyphMetrics[glyphIndex];
-
-        if (metrics.width <= 0)
-        {
-            continue;
-        }
-
-        const int cellX = (glyphIndex % 16) * atlasCellWidth;
-        const int cellY = (glyphIndex / 16) * parsedFont->fontHeight;
-        const size_t glyphOffset = parsedFont->glyphOffsets[glyphIndex];
-
-        for (int y = 0; y < parsedFont->fontHeight; ++y)
-        {
-            for (int x = 0; x < metrics.width; ++x)
-            {
-                const uint8_t pixelValue =
-                    parsedFont->pixels[glyphOffset + static_cast<size_t>(y) * metrics.width + x];
-
-                if (pixelValue == 0)
-                {
-                    continue;
-                }
-
-                const size_t atlasPixelIndex =
-                    (static_cast<size_t>(cellY + y) * atlasWidth + static_cast<size_t>(cellX + x)) * 4;
-                std::vector<uint8_t> &targetPixels = (pixelValue == 1) ? shadowPixels : mainPixels;
-                targetPixels[atlasPixelIndex + 0] = (pixelValue == 1) ? 0 : 255;
-                targetPixels[atlasPixelIndex + 1] = (pixelValue == 1) ? 0 : 255;
-                targetPixels[atlasPixelIndex + 2] = (pixelValue == 1) ? 0 : 255;
-                targetPixels[atlasPixelIndex + 3] = 255;
-            }
-        }
     }
 
     GameplayHudFontData fontHandle = {};
+    static_cast<Engine::FontAtlas &>(fontHandle) = std::move(image->atlas);
     fontHandle.fontName = toLowerCopy(fontName);
-    fontHandle.firstChar = parsedFont->firstChar;
-    fontHandle.lastChar = parsedFont->lastChar;
-    fontHandle.fontHeight = parsedFont->fontHeight;
-    fontHandle.atlasCellWidth = atlasCellWidth;
-    fontHandle.atlasWidth = atlasWidth;
-    fontHandle.atlasHeight = atlasHeight;
-    fontHandle.mainAtlasPixels = mainPixels;
-
-    for (int glyphIndex = 0; glyphIndex < 256; ++glyphIndex)
-    {
-        fontHandle.glyphMetrics[glyphIndex].leftSpacing = parsedFont->glyphMetrics[glyphIndex].leftSpacing;
-        fontHandle.glyphMetrics[glyphIndex].width = parsedFont->glyphMetrics[glyphIndex].width;
-        fontHandle.glyphMetrics[glyphIndex].rightSpacing = parsedFont->glyphMetrics[glyphIndex].rightSpacing;
-    }
+    const int atlasWidth = fontHandle.atlasWidth;
+    const int atlasHeight = fontHandle.atlasHeight;
+    const std::vector<uint8_t> &mainPixels = fontHandle.mainAtlasPixels;
+    const std::vector<uint8_t> &shadowPixels = image->shadowPixels;
+    const TextureFilterProfile filter = fontHandle.atlasScale > 1
+        ? TextureFilterProfile::SmoothText : TextureFilterProfile::Text;
 
     fontHandle.mainTextureHandle = createBgraTexture2D(
         static_cast<uint16_t>(atlasWidth),
         static_cast<uint16_t>(atlasHeight),
         mainPixels.data(),
         static_cast<uint32_t>(mainPixels.size()),
-        TextureFilterProfile::Text);
+        filter);
     fontHandle.shadowTextureHandle = createBgraTexture2D(
         static_cast<uint16_t>(atlasWidth),
         static_cast<uint16_t>(atlasHeight),
         shadowPixels.data(),
         static_cast<uint32_t>(shadowPixels.size()),
-        TextureFilterProfile::Text);
+        filter);
 
     if (!bgfx::isValid(fontHandle.mainTextureHandle) || !bgfx::isValid(fontHandle.shadowTextureHandle))
     {
@@ -1366,10 +1162,10 @@ bool GameplayHudCommon::tryGetOpaqueHudTextureBounds(
                 continue;
             }
 
-            opaqueMinX = std::min(opaqueMinX, Engine::scalePhysicalPixelsToLogical(x, assetScaleTier));
-            opaqueMinY = std::min(opaqueMinY, Engine::scalePhysicalPixelsToLogical(y, assetScaleTier));
-            opaqueMaxX = std::max(opaqueMaxX, Engine::scalePhysicalPixelsToLogical(x + 1, assetScaleTier) - 1);
-            opaqueMaxY = std::max(opaqueMaxY, Engine::scalePhysicalPixelsToLogical(y + 1, assetScaleTier) - 1);
+            opaqueMinX = std::min(opaqueMinX, x / Engine::assetScaleTierFactor(assetScaleTier));
+            opaqueMinY = std::min(opaqueMinY, y / Engine::assetScaleTierFactor(assetScaleTier));
+            opaqueMaxX = std::max(opaqueMaxX, x / Engine::assetScaleTierFactor(assetScaleTier));
+            opaqueMaxY = std::max(opaqueMaxY, y / Engine::assetScaleTierFactor(assetScaleTier));
         }
     }
 
@@ -1438,7 +1234,7 @@ bgfx::TextureHandle GameplayHudCommon::ensureHudFontMainTextureColor(
 
     for (size_t pixelIndex = 0; pixelIndex + 3 < tintedPixels.size(); pixelIndex += 4)
     {
-        if (tintedPixels[pixelIndex + 3] == 0)
+        if (tintedPixels[pixelIndex + 3] == 0 && font.atlasScale == 1)
         {
             continue;
         }
@@ -1453,7 +1249,7 @@ bgfx::TextureHandle GameplayHudCommon::ensureHudFontMainTextureColor(
         static_cast<uint16_t>(font.atlasHeight),
         tintedPixels.data(),
         static_cast<uint32_t>(tintedPixels.size()),
-        TextureFilterProfile::Text);
+        font.atlasScale > 1 ? TextureFilterProfile::SmoothText : TextureFilterProfile::Text);
 
     if (!bgfx::isValid(textureHandle))
     {
@@ -1629,26 +1425,28 @@ void GameplayHudCommon::renderHudFontLayer(
 
         if (glyphMetrics.width > 0)
         {
-            const int cellX = (character % 16) * font.atlasCellWidth;
-            const int cellY = (character / 16) * font.fontHeight;
-            const float u0 = static_cast<float>(cellX) / static_cast<float>(font.atlasWidth);
-            const float v0 = static_cast<float>(cellY) / static_cast<float>(font.atlasHeight);
-            const float u1 = static_cast<float>(cellX + glyphMetrics.width) / static_cast<float>(font.atlasWidth);
-            const float v1 = static_cast<float>(cellY + font.fontHeight) / static_cast<float>(font.atlasHeight);
-            const float glyphWidth = static_cast<float>(glyphMetrics.width) * fontScale;
-            const float glyphHeight = static_cast<float>(font.fontHeight) * fontScale;
+            const int cellX = (character % 16) * (font.atlasCellWidth + 2 * font.atlasPadding);
+            const int cellY = (character / 16) * (font.fontHeight + 2 * font.atlasPadding);
+            const float u0 = static_cast<float>(cellX) / static_cast<float>(font.atlasWidth / font.atlasScale);
+            const float v0 = static_cast<float>(cellY) / static_cast<float>(font.atlasHeight / font.atlasScale);
+            const float u1 = static_cast<float>(cellX + glyphMetrics.width + 2 * font.atlasPadding)
+                / static_cast<float>(font.atlasWidth / font.atlasScale);
+            const float v1 = static_cast<float>(cellY + font.fontHeight + 2 * font.atlasPadding)
+                / static_cast<float>(font.atlasHeight / font.atlasScale);
+            const float glyphWidth = static_cast<float>(glyphMetrics.width + 2 * font.atlasPadding) * fontScale;
+            const float glyphHeight = static_cast<float>(font.fontHeight + 2 * font.atlasPadding) * fontScale;
 
             submitTexturedQuad(
                 textureHandle,
-                penX,
-                textY,
+                penX - font.atlasPadding * fontScale,
+                textY - font.atlasPadding * fontScale,
                 glyphWidth,
                 glyphHeight,
                 u0,
                 v0,
                 u1,
                 v1,
-                TextureFilterProfile::Text);
+                font.atlasScale > 1 ? TextureFilterProfile::SmoothText : TextureFilterProfile::Text);
         }
 
         penX += static_cast<float>(glyphMetrics.width + glyphMetrics.rightSpacing) * fontScale;

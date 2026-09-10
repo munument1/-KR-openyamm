@@ -29,6 +29,7 @@ struct EditorIndoorGeometryImportSettings
     bool generateBsp = true;
     bool generateOutlines = true;
     bool generatePortals = true;
+    bool reserveSectorZero = false;
 };
 
 struct EditorIndoorGeometryMaterialMetadata
@@ -36,6 +37,8 @@ struct EditorIndoorGeometryMaterialMetadata
     std::string id;
     std::string sourceMaterial;
     std::string texture;
+    uint32_t textureWidth = 256;
+    uint32_t textureHeight = 256;
     std::vector<std::string> flags;
     std::string facetType;
 };
@@ -44,6 +47,7 @@ struct EditorIndoorGeometryRoomMetadata
 {
     std::string id;
     uint32_t roomId = 0;
+    int16_t minAmbientLightLevel = 0;
     std::string name;
     std::vector<std::string> sourceNodeNames;
     std::optional<size_t> runtimeSectorIndex = std::nullopt;
@@ -90,6 +94,8 @@ struct EditorIndoorGeometryMechanismMetadata
     std::optional<size_t> runtimeDoorIndex = std::nullopt;
     std::optional<uint32_t> doorId = std::nullopt;
     std::string initialState;
+    // Native direction points from open to closed; source geometry may represent either endpoint.
+    std::string sourcePose = "open";
     std::vector<size_t> affectedFaceIndices;
     std::vector<size_t> affectedVertexIndices;
     std::vector<size_t> triggerFaceIndices;

@@ -204,6 +204,8 @@ TEST_CASE("settings debug startup options round trip")
     settings.settingsProfileName = "test";
     settings.settingsProfileVersion = 7;
     settings.startWorldId = "mm7";
+    CHECK(settings.startupSaveFile.empty());
+    settings.startupSaveFile = "saves/desktop camera.oysav";
     settings.startMapFile.clear();
     settings.spriteOutline = true;
     settings.viewDistance = "unlimited";
@@ -240,6 +242,7 @@ TEST_CASE("settings debug startup options round trip")
     CHECK_EQ(loadedSettings->settingsProfileName, "test");
     CHECK_EQ(loadedSettings->settingsProfileVersion, 7);
     CHECK_EQ(loadedSettings->startWorldId, "mm7");
+    CHECK_EQ(loadedSettings->startupSaveFile, "saves/desktop camera.oysav");
     CHECK(loadedSettings->startMapFile.empty());
     CHECK(loadedSettings->spriteOutline);
     CHECK_EQ(loadedSettings->viewDistance, "unlimited");
