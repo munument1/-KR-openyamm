@@ -17,6 +17,7 @@
 #include "game/tables/RosterTable.h"
 #include "game/tables/SpellTable.h"
 #include "game/ui/GameplayHudCommon.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
 #include "game/ui/GameplayJournalMapUi.h"
 #include "game/party/SkillData.h"
 #include "game/gameplay/GameplayScreenRuntime.h"
@@ -1127,7 +1128,8 @@ void renderHudLines(
     const std::vector<std::string> &lines,
     float x,
     float y,
-    float fontScale)
+    float fontScale,
+    bool drawShadow = true)
 {
     bgfx::TextureHandle coloredMainTextureHandle = context.ensureHudFontMainTextureColor(font, colorAbgr);
 
@@ -1141,7 +1143,10 @@ void renderHudLines(
     for (size_t index = 0; index < lines.size(); ++index)
     {
         const float lineY = y + static_cast<float>(index) * lineHeight;
-        context.renderHudFontLayer(font, font.shadowTextureHandle, lines[index], x, lineY, fontScale);
+        if (drawShadow)
+        {
+            context.renderHudFontLayer(font, font.shadowTextureHandle, lines[index], x, lineY, fontScale);
+        }
         context.renderHudFontLayer(font, coloredMainTextureHandle, lines[index], x, lineY, fontScale);
     }
 }
@@ -1353,10 +1358,10 @@ std::string formatRestTimeText(float gameMinutes)
     const int hour24 = minuteOfDay / 60;
     const int minute = minuteOfDay % 60;
     const int hour12 = hour24 == 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
-    const char *pMeridiem = hour24 >= 12 ? "pm" : "am";
+    const char *pMeridiem = hour24 >= 12 ? "오후" : "오전";
 
-    char timeText[16] = {};
-    std::snprintf(timeText, sizeof(timeText), "%d:%02d %s", hour12, minute, pMeridiem);
+    char timeText[24] = {};
+    std::snprintf(timeText, sizeof(timeText), "%s %d:%02d", pMeridiem, hour12, minute);
     return timeText;
 }
 
@@ -1544,7 +1549,7 @@ uint32_t quickReferenceConditionColor(const std::string &conditionText)
 std::string quickReferenceClassName(const Character &character)
 {
     const std::string className = character.className.empty() ? character.role : character.className;
-    return displayClassName(className);
+    return KoreanRuntimeText::className(displayClassName(className));
 }
 
 size_t quickReferenceSkillCount(const Character &character)
@@ -1573,9 +1578,9 @@ std::string quickReferenceSpellName(const Character &character, const SpellTable
 
     const SpellEntry *pSpell = pSpellTable != nullptr ? pSpellTable->findByName(character.quickSpellName) : nullptr;
 
-    if (pSpell != nullptr && !pSpell->shortName.empty())
+    if (pSpell != nullptr)
     {
-        return pSpell->shortName;
+        return pSpell->displayName();
     }
 
     return character.quickSpellName;
@@ -2334,24 +2339,6 @@ std::string formatMonsterDamageText(const MonsterTable::MonsterStatsEntry::Damag
     return text;
 }
 
-std::string monsterSpellMasteryAbbreviation(SkillMastery mastery)
-{
-    switch (mastery)
-    {
-        case SkillMastery::Grandmaster:
-            return "GM";
-        case SkillMastery::Master:
-            return "M";
-        case SkillMastery::Expert:
-            return "E";
-        case SkillMastery::Normal:
-            return "N";
-        case SkillMastery::None:
-        default:
-            return "";
-    }
-}
-
 std::string formatMonsterInspectSpellText(
     const std::string &spellName,
     uint32_t skillLevel,
@@ -2369,42 +2356,20 @@ std::string formatMonsterInspectSpellText(
     {
         const SpellEntry *pSpellEntry = pSpellTable->findByName(spellName);
 
-        if (pSpellEntry != nullptr && !pSpellEntry->shortName.empty())
+        if (pSpellEntry != nullptr)
         {
-            displayName = pSpellEntry->shortName;
+            displayName = pSpellEntry->displayName();
         }
     }
 
-    const std::string mastery = monsterSpellMasteryAbbreviation(skillMastery);
+    const std::string mastery = KoreanRuntimeText::skillMasteryLabel(masteryDisplayName(skillMastery));
 
     if (skillLevel == 0 || mastery.empty())
     {
         return displayName;
     }
 
-    return displayName + " " + mastery + std::to_string(skillLevel);
-}
-
-std::string joinNonEmptyTexts(const std::vector<std::string> &parts)
-{
-    std::string result;
-
-    for (const std::string &part : parts)
-    {
-        if (part.empty() || part == "-" || part == "0")
-        {
-            continue;
-        }
-
-        if (!result.empty())
-        {
-            result += ", ";
-        }
-
-        result += part;
-    }
-
-    return result.empty() ? "-" : result;
+    return displayName + " " + mastery + " " + std::to_string(skillLevel);
 }
 
 std::string actorInspectSpellDisplayName(const std::string &spellName)
@@ -2413,52 +2378,52 @@ std::string actorInspectSpellDisplayName(const std::string &spellName)
 
     if (lowerName == "day of protection")
     {
-        return "Day of Protection";
+        return "보호의 날";
     }
 
     if (lowerName == "hour of power")
     {
-        return "Hour of Power";
+        return "힘의 시간";
     }
 
     if (lowerName == "pain reflection")
     {
-        return "Pain Reflection";
+        return "고통 반사";
     }
 
     if (lowerName == "hammerhands")
     {
-        return "Hammerhands";
+        return "망치손";
     }
 
     if (lowerName == "haste")
     {
-        return "Haste";
+        return "가속";
     }
 
     if (lowerName == "shield")
     {
-        return "Shield";
+        return "방패";
     }
 
     if (lowerName == "stoneskin")
     {
-        return "Stoneskin";
+        return "돌가죽";
     }
 
     if (lowerName == "bless")
     {
-        return "Bless";
+        return "축복";
     }
 
     if (lowerName == "fate")
     {
-        return "Fate";
+        return "운명";
     }
 
     if (lowerName == "heroism")
     {
-        return "Heroism";
+        return "영웅심";
     }
 
     return spellName;
@@ -2466,14 +2431,14 @@ std::string actorInspectSpellDisplayName(const std::string &spellName)
 
 std::string formatMonsterResistanceText(int value)
 {
-    return value >= 200 ? "Imm" : std::to_string(value);
+    return value >= 200 ? "면역" : std::to_string(value);
 }
 
 std::string resolveItemInspectTypeText(const InventoryItem *pItemState, const ItemDefinition &itemDefinition)
 {
     if (pItemState != nullptr && !pItemState->identified && ItemRuntime::requiresIdentification(itemDefinition))
     {
-        return "Not identified";
+        return "미감정";
     }
 
     if (!itemDefinition.unidentifiedName.empty()
@@ -3511,7 +3476,8 @@ void GameplayPartyOverlayRenderer::renderKeyboardOverlay(GameplayScreenRuntime &
             context,
             *font,
             labelColor,
-            std::vector<std::string>{std::string(definition.label)},
+            std::vector<std::string>{KoreanRuntimeText::keyboardActionLabel(
+                std::string(definition.label), settings.controlScheme == ControlScheme::Classic)},
             labelX + keyboardLayout->textPaddingX,
             textY,
             fontScale);
@@ -3522,7 +3488,8 @@ void GameplayPartyOverlayRenderer::renderKeyboardOverlay(GameplayScreenRuntime &
             std::vector<std::string>{
                 highlighted
                     ? std::string("Press Input")
-                    : inputBindingDisplayName(settings.keyboard.binding(definition.action))
+                    : KoreanRuntimeText::keyboardBindingLabel(
+                        inputBindingDisplayName(settings.keyboard.binding(definition.action)))
             },
             valueX + keyboardLayout->textPaddingX,
             textY,
@@ -4527,7 +4494,7 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                 for (size_t entryIndex = 0; entryIndex < pages[pageIndex].entries.size(); ++entryIndex)
                 {
                     const JournalStackedPageEntry &entry = pages[pageIndex].entries[entryIndex];
-                    renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale);
+                    renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale, false);
                     textY += static_cast<float>(entry.lines.size()) * lineHeight;
 
                     if (entryIndex + 1 < pages[pageIndex].entries.size() && dividerTexture)
@@ -4638,7 +4605,7 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
                 for (size_t entryIndex = 0; entryIndex < pages[pageIndex].entries.size(); ++entryIndex)
                 {
                     const JournalStackedPageEntry &entry = pages[pageIndex].entries[entryIndex];
-                    renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale);
+                    renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, entry.lines, textResolved->x, textY, bodyFontScale, false);
                     textY += static_cast<float>(entry.lines.size()) * lineHeight;
 
                     if (entryIndex + 1 < pages[pageIndex].entries.size() && dividerTexture)
@@ -4659,7 +4626,7 @@ void GameplayPartyOverlayRenderer::renderJournalOverlay(GameplayScreenRuntime &c
 
         if (!bodyLines.empty())
         {
-            renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, bodyLines, textResolved->x, textResolved->y, bodyFontScale);
+            renderHudLines(context, *bodyFont, pTextLayout->textColorAbgr, bodyLines, textResolved->x, textResolved->y, bodyFontScale, false);
         }
     }
 
@@ -5726,9 +5693,12 @@ void GameplayPartyOverlayRenderer::renderSpellbookOverlay(GameplayScreenRuntime 
             context.renderHudFontLayer(*font, textTexture, text, textX, textY, fontScale);
         };
 
-    renderSpellbookTopLabel(
-        "SpellbookSelectLabel",
-        hasSelectedSpell ? "Select " + pSelectedSpell->name : std::string());
+    std::string selectedSpellLabel;
+    if (hasSelectedSpell)
+    {
+        selectedSpellLabel = "선택: " + pSelectedSpell->displayName();
+    }
+    renderSpellbookTopLabel("SpellbookSelectLabel", selectedSpellLabel);
     renderSpellbookTopLabel(
         "SpellbookCasterName",
         pActiveMember != nullptr ? pActiveMember->name : std::string());
@@ -6861,7 +6831,7 @@ void GameplayPartyOverlayRenderer::renderCharacterInspectOverlay(GameplayScreenR
                     bonusTextureHandle = pFont->mainTextureHandle;
                 }
 
-                const std::string label = "Skill bonus: ";
+                const std::string label = "기술 보너스: ";
                 const std::string value = "+" + std::to_string(skillBonus);
                 const float labelX = std::round(baseResolved.x + baseLayout.textPadX * popupScale);
                 const float valueX = labelX + context.measureHudTextWidth(*pFont, label) * popupScale;
@@ -8015,7 +7985,7 @@ void GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(GameplayScreenRu
     float statsY = std::round(rootRect.y + 35.0f * popupScale);
     renderHudText(
         *pBodyFont,
-        "Hit Points : " + overlay.hitPointsText,
+        "생명력 : " + overlay.hitPointsText,
         statsX,
         statsY,
         bodyFontScale,
@@ -8023,7 +7993,7 @@ void GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(GameplayScreenRu
     statsY += statsLineAdvance;
     renderHudText(
         *pBodyFont,
-        "Spell Points : " + overlay.spellPointsText,
+        "주문력 : " + overlay.spellPointsText,
         statsX,
         statsY,
         bodyFontScale,
@@ -8031,7 +8001,7 @@ void GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(GameplayScreenRu
     statsY += statsLineAdvance;
     renderHudText(
         *pBodyFont,
-        "Condition: " + overlay.conditionText,
+        "상태: " + overlay.conditionText,
         statsX,
         statsY,
         bodyFontScale,
@@ -8039,7 +8009,7 @@ void GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(GameplayScreenRu
     statsY += statsLineAdvance;
     renderHudText(
         *pBodyFont,
-        "Quick Spell: " + overlay.quickSpellText,
+        "빠른 주문: " + overlay.quickSpellText,
         statsX,
         statsY,
         bodyFontScale,
@@ -8049,7 +8019,7 @@ void GameplayPartyOverlayRenderer::renderCharacterDetailOverlay(GameplayScreenRu
     const float activeSpellsHeaderY = std::round(rootRect.y + 100.0f * popupScale);
     renderHudText(
         *pBodyFont,
-        "Active Spells:",
+        "활성 주문:",
         activeSpellsHeaderX,
         activeSpellsHeaderY,
         bodyFontScale,
@@ -8333,7 +8303,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
         canTrainToNextLevel = summary.canTrainToNextLevel;
         attackValue = std::to_string(summary.combat.attack);
         meleeDamageValue = summary.combat.meleeDamageText;
-        shootValue = summary.combat.shoot ? std::to_string(*summary.combat.shoot) : "N/A";
+        shootValue = summary.combat.shoot ? std::to_string(*summary.combat.shoot) : "해당 없음";
         rangedDamageValue = summary.combat.rangedDamageText;
         fireResistanceValue = formatSheetValue(summary.fireResistance);
         airResistanceValue = formatSheetValue(summary.airResistance);
@@ -8352,7 +8322,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                       return context.isAutonoteUnlocked(autonoteId);
                   })
             : pCharacter->awards.size();
-        awards = "Awards earned: " + std::to_string(awardCount);
+        awards = "획득한 업적: " + std::to_string(awardCount);
 
         if (context.rosterTable() != nullptr && pCharacter->rosterId != 0)
         {
@@ -9440,7 +9410,7 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
             label = replaceAllText(
                 label,
                 "{stats_skill_points}",
-                pCharacter != nullptr ? "Skill Points: " + std::to_string(pCharacter->skillPoints) : "Skill Points: 0");
+                pCharacter != nullptr ? "기술 점수: " + std::to_string(pCharacter->skillPoints) : "기술 점수: 0");
             label = replaceAllText(
                 label,
                 "{stats_skill_points_value}",
@@ -9449,7 +9419,8 @@ void GameplayPartyOverlayRenderer::renderCharacterOverlay(
                 label,
                 "{character_class_race}",
                 pCharacter != nullptr
-                    ? displayClassName(!pCharacter->className.empty() ? pCharacter->className : pCharacter->role)
+                    ? KoreanRuntimeText::className(
+                        displayClassName(!pCharacter->className.empty() ? pCharacter->className : pCharacter->role))
                     : "");
             label = replaceAllText(
                 label,
@@ -10010,8 +9981,9 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
     }
 
     const std::vector<std::string> attackRows = {
-        pStats->attack1Type,
-        (actorState.attack2Chance > 0 || !pStats->attack2Type.empty()) ? pStats->attack2Type : std::string()};
+        KoreanRuntimeText::monsterAttackTypeLabel(pStats->attack1Type),
+        (actorState.attack2Chance > 0 || !pStats->attack2Type.empty())
+            ? KoreanRuntimeText::monsterAttackTypeLabel(pStats->attack2Type) : std::string()};
     const std::vector<std::string> damageRows = {
         formatMonsterDamageText(actorState.attack1Damage),
         (actorState.attack2Chance > 0 || actorState.attack2Damage.diceRolls > 0)
@@ -10561,7 +10533,7 @@ void GameplayPartyOverlayRenderer::renderActorInspectOverlay(GameplayScreenRunti
         }
     }
 
-    const std::string effectsText = activeEffects.empty() ? "None" : joinNonEmptyTexts(activeEffects);
+    const std::string effectsText = KoreanRuntimeText::actorEffectsText(activeEffects);
     const float dynamicStatLineAdvance = compactStatLineAdvance * popupScale;
     const auto renderTextForLayout =
         [&context, &resolveLayout](const char *pLayoutId, const std::string &text, float yOffset = 0.0f)

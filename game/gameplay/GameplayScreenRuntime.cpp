@@ -19,6 +19,7 @@
 #include "game/StringUtils.h"
 #include "game/tables/MergedBaseTables.h"
 #include "game/ui/GameplayJournalMapUi.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
 #include "game/ui/SpellbookUiLayout.h"
 
 #include <SDL3/SDL.h>
@@ -1255,7 +1256,9 @@ void GameplayScreenRuntime::setStatusBarEvent(
     float durationSeconds,
     GameplayUiController::StatusBarEventPriority priority)
 {
-    uiController().setStatusBarEvent(text, durationSeconds, priority);
+    const std::string localizedText =
+        KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
+    uiController().setStatusBarEvent(localizedText, durationSeconds, priority);
 }
 
 void GameplayScreenRuntime::openRestOverlay(bool enforceWorldRestrictions)

@@ -1441,13 +1441,20 @@ int characterEffectiveSkillCheckValue(const Character &member, const std::string
     }
 
     const CharacterSkill *pSkill = member.findSkill(skillName);
+    const auto bonusIt = member.itemSkillBonuses.find(skillName);
+    const int bonusLevel = bonusIt != member.itemSkillBonuses.end() ? bonusIt->second : 0;
+    const bool hasLearnedSkill =
+        pSkill != nullptr && pSkill->level > 0 && pSkill->mastery != SkillMastery::None;
 
-    if (pSkill == nullptr || pSkill->level == 0 || pSkill->mastery == SkillMastery::None)
+    if (!hasLearnedSkill && bonusLevel <= 0)
     {
         return 0;
     }
 
-    return static_cast<int>(pSkill->level) * masteryEffectiveMultiplier(pSkill->mastery);
+    const int effectiveLevel =
+        (hasLearnedSkill ? static_cast<int>(pSkill->level) : 0) + std::max(0, bonusLevel);
+    const SkillMastery mastery = hasLearnedSkill ? pSkill->mastery : SkillMastery::Normal;
+    return effectiveLevel * masteryEffectiveMultiplier(mastery);
 }
 
 bool characterMeetsSkillCheck(
@@ -1456,16 +1463,15 @@ bool characterMeetsSkillCheck(
     uint32_t rawMastery,
     uint32_t level)
 {
-    const CharacterSkill *pSkill = member.findSkill(skillName);
-
-    if (pSkill == nullptr)
-    {
-        return false;
-    }
-
     if (rawMastery == 0)
     {
         return characterEffectiveSkillCheckValue(member, skillName) >= static_cast<int>(level);
+    }
+
+    const CharacterSkill *pSkill = member.findSkill(skillName);
+    if (pSkill == nullptr || pSkill->level == 0 || pSkill->mastery == SkillMastery::None)
+    {
+        return false;
     }
 
     const SkillMastery mastery = normalizeCheckSkillMastery(rawMastery);

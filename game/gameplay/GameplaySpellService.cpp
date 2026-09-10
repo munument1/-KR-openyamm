@@ -8,6 +8,7 @@
 #include "game/gameplay/TurnBasedCombatRuntime.h"
 #include "game/party/LloydsBeaconRuntime.h"
 #include "game/party/SpellIds.h"
+#include "game/tables/SpellTable.h"
 
 namespace OpenYAMM::Game
 {
@@ -33,6 +34,21 @@ SkillMastery dragonAbilityMasteryForCaster(const GameplayScreenRuntime &runtime,
     const Character *pCaster = pParty != nullptr ? pParty->member(casterMemberIndex) : nullptr;
     const CharacterSkill *pDragonAbility = pCaster != nullptr ? pCaster->findSkill("DragonAbility") : nullptr;
     return pDragonAbility != nullptr ? pDragonAbility->mastery : SkillMastery::None;
+}
+
+std::string displaySpellName(
+    const GameplayScreenRuntime &runtime,
+    uint32_t spellId,
+    const std::string &fallbackName)
+{
+    const SpellTable *pSpellTable = runtime.spellTable();
+    const SpellEntry *pSpellEntry = pSpellTable != nullptr ? pSpellTable->findById(static_cast<int>(spellId)) : nullptr;
+    if (pSpellEntry != nullptr)
+    {
+        return pSpellEntry->displayName();
+    }
+
+    return fallbackName;
 }
 }
 
@@ -430,6 +446,7 @@ void GameplaySpellService::armPendingTargetSelection(
     pendingTargetState.applyRecovery = request.applyRecovery;
     pendingTargetState.targetKind = targetKind;
     pendingTargetState.spellName = spellName;
+    pendingTargetState.displaySpellName = displaySpellName(runtime, request.spellId, spellName);
     showPendingTargetSelectionPrompt(runtime);
 }
 
@@ -476,7 +493,9 @@ std::string GameplaySpellService::pendingTargetSelectionPromptText(bool includeC
             : pendingTargetState.targetKind == PartySpellCastTargetKind::TelekinesisTarget
             ? "Select target for "
             : "Select target for ";
-    prompt += pendingTargetState.spellName;
+    prompt += pendingTargetState.displaySpellName.empty()
+        ? pendingTargetState.spellName
+        : pendingTargetState.displaySpellName;
 
     if (includeControls)
     {
@@ -720,7 +739,7 @@ bool GameplaySpellService::tryOpenSelectionUi(
             GameplayUiController::UtilitySpellOverlayMode::InventoryTarget,
             request.spellId,
             request.casterMemberIndex);
-        runtime.setStatusBarEvent("Select item for " + spellName, 4.0f);
+        runtime.setStatusBarEvent("Select item for " + displaySpellName(runtime, request.spellId, spellName), 4.0f);
         return true;
     }
 
@@ -822,7 +841,7 @@ void GameplaySpellService::applySuccessFeedback(
 
     if (!spellName.empty() && result.effectKind != PartySpellCastEffectKind::Telekinesis)
     {
-        runtime.setStatusBarEvent("Cast " + spellName);
+        runtime.setStatusBarEvent("Cast " + displaySpellName(runtime, request.spellId, spellName));
     }
 }
 

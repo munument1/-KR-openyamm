@@ -1,4 +1,4 @@
-# OpenYAMM
+# OpenYAMM 0.11 한국어판
 
 OpenYAMM은 **Open Yet Another Might and Magic**의 약자로, MMMerge에서 영감을 받아 개발된
 Might and Magic VI, VII, VIII의 현대적인 C++ 재구현 프로젝트입니다. 엔진은 처음에
@@ -113,7 +113,8 @@ cmake --build build --target openyamm-editor -j25
 Windows에서는 ZIP을 푼 뒤 `openyamm.exe`를 실행합니다. Flatpak 번들은 다음 명령으로 설치하거나 갱신합니다.
 
 ```sh
-flatpak install --user --reinstall OpenYAMM-nightly-x86_64.flatpak
+git tag -a 0.11-korean -m "OpenYAMM 0.11-korean"
+git push origin 0.11-korean
 ```
 
 Android 6.0 이상을 사용하는 arm64 기기에서는 `OpenYAMM-nightly-android-arm64.apk`를 내려받아 실행하면

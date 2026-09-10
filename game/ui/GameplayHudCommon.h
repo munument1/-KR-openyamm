@@ -46,6 +46,7 @@ struct GameplayHudFontData : Engine::FontAtlas
     std::string fontName;
     bgfx::TextureHandle mainTextureHandle = BGFX_INVALID_HANDLE;
     bgfx::TextureHandle shadowTextureHandle = BGFX_INVALID_HANDLE;
+    bool unicodeFallbackLoaded = false;
 };
 
 struct GameplayHudFontColorTextureData
@@ -234,6 +235,37 @@ public:
         float fontScale,
         const SubmitTexturedQuadFn &submitTexturedQuad);
     static void renderLayoutLabel(
+        const UiLayoutManager::LayoutElement &layout,
+        const GameplayResolvedHudLayoutElement &resolved,
+        const std::string &label,
+        const FindHudFontFn &findHudFont,
+        const EnsureHudFontColorFn &ensureHudFontColor,
+        const RenderHudFontLayerFn &renderHudFontLayer);
+
+private:
+    static bool loadHudFontLegacy(
+        const Engine::AssetFileSystem *pAssetFileSystem,
+        GameplayAssetLoadCache &cache,
+        const std::string &fontName,
+        std::vector<GameplayHudFontData> &fonts);
+    static float measureHudTextWidthLegacy(const GameplayHudFontData &font, const std::string &text);
+    static std::string clampHudTextToWidthLegacy(
+        const GameplayHudFontData &font,
+        const std::string &text,
+        float maxWidth);
+    static std::vector<std::string> wrapHudTextToWidthLegacy(
+        const GameplayHudFontData &font,
+        const std::string &text,
+        float maxWidth);
+    static void renderHudFontLayerLegacy(
+        const GameplayHudFontData &font,
+        bgfx::TextureHandle textureHandle,
+        const std::string &text,
+        float textX,
+        float textY,
+        float fontScale,
+        const SubmitTexturedQuadFn &submitTexturedQuad);
+    static void renderLayoutLabelLegacy(
         const UiLayoutManager::LayoutElement &layout,
         const GameplayResolvedHudLayoutElement &resolved,
         const std::string &label,

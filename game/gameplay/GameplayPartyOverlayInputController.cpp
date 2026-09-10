@@ -1575,7 +1575,7 @@ void GameplayPartyOverlayInputController::handleSpellbookOverlayInput(
                     context.partyReadOnly()->activeMemberIndex(),
                     SpeechId::SetQuickSpell,
                     true);
-                context.setStatusBarEvent("Quick spell set to " + pSpellEntry->name);
+                context.setStatusBarEvent("Quick spell set to " + pSpellEntry->displayName());
                 return;
             }
 
@@ -1649,7 +1649,7 @@ void GameplayPartyOverlayInputController::handleSpellbookOverlayInput(
                     context.partyReadOnly()->activeMemberIndex(),
                     SpeechId::SetQuickSpell,
                     true);
-                context.setStatusBarEvent("Attack spell set to " + pSpellEntry->name);
+                context.setStatusBarEvent("Attack spell set to " + pSpellEntry->displayName());
             }
         });
 }

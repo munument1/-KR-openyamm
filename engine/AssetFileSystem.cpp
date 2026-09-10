@@ -102,6 +102,7 @@ constexpr const char *SkyTextureDirectoryName = "sky_textures";
 constexpr const char *LegacyDirectoryName = "_legacy";
 constexpr const char *SingleAssetPackageName = "assets.zip";
 constexpr const char *EngineAssetPackageName = "engine.zip";
+constexpr const char *KoreanOverlayDirectoryName = "korean";
 constexpr std::array<const char *, 4> KnownWorldPackageIds = {"mm6", "mm7", "mm8", "mmmerge"};
 
 struct TieredAssetDirectory
@@ -575,6 +576,67 @@ bool AssetFileSystem::initialize(
         {
             shutdown();
             return false;
+        }
+    }
+
+    const std::filesystem::path koreanOverlayRoot = androidApkAssetRoot
+        ? std::filesystem::current_path() / KoreanOverlayDirectoryName
+        : (packagedAssetRoot
+            ? assetRoot / KoreanOverlayDirectoryName
+            : assetRoot.parent_path() / KoreanOverlayDirectoryName / "overlay");
+
+    const auto findOverlayPackage = [](const std::filesystem::path &root, const std::string &packageId)
+        -> std::optional<std::filesystem::path>
+    {
+        const std::filesystem::path directoryPath = root / packageId;
+        if (std::filesystem::is_directory(directoryPath))
+        {
+            return directoryPath;
+        }
+
+        const std::filesystem::path archivePath = root / (packageId + ".zip");
+        if (isZipArchivePath(archivePath))
+        {
+            return archivePath;
+        }
+
+        return std::nullopt;
+    };
+
+    if (std::filesystem::is_directory(koreanOverlayRoot))
+    {
+        const std::optional<std::filesystem::path> engineOverlay =
+            findOverlayPackage(koreanOverlayRoot, EngineDevelopmentRootName);
+        if (engineOverlay && !mountSearchRoot(*engineOverlay, false))
+        {
+            shutdown();
+            return false;
+        }
+
+        const std::filesystem::path worldOverlayRoot = koreanOverlayRoot / WorldsDevelopmentRootName;
+        const std::optional<std::filesystem::path> activeWorldOverlay =
+            findOverlayPackage(worldOverlayRoot, m_activeWorldId);
+        if (activeWorldOverlay && !mountSearchRoot(*activeWorldOverlay, false))
+        {
+            shutdown();
+            return false;
+        }
+
+        for (const char *pWorldId : KnownWorldPackageIds)
+        {
+            const std::optional<std::filesystem::path> worldOverlay =
+                findOverlayPackage(worldOverlayRoot, pWorldId);
+            if (worldOverlay
+                && !mountSearchRootAt(*worldOverlay, "/worlds/" + std::string(pWorldId), false))
+            {
+                shutdown();
+                return false;
+            }
+        }
+
+        if (engineOverlay || activeWorldOverlay)
+        {
+            std::cout << "Mounted Korean localization overlays from " << koreanOverlayRoot << '\n';
         }
     }
 
@@ -1555,10 +1617,14 @@ std::vector<std::string> AssetFileSystem::resolveVirtualPathCandidates(const std
         appendCandidateWithAndroidApkPrefixes(baseTieredVirtualPath(candidate));
     };
 
-    const bool packageQualified = normalizedPath.starts_with("engine/")
-        || normalizedPath.starts_with("worlds/");
+    // World-qualified paths address an explicit package namespace and must
+    // remain exact-first. Engine-qualified paths are different: engine overlays
+    // are mounted at package root, so their alias (for example data_tables/...)
+    // must be tried before a broad development-root engine/... path can return
+    // the untranslated source asset.
+    const bool worldQualified = normalizedPath.starts_with("worlds/");
 
-    if (packageQualified)
+    if (worldQualified)
     {
         appendPathWithTierFallbacks(normalizedPath);
     }
@@ -1568,7 +1634,7 @@ std::vector<std::string> AssetFileSystem::resolveVirtualPathCandidates(const std
         appendPathWithTierFallbacks(candidate);
     }
 
-    if (!packageQualified)
+    if (!worldQualified)
     {
         appendPathWithTierFallbacks(normalizedPath);
     }

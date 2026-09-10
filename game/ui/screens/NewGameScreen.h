@@ -97,6 +97,111 @@ private:
         std::string statusMessage;
     };
 
+    std::string localizedNewGameDisplayText(const std::string &text) const
+    {
+        const bool isPrimaryStat =
+            text == "Might"
+            || text == "Intellect"
+            || text == "Personality"
+            || text == "Endurance"
+            || text == "Accuracy"
+            || text == "Speed"
+            || text == "Luck";
+
+        if (m_pGameData != nullptr)
+        {
+            if (isPrimaryStat)
+            {
+                if (const StatInspectEntry *pEntry = m_pGameData->characterInspectTable().getStat(text))
+                {
+                    if (!pEntry->name.empty())
+                    {
+                        return pEntry->name;
+                    }
+                }
+            }
+
+            if (const SkillInspectEntry *pEntry = m_pGameData->characterInspectTable().getSkill(text))
+            {
+                if (!pEntry->name.empty())
+                {
+                    return pEntry->name;
+                }
+            }
+
+            if (const ClassInspectEntry *pEntry = m_pGameData->characterInspectTable().getClass(text))
+            {
+                if (!pEntry->name.empty())
+                {
+                    return pEntry->name;
+                }
+            }
+        }
+
+        // Directly reviewed display-only race labels used by character creation.
+        if (text == "Human") return "인간";
+        if (text == "Vampire") return "뱀파이어";
+        if (text == "DarkElf" || text == "Dark Elf") return "다크 엘프";
+        if (text == "Minotaur") return "미노타우로스";
+        if (text == "Troll") return "트롤";
+        if (text == "Dragon") return "드래곤";
+        if (text == "Undead") return "언데드";
+        if (text == "Elf") return "엘프";
+        if (text == "Goblin") return "고블린";
+        if (text == "Dwarf") return "드워프";
+        if (text == "Zombie") return "좀비";
+
+        // Directly reviewed new-game-only status messages.
+        if (text == "Only two additional skills can be selected.")
+        {
+            return "추가 기술은 두 개까지만 선택할 수 있습니다.";
+        }
+        if (text == "Character name cannot be empty.")
+        {
+            return "캐릭터 이름은 비워 둘 수 없습니다.";
+        }
+
+        // Verified against MMMerge KO_GlobalTxt IDs 433, 432 and 225.
+        if (text.rfind("Expert: ", 0) == 0)
+        {
+            return "전문가: " + text.substr(8);
+        }
+        if (text.rfind("Master: ", 0) == 0)
+        {
+            return "마스터: " + text.substr(8);
+        }
+        if (text.rfind("Grandmaster: ", 0) == 0)
+        {
+            return "그랜드마스터: " + text.substr(13);
+        }
+
+        return text;
+    }
+
+    bool drawText(
+        const std::string &fontName,
+        const std::string &text,
+        float pixelX,
+        float pixelY,
+        uint32_t colorAbgr = 0xffffffffu,
+        float scale = 1.0f,
+        bool drawShadow = true)
+    {
+        return MenuScreenBase::drawText(
+            fontName,
+            localizedNewGameDisplayText(text),
+            pixelX,
+            pixelY,
+            colorAbgr,
+            scale,
+            drawShadow);
+    }
+
+    float measureTextWidth(const std::string &fontName, const std::string &text, float scale = 1.0f)
+    {
+        return MenuScreenBase::measureTextWidth(fontName, localizedNewGameDisplayText(text), scale);
+    }
+
     void drawScreen(float deltaSeconds) override;
     void drawContinentSelection(float deltaSeconds);
     void selectContinent(const std::string &continentKey);
@@ -132,6 +237,15 @@ private:
     std::string classNameForState(const CreationState &state) const;
     std::vector<int> availableVoiceIdsForSelectedCandidate() const;
     std::vector<std::string> wrapTextToWidth(const std::string &fontName, const std::string &text, float maxWidth, float scale);
+    std::vector<std::string> wrapTextToWidth(const std::string &fontName, const char *pText, float maxWidth, float scale)
+    {
+        std::string text = pText != nullptr ? pText : "";
+        if (text == "Create Party cannot be completed unless you have assigned all characters 2 extra skills and have spent all of your bonus points.")
+        {
+            text = "모든 캐릭터에게 추가 기술 2개를 선택하고 보너스 포인트를 모두 사용해야 파티 생성을 완료할 수 있습니다.";
+        }
+        return wrapTextToWidth(fontName, text, maxWidth, scale);
+    }
     const CharacterDollEntry *selectedCharacterEntry() const;
     const CharacterDollEntry *characterEntryForState(const CreationState &state) const;
     const CreationCandidate &selectedCandidate() const;

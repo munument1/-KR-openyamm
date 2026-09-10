@@ -8,6 +8,10 @@ add_executable(openyamm_unit_tests
     HouseDialogueRegressionTests.cpp
     ScriptedMapRegressionTests.cpp
     UnitTestMain.cpp
+    KoreanTextLayoutTests.cpp
+    KoreanCalendarTextTests.cpp
+    KoreanServiceTextTests.cpp
+    Utf8LabelLayoutTests.cpp
     CharacterSheetRegressionTests.cpp
     CombatActorHealthBarPolicyTests.cpp
     GameplayActorAiSystemTests.cpp

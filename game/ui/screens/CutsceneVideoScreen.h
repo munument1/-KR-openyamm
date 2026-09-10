@@ -12,6 +12,13 @@ namespace OpenYAMM::Game
 class CutsceneVideoScreen : public MenuScreenBase
 {
 public:
+    struct SubtitleCue
+    {
+        float startSeconds = 0.0f;
+        float endSeconds = 0.0f;
+        std::string text;
+    };
+
     CutsceneVideoScreen(
         const Engine::AssetFileSystem &assetFileSystem,
         GameAudioSystem *pGameAudioSystem,
@@ -28,6 +35,8 @@ public:
 
 private:
     void drawScreen(float deltaSeconds) override;
+    void loadSubtitles();
+    void drawSubtitles(const Rect &videoRect);
 
     GameAudioSystem *m_pGameAudioSystem = nullptr;
     HouseVideoPlayer m_videoPlayer;
@@ -38,6 +47,7 @@ private:
     bool m_startedPlayback = false;
     bool m_shouldClose = false;
     bool m_pausedBackgroundMusic = false;
+    std::vector<SubtitleCue> m_subtitles;
     std::vector<uint8_t> m_blackPixel = {0, 0, 0, 255};
 };
 }

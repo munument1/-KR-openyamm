@@ -1,16 +1,75 @@
 #include "game/ui/GameplayHudCommon.h"
 
-#include "engine/ImageAssetLoader.h"
-#include "game/maps/MapIdentity.h"
-#include "game/render/TextureFiltering.h"
-#include "game/StringUtils.h"
+#define loadHudFont loadHudFontLegacy
+#define measureHudTextWidth measureHudTextWidthLegacy
+#define clampHudTextToWidth clampHudTextToWidthLegacy
+#define wrapHudTextToWidth wrapHudTextToWidthLegacy
+#define renderHudFontLayer renderHudFontLayerLegacy
+#define renderLayoutLabel renderLayoutLabelLegacy
+#include "game/ui/GameplayHudCommonLegacy.cpp"
+#undef renderLayoutLabel
+#undef renderHudFontLayer
+#undef wrapHudTextToWidth
+#undef clampHudTextToWidth
+#undef measureHudTextWidth
+#undef loadHudFont
+
+#include "game/ui/Utf8Text.h"
+#include "game/ui/KoreanFontMetrics.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
+
+#define STBTT_STATIC
+#define STB_TRUETYPE_IMPLEMENTATION
+#include <stb/stb_truetype.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
-#include <cstdio>
-#include <cstring>
+#include <cstdint>
+#include <cstddef>
 #include <iostream>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "game/ui/GameplayHudKoreanAtlas.inc"
+
+struct GameplayHudCommonKoreanRaw
+{
+    using SubmitTexturedQuadFn = GameplayHudCommon::SubmitTexturedQuadFn;
+    using FindHudFontFn = GameplayHudCommon::FindHudFontFn;
+    using EnsureHudFontColorFn = GameplayHudCommon::EnsureHudFontColorFn;
+    using RenderHudFontLayerFn = GameplayHudCommon::RenderHudFontLayerFn;
+
+    static float measureHudTextWidth(const GameplayHudFontData &font, const std::string &text);
+    static std::string clampHudTextToWidth(const GameplayHudFontData &font, const std::string &text, float maxWidth);
+    static std::vector<std::string> wrapHudTextToWidth(
+        const GameplayHudFontData &font,
+        const std::string &text,
+        float maxWidth);
+    static void renderHudFontLayer(
+        const GameplayHudFontData &font,
+        bgfx::TextureHandle textureHandle,
+        const std::string &text,
+        float textX,
+        float textY,
+        float fontScale,
+        const SubmitTexturedQuadFn &submitTexturedQuad);
+    static void renderLayoutLabel(
+        const UiLayoutManager::LayoutElement &layout,
+        const GameplayResolvedHudLayoutElement &resolved,
+        const std::string &label,
+        const FindHudFontFn &findHudFont,
+        const EnsureHudFontColorFn &ensureHudFontColor,
+        const RenderHudFontLayerFn &renderHudFontLayer);
+};
+
+#define GameplayHudCommon GameplayHudCommonKoreanRaw
+#include "game/ui/GameplayHudKoreanText.inc"
+#undef GameplayHudCommon
 
 namespace OpenYAMM::Game
 {
@@ -27,20 +86,10 @@ std::string actPaletteCacheKey(int16_t paletteId, const std::string &worldId)
     return normalizedWorldId + "|" + std::to_string(static_cast<int>(paletteId));
 }
 
-std::vector<std::string> actPaletteCandidatePaths(int16_t paletteId, const std::string &worldId)
+bool endsWith(const std::string &text, const std::string &suffix)
 {
-    char paletteFileName[32] = {};
-    std::snprintf(paletteFileName, sizeof(paletteFileName), "pal%03d.act", static_cast<int>(paletteId));
-
-    std::vector<std::string> paths;
-
-    if (!worldId.empty())
-    {
-        paths.push_back("worlds/" + normalizeWorldId(worldId) + "/textures/" + paletteFileName);
-    }
-
-    paths.push_back(std::string("Data/bitmaps/") + paletteFileName);
-    return paths;
+    return text.size() >= suffix.size()
+        && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
 bool usesBlackTransparencyKey(std::string_view textureName)
@@ -66,96 +115,58 @@ bgfx::TextureHandle ensureHudTextureColorWithMode(
             && textureHandle.colorAbgr == colorAbgr
             && textureHandle.colorMode == colorMode)
         {
-            return textureHandle.textureHandle;
+            const std::string days = text.substr(14, daysPosition - 14);
+            const size_t priceStart = daysPosition + 10;
+            const std::string price = text.substr(priceStart, text.size() - priceStart - 5);
+            return "식량 " + days + "일분 채우기: " + price + "골드";
         }
     }
 
-    if (texture.bgraPixels.empty() || texture.physicalWidth <= 0 || texture.physicalHeight <= 0)
+    if (startsWith(text, "Current Fine: ") && endsWith(text, " gold"))
     {
-        return BGFX_INVALID_HANDLE;
+        return "현재 벌금: " + text.substr(14, text.size() - 19) + "골드";
     }
 
-    std::vector<uint8_t> tintedPixels = texture.bgraPixels;
-    const uint8_t red = static_cast<uint8_t>(colorAbgr & 0xff);
-    const uint8_t green = static_cast<uint8_t>((colorAbgr >> 8) & 0xff);
-    const uint8_t blue = static_cast<uint8_t>((colorAbgr >> 16) & 0xff);
-    const uint8_t alpha = static_cast<uint8_t>((colorAbgr >> 24) & 0xff);
-
-    for (size_t pixelIndex = 0; pixelIndex + 3 < tintedPixels.size(); pixelIndex += 4)
+    if (startsWith(text, "Train to level ") && endsWith(text, " gold"))
     {
-        const uint8_t sourceAlpha = tintedPixels[pixelIndex + 3];
-
-        if (colorMode == GameplayHudTextureColorMode::Modulated)
+        const size_t forPosition = text.find(" for ", 15);
+        if (forPosition != std::string::npos)
         {
-            tintedPixels[pixelIndex + 0] = static_cast<uint8_t>(
-                (static_cast<uint32_t>(tintedPixels[pixelIndex + 0]) * blue) / 255u);
-            tintedPixels[pixelIndex + 1] = static_cast<uint8_t>(
-                (static_cast<uint32_t>(tintedPixels[pixelIndex + 1]) * green) / 255u);
-            tintedPixels[pixelIndex + 2] = static_cast<uint8_t>(
-                (static_cast<uint32_t>(tintedPixels[pixelIndex + 2]) * red) / 255u);
+            const std::string level = text.substr(15, forPosition - 15);
+            const size_t priceStart = forPosition + 5;
+            const std::string price = text.substr(priceStart, text.size() - priceStart - 5);
+            return "레벨 " + level + "까지 훈련: " + price + "골드";
         }
-        else if (sourceAlpha != 0)
+    }
+
+    if (startsWith(text, "You need ") && text.find(" more experience to train to level ") != std::string::npos)
+    {
+        const size_t marker = text.find(" more experience to train to level ");
+        const std::string experience = text.substr(9, marker - 9);
+        const std::string level = text.substr(marker + 35);
+        return "레벨 " + level + " 훈련까지 경험치 " + experience + "이 더 필요합니다.";
+    }
+
+    struct NeedGoldPattern
+    {
+        const char *suffix;
+        const char *koreanPurpose;
+    };
+    static const std::array<NeedGoldPattern, 7> NeedGoldPatterns = {{
+        {" gold for healing.", "치료하려면 "},
+        {" gold to donate here.", "기부하려면 "},
+        {" gold to rent a room.", "방을 빌리려면 "},
+        {" gold for provisions.", "식량을 구입하려면 "},
+        {" gold for a drink.", "술을 마시려면 "},
+        {" gold for a tip.", "팁을 주려면 "},
+        {" gold for training.", "훈련하려면 "},
+    }};
+    if (startsWith(text, "You need "))
+    {
+        for (const NeedGoldPattern &pattern : NeedGoldPatterns)
         {
-            tintedPixels[pixelIndex + 0] = blue;
-            tintedPixels[pixelIndex + 1] = green;
-            tintedPixels[pixelIndex + 2] = red;
-        }
-
-        tintedPixels[pixelIndex + 3] = static_cast<uint8_t>(
-            (static_cast<uint32_t>(sourceAlpha) * alpha) / 255u);
-    }
-
-    const bgfx::TextureHandle textureHandle = createBgraTexture2D(
-        static_cast<uint16_t>(texture.physicalWidth),
-        static_cast<uint16_t>(texture.physicalHeight),
-        tintedPixels.data(),
-        static_cast<uint32_t>(tintedPixels.size()),
-        TextureFilterProfile::Ui,
-        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-
-    if (!bgfx::isValid(textureHandle))
-    {
-        return BGFX_INVALID_HANDLE;
-    }
-
-    GameplayHudTextureColorTextureData tintedTextureHandle = {};
-    tintedTextureHandle.textureName = texture.textureName;
-    tintedTextureHandle.colorAbgr = colorAbgr;
-    tintedTextureHandle.colorMode = colorMode;
-    tintedTextureHandle.textureHandle = textureHandle;
-    colorTextures.push_back(std::move(tintedTextureHandle));
-    return colorTextures.back().textureHandle;
-}
-
-struct ColumnSeparatedGlyphRun
-{
-    int startX = 0;
-    int width = 0;
-};
-
-std::optional<GameplayHudFontData> buildColumnSeparatedHudFont(
-    const Engine::ImagePixelsBgra &image,
-    const std::string &fontName)
-{
-    constexpr int FirstPrintableCharacter = 33;
-    constexpr int LastPrintableCharacter = 126;
-    constexpr int PrintableCharacterCount = LastPrintableCharacter - FirstPrintableCharacter + 1;
-    constexpr int DefaultAdvanceGlyphIndex = 'E' - FirstPrintableCharacter;
-
-    const size_t expectedPixelCount = static_cast<size_t>(image.width) * static_cast<size_t>(image.height) * 4;
-    if (image.width <= 0 || image.height <= 0 || image.pixels.size() < expectedPixelCount)
-    {
-        return std::nullopt;
-    }
-
-    std::vector<ColumnSeparatedGlyphRun> glyphRuns;
-    int glyphStartX = -1;
-    for (int x = 0; x <= image.width; ++x)
-    {
-        bool columnHasInk = false;
-        if (x < image.width)
-        {
-            for (int y = 0; y < image.height; ++y)
+            const std::string suffix = pattern.suffix;
+            if (endsWith(text, suffix))
             {
                 const size_t pixelOffset =
                     (static_cast<size_t>(y) * static_cast<size_t>(image.width) + static_cast<size_t>(x)) * 4;
@@ -1109,57 +1120,93 @@ bool GameplayHudCommon::loadHudFont(
 
     if (!bgfx::isValid(fontHandle.mainTextureHandle) || !bgfx::isValid(fontHandle.shadowTextureHandle))
     {
-        if (bgfx::isValid(fontHandle.mainTextureHandle))
+        const std::string name = text.substr(22, text.size() - 22 - 17);
+        return "사원에서는 " + name + "이(가) 이미 건강하다고 합니다.";
+    }
+    if (startsWith(text, "The temple restores ") && endsWith(text, " gold."))
+    {
+        const size_t forPosition = text.rfind(" for ");
+        if (forPosition != std::string::npos)
         {
-            bgfx::destroy(fontHandle.mainTextureHandle);
+            const std::string name = text.substr(20, forPosition - 20);
+            const std::string price = text.substr(forPosition + 5, text.size() - (forPosition + 5) - 6);
+            return "사원에서 " + name + "을(를) 치료했습니다. 비용: " + price + "골드.";
         }
-
-        if (bgfx::isValid(fontHandle.shadowTextureHandle))
-        {
-            bgfx::destroy(fontHandle.shadowTextureHandle);
-        }
-
-        std::cout << "HUD font load failed: font=\"" << fontName << "\" path=\"" << *fontPath
-                  << "\" atlas=" << atlasWidth << "x" << atlasHeight << " reason=texture-create-failed\n";
-        return false;
     }
 
-    fonts.push_back(std::move(fontHandle));
-    return true;
-}
-
-bool GameplayHudCommon::tryGetOpaqueHudTextureBounds(
-    const GameplayHudTextureData &texture,
-    Engine::AssetScaleTier assetScaleTier,
-    int &width,
-    int &height,
-    int &opaqueMinX,
-    int &opaqueMinY,
-    int &opaqueMaxX,
-    int &opaqueMaxY)
-{
-    if (texture.physicalWidth <= 0 || texture.physicalHeight <= 0 || texture.bgraPixels.empty())
+    if (startsWith(text, "The innkeeper fills your packs to ") && endsWith(text, " days."))
     {
-        return false;
+        const std::string days = text.substr(34, text.size() - 34 - 6);
+        return "여관 주인이 식량을 " + days + "일분까지 채워 주었습니다.";
     }
 
-    width = texture.width;
-    height = texture.height;
-    opaqueMinX = width;
-    opaqueMinY = height;
-    opaqueMaxX = -1;
-    opaqueMaxY = -1;
-
-    for (int y = 0; y < texture.physicalHeight; ++y)
+    if (text.find(" is now level ") != std::string::npos && endsWith(text, " skill points!"))
     {
-        for (int x = 0; x < texture.physicalWidth; ++x)
+        const size_t levelMarker = text.find(" is now level ");
+        const size_t earnedMarker = text.find(" and has earned ", levelMarker + 14);
+        if (earnedMarker != std::string::npos)
         {
-            const size_t pixelOffset =
-                (static_cast<size_t>(y) * static_cast<size_t>(texture.physicalWidth) + static_cast<size_t>(x)) * 4;
+            const std::string name = text.substr(0, levelMarker);
+            const std::string level = text.substr(levelMarker + 14, earnedMarker - (levelMarker + 14));
+            const std::string points = text.substr(earnedMarker + 16, text.size() - (earnedMarker + 16) - 14);
+            return name + "의 레벨이 " + level + "이(가) 되었고 기술 점수 " + points + "점을 얻었습니다!";
+        }
+    }
 
-            if (pixelOffset + 3 >= texture.bgraPixels.size() || texture.bgraPixels[pixelOffset + 3] == 0)
+    if (text.find(" cannot learn ") != std::string::npos && endsWith(text, " here."))
+    {
+        const size_t marker = text.find(" cannot learn ");
+        const std::string name = text.substr(0, marker);
+        const std::string skill = text.substr(marker + 14, text.size() - (marker + 14) - 6);
+        return name + "은(는) 여기서 " + localizedSkillDisplayName(skill) + "을(를) 배울 수 없습니다.";
+    }
+
+    if (text.find(" learns ") != std::string::npos && endsWith(text, " gold."))
+    {
+        const size_t learnsMarker = text.find(" learns ");
+        const size_t forMarker = text.rfind(" for ");
+        if (forMarker != std::string::npos && forMarker > learnsMarker)
+        {
+            const std::string name = text.substr(0, learnsMarker);
+            const std::string skill = text.substr(learnsMarker + 8, forMarker - (learnsMarker + 8));
+            const std::string price = text.substr(forMarker + 5, text.size() - (forMarker + 5) - 6);
+            return name + "이(가) " + localizedSkillDisplayName(skill) + "을(를) 배웠습니다. 비용: " + price + "골드.";
+        }
+    }
+
+    if (startsWith(text, "Deposited ") && endsWith(text, " gold."))
+    {
+        return text.substr(10, text.size() - 10 - 6) + "골드를 입금했습니다.";
+    }
+    if (startsWith(text, "Withdrew ") && endsWith(text, " gold."))
+    {
+        return text.substr(10, text.size() - 10 - 6) + "골드를 출금했습니다.";
+    }
+
+    if (startsWith(text, "It will take ") && endsWith(text, "."))
+    {
+        const size_t travelMarker = text.find(" to travel to ", 13);
+        if (travelMarker != std::string::npos)
+        {
+            const std::string duration = text.substr(13, travelMarker - 13);
+            const std::string destination = text.substr(travelMarker + 14, text.size() - (travelMarker + 14) - 1);
+            return destination + "까지 이동하는 데 " + localizedTravelDuration(duration) + "이 걸립니다.";
+        }
+    }
+
+    if (endsWith(text, " gold"))
+    {
+        const size_t firstTo = text.find(" to ");
+        const size_t forMarker = text.rfind(" for ");
+        if (firstTo != std::string::npos && forMarker != std::string::npos && firstTo < forMarker)
+        {
+            const std::string duration = text.substr(0, firstTo);
+            const std::string localizedDuration = localizedTravelDuration(duration);
+            if (localizedDuration != duration)
             {
-                continue;
+                const std::string destination = text.substr(firstTo + 4, forMarker - (firstTo + 4));
+                const std::string price = text.substr(forMarker + 5, text.size() - (forMarker + 5) - 5);
+                return destination + "까지 " + localizedDuration + ": " + price + "골드";
             }
 
             opaqueMinX = std::min(opaqueMinX, x / Engine::assetScaleTierFactor(assetScaleTier));
@@ -1169,15 +1216,7 @@ bool GameplayHudCommon::tryGetOpaqueHudTextureBounds(
         }
     }
 
-    if (opaqueMaxX < opaqueMinX || opaqueMaxY < opaqueMinY)
-    {
-        opaqueMinX = 0;
-        opaqueMinY = 0;
-        opaqueMaxX = std::max(0, width - 1);
-        opaqueMaxY = std::max(0, height - 1);
-    }
-
-    return true;
+    return text;
 }
 
 bgfx::TextureHandle GameplayHudCommon::ensureHudTextureColor(
@@ -1266,26 +1305,7 @@ bgfx::TextureHandle GameplayHudCommon::ensureHudFontMainTextureColor(
 
 float GameplayHudCommon::measureHudTextWidth(const GameplayHudFontData &font, const std::string &text)
 {
-    float widthPixels = 0.0f;
-
-    for (unsigned char character : text)
-    {
-        if (character == '\r' || character == '\n')
-        {
-            break;
-        }
-
-        if (character < font.firstChar || character > font.lastChar)
-        {
-            widthPixels += static_cast<float>(font.atlasCellWidth);
-            continue;
-        }
-
-        const GameplayHudFontGlyphMetricsData &glyphMetrics = font.glyphMetrics[character];
-        widthPixels += static_cast<float>(glyphMetrics.leftSpacing + glyphMetrics.width + glyphMetrics.rightSpacing);
-    }
-
-    return std::max(0.0f, widthPixels);
+    return GameplayHudCommonKoreanRaw::measureHudTextWidth(font, localizedGameplayHudText(text));
 }
 
 std::string GameplayHudCommon::clampHudTextToWidth(
@@ -1293,14 +1313,7 @@ std::string GameplayHudCommon::clampHudTextToWidth(
     const std::string &text,
     float maxWidth)
 {
-    std::string clampedText = text;
-
-    while (!clampedText.empty() && measureHudTextWidth(font, clampedText) > maxWidth)
-    {
-        clampedText.pop_back();
-    }
-
-    return clampedText;
+    return GameplayHudCommonKoreanRaw::clampHudTextToWidth(font, localizedGameplayHudText(text), maxWidth);
 }
 
 std::vector<std::string> GameplayHudCommon::wrapHudTextToWidth(
@@ -1308,87 +1321,7 @@ std::vector<std::string> GameplayHudCommon::wrapHudTextToWidth(
     const std::string &text,
     float maxWidth)
 {
-    if (text.empty())
-    {
-        return {""};
-    }
-
-    if (maxWidth <= 0.0f)
-    {
-        return {text};
-    }
-
-    std::vector<std::string> lines;
-    std::string currentLine;
-    std::string currentWord;
-
-    const auto flushLine =
-        [&lines, &currentLine]()
-        {
-            lines.push_back(currentLine);
-            currentLine.clear();
-        };
-
-    const auto appendWord =
-        [&font, &currentLine, &flushLine, maxWidth](const std::string &word)
-        {
-            if (word.empty())
-            {
-                return;
-            }
-
-            if (currentLine.empty())
-            {
-                currentLine = word;
-                return;
-            }
-
-            const std::string candidate = currentLine + " " + word;
-
-            if (measureHudTextWidth(font, candidate) <= maxWidth)
-            {
-                currentLine = candidate;
-            }
-            else
-            {
-                flushLine();
-                currentLine = word;
-            }
-        };
-
-    for (char character : text)
-    {
-        if (character == '\r')
-        {
-            continue;
-        }
-
-        if (character == '\n')
-        {
-            appendWord(currentWord);
-            currentWord.clear();
-            flushLine();
-            continue;
-        }
-
-        if (character == ' ')
-        {
-            appendWord(currentWord);
-            currentWord.clear();
-            continue;
-        }
-
-        currentWord.push_back(character);
-    }
-
-    appendWord(currentWord);
-
-    if (!currentLine.empty() || lines.empty())
-    {
-        lines.push_back(currentLine);
-    }
-
-    return lines;
+    return GameplayHudCommonKoreanRaw::wrapHudTextToWidth(font, localizedGameplayHudText(text), maxWidth);
 }
 
 void GameplayHudCommon::renderHudFontLayer(
@@ -1457,107 +1390,16 @@ void GameplayHudCommon::renderLayoutLabel(
     const UiLayoutManager::LayoutElement &layout,
     const GameplayResolvedHudLayoutElement &resolved,
     const std::string &label,
-    const FindHudFontFn &findHudFontFn,
-    const EnsureHudFontColorFn &ensureHudFontColorFn,
-    const RenderHudFontLayerFn &renderHudFontLayerFn)
+    const FindHudFontFn &findHudFont,
+    const EnsureHudFontColorFn &ensureHudFontColor,
+    const RenderHudFontLayerFn &renderHudFontLayer)
 {
-    if (label.empty())
-    {
-        return;
-    }
-
-    const GameplayHudFontData *pFont = findHudFontFn(layout.fontName);
-
-    if (pFont == nullptr)
-    {
-        static std::unordered_set<std::string> missingFontLogs;
-        const std::string logKey = "missing-font:" + toLowerCopy(layout.id) + ":" + toLowerCopy(layout.fontName);
-
-        if (!missingFontLogs.contains(logKey))
-        {
-            std::cout << "HUD label skipped: id=" << layout.id
-                      << " font=\"" << layout.fontName
-                      << "\" reason=missing-font label=\"" << label << "\"\n";
-            missingFontLogs.insert(logKey);
-        }
-
-        return;
-    }
-
-    float fontScale = resolved.scale * std::max(0.1f, layout.textScale);
-
-    if (fontScale >= 1.0f)
-    {
-        fontScale = snappedHudFontScale(fontScale);
-    }
-    else
-    {
-        fontScale = std::max(0.5f, fontScale);
-    }
-
-    const float labelHeightPixels = static_cast<float>(pFont->fontHeight) * fontScale;
-    const float maxLabelWidth = std::max(0.0f, resolved.width - std::abs(layout.textPadX * fontScale) * 2.0f);
-    std::string clampedLabel = clampHudTextToWidth(*pFont, label, maxLabelWidth);
-
-    if (clampedLabel.empty())
-    {
-        const GameplayHudFontData *pFallbackFont = findHudFontFn("Lucida");
-
-        if (pFallbackFont != nullptr)
-        {
-            pFont = pFallbackFont;
-            clampedLabel = clampHudTextToWidth(*pFont, label, maxLabelWidth);
-        }
-    }
-
-    if (clampedLabel.empty())
-    {
-        clampedLabel = label;
-    }
-
-    const float labelWidthPixels = measureHudTextWidth(*pFont, clampedLabel) * fontScale;
-    float textX = resolved.x + layout.textPadX * resolved.scale;
-    float textY = resolved.y + layout.textPadY * resolved.scale;
-
-    switch (layout.textAlignX)
-    {
-    case UiLayoutManager::TextAlignX::Left:
-        break;
-
-    case UiLayoutManager::TextAlignX::Center:
-        textX = resolved.x + (resolved.width - labelWidthPixels) * 0.5f + layout.textPadX * resolved.scale;
-        break;
-
-    case UiLayoutManager::TextAlignX::Right:
-        textX = resolved.x + resolved.width - labelWidthPixels + layout.textPadX * resolved.scale;
-        break;
-    }
-
-    switch (layout.textAlignY)
-    {
-    case UiLayoutManager::TextAlignY::Top:
-        break;
-
-    case UiLayoutManager::TextAlignY::Middle:
-        textY = resolved.y + (resolved.height - labelHeightPixels) * 0.5f + layout.textPadY * resolved.scale;
-        break;
-
-    case UiLayoutManager::TextAlignY::Bottom:
-        textY = resolved.y + resolved.height - labelHeightPixels + layout.textPadY * resolved.scale;
-        break;
-    }
-
-    textX = std::round(textX);
-    textY = std::round(textY);
-
-    bgfx::TextureHandle coloredMainTextureHandle = ensureHudFontColorFn(*pFont, layout.textColorAbgr);
-
-    if (!bgfx::isValid(coloredMainTextureHandle))
-    {
-        coloredMainTextureHandle = pFont->mainTextureHandle;
-    }
-
-    renderHudFontLayerFn(*pFont, pFont->shadowTextureHandle, clampedLabel, textX, textY, fontScale);
-    renderHudFontLayerFn(*pFont, coloredMainTextureHandle, clampedLabel, textX, textY, fontScale);
+    GameplayHudCommonKoreanRaw::renderLayoutLabel(
+        layout,
+        resolved,
+        localizedGameplayHudText(label),
+        findHudFont,
+        ensureHudFontColor,
+        renderHudFontLayer);
 }
 } // namespace OpenYAMM::Game
