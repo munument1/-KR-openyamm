@@ -1,6 +1,8 @@
 #include "game/ui/GameplayHudRenderer.h"
 
 #include "game/gameplay/GameplayScreenRuntime.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
+#include "game/ui/Utf8LabelLayout.h"
 
 #include <algorithm>
 #include <cmath>
@@ -175,164 +177,6 @@ std::optional<GameplayHudTextureHandle> loadContextActionIcon(
     return std::nullopt;
 }
 
-std::string fitContextActionLabel(
-    GameplayScreenRuntime &context,
-    const std::string &fontName,
-    const std::string &text,
-    float maxWidth,
-    float textScale)
-{
-    if (text.empty() || context.measureHudTextWidth(fontName, text) * textScale <= maxWidth)
-    {
-        return text;
-    }
-
-    std::string fitted = text;
-
-    while (fitted.size() > 4)
-    {
-        fitted.pop_back();
-        const std::string candidate = fitted + "...";
-
-        if (context.measureHudTextWidth(fontName, candidate) * textScale <= maxWidth)
-        {
-            return candidate;
-        }
-    }
-
-    return "...";
-}
-
-std::string trimContextActionLabelPart(const std::string &text)
-{
-    const size_t begin = text.find_first_not_of(' ');
-
-    if (begin == std::string::npos)
-    {
-        return "";
-    }
-
-    const size_t end = text.find_last_not_of(' ');
-    return text.substr(begin, end - begin + 1);
-}
-
-std::vector<std::string> fitContextActionLabelLines(
-    GameplayScreenRuntime &context,
-    const std::string &fontName,
-    const std::string &text,
-    float maxWidth,
-    float textScale)
-{
-    if (text.empty())
-    {
-        return {};
-    }
-
-    if (context.measureHudTextWidth(fontName, text) * textScale <= maxWidth)
-    {
-        return {text};
-    }
-
-    size_t bestSplitIndex = std::string::npos;
-    float bestScore = std::numeric_limits<float>::max();
-
-    for (size_t index = 1; index + 1 < text.size(); ++index)
-    {
-        if (text[index] != ' ')
-        {
-            continue;
-        }
-
-        const std::string firstLine = trimContextActionLabelPart(text.substr(0, index));
-        const std::string secondLine = trimContextActionLabelPart(text.substr(index + 1));
-
-        if (firstLine.empty() || secondLine.empty())
-        {
-            continue;
-        }
-
-        const float firstWidth = context.measureHudTextWidth(fontName, firstLine) * textScale;
-        const float secondWidth = context.measureHudTextWidth(fontName, secondLine) * textScale;
-
-        if (firstWidth <= maxWidth && secondWidth <= maxWidth)
-        {
-            const float score = std::max(firstWidth, secondWidth) + std::abs(firstWidth - secondWidth) * 0.25f;
-
-            if (score < bestScore)
-            {
-                bestScore = score;
-                bestSplitIndex = index;
-            }
-        }
-    }
-
-    if (bestSplitIndex != std::string::npos)
-    {
-        return {
-            trimContextActionLabelPart(text.substr(0, bestSplitIndex)),
-            trimContextActionLabelPart(text.substr(bestSplitIndex + 1))
-        };
-    }
-
-    std::vector<std::string> lines;
-    std::string currentLine;
-    size_t wordBegin = 0;
-
-    while (wordBegin < text.size())
-    {
-        while (wordBegin < text.size() && text[wordBegin] == ' ')
-        {
-            ++wordBegin;
-        }
-
-        if (wordBegin >= text.size())
-        {
-            break;
-        }
-
-        size_t wordEnd = text.find(' ', wordBegin);
-
-        if (wordEnd == std::string::npos)
-        {
-            wordEnd = text.size();
-        }
-
-        const std::string word = text.substr(wordBegin, wordEnd - wordBegin);
-        const std::string candidate = currentLine.empty() ? word : currentLine + " " + word;
-
-        if (!currentLine.empty() && context.measureHudTextWidth(fontName, candidate) * textScale > maxWidth)
-        {
-            lines.push_back(currentLine);
-            currentLine = word;
-
-            if (lines.size() == 1)
-            {
-                break;
-            }
-        }
-        else
-        {
-            currentLine = candidate;
-        }
-
-        wordBegin = wordEnd + 1;
-    }
-
-    if (lines.empty())
-    {
-        lines.push_back(fitContextActionLabel(context, fontName, text, maxWidth, textScale));
-    }
-    else
-    {
-        const size_t remainingBegin = wordBegin < text.size() ? wordBegin : text.size();
-        const std::string remaining = trimContextActionLabelPart(text.substr(remainingBegin));
-        const std::string secondLine = trimContextActionLabelPart(
-            currentLine + (remaining.empty() ? std::string() : " " + remaining));
-        lines.push_back(fitContextActionLabel(context, fontName, secondLine, maxWidth, textScale));
-    }
-
-    return lines;
-}
 
 void renderCenteredContextActionLabelLines(
     GameplayScreenRuntime &context,
@@ -468,13 +312,14 @@ void renderMobileContextAction(GameplayScreenRuntime &context, int width, int he
 
     if (!action.label.empty())
     {
-        const std::vector<std::string> labelLines =
-            fitContextActionLabelLines(
-                context,
-                labelLayout.fontName,
-                action.label,
-                std::max(1.0f, labelRect.width - 6.0f * labelRect.scale),
-                labelLayout.textScale * labelRect.scale);
+        const std::string label = KoreanRuntimeText::koreanRuntimeTextOverride(action.label).value_or(action.label);
+        const std::vector<std::string> labelLines = fitUtf8LabelToTwoLines(
+            label,
+            std::max(1.0f, labelRect.width - 6.0f * labelRect.scale),
+            [&context, &labelLayout, &labelRect](const std::string &line)
+            {
+                return context.measureHudTextWidth(labelLayout.fontName, line) * labelLayout.textScale * labelRect.scale;
+            });
         renderCenteredContextActionLabelLines(context, labelLayout, labelRect, labelLines);
     }
 }

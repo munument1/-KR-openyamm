@@ -7,7 +7,7 @@ namespace OpenYAMM::Engine
 ApplicationConfig ApplicationConfig::createDefault()
 {
     ApplicationConfig config;
-    config.appName = "OpenYAMM";
+    config.appName = "OpenYAMM 0.11-korean";
 #if defined(__ANDROID__)
     config.assetRoot = "assets";
 #else

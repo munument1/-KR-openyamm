@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <utility>
+#include <unordered_set>
 
 namespace OpenYAMM::Game
 {
@@ -223,13 +224,23 @@ int hiredNpcCrossMapDayReduction(const EventRuntimeState &eventRuntimeState)
     return reduction;
 }
 
+int hiredNpcAdjustedCrossMapTravelDays(const EventRuntimeState &eventRuntimeState, int baseDays)
+{
+    if (baseDays <= 0)
+    {
+        return 0;
+    }
+
+    return std::max(1, baseDays - hiredNpcCrossMapDayReduction(eventRuntimeState));
+}
+
 int hiredNpcRestFoodReduction(const EventRuntimeState &eventRuntimeState)
 {
     int reduction = 0;
 
     for (const EventRuntimeState::HiredNpcFollower &follower : eventRuntimeState.hiredNpcFollowers)
     {
-        if (follower.professionId == 29)
+        if (follower.professionId == 29 || follower.professionId == 48)
         {
             reduction += 1;
         }
@@ -245,10 +256,16 @@ int hiredNpcRestFoodReduction(const EventRuntimeState &eventRuntimeState)
 int hiredNpcSkillBonus(const EventRuntimeState &eventRuntimeState, const std::string &skillName)
 {
     int bonus = 0;
+    std::unordered_set<uint32_t> appliedProfessionIds;
 
     for (const EventRuntimeState::HiredNpcFollower &follower : eventRuntimeState.hiredNpcFollowers)
     {
         const uint32_t professionId = follower.professionId;
+
+        if (!appliedProfessionIds.insert(professionId).second)
+        {
+            continue;
+        }
 
         if (skillName == "Learning")
         {
@@ -260,11 +277,15 @@ int hiredNpcSkillBonus(const EventRuntimeState &eventRuntimeState, const std::st
         {
             if (professionId == 20) bonus += 4;
             else if (professionId == 21) bonus += 6;
+            else if (professionId == 48) bonus += 3;
+            else if (professionId == 49) bonus += 4;
+            else if (professionId == 50) bonus += 8;
         }
         else if (skillName == "DisarmTraps")
         {
             if (professionId == 25) bonus += 4;
             else if (professionId == 26) bonus += 6;
+            else if (professionId == 51) bonus += 8;
         }
         else if (skillName == "Perception")
         {
@@ -308,11 +329,15 @@ int hiredNpcPrimaryStatBonus(const EventRuntimeState &eventRuntimeState, const s
     {
         if (follower.professionId == 27)
         {
-            bonus += 10;
+            bonus += 5;
         }
         else if (follower.professionId == 28)
         {
             bonus += 20;
+        }
+        else if (follower.professionId == 47)
+        {
+            bonus += 10;
         }
     }
 

@@ -1,6 +1,7 @@
 #include "game/ui/screens/ArcomageScreen.h"
 
 #include "game/audio/GameAudioSystem.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
 
 #include <SDL3/SDL.h>
 
@@ -656,17 +657,18 @@ void ArcomageScreen::drawScreenText(
     uint32_t colorAbgr,
     float scale)
 {
+    const std::string localizedText = KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
     const float finalScale = layout.scale * scale;
     float pixelX = layout.rootX + logicalX * layout.scale;
 
     if (centered)
     {
-        pixelX -= measureTextWidth(fontName, text, finalScale) * 0.5f;
+        pixelX -= measureTextWidth(fontName, localizedText, finalScale) * 0.5f;
     }
 
     drawText(
         fontName,
-        text,
+        localizedText,
         pixelX,
         layout.rootY + logicalY * layout.scale,
         colorAbgr,

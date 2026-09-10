@@ -3,6 +3,7 @@
 #include "game/events/ISceneEventContext.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/gameplay/ReputationRuntime.h"
 #include "game/StringUtils.h"
 #include "game/tables/MergedBaseTables.h"
@@ -1051,7 +1052,14 @@ EventDialogContent buildEventDialogContent(
 
         if (pTransition != nullptr && pTransition->has_value() && (*pTransition)->travelDays > 0)
         {
-            const int travelDays = (*pTransition)->travelDays;
+            int travelDays = (*pTransition)->travelDays;
+            if (pCurrentMap != nullptr
+                && pDestinationMap != nullptr
+                && pCurrentMap->outdoorBounds.enabled
+                && pDestinationMap->outdoorBounds.enabled)
+            {
+                travelDays = hiredNpcAdjustedCrossMapTravelDays(npcRuntimeState, travelDays);
+            }
             dialog.lines.push_back(
                 "It will take "
                 + std::to_string(travelDays)

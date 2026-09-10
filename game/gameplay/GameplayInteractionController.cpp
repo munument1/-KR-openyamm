@@ -13,6 +13,8 @@
 #include "game/items/ItemRuntime.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/ItemTable.h"
+#include "game/ui/KoreanDecorationText.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
 
 #include <SDL3/SDL_timer.h>
 
@@ -50,6 +52,16 @@ bool usesMobileGroundTargetConfirm(uint32_t spellId)
 bool hasStatusText(const std::optional<std::string> &text)
 {
     return text.has_value() && !text->empty();
+}
+
+std::string localizeInteractionDisplayText(const std::string &text)
+{
+    if (const std::optional<std::string> localized =
+            KoreanRuntimeText::koreanRuntimeTextOverride(text))
+    {
+        return *localized;
+    }
+    return KoreanRuntimeText::koreanDecorationHint(text);
 }
 
 GameplayWorldHit pickPrecisionContextActionTarget(
@@ -404,16 +416,27 @@ std::optional<GameplayContextAction> buildContextAction(
         }
         else
         {
+            const bool localizeDecorationName =
+                hit.eventTarget->targetKind == GameplayWorldEventTargetKind::Decoration;
             action.label = hasStatusText(eventTargetStatusText)
-                ? *eventTargetStatusText
+                ? (localizeDecorationName
+                    ? KoreanRuntimeText::koreanDecorationHint(*eventTargetStatusText)
+                    : *eventTargetStatusText)
                 : (!hit.eventTarget->name.empty()
-                    ? hit.eventTarget->name
+                    ? (localizeDecorationName
+                        ? KoreanRuntimeText::koreanDecorationHint(hit.eventTarget->name)
+                        : hit.eventTarget->name)
                     : contextActionDefaultLabel(action.kind));
         }
     }
     else
     {
         return std::nullopt;
+    }
+
+    if (hit.kind == GameplayWorldHitKind::EventTarget && !action.label.empty())
+    {
+        action.label = localizeInteractionDisplayText(action.label);
     }
 
     if (action.iconId.empty())
@@ -1315,7 +1338,7 @@ std::optional<std::string> GameplayInteractionController::resolveHoverStatusText
         return std::nullopt;
     }
 
-    return payload.eventTargetStatusText;
+    return localizeInteractionDisplayText(*payload.eventTargetStatusText);
 }
 
 GameplayInteractionController::WorldInteractionPointerPolicy

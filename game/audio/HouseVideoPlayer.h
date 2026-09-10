@@ -43,6 +43,7 @@ public:
     bgfx::TextureHandle textureHandle() const;
     int videoTextureWidth() const;
     int videoTextureHeight() const;
+    float playbackSeconds() const { return m_playbackSeconds; }
 
 private:
     struct StreamingSession;

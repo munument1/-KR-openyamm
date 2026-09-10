@@ -6,6 +6,9 @@
 #include "game/gameplay/GameMechanics.h"
 #include "game/party/SkillData.h"
 #include "game/party/SpeechIds.h"
+#include "game/ui/KoreanRuntimeTextOverrides.h"
+#include "game/ui/Utf8Text.h"
+#include "game/ui/Utf8TextWrapping.h"
 
 #include <algorithm>
 #include <array>
@@ -15,6 +18,7 @@
 #include <cstdio>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -52,8 +56,7 @@ constexpr float CreationCompletionErrorBoxWidth = 360.0f;
 constexpr size_t MaximumOptionalSkillSelections = 2;
 constexpr size_t MaximumNameLength = 15;
 constexpr const char *CreationCompletionErrorText =
-    "Create Party cannot be completed unless you have assigned all characters 2 extra skills and have spent all of "
-    "your bonus points.";
+    "파티를 생성하려면 모든 캐릭터에게 추가 기술 2개를 지정하고 보너스 점수를 모두 사용해야 합니다.";
 constexpr uint32_t WhiteColor = 0xffffffffu;
 constexpr uint32_t YellowColor = 0xff00ffffu;
 constexpr uint32_t BlueColor = 0xffffd830u;
@@ -884,12 +887,37 @@ std::string portraitTextureNameForEntry(const CharacterDollEntry &entry)
     return buffer;
 }
 
-bool isPrintableNameCharacter(char character)
+bool isPrintableNameCodePoint(uint32_t codePoint)
 {
-    return std::isalnum(static_cast<unsigned char>(character)) != 0
+    if (isHangulCodePoint(codePoint))
+    {
+        return true;
+    }
+
+    if (codePoint > 0x7fu)
+    {
+        return false;
+    }
+
+    const unsigned char character = static_cast<unsigned char>(codePoint);
+    return std::isalnum(character) != 0
         || character == ' '
         || character == '\''
         || character == '-';
+}
+
+size_t utf8CodePointCount(std::string_view text)
+{
+    size_t count = 0;
+    size_t byteOffset = 0;
+
+    while (byteOffset < text.size())
+    {
+        byteOffset = nextUtf8CodePointOffset(text, byteOffset);
+        ++count;
+    }
+
+    return count;
 }
 
 std::string characterCreationSkillDisplayName(const std::string &skillName)
@@ -1012,12 +1040,21 @@ void NewGameScreen::handleSdlEvent(const SDL_Event &event)
             return;
         }
 
-        for (size_t i = 0; pText[i] != '\0' && m_state.nameEditBuffer.size() < MaximumNameLength; ++i)
+        const std::string_view inputText(pText);
+        size_t byteOffset = 0;
+        size_t nameLength = utf8CodePointCount(m_state.nameEditBuffer);
+
+        while (byteOffset < inputText.size() && nameLength < MaximumNameLength)
         {
-            if (isPrintableNameCharacter(pText[i]))
+            const Utf8CodePointSpan span = decodeUtf8CodePoint(inputText, byteOffset);
+
+            if (span.valid && isPrintableNameCodePoint(span.codePoint))
             {
-                m_state.nameEditBuffer.push_back(pText[i]);
+                m_state.nameEditBuffer.append(inputText.data() + span.byteOffset, span.byteLength);
+                ++nameLength;
             }
+
+            byteOffset = nextUtf8CodePointOffset(inputText, byteOffset);
         }
 
         return;
@@ -1512,7 +1549,9 @@ void NewGameScreen::deleteNameEditCharacter()
 {
     if (m_state.nameEditing && !m_state.nameEditBuffer.empty())
     {
-        m_state.nameEditBuffer.pop_back();
+        const size_t previousOffset =
+            previousUtf8CodePointOffset(m_state.nameEditBuffer, m_state.nameEditBuffer.size());
+        m_state.nameEditBuffer.resize(previousOffset);
     }
 }
 
@@ -1747,102 +1786,11 @@ std::vector<std::string> NewGameScreen::wrapTextToWidth(
     float maxWidth,
     float scale)
 {
-    std::vector<std::string> lines;
-
-    if (text.empty())
+    const std::string localizedText = KoreanRuntimeText::koreanRuntimeTextOverride(text).value_or(text);
+    return wrapUtf8Text(localizedText, maxWidth, [this, &fontName, scale](const std::string &line)
     {
-        return lines;
-    }
-
-    size_t paragraphStart = 0;
-
-    while (paragraphStart <= text.size())
-    {
-        const size_t paragraphEnd = text.find('\n', paragraphStart);
-        const std::string paragraph = paragraphEnd == std::string::npos
-            ? text.substr(paragraphStart)
-            : text.substr(paragraphStart, paragraphEnd - paragraphStart);
-
-        if (paragraph.empty())
-        {
-            lines.push_back({});
-        }
-        else
-        {
-            std::string currentLine;
-            size_t wordStart = 0;
-
-            while (wordStart < paragraph.size())
-            {
-                while (wordStart < paragraph.size() && paragraph[wordStart] == ' ')
-                {
-                    ++wordStart;
-                }
-
-                if (wordStart >= paragraph.size())
-                {
-                    break;
-                }
-
-                size_t wordEnd = paragraph.find(' ', wordStart);
-
-                if (wordEnd == std::string::npos)
-                {
-                    wordEnd = paragraph.size();
-                }
-
-                std::string word = paragraph.substr(wordStart, wordEnd - wordStart);
-
-                while (!word.empty() && measureTextWidth(fontName, word, scale) > maxWidth)
-                {
-                    size_t splitLength = 1;
-
-                    while (splitLength < word.size()
-                        && measureTextWidth(fontName, word.substr(0, splitLength + 1), scale) <= maxWidth)
-                    {
-                        ++splitLength;
-                    }
-
-                    lines.push_back(word.substr(0, splitLength));
-                    word.erase(0, splitLength);
-                }
-
-                if (word.empty())
-                {
-                    wordStart = wordEnd + 1;
-                    continue;
-                }
-
-                const std::string candidate = currentLine.empty() ? word : currentLine + " " + word;
-
-                if (!currentLine.empty() && measureTextWidth(fontName, candidate, scale) > maxWidth)
-                {
-                    lines.push_back(currentLine);
-                    currentLine = word;
-                }
-                else
-                {
-                    currentLine = candidate;
-                }
-
-                wordStart = wordEnd + 1;
-            }
-
-            if (!currentLine.empty())
-            {
-                lines.push_back(currentLine);
-            }
-        }
-
-        if (paragraphEnd == std::string::npos)
-        {
-            break;
-        }
-
-        paragraphStart = paragraphEnd + 1;
-    }
-
-    return lines;
+        return measureTextWidth(fontName, line, scale);
+    });
 }
 
 bool NewGameScreen::tryIncreaseStat(StatId statId)
@@ -3072,6 +3020,18 @@ void NewGameScreen::drawContinentSelection(float deltaSeconds)
         resolveContinentButtonVisuals("ContinentSelectionEnrothButton", {"slenrothdw", "slenrothup", "slenrothup"}),
         enrothRect);
 
+    const auto drawContinentGameLabel =
+        [this, scale](const MenuScreenBase::Rect &continentRect, const char *pLabel)
+        {
+            const float labelWidth = measureTextWidth("SMALLNUM", pLabel, scale);
+            const float labelX = continentRect.x + (continentRect.width - labelWidth) * 0.5f;
+            const float labelY = continentRect.y + continentRect.height - 36.0f * scale;
+            drawText("SMALLNUM", pLabel, labelX, labelY, WhiteColor, scale);
+        };
+    drawContinentGameLabel(jadameRect, "M&M 8");
+    drawContinentGameLabel(antagarichRect, "M&M 7");
+    drawContinentGameLabel(enrothRect, "M&M 6");
+
     if (jadameState.clicked)
     {
         playUiClickSound(SoundId::ClickIn);
@@ -3191,7 +3151,7 @@ void NewGameScreen::drawScreen(float deltaSeconds)
         drawText(fontName, "_", cursorX, cursorY, WhiteColor, scale);
     }
 
-    const std::string displayedClassName = displayClassName(selectedClassName());
+    const std::string displayedClassName = KoreanRuntimeText::className(displayClassName(selectedClassName()));
     drawText(
         fontName,
         displayedClassName,
@@ -3400,64 +3360,30 @@ void NewGameScreen::drawScreen(float deltaSeconds)
 
     auto drawCenteredSkillText =
         [this, &fontName, scale](
-            const std::string &text,
+            const std::string &sourceText,
             float centerX,
             float centerY,
             uint32_t color) -> MenuScreenBase::Rect
         {
-            const auto splitLabel =
-                [this, &fontName, scale](const std::string &label) -> std::vector<std::string>
+            // Translate the complete skill name, never individual English word fragments.
+            const std::string text = KoreanRuntimeText::koreanRuntimeTextOverride(sourceText).value_or(sourceText);
+            const std::vector<std::string> lines = wrapUtf8Text(text, 84.0f * scale,
+                [this, &fontName, scale](const std::string &line)
                 {
-                    const float multilineThreshold = measureTextWidth(fontName, "Body Building", scale);
-
-                    if (measureTextWidth(fontName, label, scale) < multilineThreshold)
-                    {
-                        return {label};
-                    }
-
-                    const size_t separator = label.find_last_of(" -");
-
-                    if (separator == std::string::npos || separator == 0 || separator + 1 >= label.size())
-                    {
-                        return {label};
-                    }
-
-                    std::string firstLine = trimCopy(label.substr(0, separator));
-                    std::string secondLine = trimCopy(label.substr(separator + 1));
-
-                    if (firstLine.empty() || secondLine.empty())
-                    {
-                        return {label};
-                    }
-
-                    return {std::move(firstLine), std::move(secondLine)};
-                };
-            const std::vector<std::string> lines = splitLabel(text);
-
-            if (lines.size() > 1)
+                    return measureTextWidth(fontName, line, scale);
+                });
+            const float lineHeight = static_cast<float>(fontHeight(fontName)) * scale;
+            const float totalHeight = lineHeight * static_cast<float>(lines.size());
+            const float y = centerY - totalHeight * 0.5f;
+            float width = 0.0f;
+            for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex)
             {
-                const float firstLineWidth = measureTextWidth(fontName, lines[0], scale);
-                const float secondLineWidth = measureTextWidth(fontName, lines[1], scale);
-                const float width = std::max(
-                    firstLineWidth,
-                    secondLineWidth);
-                const float lineHeight = static_cast<float>(fontHeight(fontName)) * scale;
-                const float lineGap = -2.0f * scale;
-                const float totalHeight = lineHeight * 2.0f + lineGap;
-                const float y = centerY - totalHeight * 0.5f;
-                const float firstLineX = centerX - firstLineWidth * 0.5f;
-                const float secondLineX = centerX - secondLineWidth * 0.5f;
-                drawText(fontName, lines[0], firstLineX, y, color, scale);
-                drawText(fontName, lines[1], secondLineX, y + lineHeight + lineGap, color, scale);
-                return {centerX - width * 0.5f, y, width, totalHeight};
+                const float lineWidth = measureTextWidth(fontName, lines[lineIndex], scale);
+                width = std::max(width, lineWidth);
+                drawText(fontName, lines[lineIndex], centerX - lineWidth * 0.5f,
+                    y + lineHeight * static_cast<float>(lineIndex), color, scale);
             }
-
-            const float width = measureTextWidth(fontName, text, scale);
-            const float height = static_cast<float>(fontHeight(fontName)) * scale;
-            const float x = centerX - width * 0.5f;
-            const float y = centerY - height * 0.5f;
-            drawText(fontName, text, x, y, color, scale);
-            return {x, y, width, height};
+            return {centerX - width * 0.5f, y, width, totalHeight};
         };
 
     for (size_t slotIndex = 0; slotIndex < SelectedSkillPositions.size(); ++slotIndex)

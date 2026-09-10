@@ -1011,7 +1011,13 @@ bool hasMerchantSkillForPhrase(const Character *pCharacter)
     }
 
     const CharacterSkill *pMerchant = pCharacter->findSkill("Merchant");
-    return pMerchant != nullptr && pMerchant->mastery != SkillMastery::None && pMerchant->level > 0;
+    if (pMerchant != nullptr && pMerchant->mastery != SkillMastery::None && pMerchant->level > 0)
+    {
+        return true;
+    }
+
+    const auto bonusIt = pCharacter->itemSkillBonuses.find("Merchant");
+    return bonusIt != pCharacter->itemSkillBonuses.end() && bonusIt->second > 0;
 }
 
 const Character *partyMerchantMember(const Party &party)

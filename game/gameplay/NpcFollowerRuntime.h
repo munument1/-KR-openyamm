@@ -41,6 +41,7 @@ uint32_t hiredNpcFollowerGoldShare(uint32_t goldAmount, const EventRuntimeState 
 bool hiredNpcHasProfession(const EventRuntimeState &eventRuntimeState, uint32_t professionId);
 int hiredNpcTransportDayReduction(const EventRuntimeState &eventRuntimeState, bool stable);
 int hiredNpcCrossMapDayReduction(const EventRuntimeState &eventRuntimeState);
+int hiredNpcAdjustedCrossMapTravelDays(const EventRuntimeState &eventRuntimeState, int baseDays);
 int hiredNpcRestFoodReduction(const EventRuntimeState &eventRuntimeState);
 int hiredNpcSkillBonus(const EventRuntimeState &eventRuntimeState, const std::string &skillName);
 int hiredNpcPrimaryStatBonus(const EventRuntimeState &eventRuntimeState, const std::string &statName);

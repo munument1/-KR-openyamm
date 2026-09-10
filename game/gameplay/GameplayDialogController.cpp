@@ -10,6 +10,7 @@
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/MasteryTeacherDialog.h"
 #include "game/gameplay/MercenaryRecruitmentRuntime.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/gameplay/TravelRuntime.h"
 #include "game/mm9/Mm9RudeDialogue.h"
 #include "game/mm9/Mm9MapTransition.h"
@@ -376,7 +377,15 @@ int outdoorMapMoveTravelDays(
         return 0;
     }
 
-    return OutdoorMapTravelFoodCost;
+    EventRuntimeState followerRuntimeState = context.eventRuntimeState;
+    if (context.pParty != nullptr)
+    {
+        context.pParty->applyGlobalNpcStateTo(followerRuntimeState);
+    }
+
+    return hiredNpcAdjustedCrossMapTravelDays(
+        followerRuntimeState,
+        OutdoorMapTravelFoodCost);
 }
 
 const Mm9MapTransition *pendingMm9PositionedTransition(
@@ -1261,10 +1270,20 @@ void applyMapTransitionTravelSideEffects(
     const int foodRequired = mapTransitionTravelFoodRequired(context, transition);
     if (context.pParty != nullptr)
     {
+        int travelDays = transition.travelDays;
+        if (context.pCurrentMap != nullptr
+            && isOutdoorMapFileName(context.pCurrentMap->fileName)
+            && isOutdoorMapFileName(transition.destinationMapFileName))
+        {
+            EventRuntimeState followerRuntimeState = context.eventRuntimeState;
+            context.pParty->applyGlobalNpcStateTo(followerRuntimeState);
+            travelDays = hiredNpcAdjustedCrossMapTravelDays(followerRuntimeState, travelDays);
+        }
+
         applyTravelDaysSideEffects(
             *context.pParty,
             context.pWorldRuntime,
-            transition.travelDays,
+            travelDays,
             foodRequired);
     }
 }
