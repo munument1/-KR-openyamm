@@ -19,25 +19,25 @@ jobs:
   runtime-localization:
     name: Korean runtime localization QA
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out migration branch
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
           persist-credentials: false
+
+      - name: Check out MMMerge Korean translation source
+        uses: actions/checkout@v7
+        with:
+          repository: munument1/-KR-MMMerge
+          ref: main
+          path: _mmmerge
+          fetch-depth: 1
+          persist-credentials: false
           sparse-checkout-cone-mode: false
           sparse-checkout: |
-            /game/
-            /korean/tools/
-            /tests/KoreanSkillDataTests.cpp
-            /tests/KoreanSpellTableTests.cpp
-            /tests/KoreanTextLayoutTests.cpp
-            /tests/KoreanCalendarTextTests.cpp
-            /tests/KoreanServiceTextTests.cpp
-            /tests/Utf8LabelLayoutTests.cpp
-            /tests/UnitTestMain.cpp
-            /third_party/doctest/
+            /Data/Text localization/**
 
       - name: Verify runtime localization routes
         run: python3 korean/tools/check_runtime_localization_routes.py
