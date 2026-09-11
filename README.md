@@ -1,4 +1,4 @@
-# OpenYAMM 0.11 한국어판
+# OpenYAMM 0.12 한국어판
 
 OpenYAMM은 **Open Yet Another Might and Magic**의 약자로, MMMerge에서 영감을 받아 개발된
 Might and Magic VI, VII, VIII의 현대적인 C++ 재구현 프로젝트입니다. 엔진은 처음에
@@ -15,6 +15,9 @@ Windows, Linux, Android 빌드를 지원합니다.
 주요 이야기, 전직, 퀘스트, 게임 시스템, 주문, 이동, 대화, 상점, 건물, 상자, 전투, 투사체, 인벤토리,
 파티 상태, 저장/불러오기, 오디오, 동영상 및 UI 시스템이 구현되어 있습니다. 현재도 활발히 개발 중이며,
 완성도 개선, 호환성, 개발 도구 및 에디터 작업이 계속 진행되고 있습니다.
+
+OpenYAMM 0.12의 MM6~8 게임플레이 수정, TTF 폰트 지원, 잔디 셰이더 및 업스케일 에셋 지원을 반영했으며,
+기존 한국어 런타임 표시·오버레이·자막·폰트 처리를 0.12 코드베이스에 이식했습니다.
 
 ## 주요 기능
 
@@ -110,11 +113,11 @@ cmake --build build --target openyamm-editor -j25
 해당 커밋의 Actions 페이지에서 `Package builds` 실행을 열면 SHA 이름의 아티팩트를 내려받을 수 있습니다.
 커밋 아티팩트는 하루 동안 보관되며, 예약 빌드는 계속해서 순차 갱신형 나이틀리 프리릴리스를 업데이트합니다.
 
-Windows에서는 ZIP을 푼 뒤 `openyamm.exe`를 실행합니다. Flatpak 번들은 다음 명령으로 설치하거나 갱신합니다.
+Windows에서는 ZIP을 푼 뒤 `openyamm.exe`를 실행합니다. 한국어판 릴리즈 태그는 다음 형식을 사용합니다.
 
 ```sh
-git tag -a 0.11-korean -m "OpenYAMM 0.11-korean"
-git push origin 0.11-korean
+git tag -a 0.12-korean-r1 -m "OpenYAMM 0.12-korean-r1"
+git push origin 0.12-korean-r1
 ```
 
 Android 6.0 이상을 사용하는 arm64 기기에서는 `OpenYAMM-nightly-android-arm64.apk`를 내려받아 실행하면
