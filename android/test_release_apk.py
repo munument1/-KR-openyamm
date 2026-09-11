@@ -79,6 +79,7 @@ def main():
     config["logging"]["gameplay_trace_append"] = "false"
     # Exercise the new decoration shaders as well as terrain and creature shaders.
     config["video"]["terrain_decorations"] = "true"
+    config["video"]["skip_event_cutscenes"] = "true"
     settings = args.output / "settings.ini"
     with settings.open("w") as stream:
         config.write(stream)
