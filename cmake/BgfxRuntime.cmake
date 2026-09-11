@@ -16,7 +16,7 @@ endfunction()
 
 function(openyamm_bgfx_shader_targets outputVariable)
     if (ANDROID)
-        set(shaderTargets "android|100_es|essl")
+        set(shaderTargets "android|300_es|essl")
     elseif (WIN32)
         set(shaderTargets
             "windows|120|glsl"
@@ -482,6 +482,9 @@ function(openyamm_configure_runtime_shaders)
             vs_outdoor_bmodel_lightmap.bin
             fs_outdoor_bmodel_lightmap.bin)
     endif()
+
+    # Android startup extracts exactly the shaders that this build produces.
+    set_property(GLOBAL PROPERTY OPENYAMM_RUNTIME_SHADER_NAMES "${runtimeShaderNames}")
 
     set(runtimeShaderOutputs)
     foreach(shaderTarget IN LISTS shaderTargets)

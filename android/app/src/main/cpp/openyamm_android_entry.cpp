@@ -1,4 +1,5 @@
 #include "game/app/OpenYammMain.h"
+#include "AndroidShaderPaths.h"
 
 #include <android/log.h>
 #include <SDL3/SDL_filesystem.h>
@@ -7,6 +8,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_system.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdarg>
 #include <cstdint>
@@ -87,27 +89,6 @@ private:
     std::string m_line;
 };
 
-constexpr std::array<PackagedAsset, 18> PackagedShaders = {{
-    {"runtime/shaders/essl/fs_cubes.bin", "runtime/shaders/essl/fs_cubes.bin"},
-    {"runtime/shaders/essl/fs_editor_preview_material.bin", "runtime/shaders/essl/fs_editor_preview_material.bin"},
-    {"runtime/shaders/essl/fs_indoor_textured_lit.bin", "runtime/shaders/essl/fs_indoor_textured_lit.bin"},
-    {"runtime/shaders/essl/fs_outdoor_billboard_lit.bin", "runtime/shaders/essl/fs_outdoor_billboard_lit.bin"},
-    {"runtime/shaders/essl/fs_outdoor_force_perspective.bin", "runtime/shaders/essl/fs_outdoor_force_perspective.bin"},
-    {"runtime/shaders/essl/fs_outdoor_textured_fog.bin", "runtime/shaders/essl/fs_outdoor_textured_fog.bin"},
-    {"runtime/shaders/essl/fs_particle.bin", "runtime/shaders/essl/fs_particle.bin"},
-    {"runtime/shaders/essl/fs_shadowmaps_texture.bin", "runtime/shaders/essl/fs_shadowmaps_texture.bin"},
-    {"runtime/shaders/essl/fs_spell_area_preview.bin", "runtime/shaders/essl/fs_spell_area_preview.bin"},
-    {"runtime/shaders/essl/vs_cubes.bin", "runtime/shaders/essl/vs_cubes.bin"},
-    {"runtime/shaders/essl/vs_editor_preview_material.bin", "runtime/shaders/essl/vs_editor_preview_material.bin"},
-    {"runtime/shaders/essl/vs_indoor_textured_lit.bin", "runtime/shaders/essl/vs_indoor_textured_lit.bin"},
-    {"runtime/shaders/essl/vs_outdoor_billboard_lit.bin", "runtime/shaders/essl/vs_outdoor_billboard_lit.bin"},
-    {"runtime/shaders/essl/vs_outdoor_force_perspective.bin", "runtime/shaders/essl/vs_outdoor_force_perspective.bin"},
-    {"runtime/shaders/essl/vs_outdoor_textured_fog.bin", "runtime/shaders/essl/vs_outdoor_textured_fog.bin"},
-    {"runtime/shaders/essl/vs_particle.bin", "runtime/shaders/essl/vs_particle.bin"},
-    {"runtime/shaders/essl/vs_shadowmaps_texture.bin", "runtime/shaders/essl/vs_shadowmaps_texture.bin"},
-    {"runtime/shaders/essl/vs_spell_area_preview.bin", "runtime/shaders/essl/vs_spell_area_preview.bin"}
-}};
-
 constexpr std::array<PackagedAsset, 1> PackagedRuntimeFiles = {{
     {"settings.ini", "settings.ini"}
 }};
@@ -139,17 +120,42 @@ std::filesystem::path getAndroidExternalStorageRoot()
     return pExternalStoragePath;
 }
 
-bool extractedAssetIsCurrent(const std::filesystem::path &targetPath, Sint64 sourceSize)
+bool extractedAssetIsCurrent(SDL_IOStream &sourceStream, const std::filesystem::path &targetPath, Sint64 sourceSize)
 {
     if (sourceSize < 0)
     {
-        return std::filesystem::is_regular_file(targetPath);
+        return false;
     }
 
     std::error_code sizeError;
     const uintmax_t targetSize = std::filesystem::file_size(targetPath, sizeError);
 
-    return !sizeError && targetSize == static_cast<uintmax_t>(sourceSize);
+    if (sizeError || targetSize != static_cast<uintmax_t>(sourceSize))
+    {
+        return false;
+    }
+
+    std::ifstream targetStream(targetPath, std::ios::binary);
+    std::array<char, 4096> sourceBytes;
+    std::array<char, 4096> targetBytes;
+    uintmax_t remainingBytes = targetSize;
+
+    while (remainingBytes > 0)
+    {
+        const size_t chunkSize = std::min<uintmax_t>(remainingBytes, sourceBytes.size());
+        if (SDL_ReadIO(&sourceStream, sourceBytes.data(), chunkSize) != chunkSize)
+        {
+            return false;
+        }
+        targetStream.read(targetBytes.data(), chunkSize);
+        if (!targetStream || !std::equal(sourceBytes.begin(), sourceBytes.begin() + chunkSize, targetBytes.begin()))
+        {
+            return false;
+        }
+        remainingBytes -= chunkSize;
+    }
+
+    return true;
 }
 
 void copyPackagedAssetToFile(SDL_IOStream &sourceStream, const std::filesystem::path &targetPath, Sint64 sourceSize)
@@ -231,11 +237,17 @@ void extractPackagedAssetIfNeeded(const std::filesystem::path &storageRoot, cons
     const Sint64 sourceSize = SDL_GetIOSize(pSourceStream);
     const std::filesystem::path targetPath = storageRoot / asset.pExtractedPath;
 
-    if (extractedAssetIsCurrent(targetPath, sourceSize))
+    if (extractedAssetIsCurrent(*pSourceStream, targetPath, sourceSize))
     {
         SDL_CloseIO(pSourceStream);
         openYammLog("Asset current: %s", targetPath.string().c_str());
         return;
+    }
+
+    if (SDL_SeekIO(pSourceStream, 0, SDL_IO_SEEK_SET) < 0)
+    {
+        SDL_CloseIO(pSourceStream);
+        throw std::runtime_error(std::string("Failed to rewind APK asset: ") + asset.pApkPath);
     }
 
     openYammLog(
@@ -278,9 +290,9 @@ void prepareAndroidAssetRoot()
 {
     const std::filesystem::path storageRoot = getAndroidExternalStorageRoot();
 
-    for (const PackagedAsset &shader : PackagedShaders)
+    for (const char *pShaderPath : OpenYAMM::Game::AndroidShaderPaths)
     {
-        extractPackagedAssetIfNeeded(storageRoot, shader);
+        extractPackagedAssetIfNeeded(storageRoot, {pShaderPath, pShaderPath});
     }
 
     for (const PackagedAsset &runtimeFile : PackagedRuntimeFiles)

@@ -1,0 +1,10 @@
+#pragma once
+
+#include <array>
+
+namespace OpenYAMM::Game
+{
+// Generated from the runtime shader build list; do not maintain a separate Android list.
+inline constexpr std::array<const char *, @androidShaderCount@> AndroidShaderPaths = {{
+@androidShaderPaths@}};
+}
