@@ -228,9 +228,15 @@ jobs:
         timeout-minutes: 15
         run: |
           android/gradlew --stop
+          export ANDROID_USER_HOME="$RUNNER_TEMP/openyamm-android-user"
+          export ANDROID_EMULATOR_HOME="$ANDROID_USER_HOME"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           sdkmanager --install "emulator" "system-images;android-35;google_apis;x86_64"
           echo no | avdmanager create avd --force --name release-test \
-            --package "system-images;android-35;google_apis;x86_64" --device pixel_7
+            --package "system-images;android-35;google_apis;x86_64" --device pixel_7 \
+            --path "$ANDROID_AVD_HOME/release-test.avd"
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx release-test
           sudo chmod a+rw /dev/kvm
           mkdir -p android-release-test
           "$ANDROID_HOME/emulator/emulator" -avd release-test -no-window -no-audio \

@@ -41,6 +41,7 @@ def main():
 
     if adb("shell", "getprop", "ro.kernel.qemu").strip() != b"1":
         raise RuntimeError("This test requires a disposable Android emulator, not a physical device.")
+    adb("shell", "settings", "put", "secure", "immersive_mode_confirmations", "confirmed")
 
     def launch():
         adb("shell", "am", "start", "-n", package + "/.OpenYammActivity")
