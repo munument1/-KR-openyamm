@@ -13,6 +13,8 @@ on:
       - main
     tags:
       - "[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+-korean"
+      - "[0-9]+.[0-9]+-korean-r[0-9]+"
   schedule:
     - cron: "27 3 * * *"
   workflow_dispatch:
@@ -68,21 +70,22 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             version="$GITHUB_REF_NAME"
 
-            if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-              echo "::error::Release tags must use canonical X.Y versioning, for example 0.7."
+            if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-korean(-r([1-9][0-9]*))?)?$ ]]; then
+              echo "::error::Release tags must use X.Y, X.Y-korean or X.Y-korean-rN (for example 0.13-korean-r1)."
               exit 1
             fi
 
             major="${BASH_REMATCH[1]}"
             minor="${BASH_REMATCH[2]}"
+            revision="${BASH_REMATCH[5]:-0}"
 
-            if (( minor > 99 )); then
-              echo "::error::The minor version must be between 0 and 99."
+            if (( minor > 99 || revision > 99 )); then
+              echo "::error::The minor version and Korean revision must be between 0 and 99."
               exit 1
             fi
 
             android_version_name="$version"
-            android_version_code=$((major * 10000 + minor * 100))
+            android_version_code=$((major * 10000 + minor * 100 + revision))
 
             if (( android_version_code <= 0 || android_version_code > 2100000000 )); then
               echo "::error::Tag $version produces an invalid Android version code: $android_version_code"
@@ -256,11 +259,11 @@ jobs:
             cat android-release-test/emulator.log
             exit 1
           fi
-          baseline_apk="$RUNNER_TEMP/OpenYAMM-0.12-android-arm64.apk"
+          baseline_apk="$RUNNER_TEMP/OpenYAMM-0.11-korean-r10-android-arm64.apk"
           curl --fail --location --retry 3 \
-            https://github.com/pjasicek/openyamm/releases/download/0.12/OpenYAMM-0.12-android-arm64.apk \
+            https://github.com/munument1/-KR-openyamm/releases/download/0.11-korean-r10/OpenYAMM-0.11-korean-r10-android-arm64.apk \
             --output "$baseline_apk"
-          echo "5154e6b85393b15ced75c528c6f3099f41453be8c127d4d61deb701f93c48a76  $baseline_apk" | sha256sum --check
+          echo "a37c975b847fe23757124850057e1a571793a06aa10677ac0a2c98c9877dbadc  $baseline_apk" | sha256sum --check
           python3 android/test_release_apk.py android/app-release.apk \
             --serial emulator-5554 --output android-release-test --world mm8 --map out13.odm \
             --baseline-apk "$baseline_apk"
