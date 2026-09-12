@@ -96,6 +96,33 @@ For manual public builds, bump `openyamm.android.versionName` and `openyamm.andr
 
 ## Package CI Signing
 
+Android shaders target OpenGL ES 3.0, matching the manifest's minimum renderer requirement.
+The build generates `AndroidShaderPaths.h` from the CMake runtime shader list. Startup checks
+the extracted files against the APK contents and updates missing or changed shaders, including
+changes that preserve file size. User settings and saves remain in the existing external directory.
+
+CI installs the published 0.12 APK, updates it with the signed ARM64 release APK in an Android 15
+emulator with ARM64 translation, and loads Regna before making the APK available for publication.
+This also verifies that the production signing identity permits an in-place update. The check requires successful
+renderer initialization and verifies every extracted shader against the APK; reaching the main
+menu alone is insufficient. Logs and a screenshot are retained as a CI artifact.
+
+Run the same check on a disposable emulator (it replaces that emulator's game settings):
+
+```sh
+python3 android/test_release_apk.py android/app-release.apk \
+  --serial emulator-5554 --output /tmp/openyamm-android-test
+```
+
+To test an in-place update, add `--baseline-apk <previous.apk> --save <save.oysav>`.
+Both APKs must use the same signing certificate, and the candidate must have a higher version
+code. The test installs with `adb install -r`, checks that settings and save bytes survive,
+and loads that save. Use `--world` and `--map` when testing another world or map.
+
+For a release build using already prepared asset ZIPs outside the ordinary `assets/` directory,
+pass `-Popenyamm.android.runtimeAssetsDir=/absolute/path` to Gradle. The directory must contain
+`engine.zip` and `worlds/{mm6,mm7,mm8,mmmerge}.zip`.
+
 The GitHub Actions workflow uses the same signed release path for nightly and tagged packages. Configure these
 repository secrets before running it:
 

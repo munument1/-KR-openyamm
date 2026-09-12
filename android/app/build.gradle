@@ -175,16 +175,18 @@ android {
     }
 }
 
+def runtimeAssetsRoot = file(project.findProperty("openyamm.android.runtimeAssetsDir") ?: "${rootDir}/../assets")
+
 def registerOpenYammApkAssetsTask = { taskName, nativeBuildTaskName, shaderBuildDirectories, generatedAssetsRoot ->
     tasks.register(taskName) {
         dependsOn(nativeBuildTaskName)
 
         def packagedAssetRoots = [
-            [zip: file("${rootDir}/../assets/engine.zip"), into: "engine"],
-            [zip: file("${rootDir}/../assets/worlds/mm6.zip"), into: "worlds/mm6"],
-            [zip: file("${rootDir}/../assets/worlds/mm7.zip"), into: "worlds/mm7"],
-            [zip: file("${rootDir}/../assets/worlds/mm8.zip"), into: "worlds/mm8"],
-            [zip: file("${rootDir}/../assets/worlds/mmmerge.zip"), into: "worlds/mmmerge"]
+            [zip: new File(runtimeAssetsRoot, "engine.zip"), into: "engine"],
+            [zip: new File(runtimeAssetsRoot, "worlds/mm6.zip"), into: "worlds/mm6"],
+            [zip: new File(runtimeAssetsRoot, "worlds/mm7.zip"), into: "worlds/mm7"],
+            [zip: new File(runtimeAssetsRoot, "worlds/mm8.zip"), into: "worlds/mm8"],
+            [zip: new File(runtimeAssetsRoot, "worlds/mmmerge.zip"), into: "worlds/mmmerge"]
         ]
 
         inputs.files(packagedAssetRoots.collect { it.zip })
