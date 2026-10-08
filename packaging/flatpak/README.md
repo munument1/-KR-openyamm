@@ -7,14 +7,28 @@ This local Flatpak packaging uses the same asset layout as the Windows release p
 
 The build script creates those zips fresh from `assets_dev/` in the staged Flatpak source tree, so local root
 `assets/*.zip` files do not have to be regenerated before building Flatpak packages.
+It validates and packages the prebuilt desktop creature atlases; authoring sources and recooking are unnecessary.
 
-Build and install locally after Flatpak, `flatpak-builder`, `ostree`, `elfutils`, and the Flatpak runtime and SDK are
-installed. `elfutils` provides the `eu-strip` and `eu-elfcompress` tools used when finalizing release binaries.
+Build and install locally after Flatpak, `flatpak-builder`, `ostree`, `elfutils`, `librsvg2-common`, and the Flatpak runtime
+and SDK are installed. `elfutils` provides the `eu-strip` and `eu-elfcompress` tools used when finalizing release binaries.
+On Ubuntu, `librsvg2-common` provides the host SVG loader used by Flatpak's icon validator; install it explicitly when
+using `--no-install-recommends`.
 
 ```sh
 packaging/flatpak/build_flatpak.sh
-flatpak run io.github.openyamm.OpenYAMM
+flatpak run --user io.github.openyamm.OpenYAMM
 ```
+
+The wrapper installs the app and its runtime for the current user. When installing the resulting bundle manually,
+use the same installation scope:
+
+```sh
+flatpak install --user build/flatpak/OpenYAMM.flatpak
+flatpak run --user io.github.openyamm.OpenYAMM
+```
+
+Without `--user`, `flatpak install` targets the system installation and cannot use a runtime installed only for your
+user. If the wrapper already installed the app successfully, you can run it directly without reinstalling the bundle.
 
 The same flow is available from CMake:
 
@@ -27,6 +41,16 @@ The build script uses the online CPU count minus two parallel jobs by default. O
 ```sh
 packaging/flatpak/build_flatpak.sh --jobs=8
 ```
+
+To create the bundle from an already completed export without repeating the build or installation:
+
+```sh
+packaging/flatpak/build_flatpak.sh --bundle-only
+```
+
+Use the original `--output-dir`, `--repo-dir` and `--branch` options when they differ from the defaults.
+The wrapper parses the whole workflow before execution so edits to the script during a long build cannot
+change the commands read when the builder finishes.
 
 Clean local Flatpak build output and legacy `.flatpak-builder` state:
 
@@ -58,3 +82,9 @@ Flathub-ready manifest should replace that with explicit Flatpak sources for eac
 
 The local manifest does not install AppStream metainfo because older Ubuntu `flatpak-builder` packages may lack
 `appstream-compose`. The metainfo file is kept in this directory for later Flathub-oriented packaging.
+
+Application icons use the compass from the approved Obsidian menu seal. The editable master is
+`packaging/artwork/openyamm-icon.svg`; run `python3 tools/generate_app_icons.py` with PyGObject/librsvg and pycairo
+to export Windows ICO, Linux/Flatpak PNG/SVG, Android legacy/round/adaptive icons and the desktop window icon.
+CMake installs the Linux icons, including small-size exports and the scalable SVG. The desktop application identifier
+matches `io.github.openyamm.OpenYAMM.desktop` so compositors can associate the running game with its launcher.

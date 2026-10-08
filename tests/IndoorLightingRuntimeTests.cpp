@@ -3,6 +3,7 @@
 #include "game/events/EventRuntime.h"
 #include "game/fx/WorldFxSystem.h"
 #include "game/gameplay/GameplayTorchLight.h"
+#include "game/gameplay/InteractiveDecorationRules.h"
 #include "game/indoor/IndoorLightingRuntime.h"
 #include "game/indoor/IndoorMapData.h"
 #include "game/maps/MapAssetLoader.h"
@@ -10,7 +11,9 @@
 #include "game/party/SpellIds.h"
 #include "game/render/lighting/FxLightClustering.h"
 #include "game/render/lighting/LightingStats.h"
+#include "game/render/IndoorStaticLighting.h"
 
+#include <algorithm>
 #include <vector>
 
 using OpenYAMM::Game::EventRuntimeState;
@@ -74,6 +77,85 @@ IndoorMapData makeMapWithOneSector()
 TEST_CASE("indoor lighting keeps shader draw light budget local to each draw")
 {
     CHECK_EQ(MaxIndoorDrawLights, 12u);
+}
+
+TEST_CASE("indoor baked lighting finds a small light inside a triangle with unlit corners")
+{
+    const std::array<bx::Vec3, 3> positions = {
+        bx::Vec3{-1024.0f, -1024.0f, 0.0f}, bx::Vec3{1024.0f, -1024.0f, 0.0f}, bx::Vec3{0.0f, 1024.0f, 0.0f}
+    };
+    OpenYAMM::Game::BakedStaticLightSource light = {};
+    light.radius = 64.0f;
+    const std::array lights = {light};
+    CHECK(OpenYAMM::Game::indoorBakedStaticLightNeedsSubdivision(lights, positions));
+}
+
+TEST_CASE("indoor baked lighting refines torch curvature below the legacy mesh spacing")
+{
+    const std::array<bx::Vec3, 3> positions = {
+        bx::Vec3{-64.0f, -64.0f, 0.0f}, bx::Vec3{64.0f, -64.0f, 0.0f}, bx::Vec3{0.0f, 64.0f, 0.0f}
+    };
+    OpenYAMM::Game::BakedStaticLightSource light = {};
+    light.radius = 256.0f;
+    const std::array lights = {light};
+    CHECK(OpenYAMM::Game::indoorBakedStaticLightNeedsSubdivision(lights, positions));
+}
+
+TEST_CASE("indoor baked lighting keeps unlit and nearly flat triangles coarse")
+{
+    const std::array<bx::Vec3, 3> positions = {
+        bx::Vec3{0.0f, 0.0f, 0.0f}, bx::Vec3{64.0f, 0.0f, 0.0f}, bx::Vec3{0.0f, 64.0f, 0.0f}
+    };
+    OpenYAMM::Game::BakedStaticLightSource light = {};
+    light.position = {0.0f, 0.0f, 1024.0f};
+    light.radius = 128.0f;
+    std::array lights = {light};
+    CHECK_FALSE(OpenYAMM::Game::indoorBakedStaticLightNeedsSubdivision(lights, positions));
+
+    lights[0].position = {0.0f, 0.0f, 0.0f};
+    lights[0].radius = 1024.0f;
+    CHECK_FALSE(OpenYAMM::Game::indoorBakedStaticLightNeedsSubdivision(lights, positions));
+}
+
+TEST_CASE("indoor baked lighting budgets the combined curvature of overlapping lights")
+{
+    const std::array<bx::Vec3, 3> positions = {
+        bx::Vec3{-64.0f, -64.0f, 0.0f}, bx::Vec3{64.0f, -64.0f, 0.0f}, bx::Vec3{0.0f, 64.0f, 0.0f}
+    };
+    OpenYAMM::Game::BakedStaticLightSource light = {};
+    light.radius = 400.0f;
+    light.alpha = 0.1f;
+    std::vector lights = {light};
+    CHECK_FALSE(OpenYAMM::Game::indoorBakedStaticLightNeedsSubdivision(lights, positions));
+    lights.resize(10, light);
+    CHECK(OpenYAMM::Game::indoorBakedStaticLightNeedsSubdivision(lights, positions));
+}
+
+TEST_CASE("indoor baked lighting avoids refining large triangles for a dim light skirt")
+{
+    const std::array<bx::Vec3, 3> positions = {
+        bx::Vec3{-1024.0f, -1024.0f, 0.0f}, bx::Vec3{1024.0f, -1024.0f, 0.0f}, bx::Vec3{0.0f, 1024.0f, 0.0f}
+    };
+    OpenYAMM::Game::BakedStaticLightSource light = {};
+    light.radius = 256.0f;
+    light.position = {0.0f, 0.0f, 246.0f};
+    const std::array lights = {light};
+    CHECK_FALSE(OpenYAMM::Game::indoorBakedStaticLightNeedsSubdivision(lights, positions));
+}
+
+TEST_CASE("indoor baked lighting does not combine curvature peaks at different probe positions")
+{
+    const std::array<bx::Vec3, 3> positions = {
+        bx::Vec3{-64.0f, -64.0f, 0.0f}, bx::Vec3{64.0f, -64.0f, 0.0f}, bx::Vec3{0.0f, 64.0f, 0.0f}
+    };
+    OpenYAMM::Game::BakedStaticLightSource first = {};
+    first.position = {0.0f, -64.0f, 0.0f};
+    first.radius = 64.0f;
+    first.alpha = 0.03f;
+    OpenYAMM::Game::BakedStaticLightSource second = first;
+    second.position = {32.0f, 0.0f, 0.0f};
+    const std::array lights = {first, second};
+    CHECK_FALSE(OpenYAMM::Game::indoorBakedStaticLightNeedsSubdivision(lights, positions));
 }
 
 TEST_CASE("lighting stats accumulate and reset instrumentation counters")
@@ -360,6 +442,69 @@ TEST_CASE("indoor decoration light is hidden when consumable decoration is clear
     state.decorVars[0] = 2;
     frame = runtime.buildFrame(input);
     CHECK(frame.lights.empty());
+}
+
+TEST_CASE("indoor decoration light toggles update cached light and preserve authored interactions")
+{
+    using namespace OpenYAMM::Game;
+    DecorationBillboardSet billboards;
+    REQUIRE(billboards.decorationTable.loadRows({
+        {"1", "brazir2f", "brazier", "0", "30", "40", "0", "0", "0", "0", "0", "0", "1"},
+        {"2", "brzier00", "brazier", "0", "30", "40", "256", "0", "0", "0", "0", "0", "2"},
+        {"3", "nwtrchnf", "torch", "0", "30", "40", "0", "0", "0", "0", "0", "0", "3"},
+        {"4", "TrchB00", "torch", "0", "30", "40", "256", "0", "0", "0", "0", "0", "4"}
+    }));
+    for (const char *name : {"brazir2f", "nwtrchnf"})
+    {
+        IndoorMapData map;
+        map.sectors.resize(1);
+        IndoorEntity entity;
+        entity.name = name;
+        entity.eventIdPrimary = 42;
+        map.entities.push_back(entity);
+        IndoorLight light;
+        light.x = light.y = light.z = 100;
+        light.radius = 400;
+        light.attributes = 8;
+        map.lights.push_back(light);
+        light.x = 101;
+        map.lights.push_back(light);
+        map.sectors[0].lightIds = {0, 1};
+        DecorationBillboard billboard;
+        billboard.name = name;
+        billboard.decorationId = *billboards.decorationTable.findIdByInternalName(name);
+        billboard.spriteId = billboards.decorationTable.get(billboard.decorationId)->spriteId;
+        billboard.eventIdPrimary = 42;
+        billboard.sectorId = 0;
+        billboard.height = 40;
+        billboards.billboards = {billboard};
+        EventRuntimeState state;
+        state.decorVars.fill(7);
+        IndoorLightingRuntime lighting;
+        lighting.rebuildStaticCache(map, &billboards, &state);
+        IndoorLightingFrameInput input;
+        input.pMapData = &map;
+        input.pDecorationBillboardSet = &billboards;
+        input.pEventRuntimeState = &state;
+        CHECK(lighting.buildFrame(input).lights.empty());
+        REQUIRE(toggleIndoorDecorationLight(map, billboards.decorationTable, 0, state));
+        CHECK_EQ(state.indoorLightRevision, 1u);
+        CHECK(state.indoorLightsEnabled.at(0));
+        CHECK_FALSE(state.indoorLightsEnabled.contains(1));
+        REQUIRE_EQ(lighting.buildFrame(input).lights.size(), 2u);
+        CHECK_EQ(lighting.buildFrame(input).lights.back().radius, 256.0f);
+        REQUIRE(toggleIndoorDecorationLight(map, billboards.decorationTable, 0, state));
+        CHECK_EQ(state.spriteOverrides.at(42).textureName, name);
+        CHECK_FALSE(state.indoorLightsEnabled.at(0));
+        CHECK(lighting.buildFrame(input).lights.empty());
+        CHECK(std::all_of(state.decorVars.begin(), state.decorVars.end(), [](uint8_t value) { return value == 7; }));
+        map.entities[0].eventIdSecondary = 12;
+        CHECK_FALSE(toggleIndoorDecorationLight(map, billboards.decorationTable, 0, state));
+        map.entities[0].eventIdSecondary = 0;
+        state.spriteOverrides.at(42).hidden = true;
+        CHECK_FALSE(toggleIndoorDecorationLight(map, billboards.decorationTable, 0, state));
+        CHECK_FALSE(toggleIndoorDecorationLight(map, billboards.decorationTable, 1, state));
+    }
 }
 
 TEST_CASE("indoor lighting gives Torchlight priority and boosts indoor intensity")

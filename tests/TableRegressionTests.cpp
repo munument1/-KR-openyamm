@@ -108,6 +108,31 @@ std::string readSourceTextFile(const std::filesystem::path &path)
     return buffer.str();
 }
 
+std::set<std::string> iniSettingKeys(const std::string &text)
+{
+    std::set<std::string> keys;
+    std::istringstream input(text);
+    std::string section;
+    std::string line;
+
+    while (std::getline(input, line))
+    {
+        if (line.size() >= 2 && line.front() == '[' && line.back() == ']')
+        {
+            section = line.substr(1, line.size() - 2);
+            continue;
+        }
+
+        const size_t separator = line.find('=');
+        if (separator != std::string::npos && !section.empty())
+        {
+            keys.insert(section + '.' + line.substr(0, separator));
+        }
+    }
+
+    return keys;
+}
+
 std::vector<uint8_t> readSourceBinaryFile(const std::filesystem::path &path)
 {
     std::ifstream stream(path, std::ios::binary);
@@ -201,6 +226,10 @@ TEST_CASE("settings debug startup options round trip")
 
     OpenYAMM::Game::GameSettings settings = OpenYAMM::Game::GameSettings::createDefault();
     CHECK_FALSE(settings.spriteOutline);
+    CHECK(settings.cinematicGrading);
+    CHECK_EQ(settings.cinematicStrength, 60);
+    settings.cinematicGrading = false;
+    settings.cinematicStrength = 43;
     settings.settingsProfileName = "test";
     settings.settingsProfileVersion = 7;
     settings.startWorldId = "mm7";
@@ -213,6 +242,7 @@ TEST_CASE("settings debug startup options round trip")
     settings.skipEventCutscenes = true;
     settings.waitForLevelSprites = false;
     settings.newGameGodLich = true;
+    settings.turboMovementEnabled = false;
     settings.bolsterMonsters = true;
     settings.outdoorPathfinding = true;
     settings.monsterProjectileVisuals = OpenYAMM::Game::MonsterProjectileVisuals::Sprites;
@@ -245,12 +275,15 @@ TEST_CASE("settings debug startup options round trip")
     CHECK_EQ(loadedSettings->startupSaveFile, "saves/desktop camera.oysav");
     CHECK(loadedSettings->startMapFile.empty());
     CHECK(loadedSettings->spriteOutline);
+    CHECK_FALSE(loadedSettings->cinematicGrading);
+    CHECK_EQ(loadedSettings->cinematicStrength, 43);
     CHECK_EQ(loadedSettings->viewDistance, "unlimited");
     CHECK_EQ(OpenYAMM::Game::resolveViewDistanceSetting(loadedSettings->viewDistance, 16192.0f), 200000.0f);
     CHECK(loadedSettings->outdoorBillboardDepthSlice == doctest::Approx(0.0f));
     CHECK(loadedSettings->skipEventCutscenes);
     CHECK_FALSE(loadedSettings->waitForLevelSprites);
     CHECK(loadedSettings->newGameGodLich);
+    CHECK_FALSE(loadedSettings->turboMovementEnabled);
     CHECK(loadedSettings->bolsterMonsters);
     CHECK(loadedSettings->outdoorPathfinding);
     CHECK(loadedSettings->monsterProjectileVisuals == OpenYAMM::Game::MonsterProjectileVisuals::Sprites);
@@ -273,6 +306,17 @@ TEST_CASE("settings debug startup options round trip")
     std::filesystem::remove(path);
 }
 
+TEST_CASE("development and release settings expose the same options")
+{
+    const std::filesystem::path sourceDirectory = OPENYAMM_SOURCE_DIR;
+    const std::set<std::string> developmentKeys =
+        iniSettingKeys(readSourceTextFile(sourceDirectory / "settings.ini"));
+    const std::set<std::string> releaseKeys =
+        iniSettingKeys(readSourceTextFile(sourceDirectory / "settings_release.ini"));
+
+    CHECK(developmentKeys == releaseKeys);
+}
+
 TEST_CASE("android settings profile uses mobile interaction defaults without diagnostic logging")
 {
     const std::filesystem::path path =
@@ -287,6 +331,7 @@ TEST_CASE("android settings profile uses mobile interaction defaults without dia
     CHECK(settings->contextActionPopup);
     CHECK(settings->startInMainMenu);
     CHECK(settings->verticalSync);
+    CHECK(settings->lightmaps);
     CHECK_FALSE(settings->preseedParty);
     CHECK_FALSE(settings->newGameGodLich);
     CHECK_FALSE(settings->allowIncompleteCharacterCreation);
@@ -883,6 +928,32 @@ TEST_CASE("already resolved directional texture names are preserved")
         OpenYAMM::Game::SpriteFrameTable::resolveTexture(frame, 2);
 
     CHECK_EQ(texture.textureName, "m528aa0");
+}
+
+TEST_CASE("directional atlas palette stems retain a trailing zero before the view suffix")
+{
+    using namespace OpenYAMM::Game;
+    SpriteFrameEntry frame;
+    frame.flags = static_cast<uint32_t>(SpriteFrameFlag::Mirror5)
+        | static_cast<uint32_t>(SpriteFrameFlag::Mirror6)
+        | static_cast<uint32_t>(SpriteFrameFlag::Mirror7);
+    for (const int palette : {829, 830})
+    {
+        frame.textureName = "atlas:mm6_ttn1/ttn1waa__palette_" + std::to_string(palette);
+        for (int view = 0; view < 8; ++view)
+        {
+            const ResolvedSpriteTexture resolved = SpriteFrameTable::resolveTexture(frame, view);
+            const int storedView = view > 4 ? 8 - view : view;
+            CHECK_EQ(resolved.textureName, frame.textureName + std::to_string(storedView));
+            CHECK_EQ(resolved.mirrored, view > 4);
+        }
+    }
+    frame.textureName = "atlas:mm6_ttn1/ttn1ata__palette_8300";
+    frame.flags = static_cast<uint32_t>(SpriteFrameFlag::Image1);
+    for (int view = 0; view < 8; ++view)
+    {
+        CHECK_EQ(SpriteFrameTable::resolveTexture(frame, view).textureName, frame.textureName);
+    }
 }
 
 TEST_CASE("roster join offer mapping samples")

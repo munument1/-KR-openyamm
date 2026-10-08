@@ -12,6 +12,7 @@
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/ui/GameplayPartyOverlayRenderer.h"
 #include "game/ui/GameplayUiRenderer.h"
+#include "game/ui/RestHourglassAnimation.h"
 
 #include <SDL3/SDL.h>
 
@@ -564,7 +565,8 @@ void GameplayScreenController::updateRestOverlayProgress(
     }
 
     const float safeDeltaSeconds = std::max(0.0f, deltaSeconds);
-    restScreen.hourglassElapsedSeconds += safeDeltaSeconds;
+    restScreen.hourglassElapsedSeconds = std::fmod(
+        restScreen.hourglassElapsedSeconds + safeDeltaSeconds, RestHourglassCycleSeconds);
 
     if (restScreen.mode == GameplayUiController::RestMode::None || context.worldRuntime() == nullptr)
     {
@@ -699,6 +701,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
     const bool allowPortraitPointerInput =
         config.allowGameplayPointerInput
         || input.leftMouseButton.held
+        || input.mobileTouchDragReleased
         || context.interactionState().partyPortraitClickLatch;
 #else
     const bool allowPortraitPointerInput = config.allowGameplayPointerInput;
@@ -721,26 +724,23 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
         && !quickReferenceActive
         && !houseBankInputActive;
 
-    if (gameplayReadyForPortraitClicks)
+    const GameplayPartyPortraitInputConfig portraitInputConfig{
+        .screenWidth = config.width,
+        .screenHeight = config.height,
+        .pointerX = config.pointerX,
+        .pointerY = config.pointerY,
+        .leftButtonPressed = config.leftButtonPressed,
+        .rightButtonPressed = input.rightMouseButton.held,
+        .touchItemReleased = input.mobileTouchDragReleased,
+        .allowInput = gameplayReadyForPortraitClicks,
+        .requireGameplayReady = requirePortraitGameplayReady,
+        .hasActiveLootView = hasActiveLootView,
+        .onPortraitActivated = config.onPortraitActivated,
+    };
+
+    if (!input.mobileTouchDragReleased)
     {
-        handlePartyPortraitInput(
-            context,
-            GameplayPartyPortraitInputConfig{
-                .screenWidth = config.width,
-                .screenHeight = config.height,
-                .pointerX = config.pointerX,
-                .pointerY = config.pointerY,
-                .leftButtonPressed = config.leftButtonPressed,
-                .rightButtonPressed = input.rightMouseButton.held,
-                .allowInput = true,
-                .requireGameplayReady = requirePortraitGameplayReady,
-                .hasActiveLootView = hasActiveLootView,
-                .onPortraitActivated = config.onPortraitActivated,
-            });
-    }
-    else
-    {
-        handlePartyPortraitInput(context, GameplayPartyPortraitInputConfig{});
+        handlePartyPortraitInput(context, portraitInputConfig);
     }
 
     const bool canUsePartyNumberHotkeys =
@@ -881,7 +881,7 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
     const bool zoomOutPressed =
         input.action(KeyboardAction::ZoomOut).held;
 
-    return handleSharedOverlayInput(
+    const GameplayUiOverlayInputResult result = handleSharedOverlayInput(
         context,
         input,
         GameplayUiOverlayInputConfig{
@@ -905,6 +905,13 @@ GameplayUiOverlayInputResult GameplayScreenController::handleStandardUiInput(
             .spellbookActive = spellbookActive,
             .characterScreenOpen = characterScreenOpen,
         });
+
+    if (input.mobileTouchDragReleased)
+    {
+        handlePartyPortraitInput(context, portraitInputConfig);
+    }
+
+    return result;
 }
 
 GameplayStandardWorldInputGateResult GameplayScreenController::gateStandardWorldInput(

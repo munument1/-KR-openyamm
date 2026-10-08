@@ -1,15 +1,36 @@
 
 #include "common.sh"
+#include "world_clip.sh"
 
 SAMPLER2D(s_texColor, 0);
 #if SPRITE_ATLAS
 SAMPLER2D(s_spriteMask, 1);
+SAMPLER2D(s_spriteLookup, 2);
 uniform vec4 u_spriteAtlasRect;
 uniform vec4 u_spriteAtlasTexel;
 uniform vec4 u_spriteChroma;
 uniform vec4 u_spriteSecondChroma;
 uniform vec4 u_spriteThirdChroma;
 uniform vec4 u_spriteFourthChroma;
+
+vec3 spriteRgbLookup(vec3 index)
+{
+    return texture2DLod(s_spriteLookup, vec2((index.y * 33.0 + index.z + 0.5) / 1089.0,
+        (index.x + 0.5) / 33.0), 0.0).rgb;
+}
+
+vec3 spriteRgbDisplacement(vec3 color)
+{
+    vec3 position = clamp(color, 0.0, 1.0) * 32.0;
+    vec3 lo = floor(position);
+    vec3 hi = min(lo + 1.0, vec3(32.0, 32.0, 32.0));
+    vec3 f = position - lo;
+    vec3 a = mix(spriteRgbLookup(lo), spriteRgbLookup(vec3(lo.x, lo.y, hi.z)), f.z);
+    vec3 b = mix(spriteRgbLookup(vec3(lo.x, hi.y, lo.z)), spriteRgbLookup(vec3(lo.x, hi.y, hi.z)), f.z);
+    vec3 c = mix(spriteRgbLookup(vec3(hi.x, lo.y, lo.z)), spriteRgbLookup(vec3(hi.x, lo.y, hi.z)), f.z);
+    vec3 d = mix(spriteRgbLookup(vec3(hi.x, hi.y, lo.z)), spriteRgbLookup(hi), f.z);
+    return mix(mix(a, b, f.y), mix(c, d, f.y), f.x);
+}
 #endif
 
 vec2 billboardTextureUv(vec2 uv)
@@ -70,6 +91,7 @@ float sampleBillboardAlpha(vec2 uv, float vertexAlpha, float atlasLod)
 
 void main()
 {
+    clipWorldPosition(v_worldPosition);
     float atlasLod = 0.0;
 #if SPRITE_ATLAS
     // Derive the footprint before UV clamping or divergent alpha/outline branches.
@@ -98,9 +120,34 @@ void main()
             float luminance = dot(textureColor.rgb, vec3(0.2126, 0.7152, 0.0722));
             target = luminance * u_spriteChroma.rgb;
         }
-        if (u_spriteChroma.w > 3.5)
+        if (u_spriteChroma.w > 6.5)
+        {
+            textureColor.rgb = clamp(textureColor.rgb + coverage.r * spriteRgbDisplacement(textureColor.rgb), 0.0, 1.0);
+        }
+        else if (u_spriteChroma.w > 4.5)
         {
             float luminance = dot(textureColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+            float x = (floor(luminance * 255.0 + 0.5) + 0.5) / 256.0;
+            if (u_spriteChroma.w > 5.5)
+            {
+                vec3 r = texture2DLod(s_spriteLookup, vec2(x, 0.125), 0.0).rgb;
+                vec3 g = texture2DLod(s_spriteLookup, vec2(x, 0.375), 0.0).rgb;
+                vec3 b = texture2DLod(s_spriteLookup, vec2(x, 0.625), 0.0).rgb;
+                vec3 a = texture2DLod(s_spriteLookup, vec2(x, 0.875), 0.0).rgb;
+                coverage /= max(1.0, coverage.r + coverage.g + coverage.b + coverage.a);
+                textureColor.rgb = clamp(textureColor.rgb * (1.0 - coverage.r - coverage.g - coverage.b - coverage.a)
+                    + r * coverage.r + g * coverage.g + b * coverage.b + a * coverage.a, 0.0, 1.0);
+            }
+            else
+            {
+                vec3 targetLut = texture2DLod(s_spriteLookup, vec2(x, 0.5), 0.0).rgb;
+                textureColor.rgb = clamp(mix(textureColor.rgb, targetLut, coverage.r), 0.0, 1.0);
+            }
+        }
+        else if (u_spriteChroma.w > 3.5)
+        {
+            float luminance = dot(textureColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+            coverage /= max(1.0, coverage.r + coverage.g + coverage.b + coverage.a);
             textureColor.rgb = clamp(textureColor.rgb * (1.0 - coverage.r - coverage.g - coverage.b - coverage.a)
                 + luminance * (coverage.r * u_spriteChroma.rgb + coverage.g * u_spriteSecondChroma.rgb
                     + coverage.b * u_spriteThirdChroma.rgb + coverage.a * u_spriteFourthChroma.rgb), 0.0, 1.0);
@@ -108,6 +155,7 @@ void main()
         else if (u_spriteChroma.w > 2.5)
         {
             float luminance = dot(textureColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+            coverage.xy /= max(1.0, coverage.r + coverage.g);
             textureColor.rgb = clamp(textureColor.rgb * (1.0 - coverage.r - coverage.g)
                 + luminance * (coverage.r * u_spriteChroma.rgb + coverage.g * u_spriteSecondChroma.rgb), 0.0, 1.0);
         }
@@ -116,6 +164,9 @@ void main()
             textureColor.rgb = clamp(mix(textureColor.rgb, target, coverage.r), 0.0, 1.0);
         }
     }
+#endif
+#if SPRITE_ATLAS
+    textureColor.rgb *= u_spriteAtlasTexel.w;
 #endif
     vec3 litColor = textureColor.rgb * (u_billboardAmbient.rgb + v_color0.rgb);
     litColor = mix(litColor, u_fogColor.rgb, u_fogDensities.z);

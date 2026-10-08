@@ -1,4 +1,6 @@
 #include "game/outdoor/OutdoorWorldRuntime.h"
+#include "game/gameplay/ActorVocalizationRules.h"
+#include "game/audio/ActorAudioRules.h"
 
 #include "game/data/ActorNameResolver.h"
 #include "game/debug/GameplayDebugTrace.h"
@@ -415,92 +417,6 @@ bool outdoorActorAiTraceActorIncluded(const ActorAiFacts &facts, size_t emittedC
     return facts.world.active || facts.movement.distanceToParty <= HostilityMediumRange;
 }
 
-uint32_t nextInspectPreviewRandom(OutdoorWorldRuntime::ActorInspectPreviewAnimationState &state)
-{
-    state.randomState = state.randomState * 1664525u + 1013904223u;
-    return state.randomState;
-}
-
-uint32_t randomInspectPreviewSecondsTicks(
-    OutdoorWorldRuntime::ActorInspectPreviewAnimationState &state,
-    uint32_t minimumSeconds,
-    uint32_t maximumSeconds)
-{
-    const uint32_t span = maximumSeconds >= minimumSeconds ? maximumSeconds - minimumSeconds + 1u : 1u;
-    return (minimumSeconds + nextInspectPreviewRandom(state) % span) * static_cast<uint32_t>(TicksPerSecond);
-}
-
-uint32_t monsterTypeGroupId(int16_t monsterId)
-{
-    return monsterId > 0 ? (static_cast<uint32_t>(monsterId - 1) / 3u) + 1u : 0u;
-}
-
-bool monsterInspectPreviewIsPeasant(int16_t monsterId, const std::string &displayName)
-{
-    const uint32_t groupId = monsterTypeGroupId(monsterId);
-
-    if ((groupId >= 39u && groupId <= 62u) || (groupId >= 78u && groupId <= 83u))
-    {
-        return true;
-    }
-
-    const std::string lowercaseName = toLowerCopy(displayName);
-    return lowercaseName.find("peasant") != std::string::npos
-        || lowercaseName.find("farmer") != std::string::npos
-        || lowercaseName.find("villager") != std::string::npos;
-}
-
-int monsterInspectPreviewYOffset(int16_t monsterId)
-{
-    // Copied from OE's monster_popup_y_offsets table; OE subtracts another 40 before drawing.
-    // Merged MM8 ids can map past OE's MONSTER_TYPE_LAST and should not inherit the OE fallback offset.
-    static constexpr std::array<int, 93> yOffsets = {{
-        0, -20, 20, 0, -40, 0, 0, 0, 0, 0,
-        0, -50, 20, 0, -10, -10, -20, 10, -10, 0,
-        0, 0, -20, 10, -10, 0, 0, 0, -20, -10,
-        0, 0, 0, -40, -20, 0, 0, 0, -50, -30,
-        -30, -30, -30, -30, -30, 0, 0, 0, 0, 0,
-        0, -20, -20, -20, 20, 20, 20, 10, 10, 10,
-        10, 10, 10, -90, -60, -40, -20, -20, -80, -10,
-        0, 0, -40, 0, 0, 0, -20, 10, 0, 0,
-        0, 0, 0, 0, 0, -60, 0, 0, 0, 0,
-        0, 0, 0,
-    }};
-    const uint32_t groupId = monsterTypeGroupId(monsterId);
-
-    if (groupId == 0)
-    {
-        return -40;
-    }
-
-    if (groupId >= yOffsets.size())
-    {
-        return 0;
-    }
-
-    return yOffsets[groupId] - 40;
-}
-
-uint32_t spriteAnimationLengthTicks(
-    const SpriteFrameTable *pSpriteFrameTable,
-    uint16_t spriteFrameIndex,
-    uint32_t fallbackTicks)
-{
-    if (pSpriteFrameTable == nullptr || spriteFrameIndex == 0)
-    {
-        return fallbackTicks;
-    }
-
-    const SpriteFrameEntry *pFrame = pSpriteFrameTable->getFrame(spriteFrameIndex, 0);
-
-    if (pFrame == nullptr || pFrame->animationLengthTicks <= 0)
-    {
-        return fallbackTicks;
-    }
-
-    return static_cast<uint32_t>(pFrame->animationLengthTicks);
-}
-
 uint16_t actorInspectPreviewSpriteFrameIndex(
     const OutdoorWorldRuntime::MapActorState &actor,
     OutdoorWorldRuntime::ActorAnimation animation)
@@ -514,58 +430,6 @@ uint16_t actorInspectPreviewSpriteFrameIndex(
     }
 
     return actor.spriteFrameIndex;
-}
-
-void resetActorInspectPreviewAnimation(
-    OutdoorWorldRuntime::ActorInspectPreviewAnimationState &state,
-    const OutdoorWorldRuntime::MapActorState &actor,
-    uint32_t nowTicks)
-{
-    state.monsterId = actor.monsterId;
-    state.animation = OutdoorWorldRuntime::ActorAnimation::Bored;
-    state.actionTimeTicks = 0;
-    state.actionLengthTicks = randomInspectPreviewSecondsTicks(state, 1, 3);
-    state.lastUpdateTicks = nowTicks;
-}
-
-void advanceActorInspectPreviewAnimation(
-    OutdoorWorldRuntime::ActorInspectPreviewAnimationState &state,
-    const OutdoorWorldRuntime::MapActorState &actor,
-    const SpriteFrameTable *pSpriteFrameTable,
-    uint32_t nowTicks)
-{
-    if (state.monsterId != actor.monsterId)
-    {
-        resetActorInspectPreviewAnimation(state, actor, nowTicks);
-        return;
-    }
-
-    const uint32_t elapsedTicks = nowTicks >= state.lastUpdateTicks ? nowTicks - state.lastUpdateTicks : 0u;
-    state.lastUpdateTicks = nowTicks;
-    state.actionTimeTicks += elapsedTicks;
-
-    if (state.actionLengthTicks != 0 && state.actionTimeTicks <= state.actionLengthTicks)
-    {
-        return;
-    }
-
-    state.actionTimeTicks = 0;
-
-    if (state.animation == OutdoorWorldRuntime::ActorAnimation::Bored
-        || state.animation == OutdoorWorldRuntime::ActorAnimation::AttackMelee)
-    {
-        state.animation = OutdoorWorldRuntime::ActorAnimation::Standing;
-        state.actionLengthTicks = randomInspectPreviewSecondsTicks(state, 1, 2);
-        return;
-    }
-
-    state.animation = monsterInspectPreviewIsPeasant(actor.monsterId, actor.displayName)
-        ? OutdoorWorldRuntime::ActorAnimation::Bored
-        : OutdoorWorldRuntime::ActorAnimation::AttackMelee;
-    state.actionLengthTicks = spriteAnimationLengthTicks(
-        pSpriteFrameTable,
-        actorInspectPreviewSpriteFrameIndex(actor, state.animation),
-        static_cast<uint32_t>(TicksPerSecond));
 }
 
 float localRelationEngagementRange(int relation)
@@ -644,13 +508,9 @@ std::optional<GameplayChestItemState> buildFixedChestItem(uint32_t itemId, const
 constexpr float ActorMeleeRange = 307.2f;
 constexpr float ActiveActorUpdateRange = 5632.0f;
 constexpr size_t MaxActiveActorUpdates = 48;
-constexpr float InactiveActorDecisionIntervalSeconds = 1.5f;
-constexpr float InactiveActorBoredSeconds = 2.0f;
-constexpr uint32_t InactiveActorFidgetChancePercent = 5u;
 constexpr float TurnBasedActorStandMinSeconds = 1.0f;
 constexpr float TurnBasedActorStandMaxSeconds = 2.0f;
 constexpr float TurnBasedActorBoredFallbackSeconds = 2.0f;
-constexpr uint32_t TurnBasedActorBoredChancePercent = 50u;
 constexpr float PeasantAggroRadius = 4096.0f;
 constexpr float Mm9CivilianRunawayDistance = 2560.0f;
 constexpr float Mm9GuardHelpRadius = 4096.0f;
@@ -2724,9 +2584,9 @@ std::vector<OutdoorActorCollision> buildNearbyActorMovementColliders(
         collider.sourceIndex = actorIndex;
         collider.radius = static_cast<uint16_t>(std::lround(collisionRadius));
         collider.height = static_cast<uint16_t>(std::lround(collisionHeight));
-        collider.worldX = static_cast<int>(std::lround(actor.preciseX));
-        collider.worldY = static_cast<int>(std::lround(actor.preciseY));
-        collider.worldZ = static_cast<int>(std::lround(actor.preciseZ + GroundSnapHeight));
+        collider.worldX = actor.preciseX;
+        collider.worldY = actor.preciseY;
+        collider.worldZ = actor.preciseZ + GroundSnapHeight;
         collider.group = actor.group;
         collider.name = actor.displayName;
         colliders.push_back(std::move(collider));
@@ -3322,7 +3182,7 @@ std::vector<bool> selectOutdoorActiveActorMask(
     return activeActorMask;
 }
 
-bool canEnterHitReaction(const OutdoorWorldRuntime::MapActorState &actor)
+bool canEnterHitReaction(const OutdoorWorldRuntime::MapActorState &actor, bool force)
 {
     GameplayActorService actorService = {};
     return actorService.canActorEnterHitReaction(
@@ -3332,7 +3192,8 @@ bool canEnterHitReaction(const OutdoorWorldRuntime::MapActorState &actor)
         actor.aiState == OutdoorWorldRuntime::ActorAiState::Dying,
         actor.aiState == OutdoorWorldRuntime::ActorAiState::Dead,
         actor.aiState == OutdoorWorldRuntime::ActorAiState::Stunned,
-        actor.aiState == OutdoorWorldRuntime::ActorAiState::Attacking);
+        actor.aiState == OutdoorWorldRuntime::ActorAiState::Attacking,
+        force);
 }
 
 void beginHitReaction(
@@ -4486,77 +4347,7 @@ void resetCrowdSteeringState(OutdoorWorldRuntime::MapActorState &actor)
     actor.crowdSideSign = 0;
 }
 
-void updateInactiveActorPresentation(
-    OutdoorWorldRuntime::MapActorState &actor,
-    float partyX,
-    float partyY,
-    const GameplayActorService *pGameplayActorService)
-{
-    if (actor.isDead || actor.aiState == OutdoorWorldRuntime::ActorAiState::Dead)
-    {
-        actor.aiState = OutdoorWorldRuntime::ActorAiState::Dead;
-        actor.animation = OutdoorWorldRuntime::ActorAnimation::Dead;
-        actor.moveDirectionX = 0.0f;
-        actor.moveDirectionY = 0.0f;
-        actor.actionSeconds = 0.0f;
-        actor.attackImpactTriggered = false;
-        return;
-    }
-
-    actor.aiState = OutdoorWorldRuntime::ActorAiState::Standing;
-    actor.moveDirectionX = 0.0f;
-    actor.moveDirectionY = 0.0f;
-    actor.velocityX = 0.0f;
-    actor.velocityY = 0.0f;
-    actor.velocityZ = 0.0f;
-    actor.hasDetectedParty = false;
-    actor.attackImpactTriggered = false;
-
-    const float deltaX = partyX - actor.preciseX;
-    const float deltaY = partyY - actor.preciseY;
-
-    if (std::abs(deltaX) > 0.01f || std::abs(deltaY) > 0.01f)
-    {
-        actor.yawRadians = std::atan2(deltaY, deltaX);
-    }
-
-    actor.animationTimeTicks += ActorUpdateStepSeconds * TicksPerSecond;
-    actor.actionSeconds = std::max(0.0f, actor.actionSeconds - ActorUpdateStepSeconds);
-    actor.idleDecisionSeconds = std::max(0.0f, actor.idleDecisionSeconds - ActorUpdateStepSeconds);
-
-    if (actor.animation == OutdoorWorldRuntime::ActorAnimation::Bored && actor.actionSeconds > 0.0f)
-    {
-        return;
-    }
-
-    actor.animation = OutdoorWorldRuntime::ActorAnimation::Standing;
-
-    if (actor.idleDecisionSeconds > 0.0f)
-    {
-        return;
-    }
-
-    actor.idleDecisionSeconds = InactiveActorDecisionIntervalSeconds;
-
-    if (pGameplayActorService == nullptr)
-    {
-        return;
-    }
-
-    const uint32_t decisionSeed = inactiveActorDecisionSeed(actor.actorId, actor.idleDecisionCount, 0x7f4a7c15u);
-    actor.idleDecisionCount += 1;
-
-    if ((decisionSeed % 100u) < InactiveActorFidgetChancePercent)
-    {
-        actor.attackImpactTriggered = false;
-        actor.actionSeconds = InactiveActorBoredSeconds;
-        actor.idleDecisionSeconds = InactiveActorBoredSeconds;
-        actor.animation = OutdoorWorldRuntime::ActorAnimation::Bored;
-        actor.animationTimeTicks = 0.0f;
-    }
-}
-
-void updateTurnBasedActorWaitingPresentation(
+bool updateTurnBasedActorWaitingPresentation(
     OutdoorWorldRuntime::MapActorState &actor,
     float partyX,
     float partyY,
@@ -4571,7 +4362,7 @@ void updateTurnBasedActorWaitingPresentation(
         actor.moveDirectionY = 0.0f;
         actor.actionSeconds = 0.0f;
         actor.attackImpactTriggered = false;
-        return;
+        return false;
     }
 
     actor.aiState = OutdoorWorldRuntime::ActorAiState::Standing;
@@ -4615,7 +4406,7 @@ void updateTurnBasedActorWaitingPresentation(
 
     if (wasBored && actor.actionSeconds > 0.0f)
     {
-        return;
+        return false;
     }
 
     actor.animation = OutdoorWorldRuntime::ActorAnimation::Standing;
@@ -4627,18 +4418,19 @@ void updateTurnBasedActorWaitingPresentation(
         actor.idleDecisionSeconds = standSeconds;
         actor.actionSeconds = standSeconds;
         actor.animationTimeTicks = 0.0f;
-        return;
+        return false;
     }
 
     if (actor.idleDecisionSeconds > 0.0f)
     {
-        return;
+        return false;
     }
 
     const uint32_t decisionSeed = inactiveActorDecisionSeed(actor.actorId, actor.idleDecisionCount, 0x7f4a7c15u);
-    actor.idleDecisionCount += 1;
+    const uint32_t decisionCount = actor.idleDecisionCount++;
 
-    if ((decisionSeed % 100u) < TurnBasedActorBoredChancePercent)
+    if (actorChoosesBored(actor.actorId, decisionCount)
+        && actorFidgetFacesListener(actor.yawRadians, deltaX, deltaY))
     {
         const float boredSeconds = actorAnimationSeconds(
             pActorSpriteFrameTable,
@@ -4649,13 +4441,14 @@ void updateTurnBasedActorWaitingPresentation(
         actor.idleDecisionSeconds = boredSeconds;
         actor.animation = OutdoorWorldRuntime::ActorAnimation::Bored;
         actor.animationTimeTicks = 0.0f;
-        return;
+        return actorBoredSoundRoll(actor.actorId, decisionCount);
     }
 
     const float standSeconds = turnBasedActorStandSeconds(decisionSeed >> 8u);
     actor.actionSeconds = standSeconds;
     actor.idleDecisionSeconds = standSeconds;
     actor.animationTimeTicks = 0.0f;
+    return false;
 }
 
 char tierLetterForSummonLevel(uint32_t level)
@@ -4818,6 +4611,45 @@ void OutdoorWorldRuntime::pushAudioEvent(
     m_pendingAudioEvents.push_back(std::move(event));
 }
 
+void OutdoorWorldRuntime::pushOutdoorMonsterSound(size_t actorIndex, uint32_t soundId, const char *pReason)
+{
+    if (soundId == 0 || actorIndex >= m_mapActors.size())
+    {
+        return;
+    }
+
+    const MapActorState &actor = m_mapActors[actorIndex];
+    AudioEvent event = {};
+    event.soundScope = SoundScope::World;
+    event.soundId = soundId;
+    event.sourceId = actor.actorId;
+    event.reason = pReason;
+    event.actorIndex = actorIndex;
+    event.pitch = actorVoicePitch(actor.shrinkRemainingSeconds, actor.shrinkDamageMultiplier);
+    event.x = actor.preciseX;
+    event.y = actor.preciseY;
+    event.z = actor.preciseZ;
+    m_pendingAudioEvents.push_back(std::move(event));
+}
+
+bool OutdoorWorldRuntime::beginMapActorHitReaction(size_t actorIndex, bool force, bool emitAudio)
+{
+    MapActorState &actor = m_mapActors[actorIndex];
+    if (!canEnterHitReaction(actor, force))
+    {
+        return false;
+    }
+
+    beginHitReaction(actor, m_pActorSpriteFrameTable);
+    const MonsterTable::MonsterStatsEntry *pStats =
+        m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(actor.monsterId) : nullptr;
+    if (emitAudio && pStats != nullptr)
+    {
+        pushOutdoorMonsterSound(actorIndex, pStats->winceSoundId, "monster_hit");
+    }
+    return true;
+}
+
 void OutdoorWorldRuntime::pushProjectileAudioEvent(
     const GameplayProjectileService::ProjectileAudioRequest &request)
 {
@@ -4916,7 +4748,7 @@ void OutdoorWorldRuntime::activateChestView(uint32_t chestId)
         }
     }
 
-    if (m_pParty != nullptr && m_pParty->hasPartyBuff(PartyBuffId::Invisibility))
+    if (m_pParty != nullptr)
     {
         m_pParty->requestSound(SoundId::OpenChest);
     }
@@ -5217,6 +5049,7 @@ void OutdoorWorldRuntime::initialize(
     m_outdoorLandPathMapSnapshot.reset();
     m_actorPathRuntime.clear();
     m_actorPathRuntimeSeconds = 0.0;
+    m_actorSightCache.clear();
     m_actorPathPlansThisStep = 0;
     m_nextActorPathPlanSeconds = 0.0;
     m_actorUpdateAccumulatorSeconds = 0.0f;
@@ -6827,6 +6660,11 @@ void OutdoorWorldRuntime::updateTurnBasedPausedActorAnimations(float deltaSecond
     for (size_t actorIndex = 0; actorIndex < m_mapActors.size(); ++actorIndex)
     {
         MapActorState &actor = m_mapActors[actorIndex];
+        if (actor.isInvisible || actor.paralyzeRemainingSeconds > 0.0f)
+        {
+            continue;
+        }
+
         const InactiveActorDeathFrame deathFrame = resolveInactiveActorDeathFrame(
             actor.isDead,
             actor.currentHp <= 0,
@@ -6880,7 +6718,16 @@ void OutdoorWorldRuntime::updateTurnBasedPausedActorAnimations(float deltaSecond
                 continue;
             }
 
-            updateTurnBasedActorWaitingPresentation(actor, partyX(), partyY(), deltaSeconds, m_pActorSpriteFrameTable);
+            if (updateTurnBasedActorWaitingPresentation(
+                    actor, partyX(), partyY(), deltaSeconds, m_pActorSpriteFrameTable))
+            {
+                const MonsterTable::MonsterStatsEntry *pStats =
+                    m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(actor.monsterId) : nullptr;
+                if (pStats != nullptr)
+                {
+                    pushOutdoorMonsterSound(actorIndex, pStats->boredSoundId, "monster_bored");
+                }
+            }
             continue;
         }
 
@@ -7443,6 +7290,7 @@ OutdoorWorldRuntime::Snapshot OutdoorWorldRuntime::snapshot() const
 void OutdoorWorldRuntime::restoreSnapshot(const Snapshot &snapshot)
 {
     m_pendingMonsterKilledEvents.clear();
+    m_actorSightCache.clear();
 
     std::unordered_map<uint32_t, EventRuntimeState::OutdoorModelMechanismDefinition>
         mapDerivedOutdoorModelMechanisms;
@@ -8229,27 +8077,29 @@ void OutdoorWorldRuntime::refreshAtmosphereState()
         m_atmosphereState.skyTextureName = *m_eventRuntimeState->outdoorSkyTextureOverride;
     }
 
-    m_atmosphereState.ambientBrightness = enclosedEnvironment && !m_atmosphereState.alwaysLight
-        ? 0.25f
-        : normalizedAmbientBrightness(minutesOfDay);
+    if (m_atmosphereState.alwaysLight)
+    {
+        m_atmosphereState.ambientBrightness = 0.69f;
+    }
+    else if (enclosedEnvironment)
+    {
+        m_atmosphereState.ambientBrightness = 0.25f;
+    }
+    else if (m_atmosphereState.alwaysDark)
+    {
+        m_atmosphereState.ambientBrightness = 0.15f;
+    }
+    else
+    {
+        m_atmosphereState.ambientBrightness = normalizedAmbientBrightness(minutesOfDay);
+    }
     const float normalizedBrightness = std::clamp(
         (m_atmosphereState.ambientBrightness - 0.15f) / (0.69f - 0.15f),
         0.0f,
         1.0f);
-    m_atmosphereState.darknessOverlayAlpha = (1.0f - normalizedBrightness) * 0.55f;
-
-    if (m_atmosphereState.isNight)
-    {
-        m_atmosphereState.darknessOverlayColorAbgr = makeAbgr(16, 24, 52);
-    }
-    else
-    {
-        const float twilightFactor = std::clamp(m_atmosphereState.fogDensity, 0.0f, 1.0f);
-        const uint8_t red = static_cast<uint8_t>(std::clamp(std::lround(92.0f * twilightFactor), 0l, 255l));
-        const uint8_t green = static_cast<uint8_t>(std::clamp(std::lround(36.0f * twilightFactor), 0l, 255l));
-        const uint8_t blue = static_cast<uint8_t>(std::clamp(std::lround(30.0f * twilightFactor), 0l, 255l));
-        m_atmosphereState.darknessOverlayColorAbgr = makeAbgr(red, green, blue);
-    }
+    // Retain the serialized fields, but apply day/night illumination before local lights in the shaders.
+    m_atmosphereState.darknessOverlayAlpha = 0.0f;
+    m_atmosphereState.darknessOverlayColorAbgr = 0;
 
     m_atmosphereState.gameplayOverlayAlpha = 0.0f;
     m_atmosphereState.gameplayOverlayColorAbgr = m_gameplayOverlayColorAbgr;
@@ -8460,6 +8310,43 @@ std::vector<bool> OutdoorWorldRuntime::selectOutdoorActiveActors(float partyX, f
         ActiveActorUpdateRange);
 }
 
+bool OutdoorWorldRuntime::cachedActorLineOfSight(
+    size_t startActorIndex,
+    size_t endActorIndex,
+    const bx::Vec3 &start,
+    const bx::Vec3 &end) const
+{
+    constexpr float ReuseDistance = 48.0f;
+    constexpr double ReuseSeconds = 0.125;
+    // Line of sight is symmetric; endActorIndex SIZE_MAX means the party.
+    const uint64_t first = std::min<uint64_t>(startActorIndex, endActorIndex);
+    const uint64_t second = std::max<uint64_t>(startActorIndex, endActorIndex);
+    const uint64_t key = (first << 32) ^ (second & 0xffffffffu);
+    const bool swapped = first != startActorIndex;
+    const std::array<float, 3> from = swapped ? std::array<float, 3>{end.x, end.y, end.z}
+        : std::array<float, 3>{start.x, start.y, start.z};
+    const std::array<float, 3> to = swapped ? std::array<float, 3>{start.x, start.y, start.z}
+        : std::array<float, 3>{end.x, end.y, end.z};
+    const auto near = [&](const std::array<float, 3> &left, const std::array<float, 3> &right)
+    {
+        const float dx = left[0] - right[0], dy = left[1] - right[1], dz = left[2] - right[2];
+        return dx * dx + dy * dy + dz * dz <= ReuseDistance * ReuseDistance;
+    };
+    ActorSightCacheEntry &entry = m_actorSightCache[key];
+    // Expiry is staggered per pair (0.125-0.23 s) so re-checks of a crowd spread over many AI steps.
+    const double lifetime = ReuseSeconds * (1.0 + double(key % 7) / 8.0);
+    if (entry.checkedSeconds > 0.0 && m_actorPathRuntimeSeconds - entry.checkedSeconds < lifetime
+        && near(entry.start, from) && near(entry.end, to))
+    {
+        return entry.visible;
+    }
+    entry.visible = hasClearOutdoorLineOfSight(start, end);
+    entry.checkedSeconds = std::max(m_actorPathRuntimeSeconds, 1e-9);
+    entry.start = from;
+    entry.end = to;
+    return entry.visible;
+}
+
 ActorAiFrameFacts OutdoorWorldRuntime::collectOutdoorActorAiFrameFacts(
     float deltaSeconds,
     float partyX,
@@ -8476,13 +8363,17 @@ ActorAiFrameFacts OutdoorWorldRuntime::collectOutdoorActorAiFrameFacts(
     facts.party.invisible = m_pParty != nullptr && m_pParty->hasPartyBuff(PartyBuffId::Invisibility);
     facts.party.hasDispellableBuffs = partyHasDispellableBuffs(m_pParty);
 
-    std::vector<int8_t> actorLineOfSightCache(m_mapActors.size() * m_mapActors.size(), -1);
+    // Forget sight results that have not been reused for a second (dead, removed or distant pairs).
+    std::erase_if(m_actorSightCache, [&](const auto &entry)
+    {
+        return m_actorPathRuntimeSeconds - entry.second.checkedSeconds > 1.0;
+    });
 
     for (size_t actorIndex = 0; actorIndex < m_mapActors.size(); ++actorIndex)
     {
         const bool active = actorIndex < activeActorMask.size() && activeActorMask[actorIndex];
         const std::optional<ActorAiFacts> actorFacts =
-            collectOutdoorActorAiFacts(actorIndex, active, partyX, partyY, partyZ, actorLineOfSightCache);
+            collectOutdoorActorAiFacts(actorIndex, active, partyX, partyY, partyZ);
 
         if (!actorFacts)
         {
@@ -8507,8 +8398,7 @@ std::optional<ActorAiFacts> OutdoorWorldRuntime::collectOutdoorActorAiFacts(
     bool active,
     float partyX,
     float partyY,
-    float partyZ,
-    std::vector<int8_t> &actorLineOfSightCache) const
+    float partyZ) const
 {
     if (actorIndex >= m_mapActors.size() || m_pMonsterTable == nullptr)
     {
@@ -8522,38 +8412,10 @@ std::optional<ActorAiFacts> OutdoorWorldRuntime::collectOutdoorActorAiFacts(
     {
         return std::nullopt;
     }
-    const size_t mapActorCount = m_mapActors.size();
     const auto hasClearOutdoorLineOfSight =
-        [this, mapActorCount, &actorLineOfSightCache](
-        size_t startActorIndex,
-        size_t endActorIndex,
-        const bx::Vec3 &start,
-        const bx::Vec3 &end) -> bool
+        [this](size_t startActorIndex, size_t endActorIndex, const bx::Vec3 &start, const bx::Vec3 &end) -> bool
     {
-        if (startActorIndex >= mapActorCount || endActorIndex >= mapActorCount)
-        {
-            return this->hasClearOutdoorLineOfSight(start, end);
-        }
-
-        const size_t firstActorIndex = std::min(startActorIndex, endActorIndex);
-        const size_t secondActorIndex = std::max(startActorIndex, endActorIndex);
-        const size_t cacheIndex = firstActorIndex * mapActorCount + secondActorIndex;
-
-        if (cacheIndex >= actorLineOfSightCache.size())
-        {
-            return this->hasClearOutdoorLineOfSight(start, end);
-        }
-
-        int8_t &cachedResult = actorLineOfSightCache[cacheIndex];
-
-        if (cachedResult >= 0)
-        {
-            return cachedResult != 0;
-        }
-
-        const bool hasLineOfSight = this->hasClearOutdoorLineOfSight(start, end);
-        cachedResult = hasLineOfSight ? 1 : 0;
-        return hasLineOfSight;
+        return cachedActorLineOfSight(startActorIndex, endActorIndex, start, end);
     };
 
     std::vector<OutdoorCombatTargetCandidate> combatCandidates;
@@ -8699,6 +8561,8 @@ std::optional<ActorAiFacts> OutdoorWorldRuntime::collectOutdoorActorAiFacts(
         actor,
         ActorAnimation::AttackRanged,
         actor.attackAnimationSeconds);
+    facts.runtime.boredAnimationSeconds = actorAnimationSeconds(
+        m_pActorSpriteFrameTable, actor, ActorAnimation::Bored, 2.0f);
     facts.runtime.attackCooldownSeconds = actor.attackCooldownSeconds;
     facts.runtime.idleDecisionSeconds = actor.idleDecisionSeconds;
     facts.runtime.actionSeconds = actor.actionSeconds;
@@ -8866,6 +8730,7 @@ std::optional<ActorAiFacts> OutdoorWorldRuntime::collectOutdoorActorAiFacts(
         facts.movement.inMeleeRange = engagement.inMeleeRange;
     }
 
+    facts.world.listenerPosition = {partyX, partyY, partyZ};
     facts.world.targetZ = actor.preciseZ + std::max(24.0f, static_cast<float>(actor.height) * 0.7f);
     facts.world.floorZ = actor.preciseZ;
     facts.world.active = active;
@@ -8879,6 +8744,8 @@ void OutdoorWorldRuntime::applyOutdoorActorAiFrameResult(
     const std::vector<bool> &activeActorMask,
     const GameplayActorAiSystem &actorAiSystem)
 {
+    // Queue action-entry voices first; resolved hit/death requests must replace them in the same frame.
+    applyOutdoorActorAudioRequests(result.audioRequests);
     std::vector<uint8_t> actorPhysicsApplied;
     if (!m_actorCorpsePhysicsActorIndices.empty())
     {
@@ -8894,21 +8761,22 @@ void OutdoorWorldRuntime::applyOutdoorActorAiFrameResult(
 
         MapActorState &actor = m_mapActors[update.actorIndex];
         const bool activeActor =
-        update.actorIndex < activeActorMask.size()
-        && activeActorMask[update.actorIndex];
+            update.actorIndex < activeActorMask.size()
+            && activeActorMask[update.actorIndex];
         const MonsterTable::MonsterStatsEntry *pStats =
-            activeActor && m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(actor.monsterId) : nullptr;
-        const bool activeBehavior = hasOutdoorActorActiveBehaviorUpdate(update, activeActor);
+            m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(actor.monsterId) : nullptr;
+        const bool behaviorUpdate = hasOutdoorActorBehaviorUpdate(update);
 
         if (activeActor && pStats != nullptr)
         {
             ensureOutdoorActorMovementState(actor, *pStats);
         }
 
-        applyOutdoorActorStateUpdate(actor, update.state, activeActor, activeBehavior);
-        applyOutdoorActorAnimationUpdate(actor, update.animation, activeActor, activeBehavior);
+        // Background idle decisions own their timers and animation just like active decisions.
+        applyOutdoorActorStateUpdate(actor, update.state);
+        applyOutdoorActorAnimationUpdate(actor, update.animation);
 
-        if (activeBehavior)
+        if (behaviorUpdate)
         {
             applyOutdoorActorMovementIntent(
                 update.actorIndex,
@@ -8938,7 +8806,7 @@ void OutdoorWorldRuntime::applyOutdoorActorAiFrameResult(
         }
 
         if (!actorPhysicsApplied.empty()
-            && activeBehavior
+            && behaviorUpdate
             && update.movementIntent.applyMovement
             && pStats != nullptr)
         {
@@ -8965,7 +8833,6 @@ void OutdoorWorldRuntime::applyOutdoorActorRequests(
     const std::vector<bool> &activeActorMask)
 {
     applyOutdoorActorProjectileRequests(result.projectileRequests, activeActorMask);
-    applyOutdoorActorAudioRequests(result.audioRequests);
     applyOutdoorActorFxRequests(result.fxRequests);
 }
 
@@ -9050,51 +8917,19 @@ void OutdoorWorldRuntime::applyOutdoorActorAudioRequests(const std::vector<Actor
 
         if (audioRequest.kind == ActorAiAudioRequestKind::Bored)
         {
-            pushAudioEvent(
-                pStats->boredSoundId,
-                actor.actorId,
-                "monster_bored",
-                audioRequest.position.x,
-                audioRequest.position.y,
-                audioRequest.position.z,
-                true,
-                SoundScope::World);
+            pushOutdoorMonsterSound(audioRequest.actorIndex, pStats->boredSoundId, "monster_bored");
         }
         else if (audioRequest.kind == ActorAiAudioRequestKind::Attack)
         {
-            pushAudioEvent(
-                pStats->attackSoundId,
-                actor.actorId,
-                "monster_attack",
-                audioRequest.position.x,
-                audioRequest.position.y,
-                audioRequest.position.z,
-                true,
-                SoundScope::World);
+            pushOutdoorMonsterSound(audioRequest.actorIndex, pStats->attackSoundId, "monster_attack");
         }
         else if (audioRequest.kind == ActorAiAudioRequestKind::Hit)
         {
-            pushAudioEvent(
-                pStats->winceSoundId,
-                actor.actorId,
-                "monster_hit",
-                audioRequest.position.x,
-                audioRequest.position.y,
-                audioRequest.position.z,
-                true,
-                SoundScope::World);
+            pushOutdoorMonsterSound(audioRequest.actorIndex, pStats->winceSoundId, "monster_hit");
         }
         else if (audioRequest.kind == ActorAiAudioRequestKind::Death)
         {
-            pushAudioEvent(
-                pStats->deathSoundId,
-                actor.actorId,
-                "monster_death",
-                audioRequest.position.x,
-                audioRequest.position.y,
-                audioRequest.position.z,
-                true,
-                SoundScope::World);
+            pushOutdoorMonsterSound(audioRequest.actorIndex, pStats->deathSoundId, "monster_death");
         }
     }
 }
@@ -9143,15 +8978,14 @@ void OutdoorWorldRuntime::applyOutdoorActorFxRequests(const std::vector<ActorFxR
     }
 }
 
-bool OutdoorWorldRuntime::hasOutdoorActorActiveBehaviorUpdate(const ActorAiUpdate &update, bool activeActor) const
+bool OutdoorWorldRuntime::hasOutdoorActorBehaviorUpdate(const ActorAiUpdate &update) const
 {
-    return activeActor
-        && (update.state.motionState
-            || update.animation.animationState
-            || update.state.queuedAttackAbility
-            || update.movementIntent.action != ActorAiMovementAction::None
-            || update.movementIntent.updateYaw
-            || update.movementIntent.applyMovement);
+    return update.state.motionState
+        || update.animation.animationState
+        || update.state.queuedAttackAbility
+        || update.movementIntent.action != ActorAiMovementAction::None
+        || update.movementIntent.updateYaw
+        || update.movementIntent.applyMovement;
 }
 
 void OutdoorWorldRuntime::ensureOutdoorActorMovementState(
@@ -9215,9 +9049,7 @@ void OutdoorWorldRuntime::applyOeOutdoorActorFloorCorrection(
 
 void OutdoorWorldRuntime::applyOutdoorActorStateUpdate(
     MapActorState &actor,
-    const ActorStateUpdate &state,
-    bool activeActor,
-    bool activeBehavior)
+    const ActorStateUpdate &state)
 {
     if (state.spellEffects)
     {
@@ -9247,11 +9079,6 @@ void OutdoorWorldRuntime::applyOutdoorActorStateUpdate(
     if (state.currentHp)
     {
         actor.currentHp = std::clamp(*state.currentHp, 0, std::max(1, actor.maxHp));
-    }
-
-    if (!activeActor)
-    {
-        return;
     }
 
     if (state.recoverySeconds)
@@ -9309,11 +9136,6 @@ void OutdoorWorldRuntime::applyOutdoorActorStateUpdate(
         actor.attackImpactTriggered = *state.attackImpactTriggered;
     }
 
-    if (!activeBehavior)
-    {
-        return;
-    }
-
     if (state.motionState)
     {
         actor.aiState = outdoorActorAiStateFromGameplay(*state.motionState);
@@ -9327,18 +9149,11 @@ void OutdoorWorldRuntime::applyOutdoorActorStateUpdate(
 
 void OutdoorWorldRuntime::applyOutdoorActorAnimationUpdate(
     MapActorState &actor,
-    const ActorAnimationUpdate &animation,
-    bool activeActor,
-    bool activeBehavior)
+    const ActorAnimationUpdate &animation)
 {
-    if (!activeActor)
-    {
-        return;
-    }
-
     const ActorAnimation previousAnimation = actor.animation;
 
-    if (activeBehavior && animation.animationState)
+    if (animation.animationState)
     {
         actor.animation = outdoorActorAnimationFromGameplay(*animation.animationState);
     }
@@ -9421,6 +9236,7 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntent(
         movementIntent.moveSpeed,
         movementIntent.desiredMoveZ,
         movementIntent.meleePursuitActive,
+        movementIntent.crowdSteeringActive,
         movementIntent.inMeleeRange,
         movementIntent.targetPosition,
         movementIntent.targetEdgeDistance,
@@ -9740,6 +9556,11 @@ void OutdoorWorldRuntime::applyOutdoorActorPostMovementAiUpdate(
     float &desiredMoveX,
     float &desiredMoveY)
 {
+    if (movementUpdate.state.idleDecisionCount)
+    {
+        actor.idleDecisionCount = *movementUpdate.state.idleDecisionCount;
+    }
+
     if (movementUpdate.state.pursueDecisionCount)
     {
         actor.pursueDecisionCount = *movementUpdate.state.pursueDecisionCount;
@@ -9856,6 +9677,7 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
     float moveSpeed,
     float desiredMoveZ,
     bool meleePursuitActive,
+    bool crowdSteeringActive,
     bool inMeleeRange,
     const GameplayWorldPoint &targetPosition,
     float targetEdgeDistance,
@@ -9924,9 +9746,12 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
             pathObject = {};
             pathObject.canFly = pStats->canFly;
             pathObject.radius = collisionRadius;
+            pathObject.height = actorCollisionHeight(actor, collisionRadius);
             pathObject.stepLength =
                 pStats->canFly ? std::max(collisionRadius, 24.0f) : OutdoorGroundPathStepLength;
             pathObject.stepHeight = OutdoorGroundPathStepHeight;
+            pathObject.dropHeight =
+                std::max(pathObject.stepHeight, std::min(collisionRadius, pathObject.stepHeight * 2.0f));
 
             pathRequest = {};
             pathRequest.actorIndex = actorIndex;
@@ -9988,7 +9813,7 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
                 const float waypointDeltaY = pathResult.waypoint.y - actor.movementState.y;
                 const float waypointDistance = length2d(waypointDeltaX, waypointDeltaY);
 
-                if (waypointDistance > 0.001f)
+                if (waypointDistance > 0.001f && !crowdSteeringActive)
                 {
                     desiredMoveX = waypointDeltaX / waypointDistance;
                     desiredMoveY = waypointDeltaY / waypointDistance;
@@ -10175,7 +10000,10 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
 
     actor.velocityX = desiredMoveX * moveSpeed;
     actor.velocityY = desiredMoveY * moveSpeed;
-    actor.velocityZ = pStats->canFly ? effectiveDesiredMoveZ * moveSpeed : 0.0f;
+    if (pStats->canFly)
+    {
+        actor.velocityZ = effectiveDesiredMoveZ * moveSpeed;
+    }
     const float movementStartX = actor.preciseX;
     const float movementStartY = actor.preciseY;
     const float movementStartZ = actor.preciseZ;
@@ -10272,6 +10100,13 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
     const float actualMoveZ = actor.preciseZ - movementStartZ;
     const float actualMoveDistance = length2d(actualMoveX, actualMoveY);
     const bool movedHorizontally = actualMoveDistance > 0.001f;
+    if (m_pWorldFxSystem != nullptr && movedHorizontally && m_pWorldFxSystem->waterRipples().enabled())
+    {
+        const OutdoorMoveState &state = actor.movementState;
+        const bool onWater = !state.airborne && state.supportOnWater && !state.supportOnBurning;
+        m_pWorldFxSystem->waterRipples().observe(uint32_t(actorIndex + 1),
+            {actor.preciseX, actor.preciseY, actor.preciseZ}, onWater, collisionRadius);
+    }
     bool actorWaterAfter = false;
 
     if (movedHorizontally && wantedHorizontalMove)
@@ -10400,6 +10235,10 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
     movementFacts.runtime.crowdEscapeAttempts = actor.crowdEscapeAttempts;
     movementFacts.runtime.crowdSideSign = actor.crowdSideSign;
     movementFacts.runtime.yawRadians = actor.yawRadians;
+    movementFacts.world.listenerPosition = {partyX(), partyY(), partyFootZ()};
+    movementFacts.runtime.idleDecisionCount = actor.idleDecisionCount;
+    movementFacts.runtime.boredAnimationSeconds = actorAnimationSeconds(
+        m_pActorSpriteFrameTable, actor, ActorAnimation::Bored, 2.0f);
     movementFacts.movement.position = GameplayWorldPoint{actor.preciseX, actor.preciseY, actor.preciseZ};
     movementFacts.movement.moveDirectionX = actor.moveDirectionX;
     movementFacts.movement.moveDirectionY = actor.moveDirectionY;
@@ -10425,20 +10264,18 @@ void OutdoorWorldRuntime::applyOutdoorActorMovementIntegration(
     movementFacts.movement.meleePursuitActive = meleePursuitActive;
     movementFacts.movement.inMeleeRange = inMeleeRange;
     movementFacts.movement.allowCrowdSteering = m_pGameplayActorService != nullptr;
-    movementFacts.movement.crowdSteeringTriggersOnMovementBlocked = false;
-    movementFacts.movement.crowdSidestepAngleRadians = Pi * 0.30555556f;
-    movementFacts.movement.crowdRetreatAngleRadians = Pi * 0.53f;
-    movementFacts.movement.movementBlocked = !moved;
+    movementFacts.movement.movementBlocked = wantedHorizontalMove && !movedHorizontally;
     movementFacts.target.currentPosition = targetPosition;
+    movementFacts.target.hasCurrentMovementPosition = pathResult.pathActive;
+    movementFacts.target.currentMovementPosition =
+        GameplayWorldPoint{pathResult.waypoint.x, pathResult.waypoint.y, pathResult.waypoint.z};
     movementFacts.target.currentEdgeDistance = targetEdgeDistance;
     const ActorAiUpdate movementUpdate = actorAiSystem.updateActorAfterWorldMovement(movementFacts);
     applyOutdoorActorPostMovementAiUpdate(actor, movementUpdate, desiredMoveX, desiredMoveY);
+    applyOutdoorActorAudioRequests(movementUpdate.audioRequests);
 }
 
 void OutdoorWorldRuntime::updateOutdoorInactiveAndInvalidActors(
-    float partyX,
-    float partyY,
-    float partyZ,
     const std::vector<bool> &activeActorMask)
 {
     for (size_t actorIndex = 0; actorIndex < m_mapActors.size(); ++actorIndex)
@@ -10548,8 +10385,6 @@ void OutdoorWorldRuntime::updateOutdoorInactiveAndInvalidActors(
 
                 continue;
             }
-
-            updateInactiveActorPresentation(actor, partyX, partyY, m_pGameplayActorService);
 
             if (!pStats->canFly && actor.movementStateInitialized && actor.movementState.airborne)
             {
@@ -10955,7 +10790,7 @@ void OutdoorWorldRuntime::updateMapActors(float deltaSeconds, float partyX, floa
             traceActorAiThisFrame = false;
         }
 
-        updateOutdoorInactiveAndInvalidActors(partyX, partyY, partyZ, activeActorMask);
+        updateOutdoorInactiveAndInvalidActors(activeActorMask);
         applyActorFrameSideEffects(ActorUpdateStepSeconds, partyX, partyY, partyZ);
         m_actorUpdateAccumulatorSeconds -= ActorUpdateStepSeconds;
     }
@@ -11485,7 +11320,8 @@ void OutdoorWorldRuntime::spawnProjectileImpact(
     float x,
     float y,
     float z,
-    bool centerVertically)
+    bool centerVertically,
+    size_t targetActorIndex)
 {
     if (const std::optional<GameplayProjectileService::ProjectileAudioRequest> audioRequest =
             projectileService().buildProjectileImpactAudioRequest(projectile, x, y, z))
@@ -11516,7 +11352,7 @@ void OutdoorWorldRuntime::spawnProjectileImpact(
     }
 
     const GameplayProjectileService::ProjectileImpactSpawnResult result =
-        spawnProjectileImpactVisual(projectile, *impactDefinition, x, y, z, centerVertically);
+        spawnProjectileImpactVisual(projectile, *impactDefinition, x, y, z, centerVertically, targetActorIndex);
 
     if (result.spawned && result.pImpact != nullptr)
     {
@@ -12697,7 +12533,8 @@ void OutdoorWorldRuntime::setOutdoorFaceGeometryAttributes(size_t bModelIndex, s
     invalidateOutdoorPathMaps(false);
 }
 
-bool OutdoorWorldRuntime::hasClearOutdoorLineOfSight(const bx::Vec3 &start, const bx::Vec3 &end) const
+bool OutdoorWorldRuntime::hasClearOutdoorLineOfSight(
+    const bx::Vec3 &start, const bx::Vec3 &end, bool includeWalkableFaces) const
 {
     if (m_pOutdoorMapData != nullptr)
     {
@@ -12752,7 +12589,7 @@ bool OutdoorWorldRuntime::hasClearOutdoorLineOfSight(const bx::Vec3 &start, cons
 
         const OutdoorFaceGeometryData &face = m_outdoorFaces[faceIndex];
 
-        if (!outdoorFaceBlocksMovement(face) || !face.hasPlane || face.isWalkable)
+        if (!outdoorFaceBlocksMovement(face) || !face.hasPlane || (!includeWalkableFaces && face.isWalkable))
         {
             continue;
         }
@@ -13460,13 +13297,19 @@ void OutdoorWorldRuntime::applyProjectileFrameResult(
                 break;
 
             case GameplayProjectileService::ProjectileFrameFxKind::ProjectileImpact:
+            {
+                const size_t targetActorIndex = frameResult.directActorImpact
+                    ? frameResult.directActorImpact->actorIndex
+                    : static_cast<size_t>(-1);
                 spawnProjectileImpact(
                     projectile,
                     frameResult.fxRequest->point.x,
                     frameResult.fxRequest->point.y,
                     frameResult.fxRequest->point.z,
-                    frameResult.fxRequest->centerVertically);
+                    frameResult.fxRequest->centerVertically,
+                    targetActorIndex);
                 break;
+            }
         }
     }
 
@@ -14125,6 +13968,21 @@ bool OutdoorWorldRuntime::actorRuntimeState(size_t actorIndex, GameplayRuntimeAc
         return false;
     }
 
+    state.actorId = pActor->actorId;
+    state.yawRadians = pActor->yawRadians;
+    state.animationState = ActorAiAnimationState(pActor->animation);
+    state.animationTimeTicks = pActor->animationTimeTicks;
+    state.actionSeconds = pActor->actionSeconds;
+    state.velocityX = pActor->velocityX;
+    state.velocityY = pActor->velocityY;
+    state.castingSpell = pActor->queuedAttackAbility == MonsterAttackAbility::Spell1
+        || pActor->queuedAttackAbility == MonsterAttackAbility::Spell2;
+    state.secondaryAttack = pActor->queuedAttackAbility == MonsterAttackAbility::Attack2;
+    state.castingSpellId = pActor->queuedAttackAbility == MonsterAttackAbility::Spell1
+        ? pActor->spell1Id : pActor->spell2Id;
+    state.attackImpactTriggered = pActor->attackImpactTriggered;
+    state.visualScale = pActor->shrinkRemainingSeconds > 0
+        ? std::clamp(pActor->shrinkDamageMultiplier, 0.25f, 1.0f) : 1.0f;
     state.monsterId = pActor->monsterId;
     state.mm9RudeId = pActor->mm9RudeId;
     state.mm9SourceObjectIndex = !pActor->spawnedAtRuntime
@@ -14137,6 +13995,7 @@ bool OutdoorWorldRuntime::actorRuntimeState(size_t actorIndex, GameplayRuntimeAc
     state.preciseZ = pActor->preciseZ;
     state.radius = pActor->radius;
     state.height = pActor->height;
+    state.bodyHeight = pActor->height;
     state.isDead = pActor->isDead;
     state.isInvisible = pActor->isInvisible;
     state.hostileToParty = pActor->hostileToParty;
@@ -14687,7 +14546,10 @@ bool OutdoorWorldRuntime::actorInspectState(
     state.displayName = pActor->displayName;
     state.uniqueActorIndex = pActor->actorId;
     state.monsterId = pActor->monsterId;
-    state.previewYOffset = monsterInspectPreviewYOffset(pActor->monsterId);
+    const MonsterEntry *pMonsterEntry = m_pMonsterTable != nullptr
+        ? resolveMonsterEntry(*m_pMonsterTable, pActor->monsterId, m_pMonsterTable->findStatsById(pActor->monsterId))
+        : nullptr;
+    state.previewYOffset = pMonsterEntry != nullptr ? pMonsterEntry->inspectYOffset : 0;
     state.currentHp = pActor->currentHp;
     state.maxHp = pActor->maxHp;
     state.armorClass = effectiveMapActorArmorClass(actorIndex);
@@ -14805,27 +14667,30 @@ bool OutdoorWorldRuntime::actorInspectState(
             break;
     }
 
-    if (m_pActorSpriteFrameTable == nullptr || animationTicks == 0)
+    if (m_pActorSpriteFrameTable == nullptr || pMonsterEntry == nullptr || animationTicks == 0)
     {
         return true;
     }
 
-    advanceActorInspectPreviewAnimation(
-        m_actorInspectPreviewAnimation,
-        *pActor,
-        m_pActorSpriteFrameTable,
-        animationTicks);
+    m_actorInspectPreviewAnimation.advance(
+        pActor->monsterId, pActor->aiState == ActorAiState::Wandering, *pMonsterEntry,
+        pActor->actionSpriteFrameIndices, pActor->spriteFrameIndex, *m_pActorSpriteFrameTable, animationTicks);
 
     const uint16_t spriteFrameIndex =
-        actorInspectPreviewSpriteFrameIndex(*pActor, m_actorInspectPreviewAnimation.animation);
+        actorInspectPreviewSpriteFrameIndex(*pActor,
+            static_cast<ActorAnimation>(m_actorInspectPreviewAnimation.animation));
 
     if (spriteFrameIndex == 0)
     {
         return true;
     }
 
-    const SpriteFrameEntry *pFrame =
-        m_pActorSpriteFrameTable->getFrame(spriteFrameIndex, m_actorInspectPreviewAnimation.actionTimeTicks);
+    const SpriteFrameEntry *pFrame = m_pActorSpriteFrameTable->getFrame(spriteFrameIndex, 0);
+    if (pFrame != nullptr)
+    {
+        pFrame = m_pActorSpriteFrameTable->getFrame(
+            spriteFrameIndex, m_actorInspectPreviewAnimation.frameTimeTicks(*pFrame));
+    }
 
     if (pFrame == nullptr)
     {
@@ -14841,7 +14706,6 @@ bool OutdoorWorldRuntime::actorInspectState(
     const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, PreviewFacingOctant);
     state.previewTextureName = resolvedTexture.textureName;
     state.previewPaletteId = pFrame->paletteId;
-    state.previewYOffset = monsterInspectPreviewYOffset(pActor->monsterId);
     return true;
 }
 
@@ -14984,36 +14848,16 @@ bool OutdoorWorldRuntime::applyReflectedDamageToActor(
                             actor.bolsterRewardMultiplier));
                 }
 
-                pushAudioEvent(
-                    pStats->deathSoundId,
-                    actor.actorId,
-                    "monster_death",
-                    actor.preciseX,
-                    actor.preciseY,
-                    actor.preciseZ + static_cast<float>(actor.height) * 0.5f,
-                    true,
-                    SoundScope::World);
+                pushOutdoorMonsterSound(actorIndex, pStats->deathSoundId, "monster_death");
             }
         }
         else
         {
-            if (canEnterHitReaction(actor))
+            if (appliedDamage > 0)
             {
-                beginHitReaction(actor, m_pActorSpriteFrameTable);
+                beginMapActorHitReaction(actorIndex);
             }
 
-            if (pStats != nullptr)
-            {
-                pushAudioEvent(
-                    pStats->winceSoundId,
-                    actor.actorId,
-                    "monster_hit",
-                    actor.preciseX,
-                    actor.preciseY,
-                    actor.preciseZ + static_cast<float>(actor.height) * 0.5f,
-                    true,
-                    SoundScope::World);
-            }
         }
 
         return actor.currentHp != previousHp;
@@ -15045,7 +14889,7 @@ std::optional<GameplayWorldPoint> OutdoorWorldRuntime::partyAttackFallbackProjec
     return GameplayWorldPoint{
         .x = pActor->preciseX,
         .y = pActor->preciseY,
-        .z = pActor->preciseZ + std::max(48.0f, static_cast<float>(pActor->height) * 0.6f),
+        .z = pActor->preciseZ + GameMechanics::actorTargetHeight(pActor->height),
     };
 }
 
@@ -15102,7 +14946,7 @@ bool OutdoorWorldRuntime::partyAttackActorHasLineOfSight(size_t actorIndex) cons
     const bx::Vec3 target = {
         pActor->preciseX,
         pActor->preciseY,
-        pActor->preciseZ + std::max(48.0f, static_cast<float>(pActor->height) * 0.6f),
+        pActor->preciseZ + GameMechanics::actorTargetHeight(pActor->height),
     };
 
     return hasClearOutdoorLineOfSight(source, target);
@@ -15152,6 +14996,21 @@ std::vector<GameplayPartyAttackActorFacts> OutdoorWorldRuntime::collectPartyAtta
     }
 
     return actors;
+}
+
+std::optional<GameplayWorldPoint> OutdoorWorldRuntime::partyAttackActorContactPoint(
+    size_t actorIndex,
+    const GameplayPartyAttackFallbackQuery &query) const
+{
+    if (m_pInteractionView == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    return OutdoorInteractionController::resolvePartyAttackActorContactPoint(
+        *m_pInteractionView,
+        actorIndex,
+        query);
 }
 
 std::optional<OutdoorWorldRuntime::ActorDecisionDebugInfo> OutdoorWorldRuntime::debugActorDecisionInfo(
@@ -15418,15 +15277,7 @@ bool OutdoorWorldRuntime::setMapActorDead(size_t actorIndex, bool isDead, bool e
 
             if (emitAudio)
             {
-                pushAudioEvent(
-                    pStats->deathSoundId,
-                    actor.actorId,
-                    "monster_death",
-                    actor.preciseX,
-                    actor.preciseY,
-                    actor.preciseZ + static_cast<float>(actor.height) * 0.5f,
-                    true,
-                    SoundScope::World);
+                pushOutdoorMonsterSound(actorIndex, pStats->deathSoundId, "monster_death");
             }
         }
     }
@@ -15549,7 +15400,7 @@ bool OutdoorWorldRuntime::applyMonsterActorMeleeAttackToMapActor(
             damageRng);
     }
 
-    return applyMonsterAttackToMapActor(actorIndex, appliedDamage, sourceActorId, false, true);
+    return applyMonsterAttackToMapActor(actorIndex, appliedDamage, sourceActorId, true, true);
 }
 
 bool OutdoorWorldRuntime::applyMonsterAttackToMapActor(
@@ -15626,24 +15477,15 @@ bool OutdoorWorldRuntime::applyMonsterAttackToMapActor(
         {
             if (const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId))
             {
-                pushAudioEvent(
-                    pStats->deathSoundId,
-                    actor.actorId,
-                    "monster_death",
-                    actor.preciseX,
-                    actor.preciseY,
-                    actor.preciseZ + static_cast<float>(actor.height) * 0.5f,
-                    true,
-                    SoundScope::World);
+                pushOutdoorMonsterSound(actorIndex, pStats->deathSoundId, "monster_death");
             }
         }
 
         return true;
     }
 
-    if (canEnterHitReaction(actor))
+    if (damage > 0 && beginMapActorHitReaction(actorIndex, false, emitAudio))
     {
-        beginHitReaction(actor, m_pActorSpriteFrameTable);
         const float sourceX = pSourceActor != nullptr ? pSourceActor->preciseX : actor.preciseX;
         const float sourceY = pSourceActor != nullptr ? pSourceActor->preciseY : actor.preciseY;
         const float sourceZ =
@@ -15662,22 +15504,6 @@ bool OutdoorWorldRuntime::applyMonsterAttackToMapActor(
         actor.velocityX = knockback.x;
         actor.velocityY = knockback.y;
         actor.velocityZ = knockback.z;
-    }
-
-    if (emitAudio && m_pMonsterTable != nullptr)
-    {
-        if (const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId))
-        {
-            pushAudioEvent(
-                pStats->winceSoundId,
-                actor.actorId,
-                "monster_hit",
-                actor.preciseX,
-                actor.preciseY,
-                actor.preciseZ + static_cast<float>(actor.height) * 0.5f,
-                true,
-                SoundScope::World);
-        }
     }
 
     return true;
@@ -16014,24 +15840,15 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
                     m_pParty->grantSharedExperience(static_cast<uint32_t>(experienceReward));
                 }
 
-                pushAudioEvent(
-                    pStats->deathSoundId,
-                    actor.actorId,
-                    "monster_death",
-                    actor.preciseX,
-                    actor.preciseY,
-                    actor.preciseZ + static_cast<float>(actor.height) * 0.5f,
-                    true,
-                    SoundScope::World);
+                pushOutdoorMonsterSound(actorIndex, pStats->deathSoundId, "monster_death");
             }
         }
     }
     else
     {
-        if (canEnterHitReaction(actor))
+        if (damage > 0 && beginMapActorHitReaction(actorIndex))
         {
             faceDirection(actor, partyX - actor.preciseX, partyY - actor.preciseY);
-            beginHitReaction(actor, m_pActorSpriteFrameTable);
             const bx::Vec3 knockback = actorKnockbackVelocity(
                 actor.preciseX,
                 actor.preciseY,
@@ -16046,21 +15863,6 @@ bool OutdoorWorldRuntime::applyPartyAttackToMapActor(
             actor.velocityZ = knockback.z;
         }
 
-        if (m_pMonsterTable != nullptr)
-        {
-            if (const MonsterTable::MonsterStatsEntry *pStats = m_pMonsterTable->findStatsById(actor.monsterId))
-            {
-                pushAudioEvent(
-                    pStats->winceSoundId,
-                    actor.actorId,
-                    "monster_hit",
-                    actor.preciseX,
-                    actor.preciseY,
-                    actor.preciseZ + static_cast<float>(actor.height) * 0.5f,
-                    true,
-                    SoundScope::World);
-            }
-        }
     }
 
     if (damage > 0)
@@ -16906,6 +16708,12 @@ bool OutdoorWorldRuntime::resurrectMapActor(size_t actorIndex, int health, bool 
         && m_pGameplayActorService != nullptr
         && m_pMonsterTable->isHostileToParty(m_pGameplayActorService->relationMonsterId(actor.monsterId, actor.ally));
     actor.hasDetectedParty = false;
+    const MonsterTable::MonsterStatsEntry *pStats =
+        m_pMonsterTable != nullptr ? m_pMonsterTable->findStatsById(actor.monsterId) : nullptr;
+    if (pStats != nullptr)
+    {
+        pushOutdoorMonsterSound(actorIndex, pStats->deathSoundId, "monster_resurrect");
+    }
     return true;
 }
 
@@ -17092,7 +16900,7 @@ std::vector<size_t> OutdoorWorldRuntime::collectVisibleMapActorIndicesWithinRadi
             continue;
         }
 
-        const float viewTargetZ = actor.preciseZ + std::max(48.0f, static_cast<float>(actor.height) * 0.6f);
+        const float viewTargetZ = actor.preciseZ + GameMechanics::actorTargetHeight(actor.height);
         if (!outdoorPointInsideViewCone(
                 viewX,
                 viewY,
@@ -17999,7 +17807,8 @@ OutdoorWorldRuntime::spawnProjectileImpactVisual(
     float x,
     float y,
     float z,
-    bool centerVertically)
+    bool centerVertically,
+    size_t targetActorIndex)
 {
     if (m_pGameplayFxService != nullptr)
     {
@@ -18009,10 +17818,18 @@ OutdoorWorldRuntime::spawnProjectileImpactVisual(
             x,
             y,
             z,
-            centerVertically);
+            centerVertically,
+            targetActorIndex);
     }
 
-    return projectileService().spawnProjectileImpactVisual(projectile, definition, x, y, z, centerVertically);
+    return projectileService().spawnProjectileImpactVisual(
+        projectile,
+        definition,
+        x,
+        y,
+        z,
+        centerVertically,
+        targetActorIndex);
 }
 
 GameplayProjectileService::ProjectileImpactSpawnResult

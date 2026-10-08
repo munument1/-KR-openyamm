@@ -12,9 +12,12 @@ struct OutdoorSelectedFxLights;
 class TerrainDecorationRenderer
 {
 public:
-    // Takes ownership of the program, including on initialization failure.
+    static constexpr size_t MaxTuftLayers = 16;
+
+    // Takes ownership of both programs, including on initialization failure.
     bool initialize(const Engine::AssetFileSystem &assets, const TerrainDecorationConfig &config,
-                    TerrainDecorationPlacement placement, bgfx::ProgramHandle program);
+                    TerrainDecorationPlacement placement, bgfx::ProgramHandle program,
+                    bgfx::ProgramHandle shadowProgram);
     void shutdown(bool destroyResources);
     const std::vector<TerrainDecorationPatch> &patches() const
     {
@@ -24,15 +27,21 @@ public:
     bool setView(const bx::Vec3 &camera, const bx::Vec3 &forward, const bx::Vec3 &right, const bx::Vec3 &up,
                  float aspect, float verticalFovRadians);
     bool visible(const TerrainDecorationPatch &patch) const;
-    void submit(uint16_t viewId, const TerrainDecorationPatch &patch, float elapsedTime);
+    void submit(uint16_t viewId, const TerrainDecorationPatch &patch, float elapsedTime, bool sunShadows);
     static bool canMerge(const TerrainDecorationPatch &batch, const OutdoorSelectedFxLights &batchLights,
                          const TerrainDecorationPatch &next, const OutdoorSelectedFxLights &nextLights);
 
 private:
     std::vector<TerrainDecorationPatch> m_patches;
     bgfx::ProgramHandle m_program = BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle m_shadowProgram = BGFX_INVALID_HANDLE;
     bgfx::VertexBufferHandle m_instances = BGFX_INVALID_HANDLE;
+    // Two crossed cards whose corners are slots of their tuft layer's cutout (vertex x = slot, y = card).
     bgfx::VertexBufferHandle m_grassMesh = BGFX_INVALID_HANDLE;
+    bgfx::IndexBufferHandle m_grassIndices = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle m_cutoutUniform = BGFX_INVALID_HANDLE;
+    // Cutout texture coordinates of each atlas layer, two vertices per vec4.
+    std::array<std::array<float, 4>, MaxTuftLayers * TerrainDecorationCutoutVertices / 2> m_cutouts = {};
     bgfx::VertexBufferHandle m_stoneMesh = BGFX_INVALID_HANDLE;
     bgfx::TextureHandle m_texture = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle m_sampler = BGFX_INVALID_HANDLE;

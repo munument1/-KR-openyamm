@@ -30,18 +30,6 @@ enum class ActorAiMotionState : uint8_t
     Dead = 7,
 };
 
-enum class ActorAiAnimationState : uint8_t
-{
-    Standing = 0,
-    Walking = 1,
-    AttackMelee = 2,
-    AttackRanged = 3,
-    GotHit = 4,
-    Dying = 5,
-    Dead = 6,
-    Bored = 7,
-};
-
 enum class ActorAiMovementAction : uint8_t
 {
     None = 0,
@@ -152,6 +140,7 @@ struct ActorRuntimeFacts
     float attackAnimationSeconds = 0.0f;
     float meleeAttackAnimationSeconds = 0.0f;
     float rangedAttackAnimationSeconds = 0.0f;
+    float boredAnimationSeconds = 2.0f;
     float attackCooldownSeconds = 0.0f;
     float idleDecisionSeconds = 0.0f;
     float actionSeconds = 0.0f;
@@ -238,9 +227,6 @@ struct ActorMovementFacts
     bool meleePursuitActive = false;
     bool inMeleeRange = false;
     bool allowCrowdSteering = false;
-    bool crowdSteeringTriggersOnMovementBlocked = false;
-    float crowdSidestepAngleRadians = 0.7853982f;
-    float crowdRetreatAngleRadians = 1.6650441f;
     bool allowIdleWander = false;
     bool movementAllowed = false;
     bool movementBlocked = false;
@@ -249,6 +235,7 @@ struct ActorMovementFacts
 
 struct ActorWorldFacts
 {
+    GameplayWorldPoint listenerPosition = {};
     float targetZ = 0.0f;
     float floorZ = 0.0f;
     int sectorId = 0;
@@ -330,6 +317,7 @@ struct ActorMovementIntent
     bool meleePursuitActive = false;
     bool inMeleeRange = false;
     bool resetCrowdSteering = false;
+    bool crowdSteeringActive = false;
     bool updateCrowdProbePosition = false;
 };
 

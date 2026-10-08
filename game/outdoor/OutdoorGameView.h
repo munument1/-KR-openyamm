@@ -1,14 +1,19 @@
 #pragma once
 
 #include "game/render/SpriteAtlasCache.h"
+#include "game/render/NativeSpriteTextureCache.h"
+#include "game/render/TextureFiltering.h"
+#include "game/render/WaterRenderer.h"
 
 #include "game/app/GameSettings.h"
 #include "game/fx/WorldFxRenderResources.h"
 #include "game/fx/WorldFxSystem.h"
+#include "game/fx/EffectRenderer.h"
 #include "game/outdoor/OutdoorCollisionData.h"
 #include "game/outdoor/OutdoorLightingRuntime.h"
 #include "game/outdoor/OutdoorSpatialFxRuntime.h"
 #include "game/outdoor/TerrainDecorationRenderer.h"
+#include "game/maps/DecorationModelSet.h"
 #include "game/maps/MapAssetLoader.h"
 #include "game/tables/MapStats.h"
 #include "game/tables/MonsterTable.h"
@@ -43,11 +48,13 @@
 #include "game/ui/GameplayOverlayAdapters.h"
 #include "game/ui/UiLayoutManager.h"
 #include "engine/AssetFileSystem.h"
+#include "engine/render/ModelRenderer.h"
 
 #include <bgfx/bgfx.h>
 #include <bx/math.h>
 
 #include <array>
+#include <map>
 #include <cstdint>
 #include <deque>
 #include <filesystem>
@@ -64,6 +71,7 @@ struct SDL_Window;
 
 namespace OpenYAMM::Game
 {
+class CinematicGrading;
 class GameDataRepository;
 class GameSession;
 class OutdoorPartyRuntime;
@@ -91,8 +99,14 @@ class OutdoorGameView
     : public IGameplayOverlaySceneAdapter
 {
 public:
-    explicit OutdoorGameView(GameSession &gameSession);
+    OutdoorGameView(GameSession &gameSession, SpriteAtlasCache &spriteAtlasCache,
+        NativeSpriteTextureCache &nativeSpriteCache);
     ~OutdoorGameView();
+
+    bool hasPendingSpriteWarmups() const
+    {
+        return m_nextPendingSpriteFrameWarmupIndex < m_pendingSpriteFrameWarmups.size();
+    }
 
     OutdoorGameView(const OutdoorGameView &) = delete;
     OutdoorGameView &operator=(const OutdoorGameView &) = delete;
@@ -115,11 +129,14 @@ public:
         GameAudioSystem *pGameAudioSystem,
         OutdoorSceneRuntime &sceneRuntime,
         const GameSettings &settings);
-    void render(int width, int height, const GameplayInputFrame &input, float deltaSeconds);
+    void render(int width, int height, const GameplayInputFrame &input, float deltaSeconds,
+        bool preparingResources = false);
+    void setWorldPostProcessing(CinematicGrading *pPostProcessing) { m_pPostProcessing = pPostProcessing; }
     void shutdown();
     float cameraYawRadians() const;
     float cameraPitchRadians() const;
     void setCameraAngles(float yawRadians, float pitchRadians);
+    void syncCameraToParty();
     void setCameraEyeHeight(float eyeHeight);
     void reopenMenuScreen();
     bool requestQuickSave();
@@ -166,6 +183,11 @@ private:
         float flowVPerSecond;
         float lavaFlow;
         float fluidFlow;
+
+        // Unit world-space normal; zero leaves overlays unshaded.
+        float normalX = 0.0f;
+        float normalY = 0.0f;
+        float normalZ = 0.0f;
 
         static void init();
 
@@ -258,6 +280,8 @@ private:
     struct BModelTextureAnimationHandle
     {
         std::string textureName;
+        SurfaceMaterialSemantic surfaceSemantic = SurfaceMaterialSemantic::GenericAnimated;
+        uint32_t waterColorAbgr = 0;
         std::vector<bgfx::TextureHandle> frameTextureHandles;
         std::vector<uint32_t> frameLengthTicks;
         std::vector<bool> frameHasPartialAlphaPixels;
@@ -272,6 +296,9 @@ private:
         bx::Vec3 boundsMin = {0.0f, 0.0f, 0.0f};
         bx::Vec3 boundsMax = {0.0f, 0.0f, 0.0f};
         bool hasBounds = false;
+        uint16_t lightmapPageIndex = 0xffff;
+        bool usesStaticLighting = false;
+        bool waterSurface = false;
     };
 
     struct BModelWorldRenderFace
@@ -336,7 +363,8 @@ private:
     struct AnimatedWaterTerrainTileState
     {
         uint16_t layer = 0;
-        std::vector<std::vector<uint8_t>> framePixels;
+        bool isWaterSurface = false;
+        std::vector<std::vector<BgraMipLevel>> frameMipLevels;
         std::vector<uint32_t> frameLengthTicks;
         uint32_t animationLengthTicks = 0;
         size_t currentFrameIndex = 0;
@@ -552,10 +580,8 @@ public:
         uint16_t entityIndex = 0;
         uint16_t baseEventId = 0;
         uint8_t eventCount = 0;
-        uint8_t initialState = 0;
-        bool useSeededInitialState = false;
         bool hideWhenCleared = false;
-        InteractiveDecorationFamily family = InteractiveDecorationFamily::None;
+        bool fixedEvent = false;
     };
 
     void showStatusBarEvent(const std::string &text, float durationSeconds = 2.0f);
@@ -581,6 +607,8 @@ public:
     bool trySaveToSelectedGameSlot() override;
     const GameSettings &settingsSnapshot() const;
     GameplayWorldUiRenderState gameplayUiRenderState(int width, int height) const;
+    WorldFxSystem &worldFxSystem();
+    const EffectRenderer::Diagnostics &effectRenderDiagnostics() const;
 private:
     float effectiveCameraYawRadians() const;
     float effectiveCameraPitchRadians() const;
@@ -639,12 +667,7 @@ private:
         float fontScale = 1.0f;
     };
 
-    struct CombatTargetState
-    {
-        bool active = false;
-        size_t actorIndex = 0;
-        float remainingSeconds = 0.0f;
-    };
+
 
     bool m_isInitialized;
     bool m_isRenderable;
@@ -659,6 +682,8 @@ private:
     OutdoorWorldRuntime *m_pOutdoorWorldRuntime;
     OutdoorSpatialFxRuntime m_outdoorSpatialFxRuntime;
     OutdoorLightingRuntime m_outdoorLightingRuntime;
+    // Fixed geometry only. Time weights and runtime point lights are applied after this cached lookup.
+    std::map<std::array<float, 3>, std::optional<OutdoorLightingData::Probe>> m_bakedProbeCache;
     OutdoorLightingRuntime m_outdoorBModelLightingRuntime;
     std::vector<WorldFxLightEmitter> m_cachedOutdoorDynamicLightEmitters;
     const OutdoorLightingData *m_pCachedOutdoorLightingData = nullptr;
@@ -674,12 +699,19 @@ private:
     bgfx::VertexBufferHandle m_entityMarkerVertexBufferHandle;
     bgfx::VertexBufferHandle m_spawnMarkerVertexBufferHandle;
     bgfx::ProgramHandle m_programHandle;
+    bgfx::ProgramHandle m_screenTintProgramHandle;
     bgfx::ProgramHandle m_texturedTerrainProgramHandle;
     bgfx::ProgramHandle m_spellAreaPreviewProgramHandle;
     bgfx::ProgramHandle m_outdoorLitBillboardProgramHandle;
     bgfx::ProgramHandle m_outdoorTexturedFogProgramHandle;
     bgfx::ProgramHandle m_outdoorTerrainFogProgramHandle;
+    bgfx::ProgramHandle m_outdoorTexturedFogShadowProgramHandle = BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle m_outdoorTerrainShadowProgramHandle = BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle m_outdoorBModelShadowProgramHandle = BGFX_INVALID_HANDLE;
     TerrainDecorationRenderer m_terrainDecorations;
+    WaterRenderer m_waterRenderer;
+    bgfx::UniformHandle m_worldClipPlaneUniformHandle = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle m_waterSurfaceControlUniformHandle = BGFX_INVALID_HANDLE;
     struct TerrainDecorationBatch
     {
         TerrainDecorationPatch range;
@@ -696,16 +728,23 @@ private:
     bgfx::TextureHandle m_bloodSplatTextureHandle;
     bgfx::TextureHandle m_forcePerspectiveSolidTextureHandle;
     std::vector<bgfx::TextureHandle> m_bmodelLightmapTextureHandles;
+    std::vector<bgfx::TextureHandle> m_directSunTextureHandles;
     bgfx::TextureHandle m_bmodelWhiteLightmapTextureHandle;
     bgfx::UniformHandle m_terrainTextureSamplerHandle;
     bgfx::UniformHandle m_terrainWaterSamplerHandle;
     bgfx::UniformHandle m_bmodelLightmapSamplerHandle;
+    bgfx::UniformHandle m_bakedSkySamplerHandle = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle m_bakedSunDirectSamplerHandle = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle m_bakedLightingUniformHandle = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle m_bakedTerrainBoundsUniformHandle = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle m_outdoorBillboardAmbientUniformHandle;
     bgfx::UniformHandle m_outdoorBillboardOverrideColorUniformHandle;
     bgfx::UniformHandle m_outdoorBillboardOutlineParamsUniformHandle;
     bgfx::UniformHandle m_outdoorFxLightPositionsUniformHandle;
     bgfx::UniformHandle m_outdoorFxLightColorsUniformHandle;
     bgfx::UniformHandle m_outdoorFxLightParamsUniformHandle;
+    bgfx::UniformHandle m_outdoorSunlightUniformHandle;
+    std::array<float, 4> m_outdoorSunlight = {0.0f, 0.0f, 0.0f, 1.0f};
     bgfx::UniformHandle m_outdoorFogColorUniformHandle;
     bgfx::UniformHandle m_outdoorFogDensitiesUniformHandle;
     bgfx::UniformHandle m_outdoorFogDistancesUniformHandle;
@@ -732,9 +771,30 @@ private:
     std::vector<BModelWorldRenderChunk> m_bmodelWorldRenderChunks;
     uint64_t m_bmodelWorldRenderRevision = std::numeric_limits<uint64_t>::max();
     uint64_t m_bloodSplatVertexBufferRevision = std::numeric_limits<uint64_t>::max();
-    SpriteAtlasCache m_spriteAtlasCache;
+    SpriteAtlasCache &m_spriteAtlasCache;
+    NativeSpriteTextureCache &m_nativeSpriteCache;
     std::deque<BillboardTextureHandle> m_billboardTextureHandles;
     WorldFxRenderResources m_worldFxRenderResources;
+    EffectRenderer m_effectRenderer;
+    Engine::ModelRenderer m_modelRenderer;
+    // Baked sunlight probes per 3D model instance. A probe depends only on position (line of sight to the baked
+    // probe grid), so it is re-sampled after the model moves; time-of-day colour is still applied every frame.
+    struct ModelProbeCacheEntry
+    {
+        uint32_t generation = 0;
+        const void *pLightingData = nullptr;
+        std::array<float, 3> center = {};
+        std::optional<OutdoorLightingData::Probe> probe;
+    };
+    std::unordered_map<uint32_t, ModelProbeCacheEntry> m_modelProbeCache;
+    // Decorations drawn as static 3D models, and the baked probe of each modelled decoration (by billboard index),
+    // sampled once since decorations never move.
+    DecorationModelSet m_decorationModels;
+    std::vector<std::optional<OutdoorLightingData::Probe>> m_decorationModelProbes;
+    std::vector<uint8_t> m_decorationModelProbeSampled;
+    const void *m_pDecorationModelProbeSource = nullptr;
+    bool m_decorationModelsInitializationAttempted = false;
+    CinematicGrading *m_pPostProcessing = nullptr;
     std::array<float, OutdoorFxUniformLightCount * 4> m_cachedOutdoorFxLightPositions = {};
     std::array<float, OutdoorFxUniformLightCount * 4> m_cachedOutdoorFxLightColors = {};
     std::array<float, 4> m_cachedOutdoorFxLightParams = {};
@@ -792,6 +852,7 @@ private:
     float m_lastSkyUpdateElapsedTime = -1.0f;
     std::vector<AnimatedWaterTerrainTileState> m_animatedWaterTerrainTiles;
     std::optional<uint32_t> m_lastAnimatedWaterAnimationTicks;
+    bool m_lastAnimatedWaterShaderEnabled = false;
     SpriteLoadCache m_spriteLoadCache;
     std::unordered_set<std::string> m_runtimeBillboardLoadWarningKeys;
     std::vector<uint16_t> m_pendingSpriteFrameWarmups;
@@ -867,6 +928,5 @@ private:
     int m_lastRenderWidth = 0;
     int m_lastRenderHeight = 0;
     std::vector<CombatFloatingText> m_combatFloatingTexts;
-    CombatTargetState m_combatTargetState;
 };
 }

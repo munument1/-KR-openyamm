@@ -3,6 +3,7 @@
 #include "game/StringUtils.h"
 #include "game/audio/SoundIds.h"
 #include "game/debug/GameplayDebugTrace.h"
+#include "game/gameplay/ArenaRuntime.h"
 #include "game/gameplay/BountyHuntRuntime.h"
 #include "game/gameplay/GenericActorDialog.h"
 #include "game/gameplay/GameMechanics.h"
@@ -16,6 +17,7 @@
 #include "game/mm9/Mm9SkillTrainer.h"
 #include "game/mm9/Mm9TransportRoute.h"
 #include "game/gameplay/ReputationRuntime.h"
+#include "game/gameplay/NpcFollowerRuntime.h"
 #include "game/items/PriceCalculator.h"
 #include "game/party/EventSpellBuffs.h"
 #include "game/tables/HouseTable.h"
@@ -77,6 +79,8 @@ const char *eventDialogActionKindName(EventDialogActionKind kind)
             return "house_resident";
         case EventDialogActionKind::NpcTopic:
             return "npc_topic";
+        case EventDialogActionKind::ArenaChallenge:
+            return "arena_challenge";
         case EventDialogActionKind::NpcProfessionNews:
             return "npc_profession_news";
         case EventDialogActionKind::NpcProfessionAction:
@@ -296,6 +300,7 @@ std::optional<SoundId> soundIdForPortraitFxEvent(PortraitFxEventKind kind)
         case PortraitFxEventKind::AutoNote:
         case PortraitFxEventKind::QuestComplete:
         case PortraitFxEventKind::StatIncrease:
+        case PortraitFxEventKind::StatBaseIncrease:
             return SoundId::Quest;
 
         case PortraitFxEventKind::AwardGain:
@@ -1264,7 +1269,7 @@ void applyMapTransitionTravelSideEffects(
         applyTravelDaysSideEffects(
             *context.pParty,
             context.pWorldRuntime,
-            transition.travelDays,
+            hiredNpcWalkingTravelDays(transition.travelDays, context.eventRuntimeState),
             foodRequired);
     }
 }
@@ -1273,7 +1278,8 @@ void applyPendingMapMoveTravelSideEffects(
     GameplayDialogController::Context &context,
     const EventRuntimeState::PendingMapMove &move)
 {
-    const int travelDays = outdoorMapMoveTravelDays(context, move);
+    const int travelDays = hiredNpcWalkingTravelDays(
+        outdoorMapMoveTravelDays(context, move), context.eventRuntimeState);
 
     if (travelDays <= 0)
     {
@@ -1667,7 +1673,9 @@ bool castNpcFollowerPartySpell(
         return false;
     }
 
-    if (!tryApplyEventSpellBuffs(*context.pParty, spellId, skillLevel, rawSkillMastery))
+    const float durationSeconds = spellId == spellIdValue(SpellId::Bless) || spellId == spellIdValue(SpellId::Heroism)
+        ? 7200.0f : 0.0f;
+    if (!tryApplyEventSpellBuffs(*context.pParty, spellId, skillLevel, rawSkillMastery, durationSeconds))
     {
         return false;
     }
@@ -1735,12 +1743,11 @@ NpcProfessionActionExecution executeNpcFollowerProfessionAction(
 
                 if (professionId == NpcProfessionId::ExpertHealer)
                 {
-                    clearPartyCondition(*context.pParty, CharacterCondition::PoisonWeak);
-                    clearPartyCondition(*context.pParty, CharacterCondition::PoisonMedium);
-                    clearPartyCondition(*context.pParty, CharacterCondition::PoisonSevere);
-                    clearPartyCondition(*context.pParty, CharacterCondition::DiseaseWeak);
-                    clearPartyCondition(*context.pParty, CharacterCondition::DiseaseMedium);
-                    clearPartyCondition(*context.pParty, CharacterCondition::DiseaseSevere);
+                    for (uint32_t condition = 0; condition < static_cast<uint32_t>(CharacterCondition::Dead);
+                         ++condition)
+                    {
+                        clearPartyCondition(*context.pParty, static_cast<CharacterCondition>(condition));
+                    }
                 }
                 else if (professionId == NpcProfessionId::MasterHealer)
                 {
@@ -1755,33 +1762,37 @@ NpcProfessionActionExecution executeNpcFollowerProfessionAction(
         case static_cast<uint32_t>(NpcFollowerActionTopicId::MakeFood):
             if (professionId == NpcProfessionId::Cook || professionId == NpcProfessionId::Chef)
             {
-                if (context.pParty->food() > MaxFoodForCookFollower)
+                if (context.pParty->food() >= MaxFoodForCookFollower)
                 {
                     context.eventRuntimeState.messages.push_back("Your packs are already full!");
                     return execution;
                 }
 
-                context.pParty->addFood(
-                    professionId == NpcProfessionId::Chef
-                        ? ChefFollowerFoodAmount
-                        : CookFollowerFoodAmount);
+                const int amount = professionId == NpcProfessionId::Chef
+                    ? ChefFollowerFoodAmount : CookFollowerFoodAmount;
+                context.pParty->addFood(std::min(amount, MaxFoodForCookFollower - context.pParty->food()));
                 applied = true;
             }
             break;
 
         case static_cast<uint32_t>(NpcFollowerActionTopicId::CastFly):
             applied = professionId == NpcProfessionId::WindMaster
-                && castNpcFollowerPartySpell(context, spellIdValue(SpellId::Fly), 2, 3);
+                && castNpcFollowerPartySpell(context, spellIdValue(SpellId::Fly), 2, 4);
             break;
 
         case static_cast<uint32_t>(NpcFollowerActionTopicId::CastWaterWalk):
             applied = professionId == NpcProfessionId::WaterMaster
-                && castNpcFollowerPartySpell(context, spellIdValue(SpellId::WaterWalk), 3, 3);
+                && castNpcFollowerPartySpell(context, spellIdValue(SpellId::WaterWalk), 3, 4);
             break;
 
         case static_cast<uint32_t>(NpcFollowerActionTopicId::CastTownPortal):
             if (professionId == NpcProfessionId::GateMaster)
             {
+                if (partyHasIndoorExitAlert(context))
+                {
+                    context.eventRuntimeState.messages.push_back("There are hostile creatures nearby!");
+                    return execution;
+                }
                 markNpcProfessionActionUsed(context.eventRuntimeState, npcId, context.pWorldRuntime, context.pParty);
 
                 const size_t casterMemberIndex =
@@ -1793,7 +1804,7 @@ NpcProfessionActionExecution executeNpcFollowerProfessionAction(
                 GameplayUiController::UtilitySpellOverlayState &overlay =
                     context.uiController.utilitySpellOverlay();
                 overlay.skillLevelOverride = 10;
-                overlay.skillMasteryOverride = SkillMastery::Grandmaster;
+                overlay.skillMasteryOverride = SkillMastery::Master;
                 overlay.spendMana = false;
                 overlay.applyRecovery = false;
                 overlay.bypassGameplayCasterValidation = true;
@@ -1932,53 +1943,6 @@ std::optional<NpcEntry> runtimeNpcEntry(
     }
 
     return entry;
-}
-
-void replaceAllInPlace(std::string &text, const std::string &from, const std::string &to)
-{
-    if (from.empty())
-    {
-        return;
-    }
-
-    size_t position = 0;
-    while ((position = text.find(from, position)) != std::string::npos)
-    {
-        text.replace(position, from.length(), to);
-        position += to.length();
-    }
-}
-
-std::string formatNpcProfessionText(
-    std::string text,
-    const NpcEntry &npc,
-    const MergedNpcProfessionEntry &profession,
-    const Party *pParty,
-    int effectiveReputation = 0,
-    std::optional<int> requiredReputation = std::nullopt)
-{
-    const Character *pActiveMember = nullptr;
-
-    if (pParty != nullptr)
-    {
-        pActiveMember = pParty->member(pParty->activeMemberIndex());
-    }
-
-    const std::string activeMemberName = pActiveMember != nullptr && !pActiveMember->name.empty()
-        ? pActiveMember->name
-        : "traveler";
-
-    replaceAllInPlace(text, "%01", npc.name);
-    replaceAllInPlace(text, "%02", activeMemberName);
-    replaceAllInPlace(text, "%04", std::to_string(profession.weeklyCost));
-    replaceAllInPlace(text, "%11", reputationLabel(effectiveReputation));
-    replaceAllInPlace(
-        text,
-        "%12",
-        reputationLabel(requiredReputation.has_value() ? *requiredReputation : effectiveReputation));
-    replaceAllInPlace(text, "%14", profession.profession);
-    replaceAllInPlace(text, "%17", std::to_string(profession.weeklyCost / 100u));
-    return text;
 }
 
 int effectiveReputationForContext(const GameplayDialogController::Context &context)
@@ -2670,6 +2634,8 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             *context.eventRuntimeState.pendingDialogueContext,
             pendingMapMove,
             action.id);
+        context.eventRuntimeState.lastMapTransitionConfirmed->travelDays =
+            hiredNpcWalkingTravelDays((*pTransition)->travelDays, context.eventRuntimeState);
         context.eventRuntimeState.pendingMapMove = std::move(pendingMapMove);
         result.shouldCloseActiveDialog = true;
         return result;
@@ -3703,13 +3669,25 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
 
     if (action.kind == EventDialogActionKind::NpcProfessionDescription)
     {
-        if (context.pNpcDialogTable != nullptr && action.secondaryId != 0)
+        if (context.pNpcDialogTable != nullptr && context.pNpcProfessionTable != nullptr && action.secondaryId != 0)
         {
+            const std::optional<NpcEntry> npc = runtimeNpcEntry(
+                context.pNpcDialogTable, context.eventRuntimeState, context.activeEventDialog.sourceId);
+            const MergedNpcProfessionEntry *pProfession = npc
+                ? context.pNpcProfessionTable->get(npc->professionId)
+                : nullptr;
             const std::optional<std::string> description = context.pNpcDialogTable->getText(action.secondaryId);
 
-            if (description && !description->empty())
+            if (npc && pProfession != nullptr && description && !description->empty())
             {
-                context.eventRuntimeState.messages.push_back(*description);
+                context.eventRuntimeState.messages.push_back(formatNpcProfessionText(
+                    *description,
+                    *npc,
+                    *pProfession,
+                    context.pParty,
+                    effectiveReputationForContext(context),
+                    std::nullopt,
+                    context.pWorldRuntime != nullptr ? context.pWorldRuntime->gameMinutes() : 0.0f));
             }
         }
 
@@ -3879,6 +3857,37 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
         return result;
     }
 
+    if (action.kind == EventDialogActionKind::ArenaChallenge
+        || (action.kind == EventDialogActionKind::NpcTopic && action.id == ArenaTopicId))
+    {
+        const uint32_t npcId = context.activeEventDialog.sourceId;
+        if (context.pWorldRuntime == nullptr)
+        {
+            context.eventRuntimeState.messages.push_back("The Arena is unavailable here.");
+        }
+        else if (action.kind == EventDialogActionKind::ArenaChallenge)
+        {
+            const std::optional<EventRuntimeState::DialogueOfferState> &offer =
+                context.eventRuntimeState.dialogueState.currentOffer;
+            if (offer && offer->kind == DialogueOfferKind::Arena && offer->npcId == npcId)
+            {
+                result.shouldCloseActiveDialog = startArenaChallenge(
+                    *context.pWorldRuntime, ArenaDifficulty(action.id), uint32_t(std::rand()));
+            }
+        }
+        else
+        {
+            result.shouldCloseActiveDialog = interactWithArena(*context.pWorldRuntime, npcId);
+        }
+        if (!result.shouldCloseActiveDialog)
+        {
+            setPendingDialogueContext(context.eventRuntimeState, DialogueContextKind::NpcTalk,
+                npcId, currentDialogueHostHouseId(context.eventRuntimeState));
+            result.shouldOpenPendingEventDialog = true;
+        }
+        return result;
+    }
+
     if (action.kind == EventDialogActionKind::NpcTopic)
     {
         const uint32_t npcId = context.activeEventDialog.sourceId;
@@ -3918,7 +3927,7 @@ GameplayDialogController::Result GameplayDialogController::executeActiveDialogAc
             context.eventRuntimeState.messages.push_back("That topic does not have an event yet.");
         }
 
-        if (context.eventRuntimeState.pendingWinGame)
+        if (context.eventRuntimeState.pendingWinGame || context.eventRuntimeState.pendingDimensionDoorOverlay)
         {
             result.shouldCloseActiveDialog = true;
             return result;
@@ -4126,6 +4135,7 @@ GameplayDialogController::Result GameplayDialogController::openNpcDialogue(
         return result;
     }
 
+    context.eventRuntimeState.dialogueState.generatedNpcGreeting.reset();
     executeNpcHook(context, EventRuntimeHookKind::NpcEnter, npcId, sourceActorIndex);
     context.eventRuntimeState.dialogueState.hostHouseId = hostHouseId;
     setPendingDialogueContext(
@@ -4559,10 +4569,6 @@ bool GameplayDialogController::refreshHouseBankInputDialog(Context &context, boo
 
     const std::string promptLabel =
         houseBankState.inputMode == GameplayUiController::HouseBankInputMode::Deposit ? "Deposit" : "Withdraw";
-    const std::string enteredText = houseBankState.inputText.empty()
-        ? (showCursor ? "_" : "")
-        : (houseBankState.inputText + (showCursor ? "_" : ""));
-
     context.activeEventDialog.lines.clear();
     context.activeEventDialog.lines.push_back(
         "Balance: " + std::to_string(context.pParty != nullptr ? context.pParty->bankGold() : 0));
@@ -4570,7 +4576,6 @@ bool GameplayDialogController::refreshHouseBankInputDialog(Context &context, boo
     context.activeEventDialog.lines.push_back(promptLabel);
     context.activeEventDialog.lines.push_back("How Much?");
     context.activeEventDialog.lines.push_back(std::string {});
-    context.activeEventDialog.lines.push_back(enteredText);
     context.activeEventDialog.actions.clear();
     context.selectionIndex = 0;
     return true;

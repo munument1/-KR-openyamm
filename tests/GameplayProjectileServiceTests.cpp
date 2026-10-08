@@ -45,6 +45,36 @@ float storedReferenceRoundParticleSize(float particleSize = 1.0f)
 }
 }
 
+TEST_CASE("actor disintegration particles are bounded, expire and resume at the death clock")
+{
+    using namespace OpenYAMM::Game;
+    ParticleSystem particles;
+    FxRecipes::spawnActorDisintegrationParticles(particles, 42, 10, 20, 30, 179, 0, 1.25f);
+    CHECK(particles.particleCount() == 80);
+    const ParticleSystem::DebugStats stats = particles.debugStats();
+    CHECK(stats.activeByMaterial[size_t(FxParticleMaterial::Mist)] == 64);
+    CHECK(stats.activeByMaterial[size_t(FxParticleMaterial::Smoke)] == 16);
+    particles.update(0.5f);
+    ParticleSystem resumed;
+    FxRecipes::spawnActorDisintegrationParticles(resumed, 42, 10, 20, 30, 179, 0.5f, 1.25f);
+    REQUIRE(resumed.particleCount() == particles.particleCount());
+    for (size_t i = 0; i < particles.particleCount(); ++i)
+    {
+        CHECK(resumed.particles()[i].z == doctest::Approx(particles.particles()[i].z));
+    }
+    particles.update(1.0f);
+    CHECK(particles.particleCount() == 0);
+    FxRecipes::spawnActorDisintegrationParticles(particles, 42, 10, 20, 30, 179, 1.25f, 1.25f);
+    CHECK(particles.particleCount() == 0);
+    for (uint32_t i = 0; i < 100; ++i)
+    {
+        FxRecipes::spawnActorDisintegrationParticles(particles, i, 10, 20, 30, 179, 0, 1.25f);
+    }
+    CHECK(particles.particleCount() == particles.maxParticleCount());
+    particles.update(1.3f);
+    CHECK(particles.particleCount() == 0);
+}
+
 TEST_CASE("projectile area impact hits party and filters actors without map runtime")
 {
     GameplayProjectileService service;
@@ -452,7 +482,7 @@ TEST_CASE("FX-only projectile presentation still spawns dedicated impact state")
     definition.hasVisual = false;
 
     const GameplayProjectileService::ProjectileImpactSpawnResult impact =
-        service.spawnProjectileImpactVisual(projectile, definition, 10.0f, 20.0f, 30.0f, false);
+        service.spawnProjectileImpactVisual(projectile, definition, 10.0f, 20.0f, 30.0f, false, 7);
 
     REQUIRE(impact.spawned);
     REQUIRE(impact.pImpact != nullptr);
@@ -460,6 +490,11 @@ TEST_CASE("FX-only projectile presentation still spawns dedicated impact state")
     CHECK_EQ(impact.pImpact->sourceObjectName, "Lightning Bolt");
     CHECK_EQ(impact.pImpact->sourceObjectSpriteName, "spell18");
     CHECK_EQ(impact.pImpact->sectorId, 4);
+    CHECK_EQ(impact.pImpact->targetActorIndex, 7u);
+
+    service.collectProjectilePresentationState(projectiles, impacts);
+    REQUIRE_EQ(impacts.size(), 1u);
+    CHECK_EQ(impacts.front().targetActorIndex, 7u);
 }
 
 TEST_CASE("Special impact primitives emit expected particle counts")
@@ -569,6 +604,19 @@ TEST_CASE("fireball and spell dragon breath keep dedicated impact particles and 
     CHECK_FALSE(OpenYAMM::Game::FxRecipes::projectileRecipeShowsImpactBillboard(ProjectileRecipe::FireBolt));
     CHECK(OpenYAMM::Game::FxRecipes::projectileRecipeUsesDedicatedImpactFx(ProjectileRecipe::Sparks));
     CHECK_FALSE(OpenYAMM::Game::FxRecipes::projectileRecipeShowsImpactBillboard(ProjectileRecipe::Sparks));
+}
+
+TEST_CASE("projectile recipe debug names round trip and ignore separators")
+{
+    using OpenYAMM::Game::FxRecipes::projectileRecipeFromName;
+    using OpenYAMM::Game::FxRecipes::projectileRecipeName;
+
+    CHECK_EQ(projectileRecipeName(ProjectileRecipe::Implosion), "implosion");
+    CHECK_EQ(projectileRecipeFromName("implosion"), ProjectileRecipe::Implosion);
+    CHECK_EQ(projectileRecipeFromName("Dragon Breath"), ProjectileRecipe::DragonBreath);
+    CHECK_EQ(projectileRecipeFromName("dragon-breath"), ProjectileRecipe::DragonBreath);
+    CHECK_EQ(projectileRecipeFromName("ICE_BLAST_FALLOUT"), ProjectileRecipe::IceBlastFallout);
+    CHECK_FALSE(projectileRecipeFromName("not-a-projectile"));
 }
 
 TEST_CASE("fireball and spell dragon breath travel particles are scaled without changing fire bolt")

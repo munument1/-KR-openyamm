@@ -13,27 +13,35 @@ struct SpriteAtlasPage
     std::string base;
     std::string mask;
     std::array<int, 2> size = {};
+    std::string texture;
 };
 
 struct SpriteAtlasFrame
 {
     int page = 0;
     std::array<int, 4> rectangle = {};
-    std::array<int, 2> cropOrigin = {};
+    std::array<float, 2> cropOrigin = {};
+    std::array<float, 2> drawSize = {};
+    std::unordered_map<int, int> paletteOverrides;
 };
 
 struct SpriteAtlasVariant
 {
-    // RGB ramp; w=0 bypass, w=1 green chroma, w=2 luminance, w=3 two-region, w=4 four-region luminance.
+    // w: 0 bypass, 1 chroma, 2 luminance, 3/4 region vectors, 5/6 luminance LUT, 7 RGB displacement LUT.
     std::array<float, 4> chroma = {};
     std::array<float, 4> secondChroma = {};
     std::array<float, 4> thirdChroma = {};
     std::array<float, 4> fourthChroma = {};
+    std::string lookup;
+    std::array<int, 2> lookupSize = {};
 };
 
 struct SpriteAtlas
 {
+    int schemaVersion = 1;
+    std::string textureProfile;
     float pixelsPerLogicalPixel = 1.0f;
+    float brightnessMultiplier = 1.0f;
     int maskChannels = 1;
     std::array<int, 2> logicalCanvas = {};
     std::array<float, 2> logicalPivot = {};

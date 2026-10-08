@@ -1613,6 +1613,16 @@ bool GameplayOverlayInputController::handleKeyboardOverlayInput(
 
     if (keyboardScreen.waitingForBinding)
     {
+        if (input.mouseWheelDelta != 0.0f)
+        {
+            view.mutableSettings().keyboard.setBinding(
+                keyboardScreen.pendingAction,
+                mouseWheelInputBinding(input.mouseWheelDelta));
+            keyboardScreen.waitingForBinding = false;
+            view.commitSettingsChange();
+            return true;
+        }
+
         const std::optional<SDL_Scancode> reboundScancode =
             firstNewlyPressedScancode(pKeyboardState, view.previousKeyboardState());
 
@@ -1852,6 +1862,8 @@ bool GameplayOverlayInputController::handleVideoOptionsOverlayInput(
                 {"VideoOptionsBloodSplatsButton", GameplayVideoOptionsPointerTargetType::BloodSplatsButton},
                 {"VideoOptionsColoredLightsButton", GameplayVideoOptionsPointerTargetType::ColoredLightsButton},
                 {"VideoOptionsTintingButton", GameplayVideoOptionsPointerTargetType::TintingButton},
+                {"VideoOptionsCinematicButton", GameplayVideoOptionsPointerTargetType::CinematicButton},
+                {"VideoOptionsCinematicStrengthTrack", GameplayVideoOptionsPointerTargetType::CinematicStrengthTrack},
                 {"VideoOptionsReturnButton", GameplayVideoOptionsPointerTargetType::ReturnButton},
             };
 
@@ -1867,6 +1879,39 @@ bool GameplayOverlayInputController::handleVideoOptionsOverlayInput(
 
             return {};
         };
+
+    // Dragging remains attached to the track even when the pointer leaves its bounds.
+    if (pointerState.leftButtonPressed)
+    {
+        if (!view.interactionState().videoOptionsClickLatch)
+        {
+            const GameplayVideoOptionsPointerTarget target = findPointerTarget(pointerState.x, pointerState.y);
+            if (target.type == GameplayVideoOptionsPointerTargetType::CinematicStrengthTrack)
+            {
+                view.interactionState().videoOptionsClickLatch = true;
+                view.interactionState().videoOptionsPressedTarget = target;
+            }
+        }
+        if (view.interactionState().videoOptionsPressedTarget.type
+            == GameplayVideoOptionsPointerTargetType::CinematicStrengthTrack)
+        {
+            const auto *pLayout = view.findHudLayoutElement("VideoOptionsCinematicStrengthTrack");
+            const auto track = view.resolveHudLayoutElement(pLayout->id, screenWidth, screenHeight,
+                pLayout->width, pLayout->height);
+            if (track && track->width > 0.0f)
+            {
+                const int strength = std::clamp(int(std::lround(
+                    100.0f * (pointerState.x - track->x) / track->width)), 0, 100);
+                GameSettings &settings = view.mutableSettings();
+                if (settings.cinematicStrength != strength)
+                {
+                    settings.cinematicStrength = strength;
+                    view.commitSettingsChange();
+                }
+            }
+            return true;
+        }
+    }
 
     handlePointerClickRelease(
         pointerState,
@@ -1893,6 +1938,14 @@ bool GameplayOverlayInputController::handleVideoOptionsOverlayInput(
             case GameplayVideoOptionsPointerTargetType::TintingButton:
                 settings.tinting = !settings.tinting;
                 view.commitSettingsChange();
+                break;
+
+            case GameplayVideoOptionsPointerTargetType::CinematicButton:
+                settings.cinematicGrading = !settings.cinematicGrading;
+                view.commitSettingsChange();
+                break;
+
+            case GameplayVideoOptionsPointerTargetType::CinematicStrengthTrack:
                 break;
 
             case GameplayVideoOptionsPointerTargetType::ReturnButton:
@@ -3739,7 +3792,8 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                     const std::optional<GameplayScreenRuntime::HudFontHandle> topicFont =
                         view.findHudFont(pTopicRowLayout->fontName);
                     const float topicFontScale =
-                        snappedHudFontScale(resolvedTopicRowTemplate ? resolvedTopicRowTemplate->scale : panelScale);
+                        (resolvedTopicRowTemplate ? resolvedTopicRowTemplate->scale : panelScale)
+                        * pTopicRowLayout->textScale;
                     const float topicLineHeight = topicFont
                         ? static_cast<float>(topicFont->fontHeight) * topicFontScale
                         : 20.0f * panelScale;
@@ -3753,7 +3807,7 @@ void GameplayOverlayInputController::handleDialogueOverlayInput(
                             - std::abs(pTopicRowLayout->textPadX * topicFontScale) * 2.0f
                             - 4.0f * topicFontScale);
                     const float topicTextWidth =
-                        std::max(0.0f, topicTextWidthScaled / std::max(1.0f, topicFontScale));
+                        std::max(0.0f, topicTextWidthScaled / std::max(0.01f, topicFontScale));
                     const float rowGap = 4.0f * panelScale;
                     const size_t visibleActionCount = std::min<size_t>(view.activeEventDialog().actions.size(), 5);
                     float contentY = panelInnerY;
@@ -4051,8 +4105,12 @@ void GameplayOverlayInputController::handleLootOverlayInput(
 
                         if (pItemTexture)
                         {
-                            const float itemWidth = static_cast<float>(pItemTexture->width) * gridMetrics.scale;
-                            const float itemHeight = static_cast<float>(pItemTexture->height) * gridMetrics.scale;
+                            const float itemWidth =
+                                static_cast<float>(pItemTexture->width) * gridMetrics.scale
+                                    * pItemDefinition->inventoryDrawScale;
+                            const float itemHeight =
+                                static_cast<float>(pItemTexture->height) * gridMetrics.scale
+                                    * pItemDefinition->inventoryDrawScale;
                             const float drawX = chestMouseX - view.heldInventoryItem().grabOffsetX;
                             const float drawY = chestMouseY - view.heldInventoryItem().grabOffsetY;
                             const std::optional<std::pair<int, int>> placement = computeHeldInventoryPlacement(
@@ -4121,8 +4179,12 @@ void GameplayOverlayInputController::handleLootOverlayInput(
 
                             if (pItemTexture)
                             {
-                                const float itemWidth = static_cast<float>(pItemTexture->width) * gridMetrics.scale;
-                                const float itemHeight = static_cast<float>(pItemTexture->height) * gridMetrics.scale;
+                                const float itemWidth =
+                                    static_cast<float>(pItemTexture->width) * gridMetrics.scale
+                                        * pItemDefinition->inventoryDrawScale;
+                                const float itemHeight =
+                                    static_cast<float>(pItemTexture->height) * gridMetrics.scale
+                                        * pItemDefinition->inventoryDrawScale;
                                 const InventoryItemScreenRect itemRect =
                                     computeInventoryItemScreenRect(gridMetrics, heldItem, itemWidth, itemHeight);
                                 view.heldInventoryItem().grabOffsetX = chestMouseX - itemRect.x;
@@ -4162,13 +4224,6 @@ void GameplayOverlayInputController::handleLootOverlayInput(
 
                 if (view.worldRuntime() != nullptr)
                 {
-                    if (view.audioSystem() != nullptr && view.worldRuntime()->activeChestView() != nullptr)
-                    {
-                        view.audioSystem()->playCommonSound(
-                            SoundId::ChestClose,
-                            GameAudioSystem::PlaybackGroup::Ui);
-                    }
-
                     view.worldRuntime()->closeActiveChestView();
                     view.worldRuntime()->closeActiveCorpseView();
                     view.closeInventoryNestedOverlay();
@@ -4229,8 +4284,12 @@ void GameplayOverlayInputController::handleLootOverlayInput(
 
                     if (pItemTexture)
                     {
-                        const float itemWidth = static_cast<float>(pItemTexture->width) * chestGridMetrics.scale;
-                        const float itemHeight = static_cast<float>(pItemTexture->height) * chestGridMetrics.scale;
+                        const float itemWidth =
+                            static_cast<float>(pItemTexture->width) * chestGridMetrics.scale
+                                * pItemDefinition->inventoryDrawScale;
+                        const float itemHeight =
+                            static_cast<float>(pItemTexture->height) * chestGridMetrics.scale
+                                * pItemDefinition->inventoryDrawScale;
                         const float drawX = chestMouseX - view.heldInventoryItem().grabOffsetX;
                         const float drawY = chestMouseY - view.heldInventoryItem().grabOffsetY;
                         const std::optional<std::pair<int, int>> placement = computeHeldInventoryPlacement(
@@ -4310,9 +4369,11 @@ void GameplayOverlayInputController::handleLootOverlayInput(
                             if (pItemTexture)
                             {
                                 const float itemWidth =
-                                    static_cast<float>(pItemTexture->width) * chestGridMetrics.scale;
+                                    static_cast<float>(pItemTexture->width) * chestGridMetrics.scale
+                                        * pItemDefinition->inventoryDrawScale;
                                 const float itemHeight =
-                                    static_cast<float>(pItemTexture->height) * chestGridMetrics.scale;
+                                    static_cast<float>(pItemTexture->height) * chestGridMetrics.scale
+                                        * pItemDefinition->inventoryDrawScale;
                                 const InventoryItemScreenRect itemRect = computeInventoryItemScreenRect(
                                     chestGridMetrics,
                                     view.heldInventoryItem().item,
@@ -4488,13 +4549,6 @@ void GameplayOverlayInputController::handleLootOverlayInput(
             }
             else if (view.worldRuntime() != nullptr)
             {
-                if (view.audioSystem() != nullptr && view.worldRuntime()->activeChestView() != nullptr)
-                {
-                    view.audioSystem()->playCommonSound(
-                        SoundId::ChestClose,
-                        GameAudioSystem::PlaybackGroup::Ui);
-                }
-
                 view.worldRuntime()->closeActiveChestView();
                 view.worldRuntime()->closeActiveCorpseView();
                 view.interactionState().activateInspectLatch = true;

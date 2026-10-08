@@ -1,87 +1,54 @@
 
 #include "common.sh"
+#include "world_clip.sh"
 
 #if TERRAIN_TEXTURE_ARRAY
 SAMPLER2DARRAY(s_texColor, 0);
 SAMPLER2DARRAY(s_texTerrainWater, 1);
+SAMPLER2DARRAY(s_texWaterCoverage, 4);
 #elif TERRAIN_DECORATION
 SAMPLER2DARRAY(s_texColor, 0);
 #else
 SAMPLER2D(s_texColor, 0);
 #endif
 
-uniform vec4 u_fogColor;
-uniform vec4 u_fogDensities;
-uniform vec4 u_fogDistances;
+#if BAKED_SOURCES
+SAMPLER2D(s_texLightmap, 2);
+uniform vec4 u_bakedTerrainBounds;
+#include "outdoor_baked_lighting.sh"
+#else
+#if SUN_SHADOWS
+#include "sun_shadows.sh"
+#endif
+uniform vec4 u_outdoorSunlight;
+#endif
+
 uniform vec4 u_cameraPosition;
-uniform vec4 u_fxLightPositions[8];
-uniform vec4 u_fxLightColors[8];
-uniform vec4 u_fxLightParams;
 uniform vec4 u_secretPulseParams;
+uniform vec4 u_waterSurfaceControl;
 
-float safeSmoothstep(float edge0, float edge1, float value)
-{
-    if (edge0 == edge1)
-    {
-        return 0.0;
-    }
-
-    float t = clamp((value - edge0) / (edge1 - edge0), 0.0, 1.0);
-    return t * t * (3.0 - 2.0 * t);
-}
-
-float getFogRatio(float dist)
-{
-    if (u_fogDensities.w > 0.5)
-    {
-        return clamp((dist - u_fogDistances.x) / max(u_fogDistances.y - u_fogDistances.x, 1.0), 0.0, 1.0);
-    }
-
-    return
-        u_fogDensities.x
-        + (u_fogDensities.y - u_fogDensities.x) * safeSmoothstep(u_fogDistances.x, u_fogDistances.y, dist)
-        + (1.0 - u_fogDensities.y) * safeSmoothstep(u_fogDistances.y, u_fogDistances.z, dist);
-}
-
-float getFogAlpha(float dist)
-{
-    if (u_fogDensities.w > 0.5)
-    {
-        return 1.0;
-    }
-
-    return 1.0 - safeSmoothstep(u_fogDistances.y, u_fogDistances.z, dist);
-}
-
-vec3 getFxLighting(vec3 worldPosition)
-{
-    vec3 lighting = vec3(u_fxLightParams.y, u_fxLightParams.y, u_fxLightParams.y);
-
-    for (int i = 0; i < 8; ++i)
-    {
-        if (float(i) >= u_fxLightParams.x)
-        {
-            continue;
-        }
-
-        vec3 toLight = u_fxLightPositions[i].xyz - worldPosition;
-        float radius = max(u_fxLightPositions[i].w, 1.0);
-        float distanceSquared = dot(toLight, toLight);
-        float inverseRadiusSquared = 1.0 / (radius * radius);
-        float attenuation = 1.0 - clamp(distanceSquared * inverseRadiusSquared, 0.0, 1.0);
-        attenuation *= attenuation;
-        lighting += u_fxLightColors[i].rgb * (u_fxLightColors[i].w * attenuation * u_fxLightParams.z);
-    }
-
-    return clamp(lighting, vec3(0.0, 0.0, 0.0), vec3(2.0, 2.0, 2.0));
-}
+#include "outdoor_lighting.sh"
 
 void main()
 {
+    clipWorldPosition(v_worldPosition);
     vec2 texcoord = v_texcoord0;
     bool terrainWater = v_texcoord1.x < -0.5;
 
-    if (terrainWater)
+#if TERRAIN_TEXTURE_ARRAY
+    if (terrainWater && v_flowInfo.y > 0.5
+        && (u_waterSurfaceControl.x > 0.5 || abs(u_worldClipPlane.z) > 0.5))
+    {
+        float coverage = v_texcoord1.x < -1.5
+            ? texture2DArray(s_texWaterCoverage, vec3(texcoord, v_flowInfo.x)).r : 1.0;
+        if (coverage >= 0.999)
+        {
+            discard;
+        }
+    }
+#endif
+
+    if (terrainWater && v_texcoord1.x > -1.5)
     {
 #if TERRAIN_TEXTURE_ARRAY
         vec2 atlasMin = vec2(0.0, 0.0);
@@ -129,7 +96,7 @@ void main()
     // Water repeats across cells. Land and shore overlays retain clamped sampling because
     // their opposite edges can contain different materials. Both samplers share one array.
     vec4 textureColor;
-    if (terrainWater)
+    if (terrainWater && v_texcoord1.x > -1.5)
     {
         textureColor = texture2DArray(s_texTerrainWater, vec3(texcoord, v_flowInfo.x));
     }
@@ -157,6 +124,14 @@ void main()
     {
         discard;
     }
+#if !SUN_SHADOWS
+    // Lit per vertex (vs_terrain_decoration); decorations are never secret faces.
+    textureColor.rgb = mix(textureColor.rgb, u_fogColor.rgb, u_fogDensities.z) * v_flowInfo.yzw;
+    float decorationFogDistance = length(v_worldPosition - u_cameraPosition.xyz);
+    gl_FragColor = mix(textureColor, vec4(u_fogColor.rgb, getFogAlpha(decorationFogDistance)),
+        getFogRatio(decorationFogDistance));
+    return;
+#endif
 #endif
     if (textureColor.a <= 0.1)
     {
@@ -164,7 +139,15 @@ void main()
     }
 
     textureColor.rgb = mix(textureColor.rgb, u_fogColor.rgb, u_fogDensities.z);
-    vec4 litTextureColor = vec4(textureColor.rgb * getFxLighting(v_worldPosition), textureColor.a);
+#if BAKED_SOURCES
+    vec2 bakedUv = (v_worldPosition.xy - u_bakedTerrainBounds.xy) / u_bakedTerrainBounds.zw;
+    vec3 baked = bakedShadowedSourceLighting(texture2D(s_texLightmap, bakedUv),
+        texture2D(s_texBakedSky, bakedUv), bakedUv, v_worldPosition);
+    vec4 litTextureColor = vec4(bakedSurfaceColor(textureColor.rgb,
+        baked + getFxLighting(v_worldPosition, 0.0)), textureColor.a);
+#else
+    vec4 litTextureColor = vec4(textureColor.rgb * getFxLighting(v_worldPosition, v_sunlight), textureColor.a);
+#endif
 
     bool classicSecret = v_texcoord1.x > 0.5 && v_texcoord1.x < 1.5;
     bool authoredPerception = v_texcoord1.x >= 1.5;

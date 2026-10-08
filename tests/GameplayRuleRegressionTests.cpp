@@ -33,6 +33,7 @@
 #include "game/outdoor/OutdoorMovementController.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/party/Party.h"
+#include "game/party/PartySpellSystem.h"
 #include "game/party/SpellIds.h"
 #include "game/tables/JournalQuestTable.h"
 #include "game/tables/ItemTable.h"
@@ -83,14 +84,17 @@ TEST_CASE("full-screen gameplay HUD states occlude world rendering")
         GameplayHudScreenState::Gameplay,
         inactiveDialog));
 
-    constexpr std::array<GameplayHudScreenState, 14> occludingStates = {
+    CHECK_FALSE(OpenYAMM::Game::gameplayHudScreenFullyOccludesWorld(
+        GameplayHudScreenState::Menu,
+        inactiveDialog));
+
+    constexpr std::array<GameplayHudScreenState, 13> occludingStates = {
         GameplayHudScreenState::Character,
         GameplayHudScreenState::TownPortal,
         GameplayHudScreenState::LloydsBeacon,
         GameplayHudScreenState::Chest,
         GameplayHudScreenState::Spellbook,
         GameplayHudScreenState::Rest,
-        GameplayHudScreenState::Menu,
         GameplayHudScreenState::Controls,
         GameplayHudScreenState::Keyboard,
         GameplayHudScreenState::VideoOptions,
@@ -725,6 +729,52 @@ TEST_CASE("classic outdoor flying ignores camera pitch for forward movement")
     movementDriver.update(movementInput, 0.1f);
 
     CHECK_EQ(movementDriver.state().footZ, doctest::Approx(startFootZ).epsilon(0.001f));
+}
+
+TEST_CASE("outdoor mouse wheel flight steps survive fast frames and obey the flight ceiling")
+{
+    using namespace OpenYAMM::Game;
+    const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
+    for (const float frameSeconds : {0.001f, 1.0f / 30.0f})
+    {
+        OutdoorMovementDriver driver(boundary.mapData, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+        driver.initialize(boundary.landX, boundary.landY, 0.0f);
+        OutdoorMoveState state = driver.state();
+        state.footZ = 1024.0f;
+        state.airborne = true;
+        driver.restoreState(state, OutdoorPartyMovementState{});
+        driver.setFlyingAvailable(true);
+        float expectedHeight = state.footZ;
+
+        for (const float heightDelta : {64.0f, 32.0f, 128.0f, -224.0f})
+        {
+            OutdoorMovementInput input = {};
+            input.flyHeightDelta = heightDelta;
+            driver.update(input, frameSeconds);
+            CHECK(driver.partyMovementState().flying);
+            CHECK(driver.partyMovementState().activelyFlying);
+            driver.update(OutdoorMovementInput{}, 1.0f / 30.0f);
+            expectedHeight += heightDelta;
+            CHECK(driver.state().footZ == doctest::Approx(expectedHeight));
+            driver.update(OutdoorMovementInput{}, 1.0f / 30.0f);
+            CHECK(driver.state().footZ == doctest::Approx(expectedHeight));
+            CHECK_FALSE(driver.partyMovementState().activelyFlying);
+        }
+
+        state = driver.state();
+        state.footZ = driver.tuning().maxFlightHeight - 32.0f;
+        driver.restoreState(state, driver.partyMovementState());
+        OutdoorMovementInput up = {};
+        up.flyHeightDelta = 64.0f;
+        driver.update(up, frameSeconds);
+        driver.update(OutdoorMovementInput{}, 1.0f / 30.0f);
+        CHECK(driver.state().footZ > state.footZ);
+        CHECK(driver.state().footZ <= driver.tuning().maxFlightHeight);
+        driver.setFlyingAvailable(false);
+        driver.update(up, frameSeconds);
+        CHECK_FALSE(driver.partyMovementState().flying);
+        CHECK(driver.state().footZ <= driver.tuning().maxFlightHeight);
+    }
 }
 
 TEST_CASE("modern outdoor flying keeps camera pitch for forward movement")
@@ -2388,6 +2438,15 @@ TEST_CASE("outdoor terrain descriptors use mm6 and mm7 merged tile tables")
     CHECK(pMm8WaterMaterial->animation.frames.front().textureName == "hdwtr000");
     CHECK(pMm8WaterMaterial->animation.frames.back().textureName == "hdwtr013");
 
+    for (const char *pTexture : {"6hdwtr000", "7hdwtr013", "hdwtr000"})
+    {
+        const OpenYAMM::Game::SurfaceMaterialDefinition *pFrameMaterial =
+            surfaceMaterialTable.findMatch(pTexture, 0, false);
+        REQUIRE(pFrameMaterial != nullptr);
+        CHECK(pFrameMaterial->semantic == OpenYAMM::Game::SurfaceMaterialSemantic::Water);
+        CHECK(pFrameMaterial->animation.frames.empty());
+    }
+
     const OpenYAMM::Game::SurfaceMaterialDefinition *pLavaMaterial =
         surfaceMaterialTable.findMatch("lavtyl", 0, true);
     REQUIRE(pLavaMaterial != nullptr);
@@ -3402,6 +3461,50 @@ TEST_CASE("main-hand blaster shoots before bow and allows original zero minimum 
     CHECK(attack.attackSoundHook == "blaster_shot");
 }
 
+TEST_CASE("projectile targeting stays inside short actor collision heights")
+{
+    using namespace OpenYAMM::Game;
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    for (const bool indoor : {false, true})
+    {
+        for (const uint16_t height : std::array<uint16_t, 4>{20, 30, 50, 160})
+        {
+            CAPTURE(indoor);
+            CAPTURE(height);
+            Party party = OpenYAMM::Tests::makeSpellRegressionParty(gameData);
+            Character *pCaster = party.member(0);
+            REQUIRE(pCaster != nullptr);
+            pCaster->skills["FireMagic"] = {"FireMagic", 5, SkillMastery::Expert};
+
+            OpenYAMM::Tests::PartySpellTestWorldRuntime world;
+            world.bindParty(&party);
+            world.setIndoorMap(indoor);
+            GameplayRuntimeActorState actor = {};
+            actor.preciseX = 1024.0f;
+            actor.preciseZ = 1223.79f;
+            actor.height = height;
+            actor.hostileToParty = true;
+            const size_t actorIndex = world.addActor(actor);
+            const float targetZ = actor.preciseZ + GameMechanics::actorTargetHeight(height);
+            CHECK_GT(targetZ, actor.preciseZ);
+            CHECK_LT(targetZ, actor.preciseZ + height);
+
+            PartySpellCastRequest request = {};
+            request.spellId = spellIdValue(SpellId::FireBolt);
+            request.targetActorIndex = actorIndex;
+            request.spendMana = false;
+            request.applyRecovery = false;
+            REQUIRE(PartySpellSystem::castSpell(party, world, gameData.spellTable, request).succeeded());
+            REQUIRE_EQ(world.projectileRequests().size(), 1u);
+            CHECK_EQ(world.projectileRequests().front().targetZ, targetZ);
+            if (height == 160)
+            {
+                CHECK(targetZ == doctest::Approx(actor.preciseZ + 96.0f));
+            }
+        }
+    }
+}
+
 TEST_CASE("blaster attack tuning can add scaling skill damage and minimum recovery")
 {
     const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
@@ -4125,7 +4228,7 @@ TEST_CASE("party airborne movement allows water entry without water walk")
     CHECK(isOutdoorPositionWaterForDiagnostics(boundary.mapData, std::nullopt, resolved.x, resolved.y));
 }
 
-TEST_CASE("outdoor actor movement ignores pre-existing actor overlap")
+TEST_CASE("outdoor actor movement can separate from coincident actors")
 {
     const SyntheticOutdoorWaterBoundaryScenario boundary = createSyntheticOutdoorWaterBoundaryScenario();
     OpenYAMM::Game::OutdoorMovementController movementController(
@@ -4247,6 +4350,88 @@ TEST_CASE("outdoor party is still blocked from entering decoration collision")
     CHECK_LT(resolved.x, boundary.landX - 95.0f);
 }
 
+TEST_CASE("outdoor terrain preserves native Emerald Island decoration support heights")
+{
+    using namespace OpenYAMM::Game;
+    OutdoorMapData mapData = {};
+    mapData.heightMap.assign(OutdoorMapData::TerrainWidth * OutdoorMapData::TerrainHeight, 0);
+    const size_t rockCell = 49 * OutdoorMapData::TerrainWidth + 96;
+    mapData.heightMap[rockCell] = 3;
+    const size_t pedestalCell = 46 * OutdoorMapData::TerrainWidth + 68;
+    mapData.heightMap[pedestalCell] = 30;
+    mapData.heightMap[pedestalCell + 1] = 30;
+    mapData.heightMap[pedestalCell + OutdoorMapData::TerrainWidth] = 25;
+    mapData.heightMap[pedestalCell + OutdoorMapData::TerrainWidth + 1] = 31;
+
+    // Original map anchors: rock z=30, pedestal z=969 (integer placement).
+    CHECK(sampleOutdoorRenderedTerrainHeight(mapData, 16736.0f, 7376.0f) == doctest::Approx(30.0f));
+    CHECK(sampleOutdoorRenderedTerrainHeight(mapData, 2395.0f, 9065.0f) == doctest::Approx(969.4375f));
+    CHECK(sampleOutdoorTerrainHeight(mapData, 16736.0f, 7376.0f) == doctest::Approx(30.0f));
+    CHECK(sampleOutdoorPlacementFloorHeight(mapData, 2395.0f, 9065.0f, 969.0f)
+        == doctest::Approx(969.4375f));
+    // Both sides and the shared diagonal of the non-planar rock tile.
+    CHECK(sampleOutdoorRenderedTerrainHeight(mapData, 16640.0f, 7552.0f) == doctest::Approx(48.0f));
+    CHECK(sampleOutdoorRenderedTerrainHeight(mapData, 16512.0f, 7424.0f) == doctest::Approx(48.0f));
+    CHECK(sampleOutdoorRenderedTerrainHeight(mapData, 16640.0f, 7424.0f) == doctest::Approx(48.0f));
+    const bx::Vec3 rockNormal = sampleOutdoorRenderedTerrainNormal(mapData, 16736.0f, 7376.0f);
+    const bx::Vec3 otherNormal = sampleOutdoorRenderedTerrainNormal(mapData, 16512.0f, 7424.0f);
+    CHECK(rockNormal.x / rockNormal.z == doctest::Approx(96.0f / 512.0f));
+    CHECK(rockNormal.y == doctest::Approx(0.0f));
+    CHECK(otherNormal.x == doctest::Approx(0.0f));
+    CHECK(otherNormal.y / otherNormal.z == doctest::Approx(-96.0f / 512.0f));
+}
+
+TEST_CASE("outdoor gentle terrain beside a cliff allows walking on both rendered triangles")
+{
+    using namespace OpenYAMM::Game;
+
+    for (const bool cliffAtBottomLeft : {true, false})
+    {
+        CAPTURE(cliffAtBottomLeft);
+        OutdoorMapData mapData = {};
+        mapData.heightMap.assign(OutdoorMapData::TerrainWidth * OutdoorMapData::TerrainHeight, 32);
+        mapData.attributeMap.assign(OutdoorMapData::TerrainWidth * OutdoorMapData::TerrainHeight, 0);
+        const int tileX = 64;
+        const int tileY = 64;
+        const size_t topLeft = tileY * OutdoorMapData::TerrainWidth + tileX;
+        mapData.heightMap[topLeft] = 32;
+        mapData.heightMap[topLeft + 1] = cliffAtBottomLeft ? 33 : 0;
+        mapData.heightMap[topLeft + OutdoorMapData::TerrainWidth] = cliffAtBottomLeft ? 0 : 33;
+        mapData.heightMap[topLeft + OutdoorMapData::TerrainWidth + 1] = 32;
+
+        OutdoorMovementController movementController(
+            mapData, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+        const float x = outdoorGridCornerWorldX(tileX) + (cliffAtBottomLeft ? 384.0f : 128.0f);
+        const float y = outdoorGridCornerWorldY(tileY) - (cliffAtBottomLeft ? 128.0f : 384.0f);
+        const OutdoorMoveState state = movementController.initializeState(
+            x, y, sampleOutdoorRenderedTerrainHeight(mapData, x, y) + 1.0f);
+        OutdoorMoveDebugInfo debugInfo = {};
+        const OutdoorMoveState resolved = movementController.resolveMove(
+            state,
+            64.0f,
+            -64.0f,
+            0.0f,
+            false,
+            false,
+            false,
+            false,
+            false,
+            512.0f,
+            0.0f,
+            4000.0f,
+            0.125f,
+            nullptr,
+            1.0f,
+            &debugInfo);
+
+        CHECK_EQ(resolved.x, doctest::Approx(x + 8.0f));
+        CHECK_EQ(resolved.y, doctest::Approx(y - 8.0f));
+        CHECK_EQ(resolved.footZ, doctest::Approx(state.footZ));
+        CHECK_FALSE(resolved.airborne);
+        CHECK_FALSE(debugInfo.slopeSlideActive);
+    }
+}
+
 TEST_CASE("outdoor steep terrain slides stationary party downhill")
 {
     OpenYAMM::Game::OutdoorMapData mapData = {};
@@ -4261,6 +4446,8 @@ TEST_CASE("outdoor steep terrain slides stationary party downhill")
     const int tileY = 64;
     const size_t highCornerIndex = static_cast<size_t>(tileY * OpenYAMM::Game::OutdoorMapData::TerrainWidth + tileX);
     mapData.heightMap[highCornerIndex] = 64;
+    mapData.heightMap[highCornerIndex + 1] = 32;
+    mapData.heightMap[highCornerIndex + OpenYAMM::Game::OutdoorMapData::TerrainWidth] = 32;
 
     const float x = OpenYAMM::Game::outdoorGridCornerWorldX(tileX) + 128.0f;
     const float y = OpenYAMM::Game::outdoorGridCornerWorldY(tileY) - 128.0f;
@@ -4315,6 +4502,8 @@ TEST_CASE("outdoor steep terrain rejects uphill input and keeps sliding downhill
     const int tileY = 64;
     const size_t highCornerIndex = static_cast<size_t>(tileY * OpenYAMM::Game::OutdoorMapData::TerrainWidth + tileX);
     mapData.heightMap[highCornerIndex] = 64;
+    mapData.heightMap[highCornerIndex + 1] = 32;
+    mapData.heightMap[highCornerIndex + OpenYAMM::Game::OutdoorMapData::TerrainWidth] = 32;
 
     const float x = OpenYAMM::Game::outdoorGridCornerWorldX(tileX) + 128.0f;
     const float y = OpenYAMM::Game::outdoorGridCornerWorldY(tileY) - 128.0f;
@@ -4658,7 +4847,7 @@ TEST_CASE("outdoor stationary party uses bmodel stair tread under capsule footpr
     CHECK_FALSE(resolved.airborne);
 }
 
-TEST_CASE("indoor actor movement ignores pre-existing actor overlap")
+TEST_CASE("indoor actor movement can separate from pre-existing actor overlap")
 {
     OpenYAMM::Game::IndoorMapData mapData = {};
     mapData.vertices = {
@@ -4713,7 +4902,7 @@ TEST_CASE("indoor actor movement ignores pre-existing actor overlap")
         movementController.resolveMove(
             state,
             body,
-            64.0f,
+            -64.0f,
             0.0f,
             false,
             0.5f,
@@ -4721,7 +4910,7 @@ TEST_CASE("indoor actor movement ignores pre-existing actor overlap")
             7);
 
     CHECK(contactedActorIndices.empty());
-    CHECK(resolved.x > state.x + 24.0f);
+    CHECK(resolved.x < state.x - 24.0f);
 }
 
 TEST_CASE("indoor actor blocked wall recovery moves tangent while pressed into wall")
@@ -5902,6 +6091,37 @@ TEST_CASE("lua event runtime supports evt jump alias")
     CHECK_EQ(runtimeState.statusMessages.back(), "jump ok");
 }
 
+TEST_CASE("lua event runtime queues transient world effects and rigid models")
+{
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
+        "evt.map[1] = function()\n"
+        "    evt.SpawnWorldEffect('mm9:column_of_fire', 10, 20, 30, 2.5, 0.75)\n"
+        "    evt.SpawnWorldModel('models/example.glb', 40, 50, 60, 3.5, 1.25, 'turn')\n"
+        "end\n",
+        "@SyntheticWorldFx.lua",
+        OpenYAMM::Game::ScriptedEventScope::Map);
+    REQUIRE(scriptedProgram.has_value());
+
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, nullptr, nullptr));
+
+    REQUIRE_EQ(runtimeState.worldEffectRequests.size(), 1u);
+    CHECK_EQ(runtimeState.worldEffectRequests.front().id, "mm9:column_of_fire");
+    const std::array<float, 3> expectedEffectPosition = {10.0f, 20.0f, 30.0f};
+    CHECK_EQ(runtimeState.worldEffectRequests.front().position, expectedEffectPosition);
+    CHECK_EQ(runtimeState.worldEffectRequests.front().scale, doctest::Approx(2.5f));
+    CHECK_EQ(runtimeState.worldEffectRequests.front().yawRadians, doctest::Approx(0.75f));
+
+    REQUIRE_EQ(runtimeState.worldModelRequests.size(), 1u);
+    CHECK_EQ(runtimeState.worldModelRequests.front().assetPath, "models/example.glb");
+    CHECK_EQ(runtimeState.worldModelRequests.front().clipName, "turn");
+    const std::array<float, 3> expectedModelPosition = {40.0f, 50.0f, 60.0f};
+    CHECK_EQ(runtimeState.worldModelRequests.front().position, expectedModelPosition);
+    CHECK_EQ(runtimeState.worldModelRequests.front().scale, doctest::Approx(3.5f));
+    CHECK_EQ(runtimeState.worldModelRequests.front().yawRadians, doctest::Approx(1.25f));
+}
+
 TEST_CASE("lua random jump advances between repeated event activations")
 {
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
@@ -5928,14 +6148,14 @@ TEST_CASE("lua random jump advances between repeated event activations")
     CHECK_EQ(runtimeState.statusMessages.back(), "2,11,8,5,14");
 }
 
-TEST_CASE("history event variables are scoped to the active merged continent")
+TEST_CASE("history event additions with a zero argument record once per merged continent")
 {
     const uint32_t historySevenVariable =
         static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::HistoryBegin) + 6u;
     const std::optional<OpenYAMM::Game::ScriptedEventProgram> scriptedProgram = loadSyntheticScriptedProgram(
         "evt.map[1] = function()\n"
         "    evt._BeginEvent(1)\n"
-        "    evt.Set(" + std::to_string(historySevenVariable) + ", 1)\n"
+        "    evt.Add(" + std::to_string(historySevenVariable) + ", 0)\n"
         "    return\n"
         "end\n",
         "@SyntheticScopedHistory.lua",
@@ -5944,6 +6164,7 @@ TEST_CASE("history event variables are scoped to the active merged continent")
 
     OpenYAMM::Game::EventRuntime eventRuntime = {};
     OpenYAMM::Game::EventRuntimeState runtimeState = {};
+    runtimeState.variables[static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::Hour)] = 6;
 
     OpenYAMM::Game::setActiveHistoryContinent(runtimeState, 2u);
     CHECK(runtimeState.historyEventTimesByContinent[2u].contains(1u));
@@ -5952,12 +6173,18 @@ TEST_CASE("history event variables are scoped to the active merged continent")
     REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, nullptr, nullptr));
     CHECK(runtimeState.historyEventTimesByContinent[2u].contains(7u));
     CHECK_FALSE(runtimeState.historyEventTimesByContinent[1u].contains(7u));
+    CHECK_EQ(runtimeState.historyEventTimesByContinent[2u][7u], 360);
+    runtimeState.variables[static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::Hour)] = 7;
+    REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, nullptr, nullptr));
+    CHECK_EQ(runtimeState.historyEventTimesByContinent[2u][7u], 360);
 
     OpenYAMM::Game::setActiveHistoryContinent(runtimeState, 1u);
     REQUIRE(eventRuntime.executeEventById(scriptedProgram, std::nullopt, 1, runtimeState, nullptr, nullptr));
     CHECK(runtimeState.historyEventTimesByContinent[1u].contains(1u));
     CHECK(runtimeState.historyEventTimesByContinent[1u].contains(7u));
     CHECK(runtimeState.historyEventTimesByContinent[2u].contains(7u));
+    CHECK_EQ(runtimeState.historyEventTimesByContinent[1u][7u], 420);
+    CHECK_EQ(runtimeState.historyEventTimesByContinent[2u][7u], 360);
 }
 
 TEST_CASE("lua SetSprite stores visibility and decoration id")
@@ -6011,6 +6238,45 @@ TEST_CASE("level decoration script event id comes from legacy uEventID field")
     CHECK_EQ(outdoorEntity.spriteOverrideKey(7), 7u);
 }
 
+TEST_CASE("fresh map barrel contents use random rolls for indoor and outdoor entities")
+{
+    using namespace OpenYAMM::Game;
+    DecorationTable decorationTable;
+    REQUIRE(decorationTable.loadRows(loadSourceTabSeparatedRows("assets_dev/engine/data_tables/decoration_data.txt")));
+
+    std::vector<OutdoorEntity> outdoorEntities(130);
+    std::vector<IndoorEntity> indoorEntities(130);
+    for (size_t index = 0; index < outdoorEntities.size(); ++index)
+    {
+        outdoorEntities[index].name = "bigbarel";
+        outdoorEntities[index].x = static_cast<int>(index * 100);
+        indoorEntities[index].name = "bigbarel";
+        indoorEntities[index].x = outdoorEntities[index].x;
+    }
+    outdoorEntities[0].eventIdSecondary = 500;
+    indoorEntities[0].eventIdSecondary = 500;
+    // The primary field is an override key, not the sprite's scripted event.
+    outdoorEntities[1].eventIdPrimary = 42;
+    indoorEntities[1].eventIdPrimary = 42;
+
+    std::array<uint8_t, 125> firstVisit = {};
+    std::array<uint8_t, 125> differentGame = {};
+    std::array<uint8_t, 125> indoorVisit = {};
+    initializeMapInteractiveDecorations(outdoorEntities, decorationTable, firstVisit, 123);
+    initializeMapInteractiveDecorations(outdoorEntities, decorationTable, differentGame, 456);
+    initializeMapInteractiveDecorations(indoorEntities, decorationTable, indoorVisit, 123);
+    CHECK_EQ(firstVisit, indoorVisit);
+    CHECK_NE(firstVisit, differentGame);
+    std::set<uint8_t> contents(firstVisit.begin(), firstVisit.end());
+    const std::set<uint8_t> possibleContents = {1, 2, 3, 4, 5, 6, 7};
+    CHECK_EQ(contents, possibleContents);
+
+    firstVisit[0] = 0;
+    const std::array<uint8_t, 125> authoredState = firstVisit;
+    initializeMapInteractiveDecorations(outdoorEntities, decorationTable, firstVisit, 789);
+    CHECK_EQ(firstVisit, authoredState);
+}
+
 TEST_CASE("interactive decoration rules cover MM6 and MM7 indoor loot decorations")
 {
     auto makeDecoration = [](const std::string &internalName, const std::string &hint)
@@ -6035,6 +6301,12 @@ TEST_CASE("interactive decoration rules cover MM6 and MM7 indoor loot decoration
     CHECK_EQ(mm7BarrelSpec->baseEventId, 268u);
     CHECK_EQ(mm7BarrelSpec->eventCount, 8u);
 
+    const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> mm7PedestalSpec =
+        OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("dec75", "pedestal"), "dec75");
+    REQUIRE(mm7PedestalSpec.has_value());
+    CHECK_EQ(mm7PedestalSpec->baseEventId, 531u);
+    CHECK_EQ(mm7PedestalSpec->initialState, 11u);
+
     const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> flourSackSpec =
         OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("floursac", "sack"), "floursac");
     REQUIRE(flourSackSpec.has_value());
@@ -6050,15 +6322,33 @@ TEST_CASE("interactive decoration rules cover MM6 and MM7 indoor loot decoration
     CHECK_EQ(largeBagSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::LargeBag);
     CHECK_EQ(largeBagSpec->baseEventId, 1743u);
     CHECK_EQ(largeBagSpec->eventCount, 5u);
+    CHECK(largeBagSpec->hideWhenCleared);
     CHECK_EQ(OpenYAMM::Game::initialInteractiveDecorationState(largeBagSpec->family, 0u), 1u);
     CHECK_EQ(OpenYAMM::Game::initialInteractiveDecorationState(largeBagSpec->family, 3u), 4u);
 
     const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> smallBagSpec =
         OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("bag_A", "bag"), "bag_A");
     REQUIRE(smallBagSpec.has_value());
-    CHECK_EQ(smallBagSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::LargeBag);
-    CHECK_EQ(smallBagSpec->baseEventId, 1743u);
+    CHECK_EQ(smallBagSpec->family, OpenYAMM::Game::InteractiveDecorationFamily::GoldBag);
+    CHECK_EQ(smallBagSpec->baseEventId, 1747u);
     CHECK_EQ(smallBagSpec->eventCount, 5u);
+    CHECK(smallBagSpec->hideWhenCleared);
+    CHECK(smallBagSpec->fixedEvent);
+    for (uint8_t state = 0; state <= smallBagSpec->eventCount; ++state)
+    {
+        const std::optional<uint16_t> eventId = OpenYAMM::Game::interactiveDecorationEventId(
+            state, smallBagSpec->baseEventId, smallBagSpec->eventCount,
+            smallBagSpec->hideWhenCleared, smallBagSpec->fixedEvent);
+        if (state == smallBagSpec->eventCount)
+        {
+            CHECK_FALSE(eventId.has_value());
+        }
+        else
+        {
+            REQUIRE(eventId.has_value());
+            CHECK_EQ(*eventId, 1747u);
+        }
+    }
 
     const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> bucketSpec =
         OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("Bucket", "bucket"), "Bucket");
@@ -6092,6 +6382,84 @@ TEST_CASE("interactive decoration rules cover MM6 and MM7 indoor loot decoration
     CHECK(mm8BeaconFireSpec->useSeededInitialState);
 
     CHECK_FALSE(OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(makeDecoration("", "bag"), "").has_value());
+}
+
+TEST_CASE("MM6 one-shot bags clear after empty item and gold searches")
+{
+    const OpenYAMM::Tests::RegressionGameData &gameData = requireRegressionGameData();
+    OpenYAMM::Game::DecorationTable decorationTable;
+    REQUIRE(decorationTable.loadRows(loadSourceTabSeparatedRows("assets_dev/engine/data_tables/decoration_data.txt")));
+
+    const std::string globalSource =
+        loadSourceFileText("assets_dev/engine/scripts/common/event_support.lua") + "\n\n"
+        + loadSourceFileText("assets_dev/engine/events/Global.lua") + "\n\n"
+        + loadSourceFileText("assets_dev/engine/events/Global_mm6_gold_bags.lua");
+    std::string globalError;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> globalProgram =
+        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+            globalSource,
+            "@events/Global.lua",
+            OpenYAMM::Game::ScriptedEventScope::Global,
+            globalError);
+    REQUIRE_MESSAGE(globalProgram.has_value(), globalError.c_str());
+
+    for (const std::string &internalName : {std::string{"bag01"}, std::string{"bag_A"}})
+    {
+        CAPTURE(internalName);
+        const OpenYAMM::Game::DecorationEntry *pDecoration = decorationTable.findByInternalName(internalName);
+        REQUIRE(pDecoration != nullptr);
+        const std::optional<OpenYAMM::Game::InteractiveDecorationBindingSpec> bindingSpec =
+            OpenYAMM::Game::resolveInteractiveDecorationBindingSpec(*pDecoration, internalName);
+        REQUIRE(bindingSpec.has_value());
+
+        for (uint8_t state = 0; state < bindingSpec->eventCount; ++state)
+        {
+            CAPTURE(state);
+            OpenYAMM::Game::Party party = {};
+            party.setItemTable(&gameData.itemTable);
+            party.setItemEnchantTables(&gameData.standardItemEnchantTable, &gameData.specialItemEnchantTable);
+            party.seed(createRegressionPartySeed());
+            const int initialGold = party.gold();
+            OpenYAMM::Game::EventRuntimeState runtimeState = {};
+            runtimeState.decorVars[0] = state;
+            CHECK_FALSE(OpenYAMM::Game::interactiveDecorationIsCleared(
+                state, bindingSpec->eventCount, bindingSpec->hideWhenCleared));
+
+            OpenYAMM::Game::EventRuntimeState::ActiveDecorationContext context = {};
+            context.decorVarIndex = 0;
+            context.baseEventId = bindingSpec->baseEventId;
+            const std::optional<uint16_t> eventId = OpenYAMM::Game::interactiveDecorationEventId(
+                state, bindingSpec->baseEventId, bindingSpec->eventCount,
+                bindingSpec->hideWhenCleared, bindingSpec->fixedEvent);
+            REQUIRE(eventId.has_value());
+            context.currentEventId = *eventId;
+            context.eventCount = bindingSpec->eventCount;
+            context.hideWhenCleared = bindingSpec->hideWhenCleared;
+            runtimeState.activeDecorationContext = context;
+
+            OpenYAMM::Game::EventRuntime eventRuntime = {};
+            REQUIRE(eventRuntime.executeEventById(
+                std::nullopt, globalProgram, context.currentEventId, runtimeState, &party));
+            CHECK_EQ(runtimeState.decorVars[0], bindingSpec->eventCount);
+            CHECK(OpenYAMM::Game::interactiveDecorationIsCleared(
+                runtimeState.decorVars[0], bindingSpec->eventCount, bindingSpec->hideWhenCleared));
+            if (bindingSpec->fixedEvent || state == 4)
+            {
+                CHECK_GE(party.gold() - initialGold, 51);
+                CHECK_LE(party.gold() - initialGold, 250);
+                CHECK(runtimeState.grantedItems.empty());
+            }
+            else if (state == 0)
+            {
+                REQUIRE_EQ(runtimeState.statusMessages.size(), 1u);
+                CHECK_EQ(runtimeState.statusMessages.front(), "Empty bag");
+            }
+            else
+            {
+                CHECK_EQ(runtimeState.grantedItems.size(), 1u);
+            }
+        }
+    }
 }
 
 TEST_CASE("indoor decoration activation can use global events without local id collisions")
@@ -6540,6 +6908,58 @@ TEST_CASE("event runtime queues qbit portrait fx only for visible quest entries"
     CHECK(runtimeState.pendingSounds.empty());
 }
 
+TEST_CASE("event runtime MonthIs uses zero-based legacy months at both month boundaries")
+{
+    using namespace OpenYAMM::Game;
+    EventRuntimeState state = {};
+    const EventRuntime::VariableRef month = EventRuntime::decodeVariable(static_cast<uint32_t>(EvtVariable::MonthIs));
+    for (int monthIndex = 0; monthIndex < 12; ++monthIndex)
+    {
+        CAPTURE(monthIndex);
+        for (int dayInMonth : {1, 28})
+        {
+            state.variables[static_cast<uint32_t>(EvtVariable::DayOfYear)] = monthIndex * 28 + dayInMonth;
+            CHECK_EQ(EventRuntime::getVariableValue(state, month, nullptr, std::nullopt), monthIndex);
+        }
+    }
+}
+
+TEST_CASE("event runtime distinguishes permanent and temporary stat reward feedback")
+{
+    using namespace OpenYAMM::Game;
+    PortraitFxEventTable fxTable = {};
+    REQUIRE(fxTable.loadFromRows(loadSourceTabSeparatedRows("assets_dev/engine/data_tables/portrait_fx_events.txt")));
+    const PortraitFxEventEntry *pBaseFx = fxTable.findByKind(PortraitFxEventKind::StatBaseIncrease);
+    REQUIRE(pBaseFx != nullptr);
+    CHECK_EQ(pBaseFx->animationName, "spboost2");
+    CHECK_EQ(pBaseFx->faceAnimationId, FaceAnimationId::StatBaseIncreased);
+
+    for (EvtVariable variableId : {EvtVariable::BaseMight, EvtVariable::FireResistance,
+        EvtVariable::MightBonus, EvtVariable::FireResistanceBonus, EvtVariable::ActualMight})
+    {
+        CAPTURE(static_cast<uint32_t>(variableId));
+        Party party = {};
+        party.seed(createRegressionPartySeed());
+        EventRuntimeState state = {};
+        const EventRuntime::VariableRef variable = EventRuntime::decodeVariable(static_cast<uint32_t>(variableId));
+        const PortraitFxEventKind expectedKind =
+            variableId == EvtVariable::BaseMight || variableId == EvtVariable::FireResistance
+                ? PortraitFxEventKind::StatBaseIncrease
+                : PortraitFxEventKind::StatIncrease;
+        const int32_t initialValue = EventRuntime::getVariableValue(state, variable, &party, 0);
+
+        EventRuntime::setVariableValue(state, variable, initialValue + 1, &party, {0, 1});
+        REQUIRE_EQ(state.portraitFxRequests.size(), 1u);
+        CHECK_EQ(state.portraitFxRequests.front().kind, expectedKind);
+        CHECK_EQ(state.portraitFxRequests.front().memberIndices, std::vector<size_t>({0, 1}));
+        state.portraitFxRequests.clear();
+        EventRuntime::addVariableValue(state, variable, 1, &party, {0, 1});
+        REQUIRE_EQ(state.portraitFxRequests.size(), 1u);
+        CHECK_EQ(state.portraitFxRequests.front().kind, expectedKind);
+        CHECK_EQ(state.portraitFxRequests.front().memberIndices, std::vector<size_t>({0, 1}));
+    }
+}
+
 TEST_CASE("event runtime queues one quest sound for stat and autonote portrait fx")
 {
     OpenYAMM::Game::Party party = {};
@@ -6557,7 +6977,7 @@ TEST_CASE("event runtime queues one quest sound for stat and autonote portrait f
     OpenYAMM::Game::EventRuntime::setVariableValue(runtimeState, autoNote, 17, &party, {0});
 
     REQUIRE_EQ(runtimeState.portraitFxRequests.size(), 2u);
-    CHECK_EQ(runtimeState.portraitFxRequests[0].kind, OpenYAMM::Game::PortraitFxEventKind::StatIncrease);
+    CHECK_EQ(runtimeState.portraitFxRequests[0].kind, OpenYAMM::Game::PortraitFxEventKind::StatBaseIncrease);
     CHECK_EQ(runtimeState.portraitFxRequests[1].kind, OpenYAMM::Game::PortraitFxEventKind::AutoNote);
     REQUIRE_EQ(runtimeState.pendingSounds.size(), 1u);
     CHECK_EQ(runtimeState.pendingSounds.front().soundId, static_cast<uint32_t>(OpenYAMM::Game::SoundId::Quest));
@@ -8089,6 +8509,68 @@ TEST_CASE("indoor movement steps over floor lip equal to ground snap slack")
     CHECK_EQ(moved.footZ, doctest::Approx(0.0f));
 }
 
+TEST_CASE("indoor actor ledge guard permits falling down steps up to one hundred units")
+{
+    using namespace OpenYAMM::Game;
+    for (const int16_t drop : {16, 96, 100, 101, 160})
+    {
+        CAPTURE(drop);
+        IndoorMapData mapData = {};
+        const int16_t lowerZ = -drop;
+        mapData.vertices = {
+            {-256, 0, 0}, {256, 0, 0}, {256, 128, 0}, {-256, 128, 0},
+            {-256, 128, lowerZ}, {256, 128, lowerZ}, {256, 512, lowerZ}, {-256, 512, lowerZ}
+        };
+        IndoorFace upperFloor = {};
+        upperFloor.vertexIndices = {0, 1, 2, 3};
+        upperFloor.facetType = 3;
+        IndoorFace lowerFloor = {};
+        lowerFloor.vertexIndices = {4, 5, 6, 7};
+        lowerFloor.facetType = 3;
+        mapData.faces = {upperFloor, lowerFloor};
+        IndoorSector sector = {};
+        sector.floorCount = 2;
+        sector.faceCount = 2;
+        sector.nonBspFaceCount = 2;
+        sector.minX = -256;
+        sector.maxX = 256;
+        sector.minY = 0;
+        sector.maxY = 512;
+        sector.minZ = -256;
+        sector.maxZ = 256;
+        sector.floorFaceIds = {0, 1};
+        sector.faceIds = {0, 1};
+        sector.nonBspFaceIds = sector.faceIds;
+        mapData.sectors = {sector};
+        const IndoorMovementController controller(mapData, nullptr, nullptr);
+        const IndoorBodyDimensions body = {};
+        IndoorMoveState state = controller.initializeStateFromEyePosition(0.0f, 64.0f, body.height, body);
+        REQUIRE(state.grounded);
+        bool fell = false;
+        for (int step = 0; step < 256; ++step)
+        {
+            state = controller.resolveMove(state, body, 0.0f, 160.0f, false, 1.0f / 128.0f,
+                nullptr, std::nullopt, false, nullptr, false, false, 420.0f, 1.0f, false, true);
+            fell = fell || (!state.grounded && state.verticalVelocity < 0.0f);
+        }
+        CHECK(state.grounded);
+        if (drop <= IndoorActorMaxDropHeight)
+        {
+            CHECK(fell);
+            CHECK_GT(state.y, 300.0f);
+            CHECK_EQ(state.footZ, doctest::Approx(lowerZ));
+            CHECK_EQ(state.supportFaceIndex, 1u);
+        }
+        else
+        {
+            CHECK_FALSE(fell);
+            CHECK_LT(state.y, 128.0f);
+            CHECK_EQ(state.footZ, doctest::Approx(0.0f));
+            CHECK_EQ(state.supportFaceIndex, 0u);
+        }
+    }
+}
+
 TEST_CASE("indoor actor ledge guard blocks grounded non-flying drops")
 {
     OpenYAMM::Game::IndoorMapData mapData = {};
@@ -9471,9 +9953,10 @@ TEST_CASE("effective reputation includes OE criminal follower penalty")
     runtimeState.hiredNpcFollowers.push_back({100, 45, 0});
     runtimeState.hiredNpcFollowers.push_back({101, 51, 0});
     runtimeState.hiredNpcFollowers.push_back({102, 36, 0});
+    runtimeState.hiredNpcFollowers.push_back({103, 52, 0});
 
-    CHECK_EQ(OpenYAMM::Game::hiredNpcReputationPenalty(runtimeState), 10);
-    CHECK_EQ(OpenYAMM::Game::effectivePartyReputation(-6, &runtimeState), 4);
+    CHECK_EQ(OpenYAMM::Game::hiredNpcReputationPenalty(runtimeState), 5);
+    CHECK_EQ(OpenYAMM::Game::effectivePartyReputation(-6, &runtimeState), -1);
     CHECK_EQ(OpenYAMM::Game::reputationLabel(-25), "Saintly");
     CHECK_EQ(OpenYAMM::Game::reputationLabel(25), "Notorious");
 }
@@ -9526,6 +10009,7 @@ TEST_CASE("house identify and repair service prices match OE formulas")
 
     OpenYAMM::Game::InventoryItem expensiveItem = {};
     expensiveItem.objectDescriptionId = 2;
+    expensiveItem.broken = true;
 
     OpenYAMM::Game::ItemDefinition expensiveDefinition = {};
     expensiveDefinition.itemId = 2;
@@ -9545,6 +10029,20 @@ TEST_CASE("house identify and repair service prices match OE formulas")
             expensiveDefinition,
             1.0f),
         200);
+
+    merchant.skills["Merchant"] = {"Merchant", 1, OpenYAMM::Game::SkillMastery::Normal};
+    CHECK_EQ(OpenYAMM::Game::PriceCalculator::itemValue(expensiveItem, expensiveDefinition), 1000);
+    CHECK_EQ(
+        OpenYAMM::Game::ItemEnchantRuntime::itemInspectValue(expensiveItem, expensiveDefinition, nullptr, nullptr),
+        1000);
+    CHECK_EQ(
+        OpenYAMM::Game::PriceCalculator::itemRepairPrice(&merchant, expensiveItem, expensiveDefinition, 1.0f),
+        184);
+    CHECK_EQ(
+        OpenYAMM::Game::PriceCalculator::itemSellingPrice(&merchant, expensiveItem, expensiveDefinition, 1.0f),
+        1);
+    cheapItem.broken = true;
+    CHECK_EQ(OpenYAMM::Game::PriceCalculator::itemRepairPrice(&merchant, cheapItem, cheapDefinition, 1.0f), 1);
 }
 
 TEST_CASE("item inspect value preserves zero value items")

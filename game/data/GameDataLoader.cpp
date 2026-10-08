@@ -7,7 +7,9 @@
 #include "game/content/ContentManifest.h"
 #include "game/content/ContentTableComposer.h"
 #include "game/events/EventRuntime.h"
+#include "game/gameplay/InteractiveDecorationRules.h"
 #include "game/maps/MapIdentity.h"
+#include "game/maps/MapDecorationTextures.h"
 #include "game/StringUtils.h"
 
 #include <algorithm>
@@ -19,6 +21,7 @@
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -1257,6 +1260,18 @@ void appendDecorationScriptBillboardTextures(
                 continue;
             }
 
+            const SpriteFrameEntry *pFrame = billboardSet->spriteFrameTable.getFrame(spriteId, 0);
+            if (pFrame != nullptr)
+            {
+                std::optional<OutdoorBitmapTexture> restored = loadRestoredDecorationTexture(
+                    assetFileSystem, textureName, pFrame->paletteId);
+                if (restored)
+                {
+                    billboardSet->textures.push_back(std::move(*restored));
+                    continue;
+                }
+            }
+
             int textureWidth = 0;
             int textureHeight = 0;
             const std::optional<std::vector<uint8_t>> pixels =
@@ -2323,6 +2338,21 @@ bool GameDataLoader::loadMapStats(const Engine::AssetFileSystem &assetFileSystem
     }
 
     if (!m_mapStats.loadFromRows(rows, DefaultWorldId))
+    {
+        return false;
+    }
+
+    std::vector<std::pair<std::string, std::string>> worldMapFiles;
+
+    for (const char *pWorldId : {"mm6", "mm7", "mm8"})
+    {
+        for (const std::string &fileName : assetFileSystem.enumerate(std::string("worlds/") + pWorldId + "/maps"))
+        {
+            worldMapFiles.emplace_back(pWorldId, fileName);
+        }
+    }
+
+    if (!m_mapStats.applyWorldOwnership(worldMapFiles))
     {
         return false;
     }
@@ -4147,6 +4177,19 @@ bool GameDataLoader::loadItemTable(const Engine::AssetFileSystem &assetFileSyste
         return false;
     }
 
+    const std::string itemVisualsPath = engineDataTablePath("item_visuals.txt");
+    if (assetFileSystem.exists(itemVisualsPath))
+    {
+        std::vector<std::vector<std::string>> visualRows;
+        std::string error;
+        if (!loadTextTableRows(assetFileSystem, itemVisualsPath, visualRows)
+            || !m_itemTable.loadVisualRows(visualRows, error))
+        {
+            std::cerr << "Failed to load item visuals: " << itemVisualsPath << ": " << error << '\n';
+            return false;
+        }
+    }
+
     std::vector<KeyedTableContributionRows> itemEffectContributions;
     std::vector<std::vector<std::string>> itemSetRows;
     std::vector<std::vector<std::string>> itemAliasRows;
@@ -4363,7 +4406,7 @@ bool GameDataLoader::loadSelectedMap(
     m_selectedMap.reset();
     m_selectedMapRenderSourcePixelsReleased = false;
     m_lastReleasedMapRenderSourcePixelBytes = 0;
-    m_mapAssetLoadSharedCache.clearTransientBitmapData();
+    m_mapAssetLoadSharedCache.beginLoad(assetFileSystem.contentGeneration());
     const std::optional<MapStatsEntry> selectedMap = m_mapRegistry.findById(mapId);
 
     if (!selectedMap)
@@ -4383,7 +4426,7 @@ bool GameDataLoader::loadSelectedMap(
         {},
         progressPump,
         &m_mapAssetLoadSharedCache);
-    m_mapAssetLoadSharedCache.clearTransientBitmapData();
+    m_mapAssetLoadSharedCache.trimBitmapData();
 
     if (!loadedMap)
     {
@@ -4532,6 +4575,40 @@ bool GameDataLoader::loadSelectedMap(
             : m_selectedMap->indoorMapDeltaData;
         EventRuntimeState runtimeState = {};
         eventRuntime.initializeMapRuntimeState(mapDeltaData, runtimeState);
+
+        // Headless maps need the gameplay registry without loading sprite textures.
+        if (!m_mapAssetLoadSharedCache.decorationRows)
+        {
+            std::vector<std::vector<std::string>> rows;
+            if (!loadTextTableRows(assetFileSystem, engineDataTablePath("decoration_data.txt"), rows))
+            {
+                return false;
+            }
+            m_mapAssetLoadSharedCache.decorationRows = std::move(rows);
+        }
+        DecorationTable decorationTable;
+        if (!decorationTable.loadRows(*m_mapAssetLoadSharedCache.decorationRows))
+        {
+            std::cerr << "Failed to parse gameplay decoration table\n";
+            return false;
+        }
+
+        if (m_selectedMap->outdoorMapData)
+        {
+            initializeMapInteractiveDecorations(
+                m_selectedMap->outdoorMapData->entities,
+                decorationTable,
+                runtimeState.decorVars,
+                std::random_device{}());
+        }
+        else if (m_selectedMap->indoorMapData)
+        {
+            initializeMapInteractiveDecorations(
+                m_selectedMap->indoorMapData->entities,
+                decorationTable,
+                runtimeState.decorVars,
+                std::random_device{}());
+        }
         runtimeState.mapFileName = m_selectedMap->map.fileName;
         m_selectedMap->eventRuntimeState = std::move(runtimeState);
     }

@@ -17,6 +17,7 @@
 namespace OpenYAMM::Game
 {
 class MergedBolsterMonsterTable;
+struct MapArenaDefinition;
 struct GameplayMinimapState;
 struct GameplayMinimapLineState;
 struct GameplayMinimapMarkerState;
@@ -104,8 +105,33 @@ struct GameplayWorldItemInspectState
     bool isGold = false;
 };
 
+enum class ActorAiAnimationState : uint8_t
+{
+    Standing = 0,
+    Walking = 1,
+    AttackMelee = 2,
+    AttackRanged = 3,
+    GotHit = 4,
+    Dying = 5,
+    Dead = 6,
+    Bored = 7,
+};
+
 struct GameplayRuntimeActorState
 {
+    uint32_t actorId = 0;
+    float yawRadians = 0.0f;
+    ActorAiAnimationState animationState = ActorAiAnimationState::Standing;
+    float animationTimeTicks = 0.0f;
+    // Presentation observes the same action clock and movement as combat; it never drives either.
+    float actionSeconds = 0.0f;
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    bool castingSpell = false;
+    bool secondaryAttack = false;
+    uint32_t castingSpellId = 0;
+    bool attackImpactTriggered = false;
+    float visualScale = 1.0f;
     int16_t monsterId = 0;
     int32_t mm9RudeId = 0;
     uint32_t mm9SourceObjectIndex = 0;
@@ -113,7 +139,10 @@ struct GameplayRuntimeActorState
     float preciseY = 0.0f;
     float preciseZ = 0.0f;
     uint16_t radius = 0;
+    // Collision height: indoors at least 2 x radius + 2, so wide monsters fit the floor/ceiling sweep.
     uint16_t height = 0;
+    // The actor's own height (map placement or descriptor), unpadded; presentation (3D model scale) uses this.
+    uint16_t bodyHeight = 0;
     bool isDead = false;
     bool isInvisible = false;
     bool hostileToParty = false;
@@ -339,6 +368,7 @@ struct GameplayProjectileImpactPresentationState
     uint32_t timeSinceCreatedTicks = 0;
     uint32_t lifetimeTicks = 0;
     int16_t sectorId = -1;
+    size_t targetActorIndex = static_cast<size_t>(-1);
     bool freezeAnimation = false;
 };
 
@@ -420,6 +450,10 @@ struct GameplayPartyAttackProjectileRequest
 
 struct GameplayPartyAttackFallbackQuery
 {
+    float screenX = 0.0f;
+    float screenY = 0.0f;
+    int viewWidth = 0;
+    int viewHeight = 0;
     std::array<float, 16> viewMatrix = {};
     std::array<float, 16> projectionMatrix = {};
 };
@@ -596,6 +630,10 @@ public:
         int32_t toX,
         int32_t toY,
         int32_t toZ) = 0;
+    virtual const MapArenaDefinition *arenaDefinition() const
+    {
+        return nullptr;
+    }
     virtual size_t mapActorCount() const = 0;
     virtual bool actorRuntimeState(size_t actorIndex, GameplayRuntimeActorState &state) const = 0;
     virtual bool tryStealFromActor(size_t actorIndex, uint32_t successRoll, uint32_t caughtRoll)
@@ -717,6 +755,14 @@ public:
         bool visibleForFallback) const = 0;
     virtual std::vector<GameplayPartyAttackActorFacts> collectPartyAttackFallbackActors(
         const GameplayPartyAttackFallbackQuery &query) const = 0;
+    virtual std::optional<GameplayWorldPoint> partyAttackActorContactPoint(
+        size_t actorIndex,
+        const GameplayPartyAttackFallbackQuery &query) const
+    {
+        (void)actorIndex;
+        (void)query;
+        return std::nullopt;
+    }
     virtual bool applyPartyAttackMeleeDamage(
         size_t actorIndex,
         int damage,

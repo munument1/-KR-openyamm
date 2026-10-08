@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/ImageMipmaps.h"
+
 #include <bgfx/bgfx.h>
 
 #include <cstdint>
@@ -15,6 +17,7 @@ enum class TextureFilterProfile
     Sky,
     Billboard,
     Ui,
+    UiIllustration,
     Text,
     SmoothText,
 };
@@ -80,9 +83,11 @@ bgfx::TextureHandle createEmptyBgraTexture2D(
     TextureFilterProfile profile,
     uint64_t extraFlags = BGFX_TEXTURE_NONE);
 
-// Adjust only alpha so a reduced cutout retains the closest representable reference coverage.
-void preserveBgraCutoutCoverage(
-    std::vector<uint8_t> &pixels, const std::vector<uint8_t> &referencePixels, uint8_t alphaCutoff);
+using Engine::BgraMipLevel;
+using Engine::prepareBgraMipChain;
+using Engine::preserveBgraCutoutCoverage;
+void updateBgraTextureArrayLayer(
+    bgfx::TextureHandle texture, uint16_t layer, const std::vector<BgraMipLevel> &levels);
 
 // Upload an independent mip chain into one array layer. Neighbouring terrain
 // tiles must never contribute to this layer's lower-resolution images.

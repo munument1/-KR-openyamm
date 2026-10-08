@@ -22,7 +22,7 @@ on:
       publish_release:
         description: Update the public nightly prerelease after all builds succeed
         required: true
-        default: true
+        default: false
         type: boolean
 
 permissions:
@@ -63,9 +63,16 @@ jobs:
         run: |
           is_tag=false
           version=nightly
-          android_version_name=
-          android_version_code=
+          android_version_name="nightly-$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
+          # One sequence for commits, nightlies and tags; published 1.0 used code 10000.
+          android_version_code=$((10000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
           flatpak_branch=nightly
+
+          if (( GITHUB_RUN_NUMBER <= 0 || GITHUB_RUN_ATTEMPT <= 0 || GITHUB_RUN_ATTEMPT >= 100
+                || android_version_code <= 10000 || android_version_code > 2100000000 )); then
+            echo "::error::Invalid Android build sequence: $GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
+            exit 1
+          fi
 
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             version="$GITHUB_REF_NAME"
@@ -75,7 +82,6 @@ jobs:
               exit 1
             fi
 
-            major="${BASH_REMATCH[1]}"
             minor="${BASH_REMATCH[2]}"
             revision="${BASH_REMATCH[5]:-0}"
 
@@ -85,10 +91,9 @@ jobs:
             fi
 
             android_version_name="$version"
-            android_version_code=$((major * 10000 + minor * 100 + revision))
 
-            if (( android_version_code <= 0 || android_version_code > 2100000000 )); then
-              echo "::error::Tag $version produces an invalid Android version code: $android_version_code"
+            if [[ "$version" == 0.0 ]]; then
+              echo "::error::Release version must be greater than 0.0."
               exit 1
             fi
 
@@ -138,6 +143,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
       OPENYAMM_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.OPENYAMM_ANDROID_KEYSTORE_PASSWORD }}
       OPENYAMM_ANDROID_KEY_ALIAS: openyamm
       OPENYAMM_ANDROID_KEY_PASSWORD: ${{ secrets.OPENYAMM_ANDROID_KEYSTORE_PASSWORD }}
@@ -153,12 +159,22 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /CMakeLists.txt
+            /LICENSE
+            /COPYRIGHT
             /settings.ini
             /cmake/
             /engine/
             /game/
             /android/
+            /packaging/licenses/
             /tools/openyamm_shaderc_stubs.cpp
+            /tools/cook_sprite_atlases_main.cpp
+            /tools/SpriteAtlasEncode.cpp
+            /tools/SpriteAtlasEncode.h
+            /tools/cook_sprite_atlases.py
+            /tools/package_runtime_assets.py
+            /assets_cooked/android/sprites_new/
+            /assets_dev/_legacy/sprites_original/
             /assets_dev/engine/
             /assets_dev/worlds/mm6/
             /assets_dev/worlds/mm7/
@@ -180,10 +196,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y libgl1-mesa-dev libx11-dev libxext-dev
-          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
       - name: Restore Android signing key
         env:
@@ -285,8 +297,12 @@ jobs:
           test -s "$source_apk"
           mkdir -p dist
           cp "$source_apk" "dist/$output"
-          test "$(stat -c '%s' "dist/$output")" -lt 2147483648
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "dist/$output"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "dist/$output" > android-package-metadata.txt
+          if ! grep -Fq "versionCode='$OPENYAMM_ANDROID_VERSION_CODE' versionName='$OPENYAMM_ANDROID_VERSION_NAME'" android-package-metadata.txt; then
+            echo "::error::APK version does not match the resolved Android package metadata."
+            exit 1
+          fi
           unzip -Z1 "dist/$output" > android-package-contents.txt
           grep -Fxq "lib/arm64-v8a/libmain.so" android-package-contents.txt
           if grep -Eq '^lib/(armeabi-v7a|x86|x86_64)/' android-package-contents.txt; then
@@ -328,12 +344,20 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /CMakeLists.txt
+            /LICENSE
+            /COPYRIGHT
             /settings_release.ini
             /cmake/
             /engine/
             /game/
             /packaging/
             /tools/openyamm_shaderc_stubs.cpp
+            /tools/cook_sprite_atlases_main.cpp
+            /tools/SpriteAtlasEncode.cpp
+            /tools/SpriteAtlasEncode.h
+            /tools/cook_sprite_atlases.py
+            /tools/package_runtime_assets.py
+            /assets_dev/_legacy/sprites_original/
             /assets_dev/engine/
             /assets_dev/worlds/mm6/
             /assets_dev/worlds/mm7/
@@ -379,6 +403,14 @@ jobs:
           cmake -E tar tf "$archive" > windows-package-contents.txt
           grep -Fxq "OpenYAMM/openyamm.exe" windows-package-contents.txt
           grep -Fxq "OpenYAMM/settings.ini" windows-package-contents.txt
+          grep -Fxq "OpenYAMM/runtime/shaders/glsl/vs_outdoor_billboard_lit.bin" windows-package-contents.txt
+          grep -Fxq "OpenYAMM/runtime/shaders/glsl/fs_sprite_atlas.bin" windows-package-contents.txt
+          grep -Fxq "OpenYAMM/runtime/shaders/glsl/vs_model.bin" windows-package-contents.txt
+          grep -Fxq "OpenYAMM/runtime/shaders/glsl/vs_model_shadow.bin" windows-package-contents.txt
+          if grep -Eq '^OpenYAMM/runtime/shaders/dxbc(/|$)' windows-package-contents.txt; then
+            echo "::error::Windows package contains unused DirectX shaders."
+            exit 1
+          fi
           grep -Fxq "OpenYAMM/assets/engine.zip" windows-package-contents.txt
           grep -Fxq "OpenYAMM/assets/worlds/mm6.zip" windows-package-contents.txt
           grep -Fxq "OpenYAMM/assets/worlds/mm7.zip" windows-package-contents.txt
@@ -386,7 +418,6 @@ jobs:
           grep -Fxq "OpenYAMM/assets/worlds/mmmerge.zip" windows-package-contents.txt
           mkdir -p dist
           cp "$archive" "dist/$output"
-          test "$(stat -c '%s' "dist/$output")" -lt 2147483648
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v7
@@ -412,12 +443,20 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /CMakeLists.txt
+            /LICENSE
+            /COPYRIGHT
             /settings_release.ini
             /cmake/
             /engine/
             /game/
             /packaging/
             /tools/openyamm_shaderc_stubs.cpp
+            /tools/cook_sprite_atlases_main.cpp
+            /tools/SpriteAtlasEncode.cpp
+            /tools/SpriteAtlasEncode.h
+            /tools/cook_sprite_atlases.py
+            /tools/package_runtime_assets.py
+            /assets_dev/_legacy/sprites_original/
             /assets_dev/engine/
             /assets_dev/worlds/mm6/
             /assets_dev/worlds/mm7/
@@ -427,7 +466,8 @@ jobs:
       - name: Install Flatpak tooling
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y elfutils flatpak flatpak-builder ostree
+          sudo apt-get install --no-install-recommends -y elfutils flatpak flatpak-builder ostree \
+            librsvg2-common libgl1-mesa-dev libx11-dev libxext-dev python3
 
       - name: Build Flatpak bundle
         env:
@@ -450,7 +490,6 @@ jobs:
         run: |
           output="$OUTPUT_NAME"
           test -s "dist/$output"
-          test "$(stat -c '%s' "dist/$output")" -lt 2147483648
           (cd dist && sha256sum "$output" > "$output.sha256")
 
       - name: Upload Flatpak artifact
@@ -467,20 +506,33 @@ jobs:
   publish:
     name: Publish nightly or tagged release
     if: >-
-      startsWith(github.ref, 'refs/tags/')
-      || github.event_name == 'schedule'
-      || inputs.publish_release == true
+      vars.KOREAN_RELEASE_HOLD != 'true'
+      && (startsWith(github.ref, 'refs/tags/')
+          || github.event_name == 'schedule'
+          || inputs.publish_release == true)
     needs:
       - package_metadata
       - android
       - windows
       - flatpak
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     permissions:
       contents: write
 
     steps:
+      - name: Check out Nextcloud uploader
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /packaging/upload_nextcloud.py
+            /packaging/test_upload_nextcloud.py
+
+      - name: Check Nextcloud uploader
+        run: python3 packaging/test_upload_nextcloud.py
+
       - name: Download packaged artifacts
         uses: actions/download-artifact@v8
         with:
@@ -506,11 +558,39 @@ jobs:
           sha256sum -c "$ANDROID_ASSET.sha256"
           sha256sum -c "$WINDOWS_ASSET.sha256"
           sha256sum -c "$FLATPAK_ASSET.sha256"
-          test "$(stat -c '%s' "$ANDROID_ASSET")" -lt 2147483648
-          test "$(stat -c '%s' "$WINDOWS_ASSET")" -lt 2147483648
-          test "$(stat -c '%s' "$FLATPAK_ASSET")" -lt 2147483648
+
+      - name: Check tagged release is unpublished
+        if: needs.package_metadata.outputs.is_tag == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.package_metadata.outputs.version }}
+        run: |
+          if gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $RELEASE_VERSION already exists; tagged releases are not overwritten."
+            exit 1
+          fi
+
+      - name: Upload complete packages to Nextcloud
+        env:
+          IS_TAG: ${{ needs.package_metadata.outputs.is_tag }}
+          RELEASE_VERSION: ${{ needs.package_metadata.outputs.version }}
+          OPENYAMM_NEXTCLOUD_URL: ${{ vars.OPENYAMM_NEXTCLOUD_URL || 'https://cloud.jasicek.net' }}
+          OPENYAMM_NEXTCLOUD_FOLDER: ${{ vars.OPENYAMM_NEXTCLOUD_FOLDER || 'openyamm' }}
+          OPENYAMM_NEXTCLOUD_PUBLIC_URL: ${{ vars.OPENYAMM_NEXTCLOUD_PUBLIC_URL }}
+          OPENYAMM_NEXTCLOUD_USERNAME: ${{ secrets.OPENYAMM_NEXTCLOUD_USERNAME }}
+          OPENYAMM_NEXTCLOUD_APP_PASSWORD: ${{ secrets.OPENYAMM_NEXTCLOUD_APP_PASSWORD }}
+        run: |
+          remote_path="nightly/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          if [[ "$IS_TAG" == true ]]; then
+            remote_path="releases/$RELEASE_VERSION/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          fi
+          python3 packaging/upload_nextcloud.py release-assets \
+            --remote-path "$remote_path" \
+            --links-file nextcloud-downloads.md
+          cat nextcloud-downloads.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish GitHub release
+        if: vars.OPENYAMM_NEXTCLOUD_PUBLIC_URL != ''
         env:
           GH_TOKEN: ${{ github.token }}
           IS_TAG: ${{ needs.package_metadata.outputs.is_tag }}
@@ -520,15 +600,11 @@ jobs:
           FLATPAK_ASSET: ${{ needs.package_metadata.outputs.flatpak_asset_name }}
         run: |
           if [[ "$IS_TAG" == true ]]; then
-            if gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              echo "::error::Release $RELEASE_VERSION already exists; tagged releases are not overwritten."
-              exit 1
-            fi
-
-            gh release create "$RELEASE_VERSION" release-assets/* \
+            gh release create "$RELEASE_VERSION" release-assets/*.sha256 \
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
               --title "OpenYAMM $RELEASE_VERSION" \
+              --notes-file nextcloud-downloads.md \
               --generate-notes
             exit 0
           fi
@@ -549,6 +625,8 @@ jobs:
             '' \
             'Nightlies are development snapshots and may be unstable. Existing saves should be backed up.' \
             > nightly-release-notes.md
+          printf '\n## Downloads\n\n' >> nightly-release-notes.md
+          cat nextcloud-downloads.md >> nightly-release-notes.md
 
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/nightly" >/dev/null 2>&1; then
             gh api \
@@ -581,6 +659,26 @@ jobs:
               --prerelease
           fi
 
-          gh release upload nightly release-assets/* \
+          gh release upload nightly release-assets/*.sha256 \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
+
+          # Remove the previous bundled downloads now that verified replacements are linked above.
+          gh release view nightly --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[].name' > previous-nightly-assets.txt
+          for asset in "$ANDROID_ASSET" "$WINDOWS_ASSET" "$FLATPAK_ASSET"; do
+            if grep -Fxq "$asset" previous-nightly-assets.txt; then
+              gh release delete-asset nightly "$asset" --repo "$GITHUB_REPOSITORY" --yes
+            fi
+          done
+
+      - name: Remove previous Nextcloud nightlies
+        if: needs.package_metadata.outputs.is_tag != 'true'
+        env:
+          OPENYAMM_NEXTCLOUD_URL: ${{ vars.OPENYAMM_NEXTCLOUD_URL || 'https://cloud.jasicek.net' }}
+          OPENYAMM_NEXTCLOUD_FOLDER: ${{ vars.OPENYAMM_NEXTCLOUD_FOLDER || 'openyamm' }}
+          OPENYAMM_NEXTCLOUD_USERNAME: ${{ secrets.OPENYAMM_NEXTCLOUD_USERNAME }}
+          OPENYAMM_NEXTCLOUD_APP_PASSWORD: ${{ secrets.OPENYAMM_NEXTCLOUD_APP_PASSWORD }}
+        run: |
+          python3 packaging/upload_nextcloud.py \
+            --remote-path "nightly/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --prune-nightlies

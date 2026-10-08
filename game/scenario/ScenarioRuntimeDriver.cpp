@@ -64,6 +64,8 @@ const char *scenarioDialogActionKindName(EventDialogActionKind kind)
             return "house_resident";
         case EventDialogActionKind::NpcTopic:
             return "npc_topic";
+        case EventDialogActionKind::ArenaChallenge:
+            return "arena_challenge";
         case EventDialogActionKind::NpcProfessionNews:
             return "npc_profession_news";
         case EventDialogActionKind::NpcProfessionAction:
@@ -912,6 +914,8 @@ bool ScenarioRuntimeDriver::simulateMovementSegment(
     }
 
     GameplayInputFrame input = buildMovementInputFrame(command);
+    input.turboMovementEnabled = ScenarioGameApplicationAccess::gameSession(m_application)
+        .gameplayScreenRuntime().settingsSnapshot().turboMovementEnabled;
     float remainingSeconds = command.durationSeconds;
     float elapsedSeconds = 0.0f;
     pWorldRuntime->setScenarioPartyActorCollisionEnabled(command.actorCollision);

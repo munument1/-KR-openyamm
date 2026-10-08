@@ -3,6 +3,7 @@
 #include "game/outdoor/OutdoorLightingData.h"
 #include "game/outdoor/OutdoorMapData.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -63,10 +64,10 @@ std::vector<uint8_t> makeLightingBytes(const std::vector<uint8_t> &geometryBytes
     constexpr uint32_t VertexOffset = 136;
     constexpr uint32_t LightOffset = 172;
     constexpr uint32_t PixelOffset = 252;
-    constexpr uint32_t FileSize = 256;
+    constexpr uint32_t FileSize = 257;
     const std::array<uint8_t, 8> magic = {'O', 'Y', 'M', 'L', 'I', 'T', '1', 0};
     std::vector<uint8_t> result(magic.begin(), magic.end());
-    appendU32(result, 1);
+    appendU32(result, 3);
     appendU32(result, 96);
     appendU64(result, fnv1a64(geometryBytes));
     appendU32(result, 1);
@@ -87,7 +88,7 @@ std::vector<uint8_t> makeLightingBytes(const std::vector<uint8_t> &geometryBytes
     appendU32(result, 1);
     appendU32(result, 1);
     appendU32(result, PixelOffset);
-    appendU32(result, 4);
+    appendU32(result, 5);
 
     appendU64(result, 0);
     appendU32(result, 0);
@@ -123,6 +124,7 @@ std::vector<uint8_t> makeLightingBytes(const std::vector<uint8_t> &geometryBytes
     appendU32(result, 0);
     appendU32(result, 0);
     appendU32(result, 0);
+    result.push_back(0);
     appendU32(result, 0xffc0a080);
     return result;
 }
@@ -184,4 +186,307 @@ TEST_CASE("outdoor lighting brightness scaling raises lightmap and fallback RGB 
     CHECK_EQ(lighting.facesByBModel[0][0].vertices[0].staticColorAbgr, 0xffa07850);
     REQUIRE_EQ(lighting.facesByBModel[0][1].vertices.size(), 1);
     CHECK_EQ(lighting.facesByBModel[0][1].vertices[0].staticColorAbgr, 0xff604020);
+}
+
+namespace
+{
+void setU32(std::vector<uint8_t> &bytes, size_t offset, uint32_t value)
+{
+    for (size_t index = 0; index < 4; ++index)
+    {
+        bytes[offset + index] = uint8_t(value >> (index * 8));
+    }
+}
+
+std::vector<uint8_t> makeBakedLightingBytes(const std::vector<uint8_t> &geometry)
+{
+    std::vector<uint8_t> bytes = makeLightingBytes(geometry);
+    // Add a second page record, preserving the original face and light payload.
+    bytes.insert(bytes.begin() + 112, 16, 0);
+    setU32(bytes, 8, 3);
+    setU32(bytes, 32, 2);
+    for (size_t offset : {52, 56, 60, 64})
+    {
+        const uint32_t old = bytes[offset] | (uint32_t(bytes[offset + 1]) << 8);
+        setU32(bytes, offset, old + 16);
+    }
+    setU32(bytes, 104, 268);
+    setU32(bytes, 112, 1);
+    setU32(bytes, 116, 1);
+    setU32(bytes, 120, 273);
+    setU32(bytes, 124, 5);
+    bytes.push_back(0);
+    appendU32(bytes, 0x40ffffff);
+    setU32(bytes, 76, 1);
+    std::vector<uint8_t> bounds;
+    for (float value : {-32768.0f, 32768.0f, 65024.0f, -65024.0f})
+    {
+        appendFloat(bounds, value);
+    }
+    std::copy(bounds.begin(), bounds.end(), bytes.begin() + 80);
+    appendU32(bytes, 0);
+    appendU32(bytes, 1);
+    const std::string path = "worlds/mm6/maps/fixture.odm";
+    appendU32(bytes, uint32_t(path.size()));
+    appendU64(bytes, fnv1a64(geometry));
+    bytes.insert(bytes.end(), path.begin(), path.end());
+    setU32(bytes, 68, uint32_t(bytes.size()));
+    return bytes;
+}
+
+}
+
+TEST_CASE("outdoor lighting v3 accepts separate source pages and validates the extension")
+{
+    const std::vector<uint8_t> geometry = {1, 2, 3};
+    const OpenYAMM::Game::OutdoorMapData mapData = makeMapData();
+    OpenYAMM::Game::OutdoorLightingDataLoader loader;
+    std::string error;
+    std::vector<uint8_t> bytes = makeBakedLightingBytes(geometry);
+    const std::optional<OpenYAMM::Game::OutdoorLightingData> data =
+        loader.loadFromBytes(bytes, geometry, mapData, error);
+    REQUIRE_MESSAGE(data, error);
+    CHECK(data->hasBakedSources());
+    CHECK(data->atlasPages.size() == 2);
+    CHECK(data->terrainBounds[3] == -65024.0f);
+    REQUIRE(data->dependencies.size() == 1);
+    CHECK(data->dependencies.front().hash == OpenYAMM::Game::outdoorLightingContentHash(geometry));
+
+    SUBCASE("legacy brightness scaling cannot corrupt RGBM encoding")
+    {
+        OpenYAMM::Game::OutdoorLightingData scaled = *data;
+        OpenYAMM::Game::scaleOutdoorLightingBrightness(scaled, 2.0f);
+        CHECK(scaled.atlasPages[0].pixelsBgra == data->atlasPages[0].pixelsBgra);
+        CHECK(scaled.atlasPages[1].pixelsBgra == data->atlasPages[1].pixelsBgra);
+    }
+    SUBCASE("dependency paths cannot escape a package")
+    {
+        const std::string original = "worlds/mm6/maps/fixture.odm";
+        const auto found = std::search(bytes.begin(), bytes.end(), original.begin(), original.end());
+        REQUIRE(found != bytes.end());
+        *(found + 7) = '.';
+        *(found + 8) = '.';
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+    SUBCASE("probe payloads reject negative illumination")
+    {
+        std::vector<uint8_t> probe;
+        for (float value : {0.0f, 0.0f, 128.0f, -1.0f, 0.0f, 0.0f, 0.2f, 0.2f, 0.2f})
+        {
+            appendFloat(probe, value);
+        }
+        setU32(bytes, 278, 1);
+        bytes.insert(bytes.begin() + 286, probe.begin(), probe.end());
+        setU32(bytes, 68, uint32_t(bytes.size()));
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+        CHECK(error.find("RGBM4") != std::string::npos);
+    }
+    SUBCASE("unknown format flags are rejected")
+    {
+        setU32(bytes, 76, 2);
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+    SUBCASE("truncated extension is rejected")
+    {
+        bytes.pop_back();
+        setU32(bytes, 68, uint32_t(bytes.size()));
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+    SUBCASE("mismatched paired dimensions are rejected")
+    {
+        setU32(bytes, 112, 2);
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+    SUBCASE("unexpected trailing payload is rejected")
+    {
+        bytes.push_back(0);
+        setU32(bytes, 68, uint32_t(bytes.size()));
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+    SUBCASE("invalid floating point bounds are rejected")
+    {
+        setU32(bytes, 80, 0x7fc00000);
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+}
+
+TEST_CASE("outdoor lighting v3 decodes strict compressed RGBM pages")
+{
+    const std::vector<uint8_t> geometry = {1, 2, 3};
+    const OpenYAMM::Game::OutdoorMapData mapData = makeMapData();
+    OpenYAMM::Game::OutdoorLightingDataLoader loader;
+    std::string error;
+    std::vector<uint8_t> bytes = makeBakedLightingBytes(geometry);
+
+    const std::optional<OpenYAMM::Game::OutdoorLightingData> data =
+        loader.loadFromBytes(bytes, geometry, mapData, error);
+    REQUIRE_MESSAGE(data, error);
+    CHECK(data->formatVersion == 3);
+    REQUIRE(data->atlasPages.size() == 2);
+    CHECK(data->atlasPages[0].pixelsBgra[0] == 0xffc0a080);
+    CHECK(data->atlasPages[1].pixelsBgra[0] == 0x40ffffff);
+
+    bytes[268] = 0x81;
+    CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    CHECK(error.find("compression") != std::string::npos);
+}
+
+TEST_CASE("outdoor lighting rejects obsolete format versions")
+{
+    const std::vector<uint8_t> geometry = {1, 2, 3};
+    const OpenYAMM::Game::OutdoorMapData mapData = makeMapData();
+    OpenYAMM::Game::OutdoorLightingDataLoader loader;
+    std::string error;
+    std::vector<uint8_t> bytes = makeLightingBytes(geometry);
+
+    for (uint32_t version : {1U, 2U})
+    {
+        setU32(bytes, 8, version);
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+        CHECK(error.find("unsupported") != std::string::npos);
+    }
+}
+
+TEST_CASE("outdoor lighting probes interpolate visible neighbors without light leaking through walls")
+{
+    OpenYAMM::Game::OutdoorLightingData data;
+    data.probes = {
+        {{0, 0, 128}, {1, 0, 0}, {0.2f, 0.2f, 0.2f}, {0.1f, 0.0f, 0.0f}, 1.0f},
+        {{128, 0, 128}, {0, 1, 0}, {0.4f, 0.4f, 0.4f}, {0.0f, 0.2f, 0.0f}, 0.0f},
+    };
+    data.indexProbes();
+    const auto visible = [](const std::array<float, 3> &) { return true; };
+    const std::optional<OpenYAMM::Game::OutdoorLightingData::Probe> mixed =
+        data.sampleProbe({64, 0, 128}, visible);
+    REQUIRE(mixed);
+    CHECK(mixed->sun[0] == doctest::Approx(0.5));
+    CHECK(mixed->sun[1] == doctest::Approx(0.5));
+    CHECK(mixed->sunVisibility == doctest::Approx(0.5));
+    CHECK(mixed->sunIndirect[0] == doctest::Approx(0.05));
+    CHECK(mixed->sunIndirect[1] == doctest::Approx(0.1));
+    const std::optional<OpenYAMM::Game::OutdoorLightingData::Probe> sheltered =
+        data.sampleProbe({64, 0, 128}, [](const std::array<float, 3> &p) { return p[0] < 64; });
+    REQUIRE(sheltered);
+    CHECK(sheltered->sun[0] == doctest::Approx(1));
+    CHECK(sheltered->sun[1] == doctest::Approx(0));
+    CHECK(sheltered->sunVisibility == doctest::Approx(1.0));
+    CHECK_FALSE(data.sampleProbe({64, 0, 128}, [](const std::array<float, 3> &) { return false; }));
+    CHECK_FALSE(data.sampleProbe({10000, 0, 128}, visible));
+
+    SUBCASE("four occluded neighbors do not hide a farther visible probe")
+    {
+        data.probes = {
+            {{0, 0, 0}}, {{16, 0, 0}}, {{32, 0, 0}}, {{48, 0, 0}},
+            {{64, 0, 384}, {1, 1, 1}, {0.35f, 0.35f, 0.35f}},
+        };
+        data.indexProbes();
+        const std::optional<OpenYAMM::Game::OutdoorLightingData::Probe> aboveFloor =
+            data.sampleProbe({32, 0, 128}, [](const std::array<float, 3> &p) { return p[2] > 128; });
+        REQUIRE(aboveFloor);
+        CHECK(aboveFloor->sun[0] == doctest::Approx(1));
+        CHECK(aboveFloor->sky[0] == doctest::Approx(0.35));
+    }
+}
+
+TEST_CASE("outdoor lighting v4 validates measured direct and indirect model sunlight")
+{
+    const std::vector<uint8_t> geometry = {1, 2, 3};
+    const OpenYAMM::Game::OutdoorMapData mapData = makeMapData();
+    OpenYAMM::Game::OutdoorLightingDataLoader loader;
+    std::string error;
+    std::vector<uint8_t> bytes = makeBakedLightingBytes(geometry);
+    std::vector<uint8_t> sunlight;
+    for (float value : {0.0f, 0.0f, 1.0f, 0.8f, 0.8f, 0.8f})
+    {
+        appendFloat(sunlight, value);
+    }
+    bytes.insert(bytes.begin() + 278, sunlight.begin(), sunlight.end());
+    setU32(bytes, 8, 4);
+    setU32(bytes, 302, 1);
+    std::vector<uint8_t> probe;
+    for (float value : {0.0f, 0.0f, 128.0f, 0.6f, 0.6f, 0.6f, 0.2f, 0.2f, 0.2f,
+             0.1f, 0.08f, 0.04f, 0.625f})
+    {
+        appendFloat(probe, value);
+    }
+    bytes.insert(bytes.begin() + 310, probe.begin(), probe.end());
+    setU32(bytes, 68, uint32_t(bytes.size()));
+    const std::optional<OpenYAMM::Game::OutdoorLightingData> data =
+        loader.loadFromBytes(bytes, geometry, mapData, error);
+    REQUIRE_MESSAGE(data, error);
+    CHECK(data->sunDirection[2] == doctest::Approx(1.0f));
+    CHECK(data->sunDirectResponse[0] == doctest::Approx(0.8f));
+    REQUIRE(data->probes.size() == 1);
+    CHECK(data->probes[0].sunIndirect[0] == doctest::Approx(0.1f));
+    CHECK(data->probes[0].sunVisibility == doctest::Approx(0.625f));
+    SUBCASE("nonunit direction is rejected")
+    {
+        setU32(bytes, 286, 0);
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+    SUBCASE("invalid visibility is rejected")
+    {
+        setU32(bytes, 358, 0x40000000);
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+    SUBCASE("negative indirect energy is rejected")
+    {
+        setU32(bytes, 346, 0xbf800000);
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+}
+
+TEST_CASE("outdoor lighting v5 validates direct-only pages and decodes them only for receivers")
+{
+    const std::vector<uint8_t> geometry = {1, 2, 3};
+    const OpenYAMM::Game::OutdoorMapData mapData = makeMapData();
+    OpenYAMM::Game::OutdoorLightingDataLoader loader;
+    std::string error;
+    std::vector<uint8_t> bytes = makeBakedLightingBytes(geometry);
+    std::vector<uint8_t> sunlight;
+    for (float value : {0.0f, 0.0f, 1.0f, 0.8f, 0.8f, 0.8f})
+    {
+        appendFloat(sunlight, value);
+    }
+    bytes.insert(bytes.begin() + 278, sunlight.begin(), sunlight.end());
+    setU32(bytes, 8, 5);
+    const size_t directOffset = bytes.size();
+    appendU32(bytes, 1);
+    appendU32(bytes, 1);
+    appendU32(bytes, 1);
+    appendU32(bytes, 5);
+    bytes.push_back(0x80);
+    appendU32(bytes, 0x20c0a080);
+    setU32(bytes, 68, uint32_t(bytes.size()));
+    const std::optional<OpenYAMM::Game::OutdoorLightingData> data =
+        loader.loadFromBytes(bytes, geometry, mapData, error);
+    REQUIRE_MESSAGE(data, error);
+    REQUIRE(data->directSunPagesRle.size() == 1);
+    CHECK(data->directSunPagesRle[0].size() == 5);
+    CHECK(data->decodeDirectSunPage(0) == std::vector<uint32_t>{0x20c0a080});
+    CHECK(data->atlasPages[0].pixelsBgra[0] == 0xffc0a080);
+    CHECK(data->atlasPages[1].pixelsBgra[0] == 0x40ffffff);
+    CHECK(data->decodeDirectSunPage(1).empty());
+    CHECK(data->decodeDirectSunPage(2).empty());
+    SUBCASE("page counts must match sun and sky pairs")
+    {
+        setU32(bytes, directOffset, 2);
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+    SUBCASE("dimensions must match the original sun page")
+    {
+        setU32(bytes, directOffset + 4, 2);
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+    SUBCASE("compressed spans cannot exceed the declared page")
+    {
+        bytes[directOffset + 16] = 0x81;
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
+    SUBCASE("truncated compressed bytes are rejected")
+    {
+        bytes.pop_back();
+        setU32(bytes, 68, uint32_t(bytes.size()));
+        CHECK_FALSE(loader.loadFromBytes(bytes, geometry, mapData, error));
+    }
 }

@@ -7,6 +7,7 @@
 #include <doctest/doctest.h>
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 
@@ -80,6 +81,48 @@ TEST_CASE("Terrain decoration masks preserve north south orientation and materia
     CHECK(scatterTerrainDecorations(flatMap(), textures(), settings).instances.empty());
 }
 
+TEST_CASE("Larger terrain grass keeps its instance budget and contains sloped card corners in culling bounds")
+{
+    OutdoorMapData map = flatMap();
+    map.heightMap[64 * 128 + 65] = 6;
+    map.heightMap[65 * 128 + 65] = 6;
+    const size_t originalCount = scatterTerrainDecorations(map, textures(), config()).instances.size();
+    REQUIRE(originalCount > 0);
+    for (float scale : {2.0f, 3.0f, 5.0f, 6.4f})
+    {
+        TerrainDecorationConfig settings = config();
+        settings.rules[0].width *= scale;
+        settings.rules[0].height *= scale;
+        const TerrainDecorationPlacement placement = scatterTerrainDecorations(map, textures(), settings);
+        REQUIRE(placement.instances.size() == originalCount);
+        for (const TerrainDecorationPatch &patch : placement.patches)
+        {
+            for (uint32_t index = patch.first; index < patch.first + patch.count; ++index)
+            {
+                const TerrainDecorationInstance &instance = placement.instances[index];
+                const float c = std::cos(instance.positionYaw[3]);
+                const float s = std::sin(instance.positionYaw[3]);
+                const float halfWidth = instance.sizeWindKind[0] * 0.5f;
+                for (const std::array<float, 2> &corner :
+                    {std::array<float, 2>{-halfWidth, 0}, {halfWidth, 0}, {0, -halfWidth}, {0, halfWidth}})
+                {
+                    const float x = c * corner[0] - s * corner[1];
+                    const float y = s * corner[0] + c * corner[1];
+                    const float z = instance.positionYaw[2]
+                        - (x * instance.groundNormal[0] + y * instance.groundNormal[1]) / instance.groundNormal[2];
+                    const float wind = instance.sizeWindKind[2];
+                    CHECK(instance.positionYaw[0] + x - wind >= patch.min[0]);
+                    CHECK(instance.positionYaw[0] + x + wind <= patch.max[0]);
+                    CHECK(instance.positionYaw[1] + y - wind >= patch.min[1]);
+                    CHECK(instance.positionYaw[1] + y + wind <= patch.max[1]);
+                    CHECK(z >= patch.min[2]);
+                    CHECK(z + instance.sizeWindKind[1] <= patch.max[2]);
+                }
+            }
+        }
+    }
+}
+
 TEST_CASE("Terrain decorations exclude buildings steep slopes and absent terrain")
 {
     OutdoorMapData map = flatMap();
@@ -90,7 +133,11 @@ TEST_CASE("Terrain decorations exclude buildings steep slopes and absent terrain
     house.maxY = 20;
     house.minZ = 0;
     house.maxZ = 500;
+    house.vertices = {{-20, -532, 0}, {532, 20, 500}};
     map.bmodels.push_back(house);
+    CHECK(scatterTerrainDecorations(map, textures(), config()).instances.empty());
+    map.bmodels.front().minX = 10000;
+    map.bmodels.front().maxX = 12000;
     CHECK(scatterTerrainDecorations(map, textures(), config()).instances.empty());
     map.bmodels.clear();
     map.heightMap[64 * 128 + 65] = 100;
@@ -286,6 +333,18 @@ TEST_CASE("Terrain decoration loader opts in per map and rejects malformed confi
     REQUIRE(valid);
     CHECK(valid->rules.size() == 1);
     CHECK(error.empty());
+    write("version: 1\ntuft_texture: tuft.png\nrules:\n"
+          "  - {texture: grass, kind: grass, candidates: 32, width: 200, height: 250}\n");
+    const std::optional<TerrainDecorationConfig> enlarged = loadTerrainDecorationConfig(assets, map, error);
+    REQUIRE(enlarged);
+    CHECK(enlarged->rules[0].width == 200.0f);
+    CHECK(enlarged->rules[0].height == 250.0f);
+    write("version: 1\ntuft_texture: tuft.png\nrules:\n"
+          "  - {texture: grass, kind: grass, candidates: 32, width: 257}\n");
+    CHECK_FALSE(loadTerrainDecorationConfig(assets, map, error));
+    write("version: 1\ntuft_texture: tuft.png\nrules:\n"
+          "  - {texture: grass, kind: grass, candidates: 32, height: 257}\n");
+    CHECK_FALSE(loadTerrainDecorationConfig(assets, map, error));
     write("version: 1\ntuft_texture: tuft.png\ndensity_variation: 0.8\npatch_size: 768\n"
           "tall_grass_chance: 0.08\ntall_grass_scale: 1.8\nrules:\n"
           "  - {texture: grass, kind: grass, candidates: 60, density: 0.5}\n");
@@ -325,8 +384,104 @@ TEST_CASE("Terrain decoration loader opts in per map and rejects malformed confi
     write("version: 1\ntuft_texture: atlas.png\ntuft_variants: [{weight: 0}]\nrules: []\n");
     CHECK_FALSE(loadTerrainDecorationConfig(assets, map, error));
     CHECK_FALSE(error.empty());
+    {
+        std::ofstream stream(directory / "families.yml");
+        stream << "version: 2\ntuft_texture: plants.png\ntuft_atlas_grid: [4, 3]\nfamilies:\n"
+               << "  reed:\n    kind: grass\n    candidates: 18\n    width: 24\n    height: 100\n"
+               << "    full_footprint: true\n    wind_strength: 0.8\n"
+               << "    variants: [{layer: 4, weight: 60}, {layer: 5, weight: 40}]\n";
+    }
+    write("version: 2\nfamilies_file: families.yml\nrules:\n"
+          "  - {texture: marsh, family: reed, density: 0.6}\n");
+    const std::optional<TerrainDecorationConfig> familyConfig = loadTerrainDecorationConfig(assets, map, error);
+    REQUIRE(familyConfig);
+    REQUIRE(familyConfig->rules.size() == 1);
+    const TerrainDecorationRule &reed = familyConfig->rules[0];
+    CHECK(reed.family == "reed");
+    CHECK(reed.fullFootprint);
+    CHECK(reed.height == doctest::Approx(100.0f));
+    CHECK(reed.candidates == 18);
+    CHECK(reed.density == doctest::Approx(0.6f));
+    CHECK(reed.windStrength == doctest::Approx(0.8f));
+    REQUIRE(reed.variants.size() == 2);
+    CHECK(reed.variants[1].layer == 5);
+    write("version: 2\nfamilies_file: families.yml\nrules: [{texture: marsh, family: missing}]\n");
+    CHECK_FALSE(loadTerrainDecorationConfig(assets, map, error));
+    CHECK_FALSE(error.empty());
+    write("version: 2\nfamilies_file: families.yml\nrules:\n"
+          "  - {texture: marsh, family: reed, variants: [{layer: 12}]}\n");
+    CHECK_FALSE(loadTerrainDecorationConfig(assets, map, error));
+    write("version: 2\nfamilies_file: families.yml\nrules:\n"
+          "  - {texture: marsh, family: reed, wind_strength: -1}\n");
+    CHECK_FALSE(loadTerrainDecorationConfig(assets, map, error));
+    write("version: 2\nfamilies_file: missing.yml\nrules: []\n");
+    CHECK_FALSE(loadTerrainDecorationConfig(assets, map, error));
+    write("version: 2\nfamilies_file: ../families.yml\nrules: []\n");
+    CHECK_FALSE(loadTerrainDecorationConfig(assets, map, error));
+    write("version: 2\nenabled: false\nreason: underwater\n");
+    CHECK_FALSE(loadTerrainDecorationConfig(assets, map, error));
+    CHECK(error.empty());
     assets.shutdown();
     std::filesystem::remove_all(root);
+}
+
+TEST_CASE("Terrain decoration family variants preserve legacy placement and select only their own layers")
+{
+    TerrainDecorationConfig legacy = config();
+    legacy.tuftVariants = {{45, 1, 1}, {35, 1, 0.9f}, {15, 1, 1.35f}, {5, 0.85f, 0.85f}};
+    TerrainDecorationConfig migrated = legacy;
+    migrated.rules[0].variants = legacy.tuftVariants;
+    for (size_t i = 0; i < migrated.rules[0].variants.size(); ++i)
+    {
+        migrated.rules[0].variants[i].layer = int(i);
+    }
+    const TerrainDecorationPlacement before = scatterTerrainDecorations(flatMap(), textures(), legacy);
+    const TerrainDecorationPlacement after = scatterTerrainDecorations(flatMap(), textures(), migrated);
+    REQUIRE_FALSE(before.instances.empty());
+    REQUIRE(before.instances.size() == after.instances.size());
+    for (size_t i = 0; i < before.instances.size(); ++i)
+    {
+        CHECK(before.instances[i].positionYaw == after.instances[i].positionYaw);
+        CHECK(before.instances[i].sizeWindKind == after.instances[i].sizeWindKind);
+        CHECK(before.instances[i].color == after.instances[i].color);
+        CHECK(before.instances[i].groundNormal == after.instances[i].groundNormal);
+    }
+    migrated.rules[0].variants = {{1, 1, 1, 7}};
+    migrated.rules[0].windStrength = 0.4f;
+    const TerrainDecorationPlacement selected = scatterTerrainDecorations(flatMap(), textures(), migrated);
+    REQUIRE(selected.instances.size() == before.instances.size());
+    for (const TerrainDecorationInstance &instance : selected.instances)
+    {
+        CHECK(instance.groundNormal[3] == 7.0f);
+        CHECK(instance.sizeWindKind[2] == doctest::Approx(0.4f));
+    }
+}
+
+TEST_CASE("Terrain decoration strict plants keep their full footprint out of internal water channels")
+{
+    TerrainDecorationConfig settings = config();
+    TerrainDecorationRule &rule = settings.rules[0];
+    rule.candidates = 128;
+    rule.width = 80;
+    rule.maskWidth = rule.maskHeight = 64;
+    rule.coverage.assign(64 * 64, 255);
+    for (int y = 0; y < 64; ++y)
+    {
+        for (int x = 29; x <= 34; ++x)
+        {
+            rule.coverage[y * 64 + x] = 0;
+        }
+    }
+    const TerrainDecorationPlacement roots = scatterTerrainDecorations(flatMap(), textures(), settings);
+    rule.fullFootprint = true;
+    const TerrainDecorationPlacement strict = scatterTerrainDecorations(flatMap(), textures(), settings);
+    REQUIRE_FALSE(strict.instances.empty());
+    CHECK(strict.instances.size() < roots.instances.size());
+    for (const TerrainDecorationInstance &instance : strict.instances)
+    {
+        const float cellX = instance.positionYaw[0] - outdoorGridCornerWorldX(64);
+        CHECK((cellX + 80.0f * 0.65f < 29 * 8.0f || cellX - 80.0f * 0.65f > 35 * 8.0f));
+    }
 }
 
 TEST_CASE("Terrain decoration variants preserve placements and batches while weighting shapes")
@@ -450,4 +605,66 @@ TEST_CASE("Terrain decoration view cache invalidates on motion projection and sh
     CHECK_FALSE(renderer.setView(camera, forward, right, up, 1.7778f, 0.9f));
     renderer.shutdown(false);
     CHECK(renderer.setView(camera, forward, right, up, 1.7778f, 0.9f));
+}
+
+TEST_CASE("Terrain decoration cutout encloses the tuft and trims transparent card area")
+{
+    // A tuft-like fan: a narrow base widening toward the top, inside a 64 x 48 cell.
+    constexpr int Width = 64;
+    constexpr int Height = 48;
+    std::vector<uint8_t> alpha(size_t(Width) * Height, 0);
+    for (int y = 4; y < Height - 2; ++y)
+    {
+        const float spread = 0.5f + 26.0f * float(Height - 2 - y) / float(Height);
+        for (int x = 0; x < Width; ++x)
+        {
+            if (std::abs(float(x) + 0.5f - Width * 0.5f) < spread)
+            {
+                alpha[size_t(y) * Width + x] = 200;
+            }
+        }
+    }
+    const auto cutout = terrainDecorationCutout(alpha, Width, Height, 26);
+    const auto inside = [&](float u, float v)
+    {
+        bool positive = false;
+        bool negative = false;
+        for (size_t index = 0; index < cutout.size(); ++index)
+        {
+            const auto &a = cutout[index];
+            const auto &b = cutout[(index + 1) % cutout.size()];
+            const float cross = (b[0] - a[0]) * (v - a[1]) - (b[1] - a[1]) * (u - a[0]);
+            positive = positive || cross > 1.0e-6f;
+            negative = negative || cross < -1.0e-6f;
+        }
+        return !(positive && negative);
+    };
+    float area = 0.0f;
+    for (size_t index = 0; index < cutout.size(); ++index)
+    {
+        const auto &a = cutout[index];
+        const auto &b = cutout[(index + 1) % cutout.size()];
+        area += a[0] * b[1] - b[0] * a[1];
+        CHECK(a[0] >= 0.0f);
+        CHECK(a[0] <= 1.0f);
+        CHECK(a[1] >= 0.0f);
+        CHECK(a[1] <= 1.0f);
+    }
+    area = std::abs(area) * 0.5f;
+    for (int y = 0; y < Height; ++y)
+    {
+        for (int x = 0; x < Width; ++x)
+        {
+            if (alpha[size_t(y) * Width + x] >= 26)
+            {
+                CHECK(inside((float(x) + 0.5f) / Width, (float(y) + 0.5f) / Height));
+            }
+        }
+    }
+    CHECK(area < 0.75f);
+    // Nothing covered: the full card.
+    const auto empty = terrainDecorationCutout(std::vector<uint8_t>(size_t(Width) * Height, 0), Width, Height, 26);
+    CHECK(empty[0][0] == 0.0f);
+    CHECK(empty[2][0] == 1.0f);
+    CHECK(empty[2][1] == 1.0f);
 }

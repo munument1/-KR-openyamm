@@ -15,6 +15,7 @@
 #include "game/fx/ParticleRecipes.h"
 #include "game/fx/ParticleSystem.h"
 #include "game/gameplay/GameMechanics.h"
+#include "game/gameplay/ActorVocalizationRules.h"
 #include "game/gameplay/GameplayActorService.h"
 #include "game/gameplay/GameplayCombatController.h"
 #include "game/gameplay/GameplayDialogController.h"
@@ -22,11 +23,13 @@
 #include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/gameplay/GenericActorDialog.h"
 #include "game/app/GameApplication.h"
-#include "game/app/GprofControl.h"
+#include "game/app/GameSession.h"
+#include "game/app/ProfilingControl.h"
 #include "game/outdoor/OutdoorInteractionController.h"
 #include "game/outdoor/OutdoorMechanismRuntime.h"
 #include "game/gameplay/HouseInteraction.h"
 #include "game/gameplay/HouseServiceRuntime.h"
+#include "game/indoor/IndoorGameView.h"
 #include "game/indoor/IndoorGeometryUtils.h"
 #include "game/indoor/IndoorMovementController.h"
 #include "game/indoor/IndoorPartyRuntime.h"
@@ -41,6 +44,7 @@
 #include "game/outdoor/OutdoorPathfindingBuilder.h"
 #include "game/outdoor/OutdoorPartyRuntime.h"
 #include "game/outdoor/OutdoorWorldRuntime.h"
+#include "game/outdoor/OutdoorSunlight.h"
 #include "game/outdoor/OutdoorGeometryUtils.h"
 #include "game/party/Party.h"
 #include "game/party/PartySpellSystem.h"
@@ -518,6 +522,21 @@ struct GameApplicationTestAccess
     static float cameraPitchRadians(const GameApplication &application)
     {
         return application.m_outdoorGameView.cameraPitchRadians();
+    }
+
+    static void setIndoorCameraAngles(GameApplication &application, float yawRadians, float pitchRadians)
+    {
+        application.m_indoorRenderer.setCameraAngles(yawRadians, pitchRadians);
+    }
+
+    static float indoorCameraYawRadians(const GameApplication &application)
+    {
+        return application.m_indoorRenderer.cameraYawRadians();
+    }
+
+    static float indoorCameraPitchRadians(const GameApplication &application)
+    {
+        return application.m_indoorRenderer.cameraPitchRadians();
     }
 
     static GameAudioSystem &gameAudioSystem(GameApplication &application)
@@ -2949,6 +2968,232 @@ bool initializeIndoorRegressionScenario(
         &*selectedMap.indoorMapData
     );
     return scenario.world.eventRuntimeState() != nullptr;
+}
+
+bool runActorCrowdingRegression(
+    const GameDataLoader &gameDataLoader, bool indoors, bool doorway, std::string &failure)
+{
+    constexpr int DoorHalfWidth = 64;
+    constexpr int WallExtent = 10000;
+    const MonsterTable::MonsterStatsEntry *pStats = nullptr;
+    for (const auto &[id, stats] : gameDataLoader.getMonsterTable().statsEntries())
+    {
+        if (stats.hostility >= 3 && stats.speed > 0 && !stats.canFly
+            && stats.movementType != MonsterTable::MonsterMovementType::Stationary
+            && stats.aiType != MonsterTable::MonsterAiType::Wimp
+            && !stats.attack1HasMissile && !stats.attack2HasMissile && !stats.hasSpell1 && !stats.hasSpell2
+            && (pStats == nullptr || id < pStats->id))
+        {
+            pStats = &stats;
+        }
+    }
+    if (pStats == nullptr)
+    {
+        failure = "no walking melee monster available";
+        return false;
+    }
+
+    MapAssetInfo map = {};
+    map.map.fileName = indoors ? "crowding.blv" : "crowding.odm";
+    map.eventRuntimeState = EventRuntimeState{};
+    MapDeltaData delta = {};
+    for (int row = 0; row < 3; ++row)
+    {
+        for (int column = 0; column < 2; ++column)
+        {
+            MapDeltaActor actor = {};
+            actor.monsterId = pStats->id;
+            actor.monsterInfoId = pStats->id;
+            actor.hp = 1000;
+            actor.hostilityType = 4;
+            actor.attributes = static_cast<uint32_t>(EvtActorAttribute::Aggressor)
+                | static_cast<uint32_t>(EvtActorAttribute::Nearby);
+            actor.radius = 40;
+            actor.height = 128;
+            actor.moveSpeed = 160;
+            actor.x = -100 - row * 100;
+            actor.y = column == 0 ? -45 : 45;
+            actor.z = 1;
+            actor.sectorId = 1;
+            delta.actors.push_back(actor);
+        }
+    }
+
+    IndoorMapData room = {};
+    room.vertices = {{-1200, -1000, 0}, {1200, -1000, 0}, {1200, 1000, 0}, {-1200, 1000, 0}};
+    IndoorFace floor = {};
+    floor.vertexIndices = {0, 1, 2, 3};
+    floor.facetType = 3;
+    floor.roomNumber = 1;
+    room.faces.push_back(floor);
+    room.sectors.resize(2);
+    IndoorSector &sector = room.sectors[1];
+    sector.minX = -1200;
+    sector.maxX = 1200;
+    sector.minY = -1000;
+    sector.maxY = 1000;
+    sector.maxZ = 500;
+    sector.floorFaceIds = {0};
+    sector.faceIds = {0};
+    OutdoorMapData ground = {};
+    ground.heightMap.resize(OutdoorMapData::TerrainWidth * OutdoorMapData::TerrainHeight, 0);
+    ground.attributeMap.resize(ground.heightMap.size(), 0);
+    if (doorway)
+    {
+        OutdoorBModel walls = {};
+        walls.name = "crowding_doorway";
+        for (const std::array<int, 2> span : {
+            std::array<int, 2>{-WallExtent, -DoorHalfWidth}, {DoorHalfWidth, WallExtent}})
+        {
+            const uint16_t offset = room.vertices.size();
+            room.vertices.insert(room.vertices.end(), {
+                {0, span[0], 0}, {0, span[1], 0}, {0, span[1], 500}, {0, span[0], 500}});
+            IndoorFace wall = {};
+            wall.vertexIndices = {offset, uint16_t(offset + 3), uint16_t(offset + 2), uint16_t(offset + 1)};
+            wall.facetType = 1;
+            wall.roomNumber = 1;
+            sector.wallFaceIds.push_back(room.faces.size());
+            sector.faceIds.push_back(room.faces.size());
+            room.faces.push_back(wall);
+            const uint16_t outdoorOffset = walls.vertices.size();
+            walls.vertices.insert(walls.vertices.end(), {
+                {0, span[0], 0}, {0, span[1], 0}, {0, span[1], 500}, {0, span[0], 500}});
+            OutdoorBModelFace outdoorWall = {};
+            outdoorWall.vertexIndices = {
+                outdoorOffset, uint16_t(outdoorOffset + 3), uint16_t(outdoorOffset + 2), uint16_t(outdoorOffset + 1)};
+            outdoorWall.polygonType = 1;
+            walls.faces.push_back(outdoorWall);
+            std::reverse(outdoorWall.vertexIndices.begin(), outdoorWall.vertexIndices.end());
+            walls.faces.push_back(outdoorWall);
+        }
+        ground.bmodels.push_back(std::move(walls));
+    }
+    sector.nonBspFaceIds = sector.faceIds;
+    sector.floorCount = sector.floorFaceIds.size();
+    sector.wallCount = sector.wallFaceIds.size();
+    sector.faceCount = sector.faceIds.size();
+    sector.nonBspFaceCount = sector.faceIds.size();
+    map.outdoorMapData = std::move(ground);
+    map.outdoorMapDeltaData = delta;
+    map.indoorMapData = room;
+    map.indoorMapDeltaData = delta;
+
+    RegressionScenario outdoor = {};
+    if (!initializeRegressionScenario(gameDataLoader, map, outdoor))
+    {
+        failure = "outdoor crowd scenario initialization failed";
+        return false;
+    }
+    PartySeed crowdParty = createRegressionPartySeed();
+    for (Character &member : crowdParty.members)
+    {
+        member.health = member.maxHealth = 30000;
+    }
+    outdoor.party.seed(crowdParty);
+    outdoor.world.setOutdoorPathfindingSettings(true, false);
+    GameSession session;
+    IndoorGameView indoorView(session);
+    GameSettings settings = GameSettings::createDefault();
+    settings.indoorPathfinding = true;
+    indoorView.setSettingsSnapshot(settings);
+    Party party;
+    party.seed(crowdParty);
+    GameplayActorService actorService = buildBoundGameplayActorService(gameDataLoader);
+    IndoorSceneRuntime indoor(
+        "crowding.blv", map.map, room, gameDataLoader.getMonsterTable(), gameDataLoader.getObjectTable(),
+        gameDataLoader.getItemTable(), gameDataLoader.getChestTable(), party, map.indoorMapDeltaData,
+        map.eventRuntimeState, std::nullopt, std::nullopt, &actorService);
+    indoor.worldRuntime().bindGameplayView(&indoorView);
+    indoor.partyRuntime().teleportPartyPosition(700.0f, 0.0f, 1.0f);
+    IGameplayWorldRuntime &world = indoors
+        ? static_cast<IGameplayWorldRuntime &>(indoor.worldRuntime())
+        : static_cast<IGameplayWorldRuntime &>(outdoor.world);
+    bool sawDetour = false;
+    std::vector<bool> reachedMelee(delta.actors.size(), false);
+    std::vector<bool> clearedDoorway(delta.actors.size(), false);
+    const float minimumSeparation = indoors ? 64.0f : 80.0f;
+    for (int tick = 0; tick < 7680; ++tick)
+    {
+        if (indoors)
+        {
+            indoor.worldRuntime().updateActorAi(1.0f / 128.0f);
+        }
+        else
+        {
+            outdoor.world.updateMapActors(1.0f / 128.0f, 700.0f, 0.0f, 1.0f);
+        }
+        for (size_t index = 0; index < delta.actors.size(); ++index)
+        {
+            GameplayRuntimeActorState actor = {};
+            if (!world.actorRuntimeState(index, actor))
+            {
+                failure = "crowd actor disappeared";
+                return false;
+            }
+            const bool attacking = indoors
+                ? indoor.worldRuntime().mapActorAiState(index)->motionState == ActorAiMotionState::Attacking
+                : outdoor.world.mapActorState(index)->aiState == OutdoorWorldRuntime::ActorAiState::Attacking;
+            reachedMelee[index] = reachedMelee[index] || attacking;
+            clearedDoorway[index] = clearedDoorway[index] || actor.preciseX > 40.0f;
+            sawDetour = sawDetour || (indoors
+                ? indoor.worldRuntime().mapActorAiState(index)->crowdSideLockRemainingSeconds > 0.0f
+                : outdoor.world.mapActorState(index)->crowdSideLockRemainingSeconds > 0.0f);
+            for (size_t peer = 0; peer < index; ++peer)
+            {
+                GameplayRuntimeActorState other = {};
+                world.actorRuntimeState(peer, other);
+                const float separation = std::hypot(actor.preciseX - other.preciseX, actor.preciseY - other.preciseY);
+                if (separation < minimumSeparation - 0.1f)
+                {
+                    failure = "crowd overlap: separation=" + std::to_string(separation)
+                        + " actor=" + std::to_string(index) + " peer=" + std::to_string(peer)
+                        + " tick=" + std::to_string(tick);
+                    return false;
+                }
+            }
+            const float wallEdgeY = std::max({
+                0.0f, DoorHalfWidth - std::abs(actor.preciseY), std::abs(actor.preciseY) - WallExtent});
+            if (doorway && std::hypot(actor.preciseX, wallEdgeY) < 39.9f)
+            {
+                failure = "crowd crossed doorway wall at (" + std::to_string(actor.preciseX)
+                    + "," + std::to_string(actor.preciseY) + ") actor=" + std::to_string(index)
+                    + " tick=" + std::to_string(tick);
+                return false;
+            }
+        }
+        // Doorways exercise queuing through an opening; open ground exercises the final melee surround.
+        const size_t arrivedCount = doorway
+            ? std::count(clearedDoorway.begin(), clearedDoorway.end(), true)
+            : std::count(reachedMelee.begin(), reachedMelee.end(), true);
+        if (tick >= 1535 && sawDetour && arrivedCount == delta.actors.size()
+            && std::count(reachedMelee.begin(), reachedMelee.end(), true) > 0)
+        {
+            break;
+        }
+        if ((tick % 16) == 0)
+        {
+            SDL_Delay(1); // Give the asynchronous path planner time to finish requests.
+        }
+    }
+    const size_t reachedCount = std::count(reachedMelee.begin(), reachedMelee.end(), true);
+    const size_t clearedCount = std::count(clearedDoorway.begin(), clearedDoorway.end(), true);
+    if (!sawDetour || (doorway ? clearedCount != clearedDoorway.size() || reachedCount == 0
+                              : reachedCount != reachedMelee.size()))
+    {
+        failure = "crowd reached=" + std::to_string(reachedCount) + "/" + std::to_string(reachedMelee.size())
+            + " cleared_doorway=" + std::to_string(clearedCount) + " detour=" + std::to_string(sawDetour)
+            + " monster=" + pStats->name;
+        for (size_t index = 0; index < delta.actors.size(); ++index)
+        {
+            GameplayRuntimeActorState actor = {};
+            world.actorRuntimeState(index, actor);
+            failure += " actor=" + std::to_string(index) + " pos=(" + std::to_string(actor.preciseX)
+                + "," + std::to_string(actor.preciseY) + ") hostile=" + std::to_string(actor.hostileToParty)
+                + " target=" + std::to_string(actor.combatTargetingParty);
+        }
+        return false;
+    }
+    return true;
 }
 
 std::string describeIndoorFaceMembership(const IndoorMapData &indoorMapData, size_t faceIndex)
@@ -7232,6 +7477,869 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             }
         };
 
+    const auto loadModelSpriteFrames = [&](SpriteFrameTable &frames, std::string &failure)
+    {
+        // Headless map loading omits billboard data; read the authoritative scales without loading textures.
+        const std::optional<std::string> contents =
+            assetFileSystem.readTextFile("Data/rendering/sprite_frame_data_common.yml");
+        if (!contents)
+        {
+            failure = "could not load common sprite-frame data";
+            return false;
+        }
+        return frames.loadFromYaml(*contents, failure);
+    };
+
+    runCase("mm6_demon_actor_models_keep_simulation_and_death_rules", [&](std::string &failure)
+    {
+        if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "oute3.odm"))
+        {
+            failure = "could not load New Sorpigal";
+            return false;
+        }
+        RegressionScenario scenario;
+        if (!initializeRegressionScenario(gameDataLoader, *gameDataLoader.getSelectedMap(), scenario))
+        {
+            failure = "could not initialize New Sorpigal";
+            return false;
+        }
+        const size_t first = scenario.world.mapActorCount();
+        if (!scenario.world.summonHostileMonsterById(502, 3, -9728, -11919, 161, 0)
+            || scenario.world.mapActorCount() != first + 3)
+        {
+            failure = "normal monster factory did not spawn three demons";
+            return false;
+        }
+        SpriteFrameTable frames;
+        WorldFxSystem fx;
+        if (!loadModelSpriteFrames(frames, failure)
+            || !fx.loadNamedEffectLibrary(assetFileSystem, "engine/effects/library.yml",
+                "engine/effects/resource_bindings.yml", failure)
+            || !fx.configureActorModels(assetFileSystem, "worlds/mm6/models/actors.yml",
+                gameDataLoader.getMonsterTable(), &frames, failure))
+        {
+            return false;
+        }
+        fx.syncActorModels(scenario.world);
+        // Other bound New Sorpigal residents (peasants) keep their own instances; counts below are relative.
+        if (!fx.hasActorModel(first) || !fx.hasActorModel(first + 1) || !fx.hasActorModel(first + 2)
+            || fx.models().size() < 3)
+        {
+            failure = "three ordinary actors did not acquire three model instances";
+            return false;
+        }
+        const size_t otherModels = fx.models().size() - 3;
+        const auto firstDemonModel = [&]()
+        {
+            for (const Engine::ModelInstanceHandle handle : fx.models().handles())
+            {
+                if (fx.models().asset(handle)->findNode("Demon_Native_Mesh"))
+                {
+                    return handle;
+                }
+            }
+            return Engine::ModelInstanceHandle{};
+        };
+        const OutdoorWorldRuntime::Snapshot initial = scenario.world.snapshot();
+        for (size_t index = first; index < first + 3; ++index)
+        {
+            const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(index);
+            if (pActor->monsterId != 502 || !pActor->hostileToParty || pActor->currentHp != 100
+                || pActor->radius != 65 || pActor->height != 179 || !fx.actorModelBounds(index)->valid)
+            {
+                failure = "demon data or model bounds differ from the ordinary actor";
+                return false;
+            }
+        }
+        // Force each presentation state without advancing AI; synchronization must never mutate the simulation.
+        for (int animation = 0; animation < 8; ++animation)
+        {
+            OutdoorWorldRuntime::Snapshot pose = initial;
+            for (size_t index = first; index < first + 3; ++index)
+            {
+                pose.mapActors[index].animation = OutdoorWorldRuntime::ActorAnimation(animation);
+                pose.mapActors[index].animationTimeTicks = 32;
+            }
+            scenario.world.restoreSnapshot(pose);
+            fx.syncActorModels(scenario.world);
+            fx.updateParticles(0.2f, false);
+            for (size_t index = first; index < first + 3; ++index)
+            {
+                const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(index);
+                if (pActor->animationTimeTicks != 32 || pActor->preciseX != pose.mapActors[index].preciseX
+                    || pActor->preciseY != pose.mapActors[index].preciseY || pActor->currentHp != 100)
+                {
+                    failure = "presentation advanced or changed an actor";
+                    return false;
+                }
+            }
+        }
+        scenario.world.restoreSnapshot(initial);
+        fx.particles().reset();
+        // Moving spell actions layer the authored upper body over distance-driven legs. AI data stays authoritative.
+        fx.syncActorModels(scenario.world);
+        const Engine::ModelInstanceHandle model = firstDemonModel();
+        fx.models().pose(model, false);
+        OutdoorWorldRuntime::Snapshot layered = initial;
+        OutdoorWorldRuntime::MapActorState &caster = layered.mapActors[first];
+        caster.animation = OutdoorWorldRuntime::ActorAnimation::AttackRanged;
+        caster.queuedAttackAbility = OutdoorWorldRuntime::MonsterAttackAbility::Spell1;
+        caster.animationTimeTicks = 32;
+        caster.actionSeconds = 0.5f;
+        caster.velocityX = 140.0f;
+        caster.preciseX += 14.0f;
+        caster.yawRadians += 3.14159265f;
+        scenario.world.restoreSnapshot(layered);
+        fx.syncActorModels(scenario.world, 0.1f);
+        fx.syncActorModels(scenario.world, 0.02f);
+        const Engine::ModelAsset *pAsset = fx.models().asset(model);
+        const Engine::ModelPose *pPose = fx.models().pose(model, false);
+        Engine::ModelPose castPose, walkingPose;
+        const std::optional<uint32_t> castClip = pAsset->findClip("Cast_FireBolt");
+        const std::optional<uint32_t> walkClip = pAsset->findClip("Walking");
+        if (!castClip || !walkClip)
+        {
+            failure = "demon cast/locomotion clips are missing";
+            return false;
+        }
+        Engine::evaluateModelClip(*pAsset, *castClip, 1.0f / 3.0f, castPose);
+        Engine::evaluateModelClip(*pAsset, *walkClip, fx.models().playbackTime(model), walkingPose);
+        for (const std::string &name : {"mixamorig:Head", "mixamorig:Hips"})
+        {
+            const uint32_t node = *pAsset->findNode(name);
+            const Engine::ModelPose &expected = name == "mixamorig:Head" ? castPose : walkingPose;
+            float dot = 0.0f;
+            for (size_t axis = 0; axis < 4; ++axis)
+            {
+                dot += pPose->localTransforms[node].rotation[axis] * expected.localTransforms[node].rotation[axis];
+            }
+            if (std::abs(std::abs(dot) - 1.0f) > 0.0001f)
+            {
+                failure = "spell action did not retain the locomotion legs and casting upper body";
+                return false;
+            }
+        }
+        const uint64_t revision = pPose->matrixRevision;
+        fx.syncActorModels(scenario.world, 0.0f);
+        if (fx.models().pose(model, false)->matrixRevision != revision
+            || scenario.world.mapActorState(first)->yawRadians != caster.yawRadians
+            || scenario.world.mapActorState(first)->preciseX != caster.preciseX
+            || fx.models().nodeMatrix(model, "Socket_Palm_Left") == nullptr
+            || fx.models().nodeMatrix(model, "Socket_Eye_Right") == nullptr)
+        {
+            failure = "paused presentation advanced, altered AI facing/movement, or lost its sockets";
+            return false;
+        }
+        GameDataRepository fxData;
+        fxData.bind(gameDataLoader);
+        GameSession fxSession;
+        fxSession.bindDataRepository(&fxData);
+        fxSession.bindActiveWorldRuntime(&scenario.world);
+        // Headless camera defaults to the origin facing +X. Only the nearby test caster should get attachment FX.
+        caster.preciseX = 400;
+        caster.preciseY = 0;
+        caster.velocityX = 0;
+        caster.animationTimeTicks = 64;
+        caster.actionSeconds = .25f;
+        scenario.world.restoreSnapshot(layered);
+        fx.syncActorModels(scenario.world, .02f);
+        fx.syncProjectileFx(fxSession, .1f, true);
+        const size_t chargeParticles = fx.particles().particleCount();
+        if (chargeParticles != 5 || fx.glowBillboards().size() != 2 || fx.lightEmitters().size() != 1)
+        {
+            failure = "nearby casting FX were missing or exceeded the bounded eye/charge emission";
+            return false;
+        }
+        const FxParticleState &chargeSpark = fx.particles().particles().front();
+        if (chargeSpark.material != FxParticleMaterial::Ember || chargeSpark.size < 24.0f
+            || std::hypot(chargeSpark.velocityX, chargeSpark.velocityY) < 60.0f
+            || fx.glowBillboards()[1].radius != fx.glowBillboards()[0].radius * 0.5f)
+        {
+            failure = "casting lost its bright core or visible outward spark emission";
+            return false;
+        }
+        fx.syncProjectileFx(fxSession, 0, false);
+        if (fx.particles().particleCount() != chargeParticles)
+        {
+            failure = "paused socket FX emitted particles";
+            return false;
+        }
+        caster.animation = OutdoorWorldRuntime::ActorAnimation::Standing;
+        caster.attackImpactTriggered = true;
+        scenario.world.restoreSnapshot(layered);
+        fx.syncActorModels(scenario.world, .01f);
+        fx.syncProjectileFx(fxSession, .01f, false);
+        const size_t releasedParticles = fx.particles().particleCount();
+        fx.syncActorModels(scenario.world, .01f);
+        fx.syncProjectileFx(fxSession, .01f, false);
+        if (releasedParticles != chargeParticles + 12 || fx.particles().particleCount() != releasedParticles)
+        {
+            failure = "native release FX were missing or repeated after the impact flag";
+            return false;
+        }
+        caster.animation = OutdoorWorldRuntime::ActorAnimation::AttackRanged;
+        caster.attackImpactTriggered = false;
+        scenario.world.restoreSnapshot(layered);
+        fx.syncActorModels(scenario.world, .01f);
+        fx.syncProjectileFx(fxSession, .1f, false);
+        const size_t interruptedParticles = fx.particles().particleCount();
+        caster.animation = OutdoorWorldRuntime::ActorAnimation::GotHit;
+        caster.attackImpactTriggered = true;
+        scenario.world.restoreSnapshot(layered);
+        fx.syncActorModels(scenario.world, .01f);
+        fx.syncProjectileFx(fxSession, .01f, false);
+        if (fx.particles().particleCount() != interruptedParticles)
+        {
+            failure = "interrupted casting emitted a release burst";
+            return false;
+        }
+        // The ordinary fire missile uses a moving right-hand emitter; melee and spells do not acquire it.
+        caster.animation = OutdoorWorldRuntime::ActorAnimation::AttackRanged;
+        caster.queuedAttackAbility = OutdoorWorldRuntime::MonsterAttackAbility::Attack2;
+        caster.attackImpactTriggered = false;
+        scenario.world.restoreSnapshot(layered);
+        fx.syncActorModels(scenario.world, .01f);
+        fx.syncProjectileFx(fxSession, .01f, false);
+        fx.updateParticles(.04f, false);
+        const Engine::ModelMatrix *pHand = fx.models().nodeMatrix(model, "Socket_Palm_Right");
+        if (fx.namedEffects().size() != 1 || fx.namedEffects().fixedSprites().size() != 1
+            || fx.namedEffects().particles().empty() || fx.namedEffects().fixedSprites().front().scale < 3.5f
+            || fx.namedEffects().particles().front().scale < 1.5f)
+        {
+            failure = "ranged fire attack did not acquire its bounded MM9 hand/trail sprites";
+            return false;
+        }
+        const EffectHandle handEffect = fx.namedEffects().fixedSprites().front().owner;
+        const float trailX = fx.namedEffects().particles().front().position[0];
+        caster.preciseX += 20;
+        scenario.world.restoreSnapshot(layered);
+        fx.syncActorModels(scenario.world, .01f);
+        fx.syncProjectileFx(fxSession, .01f, false);
+        pHand = fx.models().nodeMatrix(model, "Socket_Palm_Right");
+        const EffectFixedSprite &handSprite = fx.namedEffects().fixedSprites().front();
+        if (handSprite.spriteResource != "mm9:effect-sprite/weapons/firebolt"
+            || std::abs(handSprite.position[0] - (*pHand)[12]) > .001f
+            || std::abs(handSprite.position[1] - (*pHand)[13]) > .001f
+            || std::abs(handSprite.position[2] - (*pHand)[14]) > .001f
+            || fx.namedEffects().particles().front().position[0] != trailX)
+        {
+            failure = "hand sprite did not follow its socket or its world-space trail moved with the actor";
+            return false;
+        }
+        const float handTime = fx.namedEffects().elapsedSeconds(handEffect);
+        fx.updateParticles(.5f, true);
+        if (fx.namedEffects().elapsedSeconds(handEffect) != handTime)
+        {
+            failure = "paused hand FX advanced";
+            return false;
+        }
+        caster.queuedAttackAbility = OutdoorWorldRuntime::MonsterAttackAbility::Attack1;
+        scenario.world.restoreSnapshot(layered);
+        fx.syncActorModels(scenario.world, .01f);
+        fx.syncProjectileFx(fxSession, .01f, false);
+        fx.updateParticles(.25f, false);
+        if (fx.namedEffects().contains(handEffect) || !fx.namedEffects().fixedSprites().empty())
+        {
+            failure = "switching to a physical attack slot retained the elemental hand effect";
+            return false;
+        }
+        caster.animation = OutdoorWorldRuntime::ActorAnimation::AttackMelee;
+        caster.queuedAttackAbility = OutdoorWorldRuntime::MonsterAttackAbility::Attack1;
+        scenario.world.restoreSnapshot(layered);
+        fx.syncActorModels(scenario.world, .01f);
+        fx.syncProjectileFx(fxSession, .01f, false);
+        fx.updateParticles(.25f, false);
+        if (fx.namedEffects().contains(handEffect) || !fx.namedEffects().particles().empty()
+            || !fx.namedEffects().fixedSprites().empty())
+        {
+            failure = "melee retained the ranged hand effect after its short trail drain";
+            return false;
+        }
+        fxSession.bindActiveWorldRuntime(nullptr);
+        scenario.world.restoreSnapshot(initial);
+        fx.particles().reset();
+        fx.syncActorModels(scenario.world);
+        scenario.world.applyPartyAttackToMapActor(first, 1, -9728, -11319, 161);
+        fx.syncActorModels(scenario.world);
+        GameplayRuntimeActorState hit;
+        scenario.world.actorRuntimeState(first, hit);
+        if (hit.animationState != ActorAiAnimationState::GotHit)
+        {
+            failure = "ordinary damage did not enter the hit animation";
+            return false;
+        }
+        scenario.world.applyPartyAttackToMapActor(first, 10000, -9728, -11319, 161);
+        scenario.world.updateMapActors(1.0f / 128, -9728, -11319, 161);
+        fx.syncActorModels(scenario.world);
+        GameplayRuntimeActorState dying;
+        scenario.world.actorRuntimeState(first, dying);
+        if (dying.animationState != ActorAiAnimationState::Dying || !fx.hasActorModel(first))
+        {
+            failure = "death did not retain the animated model";
+            return false;
+        }
+        const size_t deathParticles = fx.particles().particleCount();
+        fx.syncActorModels(scenario.world);
+        if (deathParticles != 80 || fx.particles().particleCount() != deathParticles)
+        {
+            failure = "death burst was missing, unbounded or emitted again on synchronization";
+            return false;
+        }
+        for (int tick = 0; tick < 256; ++tick)
+        {
+            scenario.world.updateMapActors(1.0f / 128, -9728, -11319, 161);
+        }
+        fx.syncActorModels(scenario.world);
+        if (fx.hasActorModel(first) || fx.models().size() != otherModels + 2)
+        {
+            failure = "NoCorpse demon remained visible after the native death timer";
+            return false;
+        }
+        scenario.world.restoreSnapshot(initial);
+        fx.syncActorModels(scenario.world);
+        if (fx.models().size() != otherModels + 3)
+        {
+            failure = "restoring actors did not recreate their derived model instances";
+            return false;
+        }
+        fx.reset();
+        if (fx.models().size() != 0 || fx.hasActorModel(first) || fx.particles().particleCount() != 0)
+        {
+            failure = "map reset retained actor models";
+            return false;
+        }
+        return true;
+    });
+
+    runCase("mm6_demon_actor_models_variants_share_asset_and_native_stats", [&](std::string &failure)
+    {
+        if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "oute3.odm"))
+        {
+            failure = "could not load New Sorpigal";
+            return false;
+        }
+        RegressionScenario scenario;
+        if (!initializeRegressionScenario(gameDataLoader, *gameDataLoader.getSelectedMap(), scenario))
+        {
+            failure = "could not initialize New Sorpigal";
+            return false;
+        }
+        const size_t first = scenario.world.mapActorCount();
+        for (int16_t id : {502, 503, 504})
+        {
+            if (!scenario.world.summonHostileMonsterById(id, 1, -9728, -11919 + (id - 502) * 200, 161, 0))
+            {
+                failure = "native factory failed to spawn a demon variant";
+                return false;
+            }
+        }
+        WorldFxSystem fx;
+        if (!fx.loadNamedEffectLibrary(assetFileSystem, "engine/effects/library.yml",
+                "engine/effects/resource_bindings.yml", failure))
+        {
+            return false;
+        }
+        const size_t effectAssets = fx.modelAssets().size();
+        SpriteFrameTable frames;
+        if (!loadModelSpriteFrames(frames, failure))
+        {
+            return false;
+        }
+        std::string invalidError;
+        if (fx.configureActorModels(assetFileSystem, "worlds/mm6/models/actors.yml",
+                gameDataLoader.getMonsterTable(), nullptr, invalidError)
+            || invalidError.find("valid standing sprite") == std::string::npos)
+        {
+            failure = "native scaling silently accepted missing sprite-frame data";
+            return false;
+        }
+        if (!fx.configureActorModels(assetFileSystem, "worlds/mm6/models/actors.yml",
+                gameDataLoader.getMonsterTable(), &frames, failure))
+        {
+            return false;
+        }
+        fx.syncActorModels(scenario.world);
+        // Only the demon instances are under test; other bound residents load their own shared asset.
+        std::vector<Engine::ModelInstanceHandle> handles;
+        std::vector<const Engine::ModelAsset *> actorAssets;
+        for (const Engine::ModelInstanceHandle handle : fx.models().handles())
+        {
+            const Engine::ModelAsset *pAsset = fx.models().asset(handle);
+            if (std::find(actorAssets.begin(), actorAssets.end(), pAsset) == actorAssets.end())
+            {
+                actorAssets.push_back(pAsset);
+            }
+            if (pAsset->findNode("Demon_Native_Mesh"))
+            {
+                handles.push_back(handle);
+            }
+        }
+        if (handles.size() != 3 || fx.modelAssets().size() != effectAssets + actorAssets.size())
+        {
+            failure = "A/B/C expected three instances and one additional actor asset; instances="
+                + std::to_string(handles.size())
+                + " assets=" + std::to_string(fx.modelAssets().size());
+            return false;
+        }
+        const std::array<int, 3> hitPoints = {100, 280, 540};
+        for (size_t i = 0; i < handles.size(); ++i)
+        {
+            const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(first + i);
+            const Engine::ModelAsset *pAsset = fx.models().asset(handles[i]);
+            if (pActor->monsterId != 502 + i || pActor->currentHp != hitPoints[i]
+                || pAsset != fx.models().asset(handles[0]) || fx.models().materialVariant(handles[i]) != i + 1)
+            {
+                failure = "skin selection changed native stats or failed to share the model";
+                return false;
+            }
+            const uint32_t body = *pAsset->findNode("Demon_Native_Mesh");
+            const MonsterTable &monsters = gameDataLoader.getMonsterTable();
+            const SpriteFrameEntry *pFrame = frames.getFrame(
+                *frames.findFrameIndexBySpriteName(monsters.findById(502 + i)->spriteNames[0]), 0);
+            const SpriteFrameEntry *pReference = frames.getFrame(
+                *frames.findFrameIndexBySpriteName(monsters.findById(502)->spriteNames[0]), 0);
+            const Engine::ModelMatrix &matrix = *fx.models().nodeMatrix(handles[i], body);
+            const float scale = std::sqrt(matrix[0] * matrix[0] + matrix[1] * matrix[1] + matrix[2] * matrix[2]);
+            if (std::abs(scale - 104.8623316f * pFrame->scale / pReference->scale) > .001f)
+            {
+                failure = "model size did not follow the native tier's standing sprite scale";
+                return false;
+            }
+            const Engine::ModelMesh &mesh = pAsset->meshes[pAsset->nodes[body].meshIndex];
+            for (uint32_t index : mesh.lodMeshes)
+            {
+                const Engine::ModelPrimitive &iris = pAsset->meshes[index].primitives[1];
+                const int material = iris.materialIndices[i + 1];
+                if (pAsset->materials[material].name != pAsset->materialVariants[i] + "_Iris")
+                {
+                    failure = "a lower LOD retained the wrong iris material";
+                    return false;
+                }
+            }
+        }
+        return true;
+    });
+
+    runCase("mm6_pfem_actor_models_bind_town_peasants", [&](std::string &failure)
+    {
+        if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "oute3.odm"))
+        {
+            failure = "could not load New Sorpigal";
+            return false;
+        }
+        RegressionScenario scenario;
+        if (!initializeRegressionScenario(gameDataLoader, *gameDataLoader.getSelectedMap(), scenario))
+        {
+            failure = "could not initialize New Sorpigal";
+            return false;
+        }
+        SpriteFrameTable frames;
+        WorldFxSystem fx;
+        if (!loadModelSpriteFrames(frames, failure)
+            || !fx.loadNamedEffectLibrary(assetFileSystem, "engine/effects/library.yml",
+                "engine/effects/resource_bindings.yml", failure)
+            || !fx.configureActorModels(assetFileSystem, "worlds/mm6/models/actors.yml",
+                gameDataLoader.getMonsterTable(), &frames, failure))
+        {
+            return false;
+        }
+        const OutdoorWorldRuntime::Snapshot before = scenario.world.snapshot();
+        fx.syncActorModels(scenario.world);
+        std::array<size_t, 3> tiers = {};
+        for (size_t index = 0; index < before.mapActors.size(); ++index)
+        {
+            const OutdoorWorldRuntime::MapActorState &actor = before.mapActors[index];
+            const MonsterEntry *pMonster = gameDataLoader.getMonsterTable().findById(actor.monsterId);
+            const std::string name = pMonster != nullptr ? pMonster->internalName : std::string();
+            const int tier = name == "PeasantF1 A" ? 0 : name == "PeasantF1 B" ? 1 : name == "Peasantf1 C" ? 2 : -1;
+            if (tier >= 0 && !actor.isInvisible)
+            {
+                if (!fx.hasActorModel(index) || !fx.actorModelBounds(index)->valid)
+                {
+                    failure = "a visible female peasant did not acquire a valid model";
+                    return false;
+                }
+                ++tiers[size_t(tier)];
+            }
+            const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(index);
+            if (pActor->monsterId != actor.monsterId || pActor->currentHp != actor.currentHp
+                || pActor->preciseX != actor.preciseX || pActor->preciseY != actor.preciseY
+                || pActor->animationTimeTicks != actor.animationTimeTicks)
+            {
+                failure = "peasant presentation changed actor simulation data";
+                return false;
+            }
+        }
+        std::array<size_t, 3> variants = {};
+        const Engine::ModelAsset *pAsset = nullptr;
+        for (const Engine::ModelInstanceHandle handle : fx.models().handles())
+        {
+            const Engine::ModelAsset *pCandidate = fx.models().asset(handle);
+            if (!pCandidate->findNode("Peasant") || pCandidate->sourcePath.find("mm6_pfem") == std::string::npos)
+            {
+                continue;
+            }
+            if (pAsset != nullptr && pAsset != pCandidate)
+            {
+                failure = "female peasant tiers did not share one model asset";
+                return false;
+            }
+            pAsset = pCandidate;
+            const uint32_t variant = fx.models().materialVariant(handle);
+            if (variant < 1 || variant > 3)
+            {
+                failure = "female peasant instance has no A/B/C skin";
+                return false;
+            }
+            ++variants[variant - 1];
+        }
+        std::cout << "Sorpigal female peasants: A=" << tiers[0] << " B=" << tiers[1] << " C=" << tiers[2] << '\n';
+        if (pAsset == nullptr || variants != tiers || tiers[0] == 0)
+        {
+            failure = "female peasant skins did not follow their native A/B/C descriptors";
+            return false;
+        }
+        const std::array<std::pair<const char *, float>, 7> clips = {{{"Standing", 4.0f}, {"Walking", 1.0417f},
+            {"Attack", 0.75f}, {"Hit", 0.75f}, {"Death", 0.625f}, {"Dead", 1.0f}, {"Fidget", 0.75f}}};
+        for (const auto &[clipName, seconds] : clips)
+        {
+            const std::optional<uint32_t> clip = pAsset->findClip(clipName);
+            if (!clip || std::abs(pAsset->clips[*clip].durationSeconds - seconds) > 0.01f)
+            {
+                failure = std::string("female peasant clip missing or retimed: ") + clipName;
+                return false;
+            }
+        }
+        const Engine::ModelMesh &mesh = pAsset->meshes[pAsset->nodes[*pAsset->findNode("Peasant")].meshIndex];
+        if (mesh.lodMeshes.size() != 3 || pAsset->materialVariants.size() != 3)
+        {
+            failure = "female peasant model lacks its LODs or skins";
+            return false;
+        }
+        return true;
+    });
+
+    runCase("mm6_pman_actor_models_bind_town_peasants", [&](std::string &failure)
+    {
+        if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "oute3.odm"))
+        {
+            failure = "could not load New Sorpigal";
+            return false;
+        }
+        RegressionScenario scenario;
+        if (!initializeRegressionScenario(gameDataLoader, *gameDataLoader.getSelectedMap(), scenario))
+        {
+            failure = "could not initialize New Sorpigal";
+            return false;
+        }
+        SpriteFrameTable frames;
+        WorldFxSystem fx;
+        if (!loadModelSpriteFrames(frames, failure)
+            || !fx.loadNamedEffectLibrary(assetFileSystem, "engine/effects/library.yml",
+                "engine/effects/resource_bindings.yml", failure)
+            || !fx.configureActorModels(assetFileSystem, "worlds/mm6/models/actors.yml",
+                gameDataLoader.getMonsterTable(), &frames, failure))
+        {
+            return false;
+        }
+        const OutdoorWorldRuntime::Snapshot before = scenario.world.snapshot();
+        fx.syncActorModels(scenario.world);
+        std::array<size_t, 3> tiers = {};
+        for (size_t index = 0; index < before.mapActors.size(); ++index)
+        {
+            const OutdoorWorldRuntime::MapActorState &actor = before.mapActors[index];
+            const MonsterEntry *pMonster = gameDataLoader.getMonsterTable().findById(actor.monsterId);
+            const std::string name = pMonster != nullptr ? pMonster->internalName : std::string();
+            const int tier = name == "PeasantM1 A" ? 0 : name == "PeasantM1 B" ? 1 : name == "PeasantM1 C" ? 2 : -1;
+            if (tier >= 0 && !actor.isInvisible)
+            {
+                if (!fx.hasActorModel(index) || !fx.actorModelBounds(index)->valid)
+                {
+                    failure = "a visible male peasant did not acquire a valid model";
+                    return false;
+                }
+                ++tiers[size_t(tier)];
+            }
+            const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(index);
+            if (pActor->monsterId != actor.monsterId || pActor->currentHp != actor.currentHp
+                || pActor->preciseX != actor.preciseX || pActor->preciseY != actor.preciseY
+                || pActor->animationTimeTicks != actor.animationTimeTicks)
+            {
+                failure = "peasant presentation changed actor simulation data";
+                return false;
+            }
+        }
+        std::array<size_t, 3> variants = {};
+        const Engine::ModelAsset *pAsset = nullptr;
+        for (const Engine::ModelInstanceHandle handle : fx.models().handles())
+        {
+            const Engine::ModelAsset *pCandidate = fx.models().asset(handle);
+            if (!(pCandidate->findNode("Peasant") && pCandidate->sourcePath.find("mm6_pman") != std::string::npos))
+            {
+                continue;
+            }
+            if (pAsset != nullptr && pAsset != pCandidate)
+            {
+                failure = "male peasant tiers did not share one model asset";
+                return false;
+            }
+            pAsset = pCandidate;
+            const uint32_t variant = fx.models().materialVariant(handle);
+            if (variant < 1 || variant > 3)
+            {
+                failure = "male peasant instance has no A/B/C skin";
+                return false;
+            }
+            ++variants[variant - 1];
+        }
+        std::cout << "Sorpigal male peasants: A=" << tiers[0] << " B=" << tiers[1] << " C=" << tiers[2] << '\n';
+        if (pAsset == nullptr || variants != tiers || tiers[0] == 0)
+        {
+            failure = "male peasant skins did not follow their native A/B/C descriptors";
+            return false;
+        }
+        const std::array<std::pair<const char *, float>, 7> clips = {{{"Standing", 4.0f}, {"Walking", 1.0417f},
+            {"Attack", 0.75f}, {"Hit", 0.625f}, {"Death", 0.625f}, {"Dead", 1.0f}, {"Fidget", 0.75f}}};
+        for (const auto &[clipName, seconds] : clips)
+        {
+            const std::optional<uint32_t> clip = pAsset->findClip(clipName);
+            if (!clip || std::abs(pAsset->clips[*clip].durationSeconds - seconds) > 0.01f)
+            {
+                failure = std::string("male peasant clip missing or retimed: ") + clipName;
+                return false;
+            }
+        }
+        const Engine::ModelMesh &mesh = pAsset->meshes[pAsset->nodes[*pAsset->findNode("Peasant")].meshIndex];
+        if (mesh.lodMeshes.size() != 3 || pAsset->materialVariants.size() != 3)
+        {
+            failure = "male peasant model lacks its LODs or skins";
+            return false;
+        }
+        return true;
+    });
+
+    runCase("mm6_gob_actor_models_bind_sorpigal_goblins", [&](std::string &failure)
+    {
+        if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "oute3.odm"))
+        {
+            failure = "could not load New Sorpigal";
+            return false;
+        }
+        RegressionScenario scenario;
+        if (!initializeRegressionScenario(gameDataLoader, *gameDataLoader.getSelectedMap(), scenario))
+        {
+            failure = "could not initialize New Sorpigal";
+            return false;
+        }
+        SpriteFrameTable frames;
+        WorldFxSystem fx;
+        if (!loadModelSpriteFrames(frames, failure)
+            || !fx.loadNamedEffectLibrary(assetFileSystem, "engine/effects/library.yml",
+                "engine/effects/resource_bindings.yml", failure)
+            || !fx.configureActorModels(assetFileSystem, "worlds/mm6/models/actors.yml",
+                gameDataLoader.getMonsterTable(), &frames, failure))
+        {
+            return false;
+        }
+        const OutdoorWorldRuntime::Snapshot before = scenario.world.snapshot();
+        fx.syncActorModels(scenario.world);
+        std::array<size_t, 3> tiers = {};
+        for (size_t index = 0; index < before.mapActors.size(); ++index)
+        {
+            const OutdoorWorldRuntime::MapActorState &actor = before.mapActors[index];
+            const MonsterEntry *pMonster = gameDataLoader.getMonsterTable().findById(actor.monsterId);
+            const std::string name = pMonster != nullptr ? pMonster->internalName : std::string();
+            const int tier = name == "BGoblin A" ? 0 : name == "BGoblin B" ? 1 : name == "BGoblin C" ? 2 : -1;
+            if (tier >= 0 && !actor.isInvisible)
+            {
+                if (!fx.hasActorModel(index) || !fx.actorModelBounds(index)->valid)
+                {
+                    failure = "a visible goblin did not acquire a valid model";
+                    return false;
+                }
+                ++tiers[size_t(tier)];
+            }
+            const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(index);
+            if (pActor->monsterId != actor.monsterId || pActor->currentHp != actor.currentHp
+                || pActor->preciseX != actor.preciseX || pActor->preciseY != actor.preciseY
+                || pActor->animationTimeTicks != actor.animationTimeTicks)
+            {
+                failure = "peasant presentation changed actor simulation data";
+                return false;
+            }
+        }
+        std::array<size_t, 3> variants = {};
+        const Engine::ModelAsset *pAsset = nullptr;
+        for (const Engine::ModelInstanceHandle handle : fx.models().handles())
+        {
+            const Engine::ModelAsset *pCandidate = fx.models().asset(handle);
+            if (!(pCandidate->findNode("Peasant") && pCandidate->sourcePath.find("mm6_gob") != std::string::npos))
+            {
+                continue;
+            }
+            if (pAsset != nullptr && pAsset != pCandidate)
+            {
+                failure = "goblin tiers did not share one model asset";
+                return false;
+            }
+            pAsset = pCandidate;
+            const uint32_t variant = fx.models().materialVariant(handle);
+            if (variant < 1 || variant > 3)
+            {
+                failure = "goblin instance has no A/B/C skin";
+                return false;
+            }
+            ++variants[variant - 1];
+        }
+        std::cout << "Sorpigal goblins: A=" << tiers[0] << " B=" << tiers[1] << " C=" << tiers[2] << '\n';
+        if (pAsset == nullptr || variants != tiers || tiers[0] == 0)
+        {
+            failure = "goblin skins did not follow their native A/B/C descriptors";
+            return false;
+        }
+        const std::array<std::pair<const char *, float>, 7> clips = {{{"Standing", 4.0f}, {"Walking", 1.0417f},
+            {"Attack", 0.75f}, {"Hit", 0.75f}, {"Death", 0.625f}, {"Dead", 1.0f}, {"Fidget", 0.75f}}};
+        for (const auto &[clipName, seconds] : clips)
+        {
+            const std::optional<uint32_t> clip = pAsset->findClip(clipName);
+            if (!clip || std::abs(pAsset->clips[*clip].durationSeconds - seconds) > 0.01f)
+            {
+                failure = std::string("goblin clip missing or retimed: ") + clipName;
+                return false;
+            }
+        }
+        const Engine::ModelMesh &mesh = pAsset->meshes[pAsset->nodes[*pAsset->findNode("Peasant")].meshIndex];
+        if (mesh.lodMeshes.size() != 3 || pAsset->materialVariants.size() != 3)
+        {
+            failure = "goblin model lacks its LODs or skins";
+            return false;
+        }
+        return true;
+    });
+
+    runCase("mm6_demon_actor_models_sorpigal_crowd", [&](std::string &failure)
+    {
+        if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "oute3.odm"))
+        {
+            failure = "could not load New Sorpigal";
+            return false;
+        }
+        RegressionScenario scenario;
+        if (!initializeRegressionScenario(gameDataLoader, *gameDataLoader.getSelectedMap(), scenario))
+        {
+            failure = "could not initialize New Sorpigal";
+            return false;
+        }
+        WorldFxSystem fx;
+        if (!fx.configureActorModels(assetFileSystem, "worlds/mm6/models/sorpigal_demon_crowd.yml",
+                gameDataLoader.getMonsterTable(), nullptr, failure))
+        {
+            return false;
+        }
+        const OutdoorWorldRuntime::Snapshot before = scenario.world.snapshot();
+        fx.syncActorModels(scenario.world);
+        size_t goblins = 0;
+        size_t magicians = 0;
+        for (size_t index = 0; index < before.mapActors.size(); ++index)
+        {
+            const OutdoorWorldRuntime::MapActorState &actor = before.mapActors[index];
+            const bool goblin = actor.monsterId >= 550 && actor.monsterId <= 552;
+            const bool magician = (actor.monsterId >= 610 && actor.monsterId <= 612)
+                || (actor.monsterId >= 631 && actor.monsterId <= 633)
+                || (actor.monsterId >= 904 && actor.monsterId <= 906);
+            const bool expected = (goblin || magician) && !actor.isInvisible;
+            if (fx.hasActorModel(index) != expected || (expected && !fx.actorModelBounds(index)->valid))
+            {
+                failure = "crowd configuration did not bind exactly the visible goblins and magicians";
+                return false;
+            }
+            if (expected)
+            {
+                goblins += goblin;
+                magicians += magician;
+            }
+            const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(index);
+            if (pActor->monsterId != actor.monsterId || pActor->currentHp != actor.currentHp
+                || pActor->preciseX != actor.preciseX || pActor->preciseY != actor.preciseY
+                || pActor->preciseZ != actor.preciseZ || pActor->animationTimeTicks != actor.animationTimeTicks)
+            {
+                failure = "crowd presentation changed actor simulation data";
+                return false;
+            }
+        }
+        std::cout << "Sorpigal demon crowd: goblins=" << goblins << " magicians=" << magicians
+            << " models=" << fx.models().size() << '\n';
+        if (goblins == 0 || magicians == 0 || fx.models().size() != goblins + magicians)
+        {
+            failure = "crowd test requires both creature families and one model per matched actor";
+            return false;
+        }
+        return true;
+    });
+
+    runCase("mm6_demon_actor_models_indoor_binding", [&](std::string &failure)
+    {
+        if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "6d07.blv"))
+        {
+            failure = "could not load the New Sorpigal temple";
+            return false;
+        }
+        IndoorRegressionScenario scenario;
+        if (!initializeIndoorRegressionScenario(gameDataLoader, *gameDataLoader.getSelectedMap(), scenario))
+        {
+            failure = "could not initialize the temple";
+            return false;
+        }
+        const size_t first = scenario.world.mapActorCount();
+        if (!scenario.world.summonHostileMonsterById(502, 3, 0, 0, 0, 0))
+        {
+            failure = "indoor factory could not summon demons";
+            return false;
+        }
+        SpriteFrameTable frames;
+        WorldFxSystem fx;
+        if (!loadModelSpriteFrames(frames, failure)
+            || !fx.loadNamedEffectLibrary(assetFileSystem, "engine/effects/library.yml",
+                "engine/effects/resource_bindings.yml", failure)
+            || !fx.configureActorModels(assetFileSystem, "worlds/mm6/models/actors.yml",
+                gameDataLoader.getMonsterTable(), &frames, failure))
+        {
+            return false;
+        }
+        fx.syncActorModels(scenario.world);
+        for (size_t index = first; index < first + 3; ++index)
+        {
+            GameplayRuntimeActorState state;
+            if (!scenario.world.actorRuntimeState(index, state) || state.monsterId != 502
+                || !fx.hasActorModel(index) || !fx.actorModelBounds(index)->valid)
+            {
+                failure = "indoor demon did not receive a model bound to the same actor";
+                return false;
+            }
+            const IndoorWorldRuntime::MapActorAiState *pAi = scenario.world.mapActorAiState(index);
+            if (pAi == nullptr || state.animationTimeTicks != pAi->animationTimeTicks
+                || state.animationState != pAi->animationState || state.yawRadians != pAi->yawRadians)
+            {
+                failure = "indoor presentation did not expose the native AI pose clock";
+                return false;
+            }
+        }
+        return fx.models().size() == 3;
+    });
+
+    for (bool indoors : {false, true})
+    {
+        for (bool doorway : {false, true})
+        {
+            const std::string caseName = std::string("actor_crowding_")
+                + (indoors ? "indoor_" : "outdoor_") + (doorway ? "doorway" : "open_ground");
+            runCase(caseName, [&](std::string &failure)
+            {
+                return runActorCrowdingRegression(gameDataLoader, indoors, doorway, failure);
+            });
+        }
+    }
+
     if (suiteName == "indoor")
     {
         runCase(
@@ -9001,6 +10109,194 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             }
         );
 
+        struct LevitatePlateCase
+        {
+            const char *worldId;
+            const char *mapFile;
+            uint16_t trapEvent;
+            uint16_t ordinaryEvent;
+            bool damagesParty;
+        };
+        for (const LevitatePlateCase &plateCase : {
+                 LevitatePlateCase{"mm8", "d26.blv", 101, 0, false},
+                 LevitatePlateCase{"mm8", "d05.blv", 111, 12, false},
+                 LevitatePlateCase{"mm7", "7d10.blv", 451, 0, false},
+                 LevitatePlateCase{"mm7", "7d12.blv", 452, 11, false},
+                 LevitatePlateCase{"mm6", "6d03.blv", 21, 22, false},
+                 LevitatePlateCase{"mm6", "6d08.blv", 22, 24, false},
+                 LevitatePlateCase{"mm6", "6t8.blv", 16, 0, true}})
+        {
+            runCase(
+                std::string("indoor_levitate_pressure_plate_") + plateCase.mapFile,
+                [&](std::string &failure)
+                {
+                    const std::string previousWorldId = assetFileSystem.getActiveWorldId();
+                    struct WorldRestore
+                    {
+                        Engine::AssetFileSystem &assets;
+                        std::string worldId;
+                        ~WorldRestore()
+                        {
+                            assets.switchActiveWorld(worldId);
+                        }
+                    } worldRestore{assetFileSystem, previousWorldId};
+                    if (!assetFileSystem.switchActiveWorld(plateCase.worldId)
+                        || !gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, plateCase.mapFile))
+                    {
+                        failure = "could not load plate map";
+                        return false;
+                    }
+                    const std::optional<MapAssetInfo> &loadedMap = gameDataLoader.getSelectedMap();
+                    if (!loadedMap || !loadedMap->indoorMapData || !loadedMap->indoorMapDeltaData
+                        || !loadedMap->eventRuntimeState || !loadedMap->localEventProgram)
+                    {
+                        failure = "plate map is missing runtime data";
+                        return false;
+                    }
+                    const IndoorMapData &mapData = *loadedMap->indoorMapData;
+                    const size_t noFace = static_cast<size_t>(-1);
+                    size_t trapFace = noFace;
+                    size_t ordinaryFace = noFace;
+                    size_t safeFace = noFace;
+                    for (size_t index = 0; index < mapData.faces.size(); ++index)
+                    {
+                        const IndoorFace &face = mapData.faces[index];
+                        if (face.facetType != 3 && face.facetType != 4)
+                        {
+                            continue;
+                        }
+                        if (!hasFaceAttribute(face.attributes, FaceAttribute::PressurePlate))
+                        {
+                            safeFace = index;
+                        }
+                        else if (face.cogTriggered == plateCase.trapEvent)
+                        {
+                            trapFace = index;
+                        }
+                        else if (plateCase.ordinaryEvent != 0 && face.cogTriggered == plateCase.ordinaryEvent)
+                        {
+                            ordinaryFace = index;
+                        }
+                    }
+                    if (trapFace == noFace || safeFace == noFace
+                        || (plateCase.ordinaryEvent != 0 && ordinaryFace == noFace))
+                    {
+                        failure = "expected floor bindings were not found";
+                        return false;
+                    }
+                    if (!loadedMap->localEventProgram->isLevitateSensitivePressurePlate(
+                            plateCase.trapEvent, mapData.faces[trapFace].attributes))
+                    {
+                        failure = "loaded event program is missing the trap policy";
+                        return false;
+                    }
+
+                    Party party;
+                    party.setItemTable(&gameDataLoader.getItemTable());
+                    party.setClassMultiplierTable(&gameDataLoader.getClassMultiplierTable());
+                    party.seed(createRegressionPartySeed());
+                    GameplayActorService actorService = buildBoundGameplayActorService(gameDataLoader);
+                    GameplayProjectileService projectileService;
+                    IndoorSceneRuntime runtime(
+                        loadedMap->map.fileName, loadedMap->map, mapData,
+                        gameDataLoader.getMonsterTable(), gameDataLoader.getMonsterProjectileTable(),
+                        gameDataLoader.getObjectTable(), gameDataLoader.getSpellTable(),
+                        gameDataLoader.getItemTable(), gameDataLoader.getChestTable(), party,
+                        loadedMap->indoorMapDeltaData, loadedMap->eventRuntimeState,
+                        loadedMap->localEventProgram, loadedMap->globalEventProgram,
+                        &actorService, &projectileService);
+                    const auto health = [&]()
+                    {
+                        int total = 0;
+                        for (const Character &member : runtime.party().members())
+                        {
+                            total += member.health;
+                        }
+                        return total;
+                    };
+                    const auto standOn = [&](size_t faceIndex)
+                    {
+                        // Scene snapshots store movement/world state; party state belongs to the session.
+                        party = runtime.party();
+                        IndoorSceneRuntime::Snapshot snapshot = runtime.snapshot();
+                        snapshot.partyRuntime.movementState.grounded = true;
+                        snapshot.partyRuntime.movementState.supportFaceIndex = faceIndex;
+                        snapshot.partyRuntime.movementState.sectorId = mapData.faces[faceIndex].roomNumber;
+                        snapshot.partyRuntime.movementState.eyeSectorId = mapData.faces[faceIndex].roomNumber;
+                        snapshot.eventRuntimeState->lastPressurePlateTrigger.reset();
+                        runtime.restoreSnapshot(snapshot);
+                        runtime.advanceSimulation(1.0f);
+                    };
+                    const auto applyBuff = [&](PartyBuffId buffId)
+                    {
+                        runtime.party().applyPartyBuff(buffId, 10.0f, 0, 112, 1, SkillMastery::Expert, 0);
+                    };
+                    standOn(safeFace);
+                    Character *pCaster = runtime.party().member(0);
+                    ensureCharacterSkill(*pCaster, "VampireAbility", 3, SkillMastery::Expert);
+                    pCaster->learnSpell(spellIdValue(SpellId::Levitate));
+                    PartySpellCastRequest request;
+                    request.casterMemberIndex = 0;
+                    request.spellId = spellIdValue(SpellId::Levitate);
+                    request.spendMana = false;
+                    request.applyRecovery = false;
+                    const PartySpellCastResult castResult = PartySpellSystem::castSpell(
+                        runtime.party(), runtime.worldRuntime(), gameDataLoader.getSpellTable(), request);
+                    if (!castResult.succeeded()
+                        || !runtime.party().hasPartyBuff(PartyBuffId::Levitate))
+                    {
+                        failure = "Levitate spell casting did not apply the party buff";
+                        return false;
+                    }
+                    const int initialHealth = health();
+                    const std::array<uint8_t, 75> initialMapVars = runtime.eventRuntimeState()->mapVars;
+                    standOn(trapFace);
+                    if (runtime.eventRuntimeState()->lastPressurePlateTrigger
+                        || projectileService.projectileCount() != 0 || health() != initialHealth
+                        || runtime.eventRuntimeState()->mapVars != initialMapVars)
+                    {
+                        failure = "levitating entry activated a trap or changed its puzzle state";
+                        return false;
+                    }
+
+                    runtime.party().advanceTimedStates(
+                        runtime.party().partyBuff(PartyBuffId::Levitate)->remainingSeconds + 1.0f);
+                    standOn(trapFace);
+                    if (runtime.party().hasPartyBuff(PartyBuffId::Levitate)
+                        || runtime.eventRuntimeState()->lastPressurePlateTrigger)
+                    {
+                        failure = "buff expiration retriggered the occupied plate";
+                        return false;
+                    }
+                    applyBuff(PartyBuffId::WaterWalk);
+                    applyBuff(PartyBuffId::FeatherFall);
+                    standOn(safeFace);
+                    standOn(trapFace);
+                    const bool trapHadEffect = plateCase.damagesParty
+                        ? health() < initialHealth : projectileService.projectileCount() > 0;
+                    if (!runtime.eventRuntimeState()->lastPressurePlateTrigger || !trapHadEffect)
+                    {
+                        failure = "unprotected re-entry did not activate trap damage/projectiles";
+                        return false;
+                    }
+
+                    if (ordinaryFace != noFace)
+                    {
+                        standOn(safeFace);
+                        applyBuff(PartyBuffId::Levitate);
+                        standOn(ordinaryFace);
+                        if (!runtime.eventRuntimeState()->lastPressurePlateTrigger
+                            || runtime.eventRuntimeState()->lastPressurePlateTrigger->eventId
+                                != plateCase.ordinaryEvent)
+                        {
+                            failure = "Levitate suppressed an ordinary floor event";
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+        }
+
         runCase(
             "indoor_pressure_plate_tiled_region_triggers_once_per_event_entry",
             [&](std::string &failure)
@@ -9612,6 +10908,133 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return true;
             }
         );
+
+        runCase(
+            "indoor_actor_audio_follows_damage_hooks_and_state_transitions",
+            [&](std::string &failure)
+            {
+                if (!gameDataLoader.loadMapByFileNameForHeadlessGameplay(assetFileSystem, "d18.blv"))
+                {
+                    failure = "could not load d18.blv";
+                    return false;
+                }
+                IndoorRegressionScenario scenario = {};
+                if (!initializeIndoorRegressionScenario(gameDataLoader, *gameDataLoader.getSelectedMap(), scenario))
+                {
+                    failure = "indoor audio scenario initialization failed";
+                    return false;
+                }
+                size_t index = 0;
+                const MonsterTable::MonsterStatsEntry *pStats = nullptr;
+                for (; index < scenario.world.mapActorCount(); ++index)
+                {
+                    GameplayRuntimeActorState actor = {};
+                    scenario.world.actorRuntimeState(index, actor);
+                    pStats = gameDataLoader.getMonsterTable().findStatsById(actor.monsterId);
+                    if (!actor.isDead && !actor.isInvisible && pStats != nullptr
+                        && pStats->winceSoundId != 0 && pStats->deathSoundId != 0 && pStats->boredSoundId != 0)
+                    {
+                        break;
+                    }
+                }
+                if (index == scenario.world.mapActorCount())
+                {
+                    failure = "no voiced indoor actor";
+                    return false;
+                }
+                const auto resetActor = [&](ActorAiMotionState motion)
+                {
+                    scenario.mapDeltaData->actors[index].hp = 100;
+                    IndoorWorldRuntime::Snapshot snapshot = scenario.world.snapshot();
+                    snapshot.mapActorAiStates[index].motionState = motion;
+                    snapshot.mapActorAiStates[index].animationState = motion == ActorAiMotionState::Attacking
+                        ? ActorAiAnimationState::AttackMelee : ActorAiAnimationState::Standing;
+                    snapshot.mapActorAiStates[index].actionSeconds = 1;
+                    scenario.world.restoreSnapshot(snapshot);
+                    scenario.eventRuntimeState->pendingSounds.clear();
+                };
+                const auto voiceCount = [&](uint32_t soundId)
+                {
+                    return std::count_if(scenario.eventRuntimeState->pendingSounds.begin(),
+                        scenario.eventRuntimeState->pendingSounds.end(),
+                        [&](const EventRuntimeState::PendingSound &sound)
+                        {
+                            return sound.actorIndex == index && sound.soundId == soundId;
+                        });
+                };
+                resetActor(ActorAiMotionState::Standing);
+                IndoorWorldRuntime::Snapshot idleSnapshot = scenario.world.snapshot();
+                IndoorWorldRuntime::MapActorAiState &idle = idleSnapshot.mapActorAiStates[index];
+                for (idle.idleDecisionCount = 0; idle.idleDecisionCount < 10000; ++idle.idleDecisionCount)
+                {
+                    if (actorChoosesBored(idle.actorId, idle.idleDecisionCount)
+                        && actorBoredSoundRoll(idle.actorId, idle.idleDecisionCount))
+                    {
+                        break;
+                    }
+                }
+                idle.actionSeconds = 0.001f;
+                idle.idleDecisionSeconds = 0.001f;
+                scenario.world.restoreSnapshot(idleSnapshot);
+                scenario.world.updateTurnBasedPausedActorAnimations(0.01f);
+                scenario.world.updateTurnBasedPausedActorAnimations(0.01f);
+                if (voiceCount(pStats->boredSoundId) != 1)
+                {
+                    failure = "indoor turn-based fidget did not emit one voice on entry";
+                    return false;
+                }
+                resetActor(ActorAiMotionState::Standing);
+                scenario.world.applyPartyAttackMeleeDamage(index, 1, {});
+                scenario.world.applyPartyAttackMeleeDamage(index, 1, {});
+                if (voiceCount(pStats->winceSoundId) != 1 || voiceCount(pStats->deathSoundId) != 0)
+                {
+                    failure = "indoor repeated hit did not share reaction eligibility";
+                    return false;
+                }
+                resetActor(ActorAiMotionState::Attacking);
+                scenario.world.applyPartyAttackMeleeDamage(index, 1, {});
+                if (voiceCount(pStats->winceSoundId) != 0)
+                {
+                    failure = "attacking indoor actor cried on ordinary damage";
+                    return false;
+                }
+
+                std::optional<ScriptedEventProgram> hook;
+                const std::optional<ScriptedEventProgram> noGlobal;
+                for (int damageOverride : {0, 1})
+                {
+                    resetActor(ActorAiMotionState::Standing);
+                    hook = ScriptedEventProgram::loadFromLuaText(
+                        "evt.meta.map.monsterDamageHooks = {65000}\n"
+                        "evt.map[65000] = function() evt.SetHookDamage("
+                            + std::to_string(damageOverride) + ") end",
+                        "actor_audio_test.lua", ScriptedEventScope::Map, failure);
+                    if (!hook)
+                    {
+                        return false;
+                    }
+                    scenario.world.bindEventExecution(&scenario.eventRuntime, &hook, &noGlobal);
+                    scenario.world.applyPartyAttackMeleeDamage(index, 10000, {});
+                    if (scenario.mapDeltaData->actors[index].hp != 100 - damageOverride
+                        || voiceCount(pStats->deathSoundId) != 0
+                        || voiceCount(pStats->winceSoundId) != damageOverride)
+                    {
+                        failure = "indoor audio predicted damage before the event hook";
+                        return false;
+                    }
+                }
+                hook.reset();
+                resetActor(ActorAiMotionState::Standing);
+                scenario.world.applyPartyAttackMeleeDamage(index, 10000, {});
+                scenario.world.applyPartyAttackMeleeDamage(index, 10000, {});
+                scenario.world.updateTurnBasedPausedActorAnimations(0.01f);
+                if (voiceCount(pStats->deathSoundId) != 1 || voiceCount(pStats->winceSoundId) != 0)
+                {
+                    failure = "indoor lethal transition did not emit exactly one death voice";
+                    return false;
+                }
+                return true;
+            });
 
         runCase(
             "indoor_world_runtime_exposes_actor_queries_and_direct_damage",
@@ -12684,7 +14107,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             {
                 scenario.world.updateMapActors(
                     1.0f / 60.0f,
-                    static_cast<float>(startX + 6000),
+                    static_cast<float>(startX + 3000),
                     static_cast<float>(startY),
                     static_cast<float>(pBefore->z));
 
@@ -12755,13 +14178,12 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             bool sawStanding = pBefore->aiState == OutdoorWorldRuntime::ActorAiState::Standing;
             bool sawWandering = pBefore->aiState == OutdoorWorldRuntime::ActorAiState::Wandering;
             bool sawWalkingAnimation = pBefore->animation == OutdoorWorldRuntime::ActorAnimation::Walking;
-            bool sawBoredAnimation = pBefore->animation == OutdoorWorldRuntime::ActorAnimation::Bored;
 
             for (int step = 0; step < 360; ++step)
             {
                 scenario.world.updateMapActors(
                     1.0f / 60.0f,
-                    static_cast<float>(startX + 6000),
+                    static_cast<float>(startX + 3000),
                     static_cast<float>(startY),
                     static_cast<float>(pBefore->z));
 
@@ -12775,8 +14197,6 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                         || pStepActor->aiState == OutdoorWorldRuntime::ActorAiState::Wandering;
                     sawWalkingAnimation = sawWalkingAnimation
                         || pStepActor->animation == OutdoorWorldRuntime::ActorAnimation::Walking;
-                    sawBoredAnimation = sawBoredAnimation
-                        || pStepActor->animation == OutdoorWorldRuntime::ActorAnimation::Bored;
                 }
             }
 
@@ -12797,12 +14217,6 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             if (!sawStanding || !sawWandering || !sawWalkingAnimation)
             {
                 failure = "actor 3 did not cycle through idle/walk states";
-                return false;
-            }
-
-            if (sawBoredAnimation)
-            {
-                failure = "actor 3 unexpectedly entered bored animation during ordinary idle wander";
                 return false;
             }
 
@@ -12835,7 +14249,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
 
             const int startX = pBefore->x;
             const int startY = pBefore->y;
-            const float partyX = static_cast<float>(startX + 6000);
+            const float partyX = static_cast<float>(startX + 3000);
             const float partyY = static_cast<float>(startY);
             const float partyZ = static_cast<float>(pBefore->z);
             bool sawWandering = false;
@@ -13100,6 +14514,86 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
     );
 
     runCase(
+        "outdoor_ground_actor_walking_preserves_falling_velocity",
+        [&](std::string &failure)
+        {
+            RegressionScenario scenario = {};
+            if (!initializeRegressionScenario(gameDataLoader, *selectedMap, scenario))
+            {
+                failure = "scenario init failed";
+                return false;
+            }
+
+            OutdoorWorldRuntime::Snapshot snapshot = scenario.world.snapshot();
+            size_t actorIndex = snapshot.mapActors.size();
+            for (size_t index = 0; index < snapshot.mapActors.size(); ++index)
+            {
+                const OutdoorWorldRuntime::MapActorState &actor = snapshot.mapActors[index];
+                const MonsterTable::MonsterStatsEntry *pStats =
+                    gameDataLoader.getMonsterTable().findStatsById(actor.monsterId);
+                if (pStats != nullptr && !pStats->canFly && actor.moveSpeed > 0
+                    && !actor.isDead && !actor.hostileToParty
+                    && pStats->movementType != MonsterTable::MonsterMovementType::Stationary)
+                {
+                    actorIndex = index;
+                    break;
+                }
+            }
+            if (actorIndex == snapshot.mapActors.size())
+            {
+                failure = "no walking ground actor available";
+                return false;
+            }
+
+            OutdoorWorldRuntime::MapActorState &actor = snapshot.mapActors[actorIndex];
+            actor.preciseZ += 4000.0f;
+            actor.z = static_cast<int>(std::lround(actor.preciseZ));
+            actor.homePreciseZ = actor.preciseZ;
+            actor.homeZ = actor.z;
+            actor.aiState = OutdoorWorldRuntime::ActorAiState::Wandering;
+            actor.animation = OutdoorWorldRuntime::ActorAnimation::Walking;
+            actor.actionSeconds = 10.0f;
+            actor.idleDecisionSeconds = 10.0f;
+            actor.moveDirectionX = 1.0f;
+            actor.moveDirectionY = 0.0f;
+            actor.velocityZ = 0.0f;
+            actor.movementStateInitialized = false;
+            snapshot.actorUpdateAccumulatorSeconds = 0.0f;
+            const float startX = actor.preciseX;
+            const float startY = actor.preciseY;
+            const float startZ = actor.preciseZ;
+            scenario.world.restoreSnapshot(snapshot);
+
+            size_t walkingTicks = 0;
+            for (int tick = 0; tick < 64; ++tick)
+            {
+                scenario.world.updateMapActors(1.0f / 128.0f, startX + 1000.0f, startY, startZ);
+                const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(actorIndex);
+                if (pActor != nullptr && pActor->animation == OutdoorWorldRuntime::ActorAnimation::Walking)
+                {
+                    ++walkingTicks;
+                }
+            }
+            const OutdoorWorldRuntime::MapActorState *pActor = scenario.world.mapActorState(actorIndex);
+            if (pActor == nullptr || walkingTicks < 60 || std::abs(pActor->preciseX - startX) < 1.0f)
+            {
+                failure = "actor did not exercise walking integration while airborne: walking_ticks="
+                    + std::to_string(walkingTicks) + " delta_x="
+                    + std::to_string(pActor != nullptr ? pActor->preciseX - startX : 0.0f);
+                return false;
+            }
+            if (!pActor->movementState.airborne || pActor->preciseZ > startZ - 150.0f
+                || pActor->preciseZ < startZ - 180.0f || pActor->velocityZ > -630.0f)
+            {
+                failure = "walking actor did not accumulate gravity: drop="
+                    + std::to_string(startZ - pActor->preciseZ) + " velocity=" + std::to_string(pActor->velocityZ);
+                return false;
+            }
+            return true;
+        }
+    );
+
+    runCase(
         "jeric_whistlebone_actor_stays_on_terrain_floor_under_tent",
         [&](std::string &failure)
         {
@@ -13296,9 +14790,10 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
-            if (pAfter->animation != OutdoorWorldRuntime::ActorAnimation::Standing)
+            if (pAfter->animation != OutdoorWorldRuntime::ActorAnimation::Standing
+                && pAfter->animation != OutdoorWorldRuntime::ActorAnimation::Bored)
             {
-                failure = "actor 3 did not use standing animation when party was near";
+                failure = "actor 3 did not use an idle animation when party was near";
                 return false;
             }
 
@@ -13502,6 +14997,114 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             return true;
         }
     );
+
+    runCase(
+        "outdoor_actor_audio_follows_resolved_state_transitions",
+        [&](std::string &failure)
+        {
+            RegressionScenario scenario = {};
+            if (!initializeRegressionScenario(gameDataLoader, *selectedMap, scenario))
+            {
+                failure = "outdoor audio scenario initialization failed";
+                return false;
+            }
+            const size_t index = 3;
+            OutdoorWorldRuntime::Snapshot initial = scenario.world.snapshot();
+            if (initial.mapActors.size() <= index)
+            {
+                failure = "outdoor voiced actor missing";
+                return false;
+            }
+            initial.mapActors[index].currentHp = 100;
+            initial.mapActors[index].maxHp = 100;
+            initial.mapActors[index].isDead = false;
+            initial.mapActors[index].isInvisible = false;
+            initial.mapActors[index].aiState = OutdoorWorldRuntime::ActorAiState::Standing;
+            initial.mapActors[index].animation = OutdoorWorldRuntime::ActorAnimation::Standing;
+            const auto resetActor = [&]()
+            {
+                scenario.world.restoreSnapshot(initial);
+                scenario.world.clearPendingAudioEvents();
+            };
+            const auto voiceCount = [&](const std::string &reason)
+            {
+                return std::count_if(scenario.world.pendingAudioEvents().begin(),
+                    scenario.world.pendingAudioEvents().end(),
+                    [&](const OutdoorWorldRuntime::AudioEvent &event)
+                    {
+                        return event.actorIndex == index && event.reason == reason;
+                    });
+            };
+            resetActor();
+            scenario.world.applyPartyAttackToMapActor(index, 1, 0, 0, 0);
+            scenario.world.applyPartyAttackToMapActor(index, 1, 0, 0, 0);
+            if (voiceCount("monster_hit") != 1 || voiceCount("monster_death") != 0)
+            {
+                failure = "outdoor repeated hit did not share reaction eligibility";
+                return false;
+            }
+            initial.mapActors[index].aiState = OutdoorWorldRuntime::ActorAiState::Attacking;
+            initial.mapActors[index].animation = OutdoorWorldRuntime::ActorAnimation::AttackMelee;
+            resetActor();
+            scenario.world.applyPartyAttackToMapActor(index, 1, 0, 0, 0);
+            if (voiceCount("monster_hit") != 0)
+            {
+                failure = "attacking outdoor actor cried on ordinary damage";
+                return false;
+            }
+            scenario.world.applyPartyAttackToMapActor(index, 10000, 0, 0, 0);
+            scenario.world.applyPartyAttackToMapActor(index, 10000, 0, 0, 0);
+            scenario.world.updateTurnBasedPausedActorAnimations(0.01f);
+            if (voiceCount("monster_death") != 1)
+            {
+                failure = "outdoor lethal transition did not emit exactly one death voice";
+                return false;
+            }
+            const OutdoorWorldRuntime::AudioEvent &death = scenario.world.pendingAudioEvents().front();
+            if (std::abs(death.z - initial.mapActors[index].preciseZ) > 0.01f)
+            {
+                failure = "outdoor voice did not originate at actor feet";
+                return false;
+            }
+            scenario.world.clearPendingAudioEvents();
+            if (!scenario.world.resurrectMapActor(index, 100, true) || voiceCount("monster_resurrect") != 1)
+            {
+                failure = "outdoor resurrection voice missing";
+                return false;
+            }
+            OutdoorWorldRuntime::MapActorState &idle = initial.mapActors[index];
+            idle.aiState = OutdoorWorldRuntime::ActorAiState::Standing;
+            idle.animation = OutdoorWorldRuntime::ActorAnimation::Standing;
+            idle.actionSeconds = 0.001f;
+            idle.idleDecisionSeconds = 0.001f;
+            idle.yawRadians = 0.0f;
+            for (idle.idleDecisionCount = 0; idle.idleDecisionCount < 10000; ++idle.idleDecisionCount)
+            {
+                if (actorChoosesBored(idle.actorId, idle.idleDecisionCount)
+                    && actorBoredSoundRoll(idle.actorId, idle.idleDecisionCount))
+                {
+                    break;
+                }
+            }
+            resetActor();
+            // Outside full AI (5632), but within the ordinary actor mixer range (8192).
+            scenario.world.updateMapActors(1.0f / 128.0f, idle.preciseX + 6000, idle.preciseY, idle.preciseZ);
+            scenario.world.updateMapActors(1.0f / 128.0f, idle.preciseX + 6000, idle.preciseY, idle.preciseZ);
+            if (voiceCount("monster_bored") != 1)
+            {
+                failure = "background actor did not emit one fidget voice outside full-AI range";
+                return false;
+            }
+            resetActor();
+            scenario.world.updateTurnBasedPausedActorAnimations(0.01f);
+            scenario.world.updateTurnBasedPausedActorAnimations(0.01f);
+            if (voiceCount("monster_bored") != 1)
+            {
+                failure = "outdoor turn-based fidget did not emit one voice on entry";
+                return false;
+            }
+            return true;
+        });
 
     runCase(
         "party_attack_on_actor_3_causes_damage_and_hostility",
@@ -13858,11 +15461,11 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                         return false;
                     }
 
-                    if (std::abs(pAfterUpdate->velocityX) > 0.01f
-                        || std::abs(pAfterUpdate->velocityY) > 0.01f
-                        || std::abs(pAfterUpdate->velocityZ) > 0.01f)
+                    // Corpse knockback and gravity continue; inactive death must not resume AI walking.
+                    if (std::abs(pAfterUpdate->moveDirectionX) > 0.01f
+                        || std::abs(pAfterUpdate->moveDirectionY) > 0.01f)
                     {
-                        failure = "inactive lethal actor kept moving";
+                        failure = "inactive dying actor resumed directed movement";
                         return false;
                     }
 
@@ -15214,6 +16817,8 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             pathObject.radius = static_cast<float>(pathActor.radius);
             pathObject.stepLength = 64.0f;
             pathObject.stepHeight = 128.0f;
+            pathObject.dropHeight =
+                std::max(pathObject.stepHeight, std::min(pathObject.radius, pathObject.stepHeight * 2.0f));
             const PathPoint pathSource = {startX, startY, startZ};
             const PathPoint pathTarget = {partyX, partyY, partyZ};
             const PathWalkSegmentDebug directDebug =
@@ -17031,7 +18636,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
 
             const int leftInitialHp = pLeftActorBefore->currentHp;
             const int rightInitialHp = pRightActorBefore->currentHp;
-            const float partyX = pRightActorBefore->preciseX + 6000.0f;
+            const float partyX = pRightActorBefore->preciseX + 3000.0f;
             const float partyY = pRightActorBefore->preciseY;
             const float partyZ = pRightActorBefore->preciseZ;
             bool sawEngagement = false;
@@ -19147,8 +20752,8 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             saveData.outdoorWorldStates["Data/games/out02.odm"] = saveData.outdoorWorld;
             saveData.outdoorWorldStates["Data/games/out02.odm"].gameMinutes += 12.0f;
             saveData.savedGameMinutes = saveData.outdoorWorld.gameMinutes;
-            saveData.outdoorCameraYawRadians = 1.25f;
-            saveData.outdoorCameraPitchRadians = -0.45f;
+            saveData.cameraYawRadians = 1.25f;
+            saveData.cameraPitchRadians = -0.45f;
 
             const std::filesystem::path savePath = "/tmp/openyamm_save_roundtrip.oysav";
             std::string error;
@@ -19258,8 +20863,8 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
-            if (std::abs(loadedSave->outdoorCameraYawRadians - 1.25f) > 0.0001f
-                || std::abs(loadedSave->outdoorCameraPitchRadians + 0.45f) > 0.0001f)
+            if (std::abs(loadedSave->cameraYawRadians - 1.25f) > 0.0001f
+                || std::abs(loadedSave->cameraPitchRadians + 0.45f) > 0.0001f)
             {
                 failure = "camera heading did not roundtrip";
                 return false;
@@ -19498,6 +21103,19 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             }
 
             OutdoorWorldRuntime::Snapshot snapshot = scenario.world.snapshot();
+            snapshot.gameMinutes = 3.0f * 60.0f + 30.0f;
+            scenario.world.restoreSnapshot(snapshot);
+            const OutdoorWorldRuntime::AtmosphereState &night = scenario.world.atmosphereState();
+            const std::array<float, 4> nightSunlight = buildOutdoorSunlight(*modifiedMap.outdoorMapData, night);
+            if (!night.isNight || std::abs(nightSunlight[3] - 0.255634f) > 0.001f
+                || nightSunlight[0] != 0.0f || nightSunlight[2] != 0.0f
+                || std::abs(outdoorBillboardBaseLight(nightSunlight) - nightSunlight[3]) > 0.001f
+                || night.darknessOverlayAlpha != 0.0f)
+            {
+                failure = "3:30AM surfaces and sprites did not use atmospheric ambient without a darkness overlay";
+                return false;
+            }
+
             snapshot.gameMinutes = 4.0f * 60.0f;
             scenario.world.restoreSnapshot(snapshot);
 
@@ -19550,6 +21168,52 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
+            return true;
+        }
+    );
+
+    runCase(
+        "outdoor_atmosphere_forced_lighting_overrides_clock_for_surfaces_and_sprites",
+        [&](std::string &failure)
+        {
+            if (!selectedMap || !selectedMap->outdoorMapData)
+            {
+                failure = "selected map missing outdoor data";
+                return false;
+            }
+
+            for (bool alwaysLight : {false, true})
+            {
+                MapAssetInfo modifiedMap = *selectedMap;
+                OutdoorWeatherProfile profile = {};
+                profile.alwaysLight = alwaysLight;
+                profile.alwaysDark = !alwaysLight;
+                modifiedMap.outdoorWeatherProfile = profile;
+                RegressionScenario scenario = {};
+                if (!initializeRegressionScenario(gameDataLoader, modifiedMap, scenario))
+                {
+                    failure = "forced lighting scenario init failed";
+                    return false;
+                }
+
+                OutdoorWorldRuntime::Snapshot snapshot = scenario.world.snapshot();
+                for (float minutes : {0.0f, 210.0f, 720.0f, 1320.0f})
+                {
+                    snapshot.gameMinutes = minutes;
+                    scenario.world.restoreSnapshot(snapshot);
+                    const OutdoorWorldRuntime::AtmosphereState &atmosphere = scenario.world.atmosphereState();
+                    const std::array<float, 4> sunlight = buildOutdoorSunlight(*modifiedMap.outdoorMapData, atmosphere);
+                    if (atmosphere.isNight == alwaysLight
+                        || std::abs(sunlight[3] - (alwaysLight ? 0.69f : 0.15f)) > 0.001f
+                        || (!alwaysLight && (sunlight[0] != 0.0f || sunlight[2] != 0.0f))
+                        || (!alwaysLight && std::abs(outdoorBillboardBaseLight(sunlight) - 0.15f) > 0.001f)
+                        || atmosphere.darknessOverlayAlpha != 0.0f)
+                    {
+                        failure = "forced lighting did not override the daily ambient and direct sunlight";
+                        return false;
+                    }
+                }
+            }
             return true;
         }
     );
@@ -22127,6 +23791,7 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             }
 
             Party &party = pPartyRuntime->party();
+            party.setQuestBit(93, false);
             party.addGold(1234);
             party.depositGoldToBank(234);
 
@@ -22201,15 +23866,47 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
+            if (!loadHeadlessGameApplicationMap(application, assetFileSystem, "out03.odm", failure))
+            {
+                return false;
+            }
+
+            if (GameApplicationTestAccess::resolvePartyDefeatRespawnMapFileName(application) != "out01.odm")
+            {
+                failure = "Alvar defeat before visiting Ravenshore did not return to Dagger Wound";
+                return false;
+            }
+
             if (!loadHeadlessGameApplicationMap(application, assetFileSystem, "out02.odm", failure))
             {
                 return false;
             }
 
+            if (!GameApplicationTestAccess::mapSceneRuntime(application)->party().hasQuestBit(93))
+            {
+                failure = "visiting Ravenshore did not set QBit 93";
+                return false;
+            }
+
             if (GameApplicationTestAccess::resolvePartyDefeatRespawnMapFileName(application) != "out02.odm")
             {
-                failure = "non-DWI defeat did not resolve to Ravenshore";
+                failure = "Ravenshore defeat did not resolve to Ravenshore";
                 return false;
+            }
+
+            for (const char *pMapFileName : {"out01.odm", "d09.blv", "out03.odm"})
+            {
+                if (!loadHeadlessGameApplicationMap(application, assetFileSystem, pMapFileName, failure))
+                {
+                    return false;
+                }
+
+                if (!GameApplicationTestAccess::mapSceneRuntime(application)->party().hasQuestBit(93)
+                    || GameApplicationTestAccess::resolvePartyDefeatRespawnMapFileName(application) != "out02.odm")
+                {
+                    failure = std::string(pMapFileName) + " defeat after visiting Ravenshore did not use Ravenshore";
+                    return false;
+                }
             }
 
             if (!loadHeadlessGameApplicationMap(application, assetFileSystem, "7out01.odm", failure))
@@ -22217,20 +23914,47 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
                 return false;
             }
 
+            GameApplicationTestAccess::mapSceneRuntime(application)->party().setQuestBit(519, false);
+
             if (GameApplicationTestAccess::resolvePartyDefeatRespawnMapFileName(application) != "7out01.odm")
             {
                 failure = "Emerald Island defeat did not resolve to the Antagarich death-map-1 start map";
                 return false;
             }
 
-            if (!loadHeadlessGameApplicationMap(application, assetFileSystem, "7out02.odm", failure))
+            for (const char *pMapFileName : {"7d28.blv", "7d06.blv", "7out02.odm"})
+            {
+                if (!loadHeadlessGameApplicationMap(application, assetFileSystem, pMapFileName, failure))
+                {
+                    return false;
+                }
+
+                Party &mm7Party = GameApplicationTestAccess::mapSceneRuntime(application)->party();
+                mm7Party.setQuestBit(519, false);
+
+                if (GameApplicationTestAccess::resolvePartyDefeatRespawnMapFileName(application) != "7out01.odm")
+                {
+                    failure = std::string(pMapFileName) + " defeat before finishing the contest left Emerald Island";
+                    return false;
+                }
+
+                mm7Party.setQuestBit(519, true);
+
+                if (GameApplicationTestAccess::resolvePartyDefeatRespawnMapFileName(application) != "7out02.odm")
+                {
+                    failure = std::string(pMapFileName) + " defeat after finishing the contest did not use Harmondale";
+                    return false;
+                }
+            }
+
+            if (!loadHeadlessGameApplicationMap(application, assetFileSystem, "oute3.odm", failure))
             {
                 return false;
             }
 
-            if (GameApplicationTestAccess::resolvePartyDefeatRespawnMapFileName(application) != "7out02.odm")
+            if (GameApplicationTestAccess::resolvePartyDefeatRespawnMapFileName(application) != "oute3.odm")
             {
-                failure = "Harmondale defeat did not resolve to the Antagarich death-map-2 start map";
+                failure = "Enroth defeat did not resolve to New Sorpigal";
                 return false;
             }
 
@@ -22945,6 +24669,51 @@ int HeadlessGameplayDiagnostics::runRegressionSuite(
             if (pOut02State == nullptr || !pOut02State->variables.contains(0x2345u) || pOut02State->variables[0x2345u] != 88)
             {
                 failure = "current-map out02 state did not persist across app quick load";
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    runCase(
+        "app_quicksave_quickload_restores_indoor_camera_facing",
+        [&](std::string &failure)
+        {
+            if (!prepareSharedHeadlessGameApplication(out01QuicksaveSession, assetFileSystem, "out01.odm", false, failure)
+                || !loadHeadlessGameApplicationMap(out01QuicksaveSession.application, assetFileSystem, "d09.blv", failure))
+            {
+                return false;
+            }
+
+            GameApplication &application = out01QuicksaveSession.application;
+            GameApplicationTestAccess::setIndoorCameraAngles(application, 2.5f, -0.3f);
+            const std::filesystem::path savePath = "/tmp/openyamm_app_indoor_camera.oysav";
+
+            if (!GameApplicationTestAccess::quickSaveToPath(application, savePath))
+            {
+                failure = "application quick save failed";
+                return false;
+            }
+
+            GameApplicationTestAccess::setIndoorCameraAngles(application, 0.0f, 0.15f);
+            const bool loaded = GameApplicationTestAccess::quickLoadFromPath(application, savePath, true);
+            std::error_code removeError;
+            std::filesystem::remove(savePath, removeError);
+
+            if (!loaded || GameApplicationTestAccess::currentSceneKind(application) != SceneKind::Indoor)
+            {
+                failure = "application quick load into the indoor map failed";
+                return false;
+            }
+
+            const float yaw = GameApplicationTestAccess::indoorCameraYawRadians(application);
+            const float pitch = GameApplicationTestAccess::indoorCameraPitchRadians(application);
+
+            if (std::abs(yaw - 2.5f) > 0.001f || std::abs(pitch + 0.3f) > 0.001f)
+            {
+                failure = "indoor camera facing not restored: yaw " + std::to_string(yaw) + " pitch "
+                    + std::to_string(pitch);
                 return false;
             }
 

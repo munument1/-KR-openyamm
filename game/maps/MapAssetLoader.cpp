@@ -1,5 +1,8 @@
+#include "game/render/WaterCoverage.h"
+#include "game/render/WaterAppearance.h"
 #include "game/data/ActorNameResolver.h"
 #include "game/events/EvtEnums.h"
+#include "game/gameplay/InteractiveDecorationRules.h"
 #include "game/maps/IndoorSceneYml.h"
 #include "game/maps/MapAssetLoader.h"
 #include "game/maps/MapDecorationTextures.h"
@@ -17,6 +20,7 @@
 #include "game/tables/SurfaceMaterialTable.h"
 #include "game/tables/TextureFrameTable.h"
 #include "engine/ImageAssetLoader.h"
+#include "engine/SpriteAtlas.h"
 #include "engine/TextTable.h"
 
 #include <SDL3/SDL.h>
@@ -1868,6 +1872,10 @@ std::optional<std::vector<uint8_t>> loadBitmapPixelsBgra(
     std::unordered_map<std::string, std::optional<std::vector<uint8_t>>> &binaryFileCache =
         bitmapBinaryFilesByPath(bitmapLoadCache);
 
+    if (bitmapLoadCache.pSharedCache != nullptr)
+    {
+        bitmapLoadCache.pSharedCache->touchBitmap(cacheKey);
+    }
     if (pPixelCache != nullptr)
     {
         const auto cachedPixelsIt = pPixelCache->find(cacheKey);
@@ -2204,6 +2212,13 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
                 billboardSet.spriteFrameTable,
                 pDecoration->spriteId);
         }
+        if (entity.scriptEventId() == 0)
+        {
+            if (const DecorationEntry *counterpart = toggleableDecorationCounterpart(billboardSet.decorationTable, *pDecoration))
+            {
+                appendSpriteFrameTextures(textureRequests, billboardSet.spriteFrameTable, counterpart->spriteId);
+            }
+        }
     }
 
     if (billboardSet.billboards.empty())
@@ -2211,8 +2226,8 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
         return std::nullopt;
     }
 
-    const Engine::AssetScaleTier decorationAssetScaleTier =
-        assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Decorations);
+    const Engine::AssetScaleTier nativeSpriteTier =
+        assetFileSystem.getAssetScaleTier(Engine::AssetScaleCategory::Sprites);
 
     // Include scripted alternate states even when they have no initial map placement.
     billboardSet.textures = decorationTextures;
@@ -2229,6 +2244,12 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
             continue;
         }
         pumpMapLoadProgress(progressPump);
+        if (std::optional<OutdoorBitmapTexture> restored = loadRestoredDecorationTexture(
+                assetFileSystem, textureRequest.textureName, textureRequest.paletteId))
+        {
+            billboardSet.textures.push_back(std::move(*restored));
+            continue;
+        }
         int textureWidth = 0;
         int textureHeight = 0;
         std::optional<std::vector<uint8_t>> pixels =
@@ -2253,8 +2274,8 @@ std::optional<DecorationBillboardSet> buildDecorationBillboardSet(
         OutdoorBitmapTexture texture = {};
         texture.textureName = textureRequest.textureName;
         texture.paletteId = textureRequest.paletteId;
-        texture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, decorationAssetScaleTier);
-        texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, decorationAssetScaleTier);
+        texture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, nativeSpriteTier);
+        texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, nativeSpriteTier);
         texture.physicalWidth = textureWidth;
         texture.physicalHeight = textureHeight;
         updateBitmapAlphaInfo(texture, *pixels);
@@ -3233,6 +3254,21 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
         neededWorldPrefixedMonsterSpriteNames,
         monsterTable);
 
+    if (map.arena)
+    {
+        // The Arena starts empty. Its possible opponents still need animation definitions before spawning.
+        // Texture pixels remain loaded on demand for the actual challenge.
+        for (int id = map.arena->minimumMonsterId; id <= map.arena->maximumMonsterId; ++id)
+        {
+            const MonsterTable::MonsterStatsEntry *pStats = monsterTable.findStatsById(int16_t(id));
+            if (pStats != nullptr && !pStats->hasKind(MonsterKind::NoArena))
+            {
+                appendMonsterSpriteFamilies(neededMonsterFamilies, neededWorldPrefixedMonsterSpriteNames,
+                    monsterTable.findById(int16_t(id)));
+            }
+        }
+    }
+
     const std::optional<SpriteFrameTable> spriteFrameTable =
         loadSpriteFrameTable(
             assetFileSystem,
@@ -3257,7 +3293,7 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
     appendSpawnActors(billboardSet, textureRequests, map, monsterTable, spawns, pOutdoorMapData);
     appendSummonMonsterTextures(textureRequests, billboardSet.spriteFrameTable, monsterTable);
 
-    if (billboardSet.billboards.empty() && textureRequests.empty())
+    if (billboardSet.billboards.empty() && textureRequests.empty() && !map.arena)
     {
         return std::nullopt;
     }
@@ -3270,6 +3306,11 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
         for (const BitmapTextureRequest &textureRequest : textureRequests)
         {
             pumpMapLoadProgress(progressPump);
+            if (Engine::parseSpriteAtlasReference(textureRequest.textureName))
+            {
+                // Cooked atlases are validated/uploaded by the shared GPU cache, not the bitmap preview loader.
+                continue;
+            }
             OutdoorBitmapTexture texture =
                 decodeActorBitmapTextureRequest(
                     assetFileSystem,
@@ -3297,13 +3338,13 @@ std::optional<ActorPreviewBillboardSet> buildActorPreviewBillboardSet(
             continue;
         }
 
-        if (!decodeAllTextures)
+        const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, 0);
+        if (!decodeAllTextures || Engine::parseSpriteAtlasReference(resolvedTexture.textureName))
         {
             ++billboardSet.texturedActorCount;
         }
         else
         {
-            const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, 0);
             const auto textureIt = std::find_if(
                 billboardSet.textures.begin(),
                 billboardSet.textures.end(),
@@ -3476,6 +3517,7 @@ std::optional<OutdoorTerrainTextureAtlas> buildOutdoorTerrainTextureAtlas(
     textureAtlas.pixels.resize(static_cast<size_t>(textureAtlas.width * textureAtlas.height * 4), 0);
 
     std::unordered_map<std::string, std::vector<std::vector<uint8_t>>> animatedTerrainFramesByKey;
+    std::unordered_map<std::string, uint32_t> waterColorsByTextureName;
     std::unordered_set<std::string> missingTextureNames;
     std::unordered_set<std::string> invalidSizeTextureNames;
     size_t validTileCount = 0;
@@ -3705,7 +3747,25 @@ std::optional<OutdoorTerrainTextureAtlas> buildOutdoorTerrainTextureAtlas(
         region.isValid = true;
         region.isWater = hasTerrainTileFlag(descriptor, TerrainTileFlagWater)
             || (pSurfaceMaterial != nullptr && pSurfaceMaterial->semantic == SurfaceMaterialSemantic::Water);
+        region.isWaterSurface = region.isWater && !hasTerrainTileFlag(descriptor, TerrainTileFlagBurn)
+            && (pSurfaceMaterial == nullptr || pSurfaceMaterial->semantic != SurfaceMaterialSemantic::Lava);
         region.isTransitionOverlay = useTransitionOverlay;
+        if (region.isWaterSurface)
+        {
+            const std::string &baseTextureName = useTransitionOverlay ? pBaseDescriptor->textureName : textureName;
+            const auto [color, inserted] = waterColorsByTextureName.try_emplace(baseTextureName, 0);
+            if (inserted)
+            {
+                color->second = waterBodyColorFromBgra(fallbackLiquidBasePixels);
+            }
+            region.waterColorAbgr = color->second;
+        }
+        if (region.isWaterSurface && useTransitionOverlay)
+        {
+            textureAtlas.waterCoverageMasks[tileIndex] =
+                waterCoverageFromOverlay(transitionOverlayPixels, terrainTileSize, terrainTileSize);
+        }
+
         textureAtlas.tileTextureNames[tileIndex] = textureName;
         textureAtlas.tileRegions[static_cast<size_t>(tileIndex)] = region;
 
@@ -3756,6 +3816,7 @@ std::optional<OutdoorBModelTextureSet> buildOutdoorBModelTextureSet(
 )
 {
     std::vector<std::string> textureNames;
+    std::unordered_map<std::string, SurfaceMaterialSemantic> waterMaterials;
     std::vector<std::pair<std::string, SurfaceAnimationSequence>> animationBindings;
 
     for (const OutdoorBModel &bmodel : outdoorMapData.bmodels)
@@ -3794,6 +3855,20 @@ std::optional<OutdoorBModelTextureSet> buildOutdoorBModelTextureSet(
                     false,
                     pTextureFrameTable,
                     pSurfaceMaterialTable);
+
+            const SurfaceMaterialDefinition *pMaterial = pSurfaceMaterialTable != nullptr
+                ? pSurfaceMaterialTable->findMatch(normalizedName, face.attributes, false) : nullptr;
+            const SurfaceMaterialSemantic semantic = pMaterial != nullptr
+                ? pMaterial->semantic : SurfaceMaterialSemantic::GenericAnimated;
+            if (semantic == SurfaceMaterialSemantic::Lava)
+            {
+                waterMaterials[normalizedName] = semantic;
+            }
+            else if (!hasFaceAttribute(face.attributes, FaceAttribute::Lava)
+                && (hasFaceAttribute(face.attributes, FaceAttribute::Fluid) || semantic == SurfaceMaterialSemantic::Water))
+            {
+                waterMaterials[normalizedName] = semantic;
+            }
 
             appendTextureNameIfMissing(textureNames, normalizedName);
             appendAnimationTextureNamesIfMissing(textureNames, animation);
@@ -3858,6 +3933,15 @@ std::optional<OutdoorBModelTextureSet> buildOutdoorBModelTextureSet(
         texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, loadedAssetScaleTier);
         texture.physicalWidth = textureWidth;
         texture.physicalHeight = textureHeight;
+        const auto material = waterMaterials.find(textureName);
+        if (material != waterMaterials.end())
+        {
+            texture.surfaceSemantic = material->second;
+            if (material->second != SurfaceMaterialSemantic::Lava)
+            {
+                texture.waterColorAbgr = waterBodyColorFromBgra(*pixels);
+            }
+        }
         updateBitmapAlphaInfo(texture, *pixels);
         texture.pixels = *pixels;
         textureSet.textures.push_back(std::move(texture));
@@ -3882,6 +3966,7 @@ std::optional<IndoorTextureSet> buildIndoorTextureSet(
 )
 {
     std::vector<std::string> textureNames;
+    std::unordered_map<std::string, SurfaceMaterialSemantic> waterMaterials;
     std::vector<std::pair<std::string, SurfaceAnimationSequence>> animationBindings;
 
     for (const IndoorFace &face : indoorMapData.faces)
@@ -3902,6 +3987,20 @@ std::optional<IndoorTextureSet> buildIndoorTextureSet(
                 pTextureFrameTable,
                 pSurfaceMaterialTable,
                 textureFrameTableIndex);
+
+        const SurfaceMaterialDefinition *pMaterial = pSurfaceMaterialTable != nullptr
+            ? pSurfaceMaterialTable->findMatch(normalizedName, face.attributes, false) : nullptr;
+        const SurfaceMaterialSemantic semantic = pMaterial != nullptr
+            ? pMaterial->semantic : SurfaceMaterialSemantic::GenericAnimated;
+        if (semantic == SurfaceMaterialSemantic::Lava)
+        {
+            waterMaterials[normalizedName] = semantic;
+        }
+        else if (!hasFaceAttribute(face.attributes, FaceAttribute::Lava)
+            && (hasFaceAttribute(face.attributes, FaceAttribute::Fluid) || semantic == SurfaceMaterialSemantic::Water))
+        {
+            waterMaterials[normalizedName] = semantic;
+        }
 
         appendTextureNameIfMissing(textureNames, normalizedName);
         appendAnimationTextureNamesIfMissing(textureNames, animation);
@@ -3965,6 +4064,15 @@ std::optional<IndoorTextureSet> buildIndoorTextureSet(
         texture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, loadedAssetScaleTier);
         texture.physicalWidth = textureWidth;
         texture.physicalHeight = textureHeight;
+        const auto material = waterMaterials.find(textureName);
+        if (material != waterMaterials.end())
+        {
+            texture.surfaceSemantic = material->second;
+            if (material->second != SurfaceMaterialSemantic::Lava)
+            {
+                texture.waterColorAbgr = waterBodyColorFromBgra(*pixels);
+            }
+        }
         updateBitmapAlphaInfo(texture, *pixels);
         texture.pixels = *pixels;
         textureSet.textures.push_back(std::move(texture));
@@ -4218,6 +4326,10 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
 ) const
 {
     BitmapLoadCache bitmapLoadCache = {};
+    if (pSharedCache != nullptr)
+    {
+        pSharedCache->beginLoad(assetFileSystem.contentGeneration());
+    }
     bitmapLoadCache.pSharedCache = pSharedCache;
     MapLoadTimingLogger timingLogger(map.fileName);
     auto logStageComplete = [&progressPump, &timingLogger](const std::string &stageName)
@@ -4518,49 +4630,6 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     assetInfo.outdoorMapData->renderData = std::move(*renderData);
                     logStageComplete("cooked outdoor render data loaded");
 
-                    const std::optional<std::string> lightingDataFileName =
-                        buildLightingDataFileName(map.fileName);
-                    const std::optional<std::string> lightingDataPath = lightingDataFileName
-                        ? findAssetPath(assetFileSystem, map.worldId, *lightingDataFileName)
-                        : std::nullopt;
-
-                    if (lightingDataPath)
-                    {
-                        const std::optional<std::vector<uint8_t>> lightingDataBytes =
-                            assetFileSystem.readBinaryFile(*lightingDataPath);
-
-                        if (!lightingDataBytes)
-                        {
-                            std::cerr << "Failed to load cooked outdoor lighting for " << map.fileName << '\n';
-                            return std::nullopt;
-                        }
-
-                        OutdoorLightingDataLoader lightingDataLoader = {};
-                        std::optional<OutdoorLightingData> lightingData = lightingDataLoader.loadFromBytes(
-                            *lightingDataBytes,
-                            *geometryBytes,
-                            *assetInfo.outdoorMapData,
-                            sceneError);
-
-                        if (!lightingData)
-                        {
-                            std::cerr << "Failed to parse cooked outdoor lighting for " << map.fileName
-                                      << ": " << sceneError << '\n';
-                            return std::nullopt;
-                        }
-
-                        if (assetInfo.outdoorMapData->sceneProfile == OutdoorSceneProfile::BModelWorld)
-                        {
-                            scaleOutdoorLightingBrightness(
-                                *lightingData,
-                                assetInfo.outdoorMapData->lightmapBrightnessScale);
-                        }
-
-                        assetInfo.lightingDataPath = *lightingDataPath;
-                        assetInfo.lightingDataSize = lightingDataBytes->size();
-                        assetInfo.outdoorMapData->lightingData = std::move(*lightingData);
-                        logStageComplete("cooked outdoor lighting loaded");
-                    }
                 }
             }
             else if (companionBytes)
@@ -4576,6 +4645,62 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                     assetInfo.authoredCompanionSource = AuthoredCompanionSource::LegacyCompanion;
                     logStageComplete("outdoor map delta parsed");
                 }
+            }
+
+            const std::optional<std::string> lightingDataFileName =
+                buildLightingDataFileName(map.fileName);
+            const std::optional<std::string> lightingDataPath = lightingDataFileName
+                ? findAssetPath(assetFileSystem, map.worldId, *lightingDataFileName)
+                : std::nullopt;
+
+            if (lightingDataPath)
+            {
+                const std::optional<std::vector<uint8_t>> lightingDataBytes =
+                    assetFileSystem.readBinaryFile(*lightingDataPath);
+
+                if (!lightingDataBytes)
+                {
+                    std::cerr << "Failed to load cooked outdoor lighting for " << map.fileName << '\n';
+                    return std::nullopt;
+                }
+
+                std::string lightingError;
+                OutdoorLightingDataLoader lightingDataLoader = {};
+                std::optional<OutdoorLightingData> lightingData = lightingDataLoader.loadFromBytes(
+                    *lightingDataBytes,
+                    *geometryBytes,
+                    *assetInfo.outdoorMapData,
+                    lightingError);
+
+                if (!lightingData)
+                {
+                    std::cerr << "Failed to parse cooked outdoor lighting for " << map.fileName
+                              << ": " << lightingError << '\n';
+                    return std::nullopt;
+                }
+
+                if (assetInfo.outdoorMapData->sceneProfile == OutdoorSceneProfile::BModelWorld)
+                {
+                    scaleOutdoorLightingBrightness(
+                        *lightingData,
+                        assetInfo.outdoorMapData->lightmapBrightnessScale);
+                }
+
+                for (const OutdoorLightingData::Dependency &dependency : lightingData->dependencies)
+                {
+                    const std::optional<std::vector<uint8_t>> bytes =
+                        assetFileSystem.readBinaryFile(dependency.path);
+                    if (!bytes || outdoorLightingContentHash(*bytes) != dependency.hash)
+                    {
+                        std::cerr << "Stale baked lighting dependency: " << dependency.path
+                                  << "; regenerate " << *lightingDataPath << '\n';
+                        return std::nullopt;
+                    }
+                }
+                assetInfo.lightingDataPath = *lightingDataPath;
+                assetInfo.lightingDataSize = lightingDataBytes->size();
+                assetInfo.outdoorMapData->lightingData = std::move(*lightingData);
+                logStageComplete("cooked outdoor lighting loaded");
             }
 
             if (!applyTerrainTileDescriptorAttributes(assetFileSystem, *assetInfo.outdoorMapData))
@@ -4782,6 +4907,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                 }
 
                 assetInfo.map.runtimeRestrictions = sceneData->runtimeRestrictions;
+                assetInfo.map.arena = sceneData->arena;
                 MapDeltaData sceneMapDeltaData = {};
 
                 if (!buildIndoorMapStateFromScene(
@@ -4853,7 +4979,7 @@ std::optional<MapAssetInfo> MapAssetLoader::load(
                 assetInfo.indoorActorPreviewBillboardSet =
                     buildActorPreviewBillboardSet(
                         assetFileSystem,
-                        map,
+                        assetInfo.map,
                         monsterTable,
                         assetInfo.indoorMapDeltaData,
                         assetInfo.indoorMapData->spawns,

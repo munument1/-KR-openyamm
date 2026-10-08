@@ -1018,8 +1018,7 @@ bool resolveSpellSkill(
         return false;
     }
 
-    const auto bonusIt = caster.itemSkillBonuses.find(*skillName);
-    const int bonusLevel = bonusIt != caster.itemSkillBonuses.end() ? bonusIt->second : 0;
+    const int bonusLevel = caster.skillBonus(*skillName);
     skillLevel = std::max(0, static_cast<int>(pSkill->level) + bonusLevel);
     skillMastery = pSkill->mastery;
     return skillLevel > 0;
@@ -1030,7 +1029,7 @@ bx::Vec3 resolveActorTargetPoint(const GameplayRuntimeActorState &actor)
     return {
         actor.preciseX,
         actor.preciseY,
-        actor.preciseZ + std::max(48.0f, static_cast<float>(actor.height) * 0.6f)
+        actor.preciseZ + GameMechanics::actorTargetHeight(actor.height)
     };
 }
 
@@ -1775,8 +1774,7 @@ PartySpellCastResult PartySpellSystem::castSpell(
     {
         if (spellId == SpellId::TownPortal)
         {
-            if (!request.bypassTownPortalFailureChecks
-                && skillMastery < SkillMastery::Grandmaster
+            if (skillMastery < SkillMastery::Grandmaster
                 && hasNearbyHostileActor(worldRuntime))
             {
                 return makeFailureWithRecovery(
@@ -2823,7 +2821,7 @@ PartySpellCastResult PartySpellSystem::castSpell(
                 if (areaSpellAffectsVisibleCreatures(spellId))
                 {
                     const float actorTargetZ =
-                        actor.preciseZ + std::max(48.0f, static_cast<float>(actor.height) * 0.6f);
+                        actor.preciseZ + GameMechanics::actorTargetHeight(actor.height);
 
                     if (!isActorPointInsideSpellView(request, actor.preciseX, actor.preciseY, actorTargetZ))
                     {

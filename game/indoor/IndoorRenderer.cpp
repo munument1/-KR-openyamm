@@ -1,4 +1,9 @@
+#include "game/render/RuntimeShader.h"
+#include "game/render/CinematicGrading.h"
 #include "game/indoor/IndoorRenderer.h"
+#include "game/render/WaterGeometry.h"
+#include "game/render/ViewFrustum.h"
+#include "game/render/WaterBillboardReflection.h"
 
 #include "engine/BgfxContext.h"
 #include "game/app/GameSession.h"
@@ -15,7 +20,11 @@
 #include "game/indoor/IndoorPortalGraph.h"
 #include "game/indoor/IndoorPortalVisibility.h"
 #include "game/indoor/IndoorRenderRevision.h"
+#include "game/maps/MapDecorationTextures.h"
+#include "game/render/BillboardGeometry.h"
 #include "game/render/CombatActorHealthBarPolicy.h"
+#include "game/ui/EnemyHealthBarRenderer.h"
+#include "game/gameplay/GameplayScreenRuntime.h"
 #include "game/render/QuestMarkerGeometry.h"
 #include "game/render/TextureFiltering.h"
 #include "game/scene/IndoorSceneRuntime.h"
@@ -29,6 +38,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cctype>
 #include <cmath>
 #include <cstring>
@@ -48,12 +58,14 @@ namespace OpenYAMM::Game
 namespace
 {
 constexpr float IndoorCameraVerticalFovDegrees = 60.0f;
+// Share of the ambient that reaches 3D models as a directional key light (fs_model.sc).
+constexpr float IndoorModelKeyFraction = 0.6f;
+// One legacy map unit separates distant walls without clipping tight ceilings (4 units clips Kriegspire/Korbu).
+constexpr float IndoorCameraNearClipDistance = 1.0f;
+constexpr float IndoorCameraFarClipDistance = 50000.0f;
 constexpr float IndoorSkyProjectionPitchOffsetRadians = 3.14159265358979323846f / 64.0f;
 constexpr float IndoorSkyProjectionFarClipDistance = 50000.0f;
-constexpr float IndoorBakedStaticLightScale = 1.35f;
 constexpr uint8_t IndoorBakedStaticLightAlpha = 224;
-// Static lights are baked once. One typical torch radius is enough mesh resolution while keeping vertex growth bounded.
-constexpr float IndoorBakedStaticLightSubdivisionEdgeLength = 512.0f;
 constexpr int IndoorBakedStaticLightSubdivisionMaxDepth = 16;
 constexpr float IndoorBillboardStaticLightingSampleIntervalSeconds = 0.05f;
 constexpr uint32_t IndoorLightSelectionCacheMaxAgeFrames = 180;
@@ -336,13 +348,6 @@ struct ProjectedPoint
     float z = 0.0f;
 };
 
-struct IndoorBounds
-{
-    bx::Vec3 min = {0.0f, 0.0f, 0.0f};
-    bx::Vec3 max = {0.0f, 0.0f, 0.0f};
-    bool hasPoint = false;
-};
-
 bx::Vec3 vecAdd(const bx::Vec3 &left, const bx::Vec3 &right)
 {
     return {left.x + right.x, left.y + right.y, left.z + right.z};
@@ -351,48 +356,6 @@ bx::Vec3 vecAdd(const bx::Vec3 &left, const bx::Vec3 &right)
 bx::Vec3 vecScale(const bx::Vec3 &value, float scale)
 {
     return {value.x * scale, value.y * scale, value.z * scale};
-}
-
-IndoorBounds makeEmptyIndoorBounds()
-{
-    IndoorBounds bounds = {};
-    bounds.min = {
-        std::numeric_limits<float>::max(),
-        std::numeric_limits<float>::max(),
-        std::numeric_limits<float>::max()
-    };
-    bounds.max = {
-        std::numeric_limits<float>::lowest(),
-        std::numeric_limits<float>::lowest(),
-        std::numeric_limits<float>::lowest()
-    };
-    return bounds;
-}
-
-void includeIndoorBoundsPoint(IndoorBounds &bounds, const IndoorVertex &vertex)
-{
-    bounds.min.x = std::min(bounds.min.x, static_cast<float>(vertex.x));
-    bounds.min.y = std::min(bounds.min.y, static_cast<float>(vertex.y));
-    bounds.min.z = std::min(bounds.min.z, static_cast<float>(vertex.z));
-    bounds.max.x = std::max(bounds.max.x, static_cast<float>(vertex.x));
-    bounds.max.y = std::max(bounds.max.y, static_cast<float>(vertex.y));
-    bounds.max.z = std::max(bounds.max.z, static_cast<float>(vertex.z));
-    bounds.hasPoint = true;
-}
-
-bool indoorBoundsOverlapWithSlack(const IndoorBounds &left, const IndoorBounds &right, float slack)
-{
-    if (!left.hasPoint || !right.hasPoint)
-    {
-        return false;
-    }
-
-    return left.max.x + slack >= right.min.x
-        && left.min.x - slack <= right.max.x
-        && left.max.y + slack >= right.min.y
-        && left.min.y - slack <= right.max.y
-        && left.max.z + slack >= right.min.z
-        && left.min.z - slack <= right.max.z;
 }
 
 bool projectWorldPointToScreen(
@@ -539,6 +502,76 @@ std::array<uint16_t, 8> buildRuntimeActorActionSpriteFrameIndices(
     return spriteFrameIndices;
 }
 
+std::optional<RuntimeActorBillboard> buildRuntimeActorBillboard(
+    const MonsterTable &monsterTable,
+    const SpriteFrameTable &spriteFrameTable,
+    const MapDeltaData &mapDeltaData,
+    size_t actorIndex,
+    const IndoorWorldRuntime *pWorldRuntime = nullptr,
+    const std::vector<uint8_t> *pVisibleSectorMask = nullptr
+)
+{
+    if (actorIndex >= mapDeltaData.actors.size())
+    {
+        return std::nullopt;
+    }
+
+    const MapDeltaActor &actor = mapDeltaData.actors[actorIndex];
+
+    if ((actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0)
+    {
+        return std::nullopt;
+    }
+
+    const IndoorWorldRuntime::MapActorAiState *pActorAiState =
+        pWorldRuntime != nullptr ? pWorldRuntime->mapActorAiState(actorIndex) : nullptr;
+    const int16_t sectorId =
+        pActorAiState != nullptr && pActorAiState->sectorId >= 0 ? pActorAiState->sectorId : actor.sectorId;
+
+    if (!sectorVisibleForRuntimeBillboard(sectorId, pVisibleSectorMask))
+    {
+        return std::nullopt;
+    }
+
+    const MonsterEntry *pMonsterEntry =
+        pActorAiState == nullptr ? resolveRuntimeMonsterEntry(monsterTable, actor) : nullptr;
+    const uint16_t spriteFrameIndex = pActorAiState != nullptr
+        ? pActorAiState->spriteFrameIndex
+        : resolveRuntimeActorSpriteFrameIndex(spriteFrameTable, actor, pMonsterEntry);
+
+    if (spriteFrameIndex == 0)
+    {
+        return std::nullopt;
+    }
+
+    RuntimeActorBillboard billboard = {};
+    billboard.actorIndex = actorIndex;
+    billboard.x = pActorAiState != nullptr ? int(std::lround(pActorAiState->preciseX)) : actor.x;
+    billboard.y = pActorAiState != nullptr ? int(std::lround(pActorAiState->preciseY)) : actor.y;
+    billboard.z = pActorAiState != nullptr ? int(std::lround(pActorAiState->preciseZ)) : actor.z;
+    billboard.sectorId = sectorId;
+    billboard.radius = pActorAiState != nullptr ? pActorAiState->collisionRadius : actor.radius;
+    billboard.height = pActorAiState != nullptr ? pActorAiState->collisionHeight : actor.height;
+    billboard.spriteFrameIndex = spriteFrameIndex;
+    billboard.actionSpriteFrameIndices = pActorAiState != nullptr
+        ? pActorAiState->actionSpriteFrameIndices
+        : buildRuntimeActorActionSpriteFrameIndices(spriteFrameTable, pMonsterEntry);
+    if (pActorAiState != nullptr && pActorAiState->spellEffects.shrinkRemainingSeconds > 0.0f)
+    {
+        billboard.heightScale = std::clamp(pActorAiState->spellEffects.shrinkDamageMultiplier, 0.25f, 1.0f);
+    }
+    billboard.useStaticFrame = false;
+    GameplayRuntimeActorState runtimeActorState = {};
+    billboard.isFriendly =
+        pWorldRuntime == nullptr
+        || !pWorldRuntime->actorRuntimeState(actorIndex, runtimeActorState)
+        || !runtimeActorState.hostileToParty;
+    billboard.actorName = pActorAiState != nullptr
+        ? pActorAiState->displayName
+        : resolveMapDeltaActorName(monsterTable, actor);
+    return billboard;
+}
+
 std::vector<RuntimeActorBillboard> buildRuntimeActorBillboards(
     const MonsterTable &monsterTable,
     const SpriteFrameTable &spriteFrameTable,
@@ -552,62 +585,18 @@ std::vector<RuntimeActorBillboard> buildRuntimeActorBillboards(
 
     for (size_t actorIndex = 0; actorIndex < mapDeltaData.actors.size(); ++actorIndex)
     {
-        const MapDeltaActor &actor = mapDeltaData.actors[actorIndex];
-
-        if ((actor.attributes & static_cast<uint32_t>(EvtActorAttribute::Invisible)) != 0)
+        std::optional<RuntimeActorBillboard> billboard = buildRuntimeActorBillboard(
+            monsterTable,
+            spriteFrameTable,
+            mapDeltaData,
+            actorIndex,
+            pWorldRuntime,
+            pVisibleSectorMask);
+        if (billboard)
         {
-            continue;
+            billboards.push_back(std::move(*billboard));
         }
-
-        const IndoorWorldRuntime::MapActorAiState *pActorAiState =
-            pWorldRuntime != nullptr ? pWorldRuntime->mapActorAiState(actorIndex) : nullptr;
-        const int16_t sectorId =
-            pActorAiState != nullptr && pActorAiState->sectorId >= 0 ? pActorAiState->sectorId : actor.sectorId;
-
-        if (!sectorVisibleForRuntimeBillboard(sectorId, pVisibleSectorMask))
-        {
-            continue;
-        }
-
-        const MonsterEntry *pMonsterEntry =
-            pActorAiState == nullptr ? resolveRuntimeMonsterEntry(monsterTable, actor) : nullptr;
-        const uint16_t spriteFrameIndex = pActorAiState != nullptr
-            ? pActorAiState->spriteFrameIndex
-            : resolveRuntimeActorSpriteFrameIndex(spriteFrameTable, actor, pMonsterEntry);
-
-        if (spriteFrameIndex == 0)
-        {
-            continue;
-        }
-
-        RuntimeActorBillboard billboard = {};
-        billboard.actorIndex = actorIndex;
-        billboard.x = pActorAiState != nullptr ? int(std::lround(pActorAiState->preciseX)) : actor.x;
-        billboard.y = pActorAiState != nullptr ? int(std::lround(pActorAiState->preciseY)) : actor.y;
-        billboard.z = pActorAiState != nullptr ? int(std::lround(pActorAiState->preciseZ)) : actor.z;
-        billboard.sectorId = sectorId;
-        billboard.radius = pActorAiState != nullptr ? pActorAiState->collisionRadius : actor.radius;
-        billboard.height = pActorAiState != nullptr ? pActorAiState->collisionHeight : actor.height;
-        billboard.spriteFrameIndex = spriteFrameIndex;
-        billboard.actionSpriteFrameIndices = pActorAiState != nullptr
-            ? pActorAiState->actionSpriteFrameIndices
-            : buildRuntimeActorActionSpriteFrameIndices(spriteFrameTable, pMonsterEntry);
-        if (pActorAiState != nullptr && pActorAiState->spellEffects.shrinkRemainingSeconds > 0.0f)
-        {
-            billboard.heightScale = std::clamp(pActorAiState->spellEffects.shrinkDamageMultiplier, 0.25f, 1.0f);
-        }
-        billboard.useStaticFrame = false;
-        GameplayRuntimeActorState runtimeActorState = {};
-        billboard.isFriendly =
-            pWorldRuntime == nullptr
-            || !pWorldRuntime->actorRuntimeState(actorIndex, runtimeActorState)
-            || !runtimeActorState.hostileToParty;
-        billboard.actorName = pActorAiState != nullptr
-            ? pActorAiState->displayName
-            : resolveMapDeltaActorName(monsterTable, actor);
-        billboards.push_back(std::move(billboard));
     }
-
     return billboards;
 }
 
@@ -934,6 +923,7 @@ struct IndoorInteractiveDecorationBinding
     uint16_t baseEventId = 0;
     uint8_t eventCount = 0;
     bool hideWhenCleared = false;
+    bool fixedEvent = false;
 };
 
 constexpr uint8_t InvalidInteractiveDecorationDecorVarIndex = 0xff;
@@ -945,12 +935,14 @@ void buildIndoorInteractiveDecorationBindingCaches(
     std::vector<uint8_t> &decorVarIndicesByEntity,
     std::vector<uint16_t> &baseEventIdsByEntity,
     std::vector<uint8_t> &eventCountsByEntity,
-    std::vector<uint8_t> &hideWhenClearedByEntity)
+    std::vector<uint8_t> &hideWhenClearedByEntity,
+    std::vector<uint8_t> &fixedEventByEntity)
 {
     decorVarIndicesByEntity.assign(indoorMapData.entities.size(), InvalidInteractiveDecorationDecorVarIndex);
     baseEventIdsByEntity.assign(indoorMapData.entities.size(), 0);
     eventCountsByEntity.assign(indoorMapData.entities.size(), 0);
     hideWhenClearedByEntity.assign(indoorMapData.entities.size(), 0);
+    fixedEventByEntity.assign(indoorMapData.entities.size(), 0);
 
     if (pBillboardSet == nullptr)
     {
@@ -989,6 +981,7 @@ void buildIndoorInteractiveDecorationBindingCaches(
         baseEventIdsByEntity[entityIndex] = bindingSpec->baseEventId;
         eventCountsByEntity[entityIndex] = bindingSpec->eventCount;
         hideWhenClearedByEntity[entityIndex] = bindingSpec->hideWhenCleared ? 1 : 0;
+        fixedEventByEntity[entityIndex] = bindingSpec->fixedEvent ? 1 : 0;
 
         ++decorVarIndex;
     }
@@ -999,12 +992,14 @@ std::optional<IndoorInteractiveDecorationBinding> resolveIndoorInteractiveDecora
     const std::vector<uint16_t> &baseEventIdsByEntity,
     const std::vector<uint8_t> &eventCountsByEntity,
     const std::vector<uint8_t> &hideWhenClearedByEntity,
+    const std::vector<uint8_t> &fixedEventByEntity,
     size_t targetEntityIndex)
 {
     if (targetEntityIndex >= decorVarIndicesByEntity.size()
         || targetEntityIndex >= baseEventIdsByEntity.size()
         || targetEntityIndex >= eventCountsByEntity.size()
-        || targetEntityIndex >= hideWhenClearedByEntity.size())
+        || targetEntityIndex >= hideWhenClearedByEntity.size()
+        || targetEntityIndex >= fixedEventByEntity.size())
     {
         return std::nullopt;
     }
@@ -1021,6 +1016,7 @@ std::optional<IndoorInteractiveDecorationBinding> resolveIndoorInteractiveDecora
     binding.baseEventId = baseEventIdsByEntity[targetEntityIndex];
     binding.eventCount = eventCountsByEntity[targetEntityIndex];
     binding.hideWhenCleared = hideWhenClearedByEntity[targetEntityIndex] != 0;
+    binding.fixedEvent = fixedEventByEntity[targetEntityIndex] != 0;
 
     if (binding.baseEventId == 0 || binding.eventCount == 0)
     {
@@ -1034,19 +1030,9 @@ std::optional<uint16_t> resolveIndoorInteractiveDecorationEventId(
     const EventRuntimeState &eventRuntimeState,
     const IndoorInteractiveDecorationBinding &binding)
 {
-    uint8_t state = eventRuntimeState.decorVars[binding.decorVarIndex];
-
-    if (interactiveDecorationIsCleared(state, binding.eventCount, binding.hideWhenCleared))
-    {
-        return std::nullopt;
-    }
-
-    if (state >= binding.eventCount)
-    {
-        state = 0;
-    }
-
-    return static_cast<uint16_t>(binding.baseEventId + state);
+    return interactiveDecorationEventId(
+        eventRuntimeState.decorVars[binding.decorVarIndex],
+        binding.baseEventId, binding.eventCount, binding.hideWhenCleared, binding.fixedEvent);
 }
 
 uint16_t resolveIndoorEntityScriptEventId(const IndoorEntity &entity)
@@ -1808,59 +1794,6 @@ bool indoorFaceRayBoundsHit(
         && boundsDistance <= bestDistance;
 }
 
-std::filesystem::path getShaderPath(bgfx::RendererType::Enum rendererType, const char *pShaderName)
-{
-    const std::filesystem::path configuredShaderRoot = OPENYAMM_BGFX_SHADER_DIR;
-    std::string rendererDirectory;
-
-    switch (rendererType)
-    {
-    case bgfx::RendererType::Direct3D11:
-        rendererDirectory = "dxbc";
-        break;
-
-    case bgfx::RendererType::OpenGL:
-        rendererDirectory = "glsl";
-        break;
-
-    case bgfx::RendererType::OpenGLES:
-        rendererDirectory = "essl";
-        break;
-
-    default:
-        return {};
-    }
-
-    const std::filesystem::path shaderName =
-        std::filesystem::path(rendererDirectory) / (std::string(pShaderName) + ".bin");
-
-    if (configuredShaderRoot.is_absolute())
-    {
-        return configuredShaderRoot / shaderName;
-    }
-
-    if (const char *pBasePath = SDL_GetBasePath())
-    {
-        const std::filesystem::path executableRoot = pBasePath;
-        const std::filesystem::path packagedPath = executableRoot / configuredShaderRoot / shaderName;
-
-        if (std::filesystem::exists(packagedPath))
-        {
-            return packagedPath;
-        }
-
-        const std::filesystem::path buildTreePath = executableRoot / ".." / configuredShaderRoot / shaderName;
-
-        if (std::filesystem::exists(buildTreePath))
-        {
-            return buildTreePath;
-        }
-
-        return packagedPath;
-    }
-
-    return configuredShaderRoot / shaderName;
-}
 
 std::vector<uint8_t> readBinaryFile(const std::filesystem::path &path)
 {
@@ -1957,7 +1890,6 @@ uint32_t encodeBakedLightAbgr(const std::array<float, 3> &rgb)
 
 float bakedDecorationLightRadius(
     const DecorationBillboardSet &billboardSet,
-    const DecorationBillboard &billboard,
     const DecorationEntry &decoration)
 {
     float radius = 0.0f;
@@ -1967,7 +1899,7 @@ float bakedDecorationLightRadius(
         radius = static_cast<float>(decoration.lightRadius);
     }
 
-    const SpriteFrameEntry *pFrame = billboardSet.spriteFrameTable.getFrame(billboard.spriteId, 0);
+    const SpriteFrameEntry *pFrame = billboardSet.spriteFrameTable.getFrame(decoration.spriteId, 0);
 
     if (pFrame != nullptr && pFrame->glowRadius > 0)
     {
@@ -1977,18 +1909,49 @@ float bakedDecorationLightRadius(
     return radius;
 }
 
-bool decorationBillboardVisibleForBakedLighting(
+std::optional<BakedStaticLightSource> bakedStaticLightSourceForDecoration(
+    const DecorationBillboardSet &billboardSet,
     const DecorationBillboard &billboard,
-    const EventRuntimeState *pEventRuntimeState)
+    const EventRuntimeState *pEventRuntimeState,
+    bool includeInactiveSources)
 {
-    if (pEventRuntimeState == nullptr)
-    {
-        return true;
-    }
+    const DecorationEntry *decoration = billboardSet.decorationTable.get(billboard.decorationId);
+    if (decoration == nullptr) return std::nullopt;
+    decoration = runtimeDecorationEntry(
+        billboardSet.decorationTable, *decoration, billboard.spriteOverrideKey(),
+        includeInactiveSources ? nullptr : pEventRuntimeState);
+    if (decoration == nullptr) return std::nullopt;
 
-    const std::unordered_map<uint32_t, EventRuntimeState::SpriteOverride>::const_iterator iterator =
-        pEventRuntimeState->spriteOverrides.find(billboard.spriteOverrideKey());
-    return iterator == pEventRuntimeState->spriteOverrides.end() || !iterator->second.hidden;
+    float radius = bakedDecorationLightRadius(billboardSet, *decoration);
+    if (includeInactiveSources)
+    {
+        // Subdivide for both toggle states once, so lighting changes only refresh vertex colours.
+        if (const DecorationEntry *counterpart = toggleableDecorationCounterpart(billboardSet.decorationTable, *decoration))
+        {
+            const float alternateRadius = bakedDecorationLightRadius(billboardSet, *counterpart);
+            if (alternateRadius > radius)
+            {
+                radius = alternateRadius;
+                decoration = counterpart;
+            }
+        }
+    }
+    if (radius <= 0.0f) return std::nullopt;
+
+    BakedStaticLightSource source = {};
+    source.position = {
+        static_cast<float>(billboard.x), static_cast<float>(billboard.y),
+        static_cast<float>(billboard.z) + static_cast<float>(std::max<uint16_t>(billboard.height, 1)) * 0.5f
+    };
+    source.radius = radius;
+    source.alpha = 208.0f / 255.0f;
+    if (decoration->lightRed != 0 || decoration->lightGreen != 0 || decoration->lightBlue != 0)
+    {
+        source.red = decoration->lightRed;
+        source.green = decoration->lightGreen;
+        source.blue = decoration->lightBlue;
+    }
+    return source;
 }
 
 BakedStaticLightSource bakedStaticLightSourceForIndoorLight(const IndoorLight &light)
@@ -2009,7 +1972,8 @@ BakedStaticLightSource bakedStaticLightSourceForIndoorLight(const IndoorLight &l
 
 std::vector<uint8_t> bakedStaticLightEnabledStates(
     const IndoorMapData &indoorMapData,
-    const EventRuntimeState *pEventRuntimeState)
+    const EventRuntimeState *pEventRuntimeState,
+    const DecorationBillboardSet *pBillboardSet)
 {
     std::vector<uint8_t> enabledStates(indoorMapData.lights.size(), 0);
 
@@ -2024,6 +1988,15 @@ std::vector<uint8_t> bakedStaticLightEnabledStates(
                     lightId)
                     ? 1
                     : 0;
+    }
+
+    if (pBillboardSet != nullptr)
+    {
+        for (const DecorationBillboard &billboard : pBillboardSet->billboards)
+        {
+            enabledStates.push_back(bakedStaticLightSourceForDecoration(
+                *pBillboardSet, billboard, pEventRuntimeState, false).has_value() ? 1 : 0);
+        }
     }
 
     return enabledStates;
@@ -2071,39 +2044,11 @@ std::vector<BakedStaticLightSource> buildBakedStaticLightSources(
 
     for (const DecorationBillboard &billboard : pDecorationBillboardSet->billboards)
     {
-        const DecorationEntry *pDecoration = pDecorationBillboardSet->decorationTable.get(billboard.decorationId);
-
-        if (pDecoration == nullptr
-            || (!includeInactiveSources
-                && !decorationBillboardVisibleForBakedLighting(billboard, pEventRuntimeState)))
+        if (const auto source = bakedStaticLightSourceForDecoration(
+                *pDecorationBillboardSet, billboard, pEventRuntimeState, includeInactiveSources))
         {
-            continue;
+            sources.push_back(*source);
         }
-
-        const float radius = bakedDecorationLightRadius(*pDecorationBillboardSet, billboard, *pDecoration);
-
-        if (radius <= 0.0f)
-        {
-            continue;
-        }
-
-        BakedStaticLightSource source = {};
-        source.position = {
-            static_cast<float>(billboard.x),
-            static_cast<float>(billboard.y),
-            static_cast<float>(billboard.z) + static_cast<float>(std::max<uint16_t>(billboard.height, 1)) * 0.5f
-        };
-        source.radius = radius;
-        source.alpha = 208.0f / 255.0f;
-
-        if (pDecoration->lightRed != 0 || pDecoration->lightGreen != 0 || pDecoration->lightBlue != 0)
-        {
-            source.red = pDecoration->lightRed;
-            source.green = pDecoration->lightGreen;
-            source.blue = pDecoration->lightBlue;
-        }
-
-        sources.push_back(source);
     }
 
     return sources;
@@ -2194,60 +2139,6 @@ float pointAabbDistanceSquared(
     const float dy = point.y - clampedY;
     const float dz = point.z - clampedZ;
     return dx * dx + dy * dy + dz * dz;
-}
-
-float pointSegmentDistanceSquared(
-    const bx::Vec3 &point,
-    const bx::Vec3 &first,
-    const bx::Vec3 &second)
-{
-    const bx::Vec3 segment = vecSubtract(second, first);
-    const float segmentLengthSquared = vecDot(segment, segment);
-    const float segmentProgress = segmentLengthSquared > 0.0001f
-        ? std::clamp(vecDot(vecSubtract(point, first), segment) / segmentLengthSquared, 0.0f, 1.0f)
-        : 0.0f;
-    const bx::Vec3 closestPoint = vecAdd(first, vecScale(segment, segmentProgress));
-    const bx::Vec3 delta = vecSubtract(point, closestPoint);
-    return vecDot(delta, delta);
-}
-
-float pointTriangleDistanceSquared(
-    const bx::Vec3 &point,
-    const bx::Vec3 &first,
-    const bx::Vec3 &second,
-    const bx::Vec3 &third)
-{
-    const bx::Vec3 firstToSecond = vecSubtract(second, first);
-    const bx::Vec3 firstToThird = vecSubtract(third, first);
-    const bx::Vec3 normal = vecCross(firstToSecond, firstToThird);
-    const float normalLengthSquared = vecDot(normal, normal);
-
-    if (normalLengthSquared <= 0.0001f)
-    {
-        return std::min(
-            pointSegmentDistanceSquared(point, first, second),
-            std::min(
-                pointSegmentDistanceSquared(point, second, third),
-                pointSegmentDistanceSquared(point, third, first)));
-    }
-
-    const float planeProjection = vecDot(vecSubtract(point, first), normal);
-    const bx::Vec3 projectedPoint = vecSubtract(point, vecScale(normal, planeProjection / normalLengthSquared));
-    const bool insideTriangle =
-        vecDot(vecCross(firstToSecond, vecSubtract(projectedPoint, first)), normal) >= -0.0001f
-        && vecDot(vecCross(vecSubtract(third, second), vecSubtract(projectedPoint, second)), normal) >= -0.0001f
-        && vecDot(vecCross(vecSubtract(first, third), vecSubtract(projectedPoint, third)), normal) >= -0.0001f;
-
-    if (insideTriangle)
-    {
-        return planeProjection * planeProjection / normalLengthSquared;
-    }
-
-    return std::min(
-        pointSegmentDistanceSquared(point, first, second),
-        std::min(
-            pointSegmentDistanceSquared(point, second, third),
-            pointSegmentDistanceSquared(point, third, first)));
 }
 
 uint32_t resolveHoveredIndoorActorOutlineColor(
@@ -2428,50 +2319,6 @@ bool faceHasInvisibleOverride(
 }
 }
 
-bool IndoorRenderer::bakedStaticLightMayAffectTriangle(
-    const std::vector<BakedStaticLightSource> &bakedStaticLightSources,
-    const TexturedVertex (&triangleVertices)[3])
-{
-    const bx::Vec3 first = {
-        triangleVertices[0].x,
-        triangleVertices[0].y,
-        triangleVertices[0].z
-    };
-    const bx::Vec3 second = {
-        triangleVertices[1].x,
-        triangleVertices[1].y,
-        triangleVertices[1].z
-    };
-    const bx::Vec3 third = {
-        triangleVertices[2].x,
-        triangleVertices[2].y,
-        triangleVertices[2].z
-    };
-
-    for (const BakedStaticLightSource &source : bakedStaticLightSources)
-    {
-        if (source.radius <= 0.0f)
-        {
-            continue;
-        }
-
-        if (pointTriangleDistanceSquared(source.position, first, second, third) <= source.radius * source.radius)
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-float IndoorRenderer::texturedVertexDistanceSquared(const TexturedVertex &first, const TexturedVertex &second)
-{
-    const float dx = first.x - second.x;
-    const float dy = first.y - second.y;
-    const float dz = first.z - second.z;
-    return dx * dx + dy * dy + dz * dz;
-}
-
 IndoorRenderer::TexturedVertex IndoorRenderer::interpolateTexturedVertex(
     const TexturedVertex &first,
     const TexturedVertex &second)
@@ -2507,29 +2354,44 @@ void IndoorRenderer::refreshBakedStaticLight(
 }
 
 void IndoorRenderer::appendBakedStaticLightSubdividedTriangle(
-    std::vector<TexturedVertex> &vertices,
+    TexturedFaceMesh &mesh,
+    std::unordered_map<uint64_t, uint32_t> &vertexIndices,
     const std::vector<BakedStaticLightSource> &bakedStaticLightSources,
     const std::vector<BakedStaticLightSource> &bakedStaticLightSubdivisionSources,
     bool coloredLights,
     const TexturedVertex (&triangleVertices)[3],
+    const std::array<bx::Vec3, 3> &subdivisionPositions,
     int depth)
 {
-    const float edgeSquared01 = texturedVertexDistanceSquared(triangleVertices[0], triangleVertices[1]);
-    const float edgeSquared12 = texturedVertexDistanceSquared(triangleVertices[1], triangleVertices[2]);
-    const float edgeSquared20 = texturedVertexDistanceSquared(triangleVertices[2], triangleVertices[0]);
+    const bx::Vec3 edge01 = bx::sub(subdivisionPositions[0], subdivisionPositions[1]);
+    const bx::Vec3 edge12 = bx::sub(subdivisionPositions[1], subdivisionPositions[2]);
+    const bx::Vec3 edge20 = bx::sub(subdivisionPositions[2], subdivisionPositions[0]);
+    const float edgeSquared01 = bx::dot(edge01, edge01);
+    const float edgeSquared12 = bx::dot(edge12, edge12);
+    const float edgeSquared20 = bx::dot(edge20, edge20);
     const float maxEdgeSquared = std::max(edgeSquared01, std::max(edgeSquared12, edgeSquared20));
     const float subdivisionEdgeSquared =
-        IndoorBakedStaticLightSubdivisionEdgeLength * IndoorBakedStaticLightSubdivisionEdgeLength;
+        IndoorBakedStaticLightSubdivisionMinEdgeLength * IndoorBakedStaticLightSubdivisionMinEdgeLength;
 
     if (depth >= IndoorBakedStaticLightSubdivisionMaxDepth
         || maxEdgeSquared <= subdivisionEdgeSquared
-        || !bakedStaticLightMayAffectTriangle(
+        || !indoorBakedStaticLightNeedsSubdivision(
             bakedStaticLightSubdivisionSources,
-            triangleVertices))
+            subdivisionPositions))
     {
-        vertices.push_back(triangleVertices[0]);
-        vertices.push_back(triangleVertices[1]);
-        vertices.push_back(triangleVertices[2]);
+        for (const TexturedVertex &vertex : triangleVertices)
+        {
+            // Dyadic split weights sum to one, so two components identify a vertex within this original triangle.
+            const uint64_t key = (uint64_t(std::bit_cast<uint32_t>(vertex.barycentric0)) << 32)
+                | std::bit_cast<uint32_t>(vertex.barycentric1);
+            const uint32_t nextIndex = static_cast<uint32_t>(mesh.vertices.size());
+            const auto [iterator, inserted] = vertexIndices.try_emplace(key, nextIndex);
+            if (inserted)
+            {
+                mesh.vertices.push_back(vertex);
+            }
+            mesh.indices.push_back(iterator->second);
+        }
         return;
     }
 
@@ -2566,20 +2428,32 @@ void IndoorRenderer::appendBakedStaticLightSubdividedTriangle(
         triangleVertices[secondIndex],
         triangleVertices[thirdIndex]
     };
+    const bx::Vec3 subdivisionMidpoint = bx::mul(
+        bx::add(subdivisionPositions[firstIndex], subdivisionPositions[secondIndex]), 0.5f);
+    const std::array<bx::Vec3, 3> firstSubdivisionPositions = {
+        subdivisionPositions[firstIndex], subdivisionMidpoint, subdivisionPositions[thirdIndex]
+    };
+    const std::array<bx::Vec3, 3> secondSubdivisionPositions = {
+        subdivisionMidpoint, subdivisionPositions[secondIndex], subdivisionPositions[thirdIndex]
+    };
 
     appendBakedStaticLightSubdividedTriangle(
-        vertices,
+        mesh,
+        vertexIndices,
         bakedStaticLightSources,
         bakedStaticLightSubdivisionSources,
         coloredLights,
         firstChild,
+        firstSubdivisionPositions,
         depth + 1);
     appendBakedStaticLightSubdividedTriangle(
-        vertices,
+        mesh,
+        vertexIndices,
         bakedStaticLightSources,
         bakedStaticLightSubdivisionSources,
         coloredLights,
         secondChild,
+        secondSubdivisionPositions,
         depth + 1);
 }
 
@@ -2673,8 +2547,10 @@ std::array<float, 4> IndoorRenderer::billboardLightingUniform(
     return {{rgb[0], rgb[1], rgb[2], 0.0f}};
 }
 
-IndoorRenderer::IndoorRenderer()
+IndoorRenderer::IndoorRenderer(SpriteAtlasCache &spriteAtlasCache, NativeSpriteTextureCache &nativeSpriteCache)
     : m_isInitialized(false)
+    , m_spriteAtlasCache(spriteAtlasCache)
+    , m_nativeSpriteCache(nativeSpriteCache)
     , m_isRenderable(false)
     , m_pIndoorMapData(nullptr)
     , m_wireframeVertexBufferHandle(BGFX_INVALID_HANDLE)
@@ -2749,6 +2625,19 @@ bool IndoorRenderer::initialize(
     shutdown();
     m_isInitialized = true;
     m_pAssetFileSystem = pAssetFileSystem;
+    if (pAssetFileSystem != nullptr)
+    {
+        std::string error;
+        if (!m_worldFxSystem.loadNamedEffectLibrary(
+                *pAssetFileSystem,
+                "engine/effects/library.yml",
+                "engine/effects/resource_bindings.yml",
+                error))
+        {
+            std::cerr << "Failed to load shared effect library: " << error << '\n';
+            return false;
+        }
+    }
     m_map = map;
     m_assetScaleTier = assetScaleTier;
     m_monsterTable = monsterTable;
@@ -2788,13 +2677,15 @@ bool IndoorRenderer::initialize(
         m_indoorInteractiveDecorationDecorVarIndicesByEntity,
         m_indoorInteractiveDecorationBaseEventIdsByEntity,
         m_indoorInteractiveDecorationEventCountsByEntity,
-        m_indoorInteractiveDecorationHideWhenClearedByEntity);
+        m_indoorInteractiveDecorationHideWhenClearedByEntity,
+        m_indoorInteractiveDecorationFixedEventByEntity);
     m_indoorActorPreviewBillboardSet = indoorActorPreviewBillboardSet;
     m_indoorSpriteObjectBillboardSet = indoorSpriteObjectBillboardSet;
     rebuildIndoorRenderMemberships();
     m_indoorLightingRuntime.rebuildStaticCache(
         indoorMapData,
-        m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr);
+        m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
+        runtimeEventRuntimeState());
     m_chestTable = chestTable;
     m_houseTable = houseTable;
     rebuildMechanismBindings();
@@ -2862,6 +2753,11 @@ bool IndoorRenderer::initialize(
     {
         for (const OutdoorBitmapTexture &texture : indoorDecorationBillboardSet->textures)
         {
+            if (restoreBillboardTexture(texture.textureName, texture.paletteId, texture.resourceIdentity) != nullptr)
+            {
+                continue;
+            }
+
             BillboardTextureHandle billboardTexture = {};
             billboardTexture.textureName = toLowerCopy(texture.textureName);
             billboardTexture.paletteId = texture.paletteId;
@@ -2887,6 +2783,7 @@ bool IndoorRenderer::initialize(
 
             if (bgfx::isValid(billboardTexture.textureHandle))
             {
+                m_nativeSpriteCache.retain(billboardTexture, texture.resourceIdentity);
                 m_billboardTextureHandles.push_back(std::move(billboardTexture));
                 registerBillboardTextureIndex(m_billboardTextureHandles.size() - 1);
             }
@@ -2902,42 +2799,7 @@ bool IndoorRenderer::initialize(
                 continue;
             }
 
-            BillboardTextureHandle billboardTexture = {};
-            billboardTexture.textureName = toLowerCopy(texture.textureName);
-            billboardTexture.paletteId = texture.paletteId;
-            billboardTexture.width = texture.width;
-            billboardTexture.height = texture.height;
-            billboardTexture.physicalWidth = texture.physicalWidth;
-            billboardTexture.physicalHeight = texture.physicalHeight;
-            billboardTexture.opacityMask.assignFromBgra(
-                texture.pixels,
-                texture.physicalWidth,
-                texture.physicalHeight);
-            billboardTexture.textureHandle = createBgraTexture2D(
-                uint16_t(texture.physicalWidth),
-                uint16_t(texture.physicalHeight),
-                texture.pixels.data(),
-                uint32_t(texture.pixels.size()),
-                TextureFilterProfile::Billboard,
-                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP,
-                texture.pixelsPreparedForUpload
-                    ? BgraTexturePixelPreparation::AlreadyPrepared
-                    : BgraTexturePixelPreparation::Required
-            );
-
-            if (bgfx::isValid(billboardTexture.textureHandle))
-            {
-                m_billboardTextureHandles.push_back(std::move(billboardTexture));
-                registerBillboardTextureIndex(m_billboardTextureHandles.size() - 1);
-            }
-        }
-    }
-
-    if (indoorSpriteObjectBillboardSet)
-    {
-        for (const OutdoorBitmapTexture &texture : indoorSpriteObjectBillboardSet->textures)
-        {
-            if (findBillboardTexture(texture.textureName, texture.paletteId) != nullptr)
+            if (restoreBillboardTexture(texture.textureName, texture.paletteId, texture.resourceIdentity) != nullptr)
             {
                 continue;
             }
@@ -2967,6 +2829,53 @@ bool IndoorRenderer::initialize(
 
             if (bgfx::isValid(billboardTexture.textureHandle))
             {
+                m_nativeSpriteCache.retain(billboardTexture, texture.resourceIdentity);
+                m_billboardTextureHandles.push_back(std::move(billboardTexture));
+                registerBillboardTextureIndex(m_billboardTextureHandles.size() - 1);
+            }
+        }
+    }
+
+    if (indoorSpriteObjectBillboardSet)
+    {
+        for (const OutdoorBitmapTexture &texture : indoorSpriteObjectBillboardSet->textures)
+        {
+            if (findBillboardTexture(texture.textureName, texture.paletteId) != nullptr)
+            {
+                continue;
+            }
+
+            if (restoreBillboardTexture(texture.textureName, texture.paletteId, texture.resourceIdentity) != nullptr)
+            {
+                continue;
+            }
+
+            BillboardTextureHandle billboardTexture = {};
+            billboardTexture.textureName = toLowerCopy(texture.textureName);
+            billboardTexture.paletteId = texture.paletteId;
+            billboardTexture.width = texture.width;
+            billboardTexture.height = texture.height;
+            billboardTexture.physicalWidth = texture.physicalWidth;
+            billboardTexture.physicalHeight = texture.physicalHeight;
+            billboardTexture.opacityMask.assignFromBgra(
+                texture.pixels,
+                texture.physicalWidth,
+                texture.physicalHeight);
+            billboardTexture.textureHandle = createBgraTexture2D(
+                uint16_t(texture.physicalWidth),
+                uint16_t(texture.physicalHeight),
+                texture.pixels.data(),
+                uint32_t(texture.pixels.size()),
+                TextureFilterProfile::Billboard,
+                BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP,
+                texture.pixelsPreparedForUpload
+                    ? BgraTexturePixelPreparation::AlreadyPrepared
+                    : BgraTexturePixelPreparation::Required
+            );
+
+            if (bgfx::isValid(billboardTexture.textureHandle))
+            {
+                m_nativeSpriteCache.retain(billboardTexture, texture.resourceIdentity);
                 m_billboardTextureHandles.push_back(std::move(billboardTexture));
                 registerBillboardTextureIndex(m_billboardTextureHandles.size() - 1);
             }
@@ -2993,15 +2902,26 @@ bool IndoorRenderer::initialize(
     m_texturedProgramHandle = loadProgram("vs_shadowmaps_texture", "fs_shadowmaps_texture");
     m_indoorLitProgramHandle = loadProgram("vs_indoor_textured_lit", "fs_indoor_textured_lit");
     m_billboardProgramHandle = loadProgram("vs_outdoor_billboard_lit", "fs_outdoor_billboard_lit");
-    m_spriteAtlasCache.setProgram(loadProgram("vs_outdoor_billboard_lit", "fs_sprite_atlas"));
+    if (!m_spriteAtlasCache.hasProgram())
+    {
+        m_spriteAtlasCache.setProgram(loadProgram("vs_outdoor_billboard_lit", "fs_sprite_atlas"));
+        m_spriteAtlasCache.setOutlineProgram(loadProgram("vs_outdoor_billboard_lit", "fs_sprite_outline"));
+    }
     m_worldFxRenderResources.setParticleProgramHandle(loadProgram("vs_particle", "fs_particle"));
     ParticleRenderer::initializeResources(m_worldFxRenderResources);
+    if (!m_modelRenderer.initialize(loadProgram("vs_model", "fs_model")))
+    {
+        std::cerr << "IndoorRenderer: failed to initialize model renderer\n";
+        shutdown();
+        return false;
+    }
     m_textureSamplerHandle = bgfx::createUniform("s_texColor", bgfx::UniformType::Sampler);
     m_indoorLightPositionsUniformHandle =
         bgfx::createUniform("u_indoorLightPositions", bgfx::UniformType::Vec4, MaxIndoorShaderLights);
     m_indoorLightColorsUniformHandle =
         bgfx::createUniform("u_indoorLightColors", bgfx::UniformType::Vec4, MaxIndoorShaderLights);
     m_indoorLightParamsUniformHandle = bgfx::createUniform("u_indoorLightParams", bgfx::UniformType::Vec4);
+    m_worldClipPlaneUniform = bgfx::createUniform("u_worldClipPlane", bgfx::UniformType::Vec4);
     m_secretPulseParamsUniformHandle = bgfx::createUniform("u_secretPulseParams", bgfx::UniformType::Vec4);
     m_indoorSkyParamsUniformHandle = bgfx::createUniform("u_indoorSkyParams", bgfx::UniformType::Vec4);
     m_indoorSkyProjectionParamsUniformHandle =
@@ -3096,7 +3016,16 @@ bool IndoorRenderer::initialize(
         m_cameraPositionZ = static_cast<float>((minZ + maxZ) / 2);
     }
 
-    if (m_pAssetFileSystem != nullptr && m_indoorActorPreviewBillboardSet)
+    preloadAtlasAnimations();
+
+    m_isRenderable = true;
+    return true;
+}
+
+void IndoorRenderer::preloadAtlasAnimations()
+{
+    if (m_pAssetFileSystem != nullptr && m_indoorActorPreviewBillboardSet && m_monsterTable
+        && m_pSceneRuntime != nullptr)
     {
         const SpriteFrameTable &frames = m_indoorActorPreviewBillboardSet->spriteFrameTable;
         const auto preloadActor = [&](const auto &actor)
@@ -3110,7 +3039,7 @@ bool IndoorRenderer::initialize(
         if (runtimeMapDeltaData())
         {
             for (const RuntimeActorBillboard &actor : buildRuntimeActorBillboards(
-                monsterTable, frames, *runtimeMapDeltaData(), &sceneRuntime.worldRuntime()))
+                *m_monsterTable, frames, *runtimeMapDeltaData(), &m_pSceneRuntime->worldRuntime()))
             {
                 preloadActor(actor);
             }
@@ -3123,9 +3052,6 @@ bool IndoorRenderer::initialize(
             }
         }
     }
-
-    m_isRenderable = true;
-    return true;
 }
 
 bool IndoorRenderer::isFaceVisible(
@@ -3202,7 +3128,8 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &came
         && cache.cameraZ == cameraPosition.z
         && cache.yawRadians == m_cameraYawRadians
         && cache.pitchRadians == m_cameraPitchRadians
-        && cache.aspectRatio == aspectRatio)
+        && cache.aspectRatio == aspectRatio
+        && cache.viewportHeight == m_lastRenderHeight)
     {
         if (collectDiagnostics)
         {
@@ -3224,7 +3151,6 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &came
     input.pMapData = m_pIndoorMapData;
     input.pPortalGraph = m_indoorPortalGraph ? &m_indoorPortalGraph.value() : nullptr;
     input.pVertices = &m_renderVertices;
-    input.pPortalVertices = &m_pIndoorMapData->vertices;
     input.pMapDeltaData = mapDeltaData ? &mapDeltaData.value() : nullptr;
     input.pEventRuntimeState = &eventRuntimeState;
     input.cameraPosition = cameraPosition;
@@ -3232,6 +3158,7 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &came
     input.cameraUp = {0.0f, 0.0f, 1.0f};
     input.verticalFovDegrees = 60.0f;
     input.aspectRatio = aspectRatio;
+    input.viewportHeight = m_lastRenderHeight;
     input.startSectorId = startSectorId;
     input.collectPortalTraces = m_logIndoorVisibilityDiagnostics;
 
@@ -3260,9 +3187,23 @@ std::vector<uint8_t> IndoorRenderer::buildVisibleSectorMask(const bx::Vec3 &came
     cache.yawRadians = m_cameraYawRadians;
     cache.pitchRadians = m_cameraPitchRadians;
     cache.aspectRatio = aspectRatio;
+    cache.viewportHeight = m_lastRenderHeight;
+    // MM8 records discovery from the ordinary portal render traversal. Opaque walls/doors do not
+    // start a separate visibility pass. Changing only the view frustums cannot reveal new sector faces.
+    if (cache.visibleSectorMask != visibility.visibleSectorMask)
+    {
+        cache.mapRevealSectorIds.clear();
+        for (size_t sectorIndex = 0; sectorIndex < visibility.visibleSectorMask.size(); ++sectorIndex)
+        {
+            if (visibility.visibleSectorMask[sectorIndex] != 0)
+            {
+                cache.mapRevealSectorIds.push_back(static_cast<int16_t>(sectorIndex));
+            }
+        }
+        ++m_indoorMapRevealRevision;
+    }
     cache.visibleSectorMask = visibility.visibleSectorMask;
     cache.visibleSectorFrustums = visibility.frustumsBySector;
-    cache.acceptedPortals = visibility.acceptedPortals;
     if (m_logIndoorVisibilityDiagnostics)
     {
         cache.portalTraces = visibility.portalTraces;
@@ -3651,252 +3592,14 @@ bool IndoorRenderer::isRenderSectorVisible(int16_t sectorId, const std::vector<u
     return visibleSectorMask[sectorId] != 0;
 }
 
-bool IndoorRenderer::isTexturedBatchVisible(
-    const TexturedBatch &batch,
-    const std::vector<uint8_t> &visibleSectorMask
-) const
+const std::vector<int16_t> &IndoorRenderer::visibleIndoorMapRevealSectorIds() const
 {
-    if (visibleSectorMask.empty())
-    {
-        return true;
-    }
-
-    bool hasKnownSector = false;
-
-    if (batch.sectorId >= 0 && static_cast<size_t>(batch.sectorId) < visibleSectorMask.size())
-    {
-        hasKnownSector = true;
-
-        if (visibleSectorMask[batch.sectorId] != 0)
-        {
-            return true;
-        }
-    }
-
-    if (batch.backSectorId >= 0 && static_cast<size_t>(batch.backSectorId) < visibleSectorMask.size())
-    {
-        hasKnownSector = true;
-
-        if (visibleSectorMask[batch.backSectorId] != 0)
-        {
-            return true;
-        }
-    }
-
-    return !hasKnownSector;
+    return m_renderPortalVisibilityCache.mapRevealSectorIds;
 }
 
-std::vector<int16_t> IndoorRenderer::visibleIndoorMapRevealSectorIds(int16_t sectorId, int16_t eyeSectorId) const
+uint64_t IndoorRenderer::indoorMapRevealRevision() const
 {
-    std::vector<int16_t> sectorIds;
-
-    if (!m_pIndoorMapData)
-    {
-        return sectorIds;
-    }
-
-    const auto appendSectorId = [&](int16_t candidateSectorId)
-    {
-        if (candidateSectorId < 0 || static_cast<size_t>(candidateSectorId) >= m_pIndoorMapData->sectors.size())
-        {
-            return;
-        }
-
-        if (std::find(sectorIds.begin(), sectorIds.end(), candidateSectorId) != sectorIds.end())
-        {
-            return;
-        }
-
-        sectorIds.push_back(candidateSectorId);
-    };
-
-    appendSectorId(sectorId);
-    appendSectorId(eyeSectorId);
-
-    if (sectorIds.empty() || m_lastRenderWidth <= 0 || m_lastRenderHeight <= 0 || m_renderVertices.empty())
-    {
-        return sectorIds;
-    }
-
-    const float cosPitch = std::cos(m_cameraPitchRadians);
-    const float sinPitch = std::sin(m_cameraPitchRadians);
-    const float cosYaw = std::cos(m_cameraYawRadians);
-    const float sinYaw = std::sin(m_cameraYawRadians);
-    const bx::Vec3 eye = {m_cameraPositionX, m_cameraPositionY, m_cameraPositionZ};
-    const bx::Vec3 viewForward = {cosYaw * cosPitch, sinYaw * cosPitch, sinPitch};
-    const bx::Vec3 at = {
-        m_cameraPositionX + viewForward.x,
-        m_cameraPositionY + viewForward.y,
-        m_cameraPositionZ + viewForward.z
-    };
-    const bx::Vec3 up = {0.0f, 0.0f, 1.0f};
-    float viewMatrix[16] = {};
-    float projectionMatrix[16] = {};
-    float viewProjectionMatrix[16] = {};
-    bx::mtxLookAt(viewMatrix, eye, at, up, bx::Handedness::Right);
-    bx::mtxProj(
-        projectionMatrix,
-        60.0f,
-        static_cast<float>(m_lastRenderWidth) / static_cast<float>(m_lastRenderHeight),
-        0.1f,
-        50000.0f,
-        bgfx::getCaps()->homogeneousDepth,
-        bx::Handedness::Right
-    );
-    bx::mtxMul(viewProjectionMatrix, viewMatrix, projectionMatrix);
-
-    const auto faceBounds = [&](const IndoorFace &face) -> IndoorBounds
-    {
-        IndoorBounds bounds = makeEmptyIndoorBounds();
-
-        for (uint16_t vertexIndex : face.vertexIndices)
-        {
-            if (vertexIndex >= m_renderVertices.size())
-            {
-                continue;
-            }
-
-            const IndoorVertex &vertex = m_renderVertices[vertexIndex];
-            includeIndoorBoundsPoint(bounds, vertex);
-        }
-
-        return bounds;
-    };
-
-    const auto doorBounds = [&](const MapDeltaDoor &door) -> IndoorBounds
-    {
-        IndoorBounds bounds = makeEmptyIndoorBounds();
-
-        for (uint16_t vertexIndex : door.vertexIds)
-        {
-            if (vertexIndex >= m_renderVertices.size())
-            {
-                continue;
-            }
-
-            const IndoorVertex &vertex = m_renderVertices[vertexIndex];
-            includeIndoorBoundsPoint(bounds, vertex);
-        }
-
-        return bounds;
-    };
-
-    const auto portalBlockedByClosedDoor = [&](const IndoorFace &portalFace) -> bool
-    {
-        const std::optional<MapDeltaData> &mapDeltaData = runtimeMapDeltaData();
-
-        if (!mapDeltaData)
-        {
-            return false;
-        }
-
-        const IndoorBounds portalBounds = faceBounds(portalFace);
-
-        if (!portalBounds.hasPoint)
-        {
-            return false;
-        }
-
-        const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
-
-        for (const MapDeltaDoor &door : mapDeltaData->doors)
-        {
-            if (resolveMechanismDistance(door, eventRuntimeState) <= 1.0f)
-            {
-                continue;
-            }
-
-            constexpr float DoorPortalRevealSlack = 64.0f;
-            const IndoorBounds currentDoorBounds = doorBounds(door);
-
-            if (indoorBoundsOverlapWithSlack(currentDoorBounds, portalBounds, DoorPortalRevealSlack))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    };
-
-    const auto portalFaceOnScreen = [&](uint16_t faceId) -> bool
-    {
-        if (faceId >= m_pIndoorMapData->faces.size())
-        {
-            return false;
-        }
-
-        const IndoorFace &face = m_pIndoorMapData->faces[faceId];
-
-        if (!face.isPortal
-            || face.vertexIndices.empty()
-            || !isFaceVisible(faceId, face, runtimeMapDeltaData(), runtimeEventRuntimeStateStorage()))
-        {
-            return false;
-        }
-
-        if (portalBlockedByClosedDoor(face))
-        {
-            return false;
-        }
-
-        float minX = std::numeric_limits<float>::max();
-        float minY = std::numeric_limits<float>::max();
-        float maxX = std::numeric_limits<float>::lowest();
-        float maxY = std::numeric_limits<float>::lowest();
-        bool hasProjectedVertex = false;
-
-        for (uint16_t vertexIndex : face.vertexIndices)
-        {
-            if (vertexIndex >= m_renderVertices.size())
-            {
-                continue;
-            }
-
-            const IndoorVertex &vertex = m_renderVertices[vertexIndex];
-            ProjectedPoint projected = {};
-
-            if (!projectWorldPointToScreen(
-                bx::Vec3{static_cast<float>(vertex.x), static_cast<float>(vertex.y), static_cast<float>(vertex.z)},
-                m_lastRenderWidth,
-                m_lastRenderHeight,
-                viewProjectionMatrix,
-                projected))
-            {
-                continue;
-            }
-
-            hasProjectedVertex = true;
-            minX = std::min(minX, projected.x);
-            minY = std::min(minY, projected.y);
-            maxX = std::max(maxX, projected.x);
-            maxY = std::max(maxY, projected.y);
-        }
-
-        if (!hasProjectedVertex)
-        {
-            return false;
-        }
-
-        constexpr float ScreenMargin = 2.0f;
-        return maxX >= -ScreenMargin
-            && maxY >= -ScreenMargin
-            && minX <= static_cast<float>(m_lastRenderWidth) + ScreenMargin
-            && minY <= static_cast<float>(m_lastRenderHeight) + ScreenMargin;
-    };
-
-    const PortalVisibilityCache &renderPortalCache = m_renderPortalVisibilityCache;
-
-    for (const IndoorAcceptedPortalVisibility &portal : renderPortalCache.acceptedPortals)
-    {
-        if (!portalFaceOnScreen(portal.faceId))
-        {
-            continue;
-        }
-
-        appendSectorId(portal.targetSectorId);
-    }
-
-    return sectorIds;
+    return m_indoorMapRevealRevision;
 }
 
 void IndoorRenderer::render(
@@ -3906,7 +3609,8 @@ void IndoorRenderer::render(
     const GameplayInputFrame &input,
     float deltaSeconds,
     bool allowWorldInput,
-    bool allowWorldSimulation)
+    bool allowWorldSimulation,
+    bool preparingResources)
 {
     if (!m_isInitialized)
     {
@@ -3928,6 +3632,8 @@ void IndoorRenderer::render(
     }
 
     const GameSettings &settings = gameSession.gameplayScreenRuntime().settingsSnapshot();
+    m_worldFxSystem.waterRipples().setEnabled(
+        settings.waterShader && settings.waterMovementRipples && m_waterRenderer.isReady());
     m_logIndoorVisibilityDiagnostics = settings.logIndoorVisibility;
     m_logIndoorPerformanceDiagnostics = settings.performanceTrace;
     const bool bakedStaticColorModeChanged = m_bakedStaticColoredLights != settings.coloredLights;
@@ -4105,6 +3811,14 @@ void IndoorRenderer::render(
         m_indoorPerformanceDiagnostics.renderWorldFxNanoseconds += SDL_GetTicksNS() - worldFxBeginTickCount;
     }
 
+    if (preparingResources && m_pAssetFileSystem != nullptr)
+    {
+        preloadAtlasAnimations();
+        m_modelRenderer.preload(m_worldFxSystem.models());
+        m_effectRenderer.preload(m_worldFxSystem.namedEffects(), m_worldFxSystem.namedEffectResources(),
+            *m_pAssetFileSystem);
+    }
+
     const uint64_t viewSetupBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     const float cosPitch = std::cos(m_cameraPitchRadians);
     const float sinPitch = std::sin(m_cameraPitchRadians);
@@ -4127,12 +3841,18 @@ void IndoorRenderer::render(
         projectionMatrix,
         60.0f,
         static_cast<float>(viewWidth) / static_cast<float>(viewHeight),
-        0.1f,
-        50000.0f,
+        IndoorCameraNearClipDistance,
+        IndoorCameraFarClipDistance,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
     );
 
+    if (m_pPostProcessing != nullptr)
+    {
+        m_pPostProcessing->prepareWorldView(viewMatrix, projectionMatrix);
+    }
+    const uint16_t transparentView = m_pPostProcessing != nullptr
+        ? m_pPostProcessing->transparentView(MainViewId) : MainViewId;
     bgfx::setViewTransform(MainViewId, viewMatrix, projectionMatrix);
     bgfx::touch(MainViewId);
 
@@ -4140,6 +3860,13 @@ void IndoorRenderer::render(
     {
         m_indoorPerformanceDiagnostics.renderViewSetupNanoseconds += SDL_GetTicksNS() - viewSetupBeginTickCount;
     }
+
+    if (settings.waterShader && m_waterGeometryDirty)
+    {
+        updateWaterGeometry();
+    }
+    const bool enhancedWater = settings.waterShader && m_waterRenderer.isReady()
+        && !m_indoorGeometryRenderingDisabled && !m_indoorGeometryTranslucent;
 
     const uint64_t visibilityBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     const std::vector<uint8_t> renderVisibleSectorMask = buildVisibleSectorMask(eye);
@@ -4185,6 +3912,22 @@ void IndoorRenderer::render(
         pLightingStats->visibleSectors += static_cast<uint32_t>(
             std::count(renderVisibleSectorMask.begin(), renderVisibleSectorMask.end(), static_cast<uint8_t>(1)));
     }
+
+    if (enhancedWater)
+    {
+        const uint64_t revision = m_inspectGeometryRevision * 1099511628211ULL
+            + lightingFrame.indoorLightRevision;
+        m_waterRenderer.prepare(ViewFrustum(viewMatrix, projectionMatrix, bgfx::getCaps()->homogeneousDepth),
+            eye, viewMatrix, projectionMatrix, settings.waterReflections,
+            uint16_t(std::clamp(settings.waterReflectionSize, 128, 2048)), m_elapsedTime,
+            revision, settings.coloredLights, renderVisibleSectorMask,
+            m_renderPortalVisibilityCache.valid ? m_renderPortalVisibilityCache.sectorId : int16_t(-1),
+            settings.waterSpriteReflections);
+        renderWaterReflections(viewForward, lightingInput, viewWidth, viewHeight, settings.waterSpriteReflections);
+    }
+
+    const std::array<float, 4> noClipping = {};
+    bgfx::setUniform(m_worldClipPlaneUniform, noClipping.data());
 
     const uint64_t defaultSelectionBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     const IndoorDrawLightSet defaultLightSet =
@@ -4358,18 +4101,12 @@ void IndoorRenderer::render(
             m_map.has_value()
             && m_pSceneRuntime != nullptr
             && GameMechanics::partyDetectsSecretFaces(m_pSceneRuntime->partyRuntime().party(), m_map.value());
-        const std::array<float, 4> secretPulseParams = {
-            secretFacesDetected ? 1.0f : 0.0f,
-            m_elapsedTime,
-            0.0f,
-            0.0f
-        };
 
         for (const TexturedBatch &batch : m_texturedBatches)
         {
             ++texturedBatchCount;
 
-            if (!isTexturedBatchVisible(batch, renderVisibleSectorMask))
+            if (!indoorGeometrySectorsVisible(renderVisibleSectorMask, batch.sectorId, batch.backSectorId))
             {
                 ++culledTexturedBatchCount;
                 continue;
@@ -4377,91 +4114,16 @@ void IndoorRenderer::render(
 
             ++visibleTexturedBatchCount;
 
-            if (!bgfx::isValid(batch.vertexBufferHandle) || batch.frameTextureHandles.empty() || batch.vertexCount == 0)
+            if (enhancedWater && batch.waterColorAbgr != 0)
             {
                 continue;
             }
-
-            const size_t frameIndex = frameIndexForAnimation(
-                batch.frameLengthTicks,
-                batch.animationLengthTicks,
-                currentAnimationTicks());
-
-            if (frameIndex >= batch.frameTextureHandles.size()
-                || !bgfx::isValid(batch.frameTextureHandles[frameIndex]))
+            const IndoorDrawLightSet lights = drawLightSetForBatch(batch);
+            if (submitTexturedBatch(batch, MainViewId, lights, eye, m_cameraYawRadians, m_cameraPitchRadians,
+                    viewWidth, viewHeight, secretFacesDetected, {0.0f, 0.0f, 0.0f, 0.0f}))
             {
-                continue;
+                ++submittedTexturedBatchCount;
             }
-
-            bgfx::setTransform(modelMatrix);
-            bgfx::setVertexBuffer(0, batch.vertexBufferHandle, 0, batch.vertexCount);
-            bindTexture(
-                0,
-                m_textureSamplerHandle,
-                batch.frameTextureHandles[frameIndex],
-                TextureFilterProfile::BModel);
-            const IndoorDrawLightSet batchLightSet = drawLightSetForBatch(batch);
-            bgfx::setUniform(
-                m_indoorLightPositionsUniformHandle,
-                batchLightSet.positions.data(),
-                MaxIndoorShaderLights);
-            bgfx::setUniform(
-                m_indoorLightColorsUniformHandle,
-                batchLightSet.colors.data(),
-                MaxIndoorShaderLights);
-            bgfx::setUniform(m_indoorLightParamsUniformHandle, batchLightSet.params.data());
-            std::array<float, 4> batchSecretPulseParams = secretPulseParams;
-
-            if (batch.textureWidth > 0 && batch.textureHeight > 0)
-            {
-                batchSecretPulseParams[2] =
-                    -eye.x * 0.25f / static_cast<float>(batch.textureWidth);
-                batchSecretPulseParams[3] =
-                    eye.y * 0.25f / static_cast<float>(batch.textureHeight);
-            }
-
-            bgfx::setUniform(m_secretPulseParamsUniformHandle, batchSecretPulseParams.data());
-            const std::array<float, 4> indoorSkyParams = {
-                batchSecretPulseParams[2],
-                batchSecretPulseParams[3],
-                m_cameraYawRadians,
-                m_cameraPitchRadians
-            };
-            bgfx::setUniform(m_indoorSkyParamsUniformHandle, indoorSkyParams.data());
-            const float viewPlaneDistancePixels =
-                (static_cast<float>(viewHeight) * 0.5f)
-                / std::tan((IndoorCameraVerticalFovDegrees * Pi / 180.0f) * 0.5f);
-            const float horizonHeightOffset =
-                (viewPlaneDistancePixels * eye.z)
-                / (viewPlaneDistancePixels + IndoorSkyProjectionFarClipDistance)
-                + static_cast<float>(viewHeight) * 0.5f;
-            const std::array<float, 4> indoorSkyProjectionParams = {
-                static_cast<float>(viewWidth) * 0.5f,
-                horizonHeightOffset,
-                1.0f / viewPlaneDistancePixels,
-                IndoorSkyProjectionPitchOffsetRadians
-            };
-            bgfx::setUniform(m_indoorSkyProjectionParamsUniformHandle, indoorSkyProjectionParams.data());
-            if (m_indoorGeometryTranslucent)
-            {
-                bgfx::setState(
-                    BGFX_STATE_WRITE_RGB
-                    | BGFX_STATE_WRITE_A
-                    | BGFX_STATE_DEPTH_TEST_LEQUAL
-                    | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_FACTOR, BGFX_STATE_BLEND_INV_FACTOR),
-                    0x80808080u);
-            }
-            else
-            {
-                bgfx::setState(
-                    BGFX_STATE_WRITE_RGB
-                    | BGFX_STATE_WRITE_A
-                    | BGFX_STATE_WRITE_Z
-                    | BGFX_STATE_DEPTH_TEST_LEQUAL);
-            }
-
-            bgfx::submit(MainViewId, m_indoorLitProgramHandle);
-            ++submittedTexturedBatchCount;
         }
 
         for (std::unordered_map<uint32_t, CachedIndoorLightSelection>::iterator it =
@@ -4489,12 +4151,18 @@ void IndoorRenderer::render(
         m_indoorPerformanceDiagnostics.renderCulledTexturedBatches += culledTexturedBatchCount;
     }
 
+    if (enhancedWater)
+    {
+        m_waterRenderer.renderIndoor(transparentView, m_elapsedTime, lightingFrame, eye, viewForward,
+            settings.waterMovementRipples ? &m_worldFxSystem.waterRipples() : nullptr);
+    }
+
     const uint64_t bloodSplatsBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
 
     if (!m_indoorGeometryRenderingDisabled && settings.bloodSplats)
     {
         renderBloodSplats(
-            MainViewId,
+            transparentView,
             defaultLightSet);
     }
 
@@ -4508,11 +4176,11 @@ void IndoorRenderer::render(
     {
         pContextActionState = &gameSession.gameplayScreenRuntime().contextActionStateReadOnly();
     }
-    renderContextActionGeometryHighlight(MainViewId, pContextActionState);
+    renderContextActionGeometryHighlight(transparentView, pContextActionState);
 
     const uint64_t decorationBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     renderDecorationBillboards(
-        MainViewId,
+        transparentView,
         viewMatrix,
         eye,
         renderVisibleSectorMask,
@@ -4526,27 +4194,11 @@ void IndoorRenderer::render(
         m_indoorPerformanceDiagnostics.renderDecorationNanoseconds += SDL_GetTicksNS() - decorationBeginTickCount;
     }
 
-    const uint64_t spriteObjectBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
-    renderSpriteObjectBillboards(
-        MainViewId,
-        viewMatrix,
-        eye,
-        renderVisibleSectorMask,
-        lightingFrame,
-        settings.spriteOutline,
-        pContextActionState,
-        pLightingStats);
-
-    if (collectRenderDiagnostics)
-    {
-        m_indoorPerformanceDiagnostics.renderSpriteObjectNanoseconds +=
-            SDL_GetTicksNS() - spriteObjectBeginTickCount;
-    }
-
     const uint64_t actorBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
     renderActorPreviewBillboards(
-        MainViewId,
+        transparentView,
         viewMatrix,
+        projectionMatrix,
         eye,
         renderVisibleSectorMask,
         lightingFrame,
@@ -4561,15 +4213,97 @@ void IndoorRenderer::render(
         m_indoorPerformanceDiagnostics.renderActorNanoseconds += SDL_GetTicksNS() - actorBeginTickCount;
     }
 
+    const uint64_t modelBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
+    m_modelRenderer.beginFrame();
+    Engine::ModelRenderLighting modelLighting;
+    modelLighting.ambient = lightingFrame.ambient;
+    modelLighting.direct = 0.0f;
+    modelLighting.environmentColor = {lightingFrame.ambient, lightingFrame.ambient, lightingFrame.ambient};
+    modelLighting.displaySpaceLighting = true;
+    {
+        // Key light from above-front-left of the camera, like the painted light on the original sprites.
+        const bx::Vec3 up = {0.0f, 0.0f, 1.0f};
+        const bx::Vec3 left = bx::normalize(bx::cross(up, viewForward));
+        const bx::Vec3 key = bx::normalize(bx::add(bx::add(bx::mul(viewForward, -0.55f), bx::mul(left, 0.45f)),
+            bx::mul(up, 0.7f)));
+        modelLighting.keyDirection = {key.x, key.y, key.z};
+        modelLighting.keyFraction = IndoorModelKeyFraction;
+    }
+    IndoorFaceGeometryCache modelGeometryCache(
+        m_worldFxSystem.models().size() != 0 ? m_pIndoorMapData->faces.size() : 0);
+    const ViewFrustum modelFrustum(viewMatrix, projectionMatrix, bgfx::getCaps()->homogeneousDepth);
+    m_modelRenderer.render(
+        m_worldFxSystem.models(),
+        MainViewId,
+        {eye.x, eye.y, eye.z},
+        modelLighting,
+        [&](Engine::ModelInstanceHandle, const Engine::ModelBounds &modelBounds)
+        {
+            Engine::ModelRenderLighting selected = modelLighting;
+            const bx::Vec3 center = {(modelBounds.min[0] + modelBounds.max[0]) * 0.5f,
+                (modelBounds.min[1] + modelBounds.max[1]) * 0.5f,
+                (modelBounds.min[2] + modelBounds.max[2]) * 0.5f};
+            const int16_t sector = findIndoorSectorForPoint(
+                *m_pIndoorMapData, m_renderVertices, center, &modelGeometryCache).value_or(-1);
+            const IndoorLightSelectionBounds bounds = {{modelBounds.min[0], modelBounds.min[1], modelBounds.min[2]},
+                {modelBounds.max[0], modelBounds.max[1], modelBounds.max[2]}, modelBounds.valid};
+            const IndoorDrawLightSet lights = IndoorLightingRuntime::selectDrawLightSetForBounds(
+                lightingFrame, center, viewForward, sector, -1, bounds, pLightingStats, nullptr, true);
+            selected.pointPositions = lights.positions;
+            selected.pointColors = lights.colors;
+            selected.pointCount = uint32_t(lights.lightCount);
+            return selected;
+        }, nullptr,
+        [&](const Engine::ModelBounds &bounds)
+        {
+            return modelFrustum.intersectsBounds({bounds.min[0], bounds.min[1], bounds.min[2]},
+                {bounds.max[0], bounds.max[1], bounds.max[2]});
+        }, settings.modelLods ? std::abs(projectionMatrix[5]) * viewHeight * 0.5f : 0.0f,
+        settings.modelLodOverride, transparentView);
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderParticleNanoseconds += SDL_GetTicksNS() - modelBeginTickCount;
+    }
+
+    // Spell billboards blend with the completed solid scene, including creatures and models.
+    const uint64_t spriteObjectBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
+    renderSpriteObjectBillboards(
+        transparentView,
+        viewMatrix,
+        eye,
+        renderVisibleSectorMask,
+        lightingFrame,
+        settings.spriteOutline,
+        pContextActionState,
+        pLightingStats);
+
+    if (collectRenderDiagnostics)
+    {
+        m_indoorPerformanceDiagnostics.renderSpriteObjectNanoseconds +=
+            SDL_GetTicksNS() - spriteObjectBeginTickCount;
+    }
+
     const uint64_t particlesBeginTickCount = collectRenderDiagnostics ? SDL_GetTicksNS() : 0;
-    renderFxSegmentProjectiles(MainViewId, viewMatrix);
+    renderFxSegmentProjectiles(transparentView, viewMatrix);
     ParticleRenderer::renderParticles(
         m_worldFxRenderResources,
         m_worldFxSystem.particles(),
-        MainViewId,
+        transparentView,
         viewMatrix,
         eye,
-        static_cast<float>(viewWidth) / static_cast<float>(viewHeight));
+        static_cast<float>(viewWidth) / static_cast<float>(viewHeight),
+        m_worldFxSystem.glowBillboards());
+    if (m_pAssetFileSystem != nullptr)
+    {
+        m_effectRenderer.render(
+            m_worldFxRenderResources,
+            m_worldFxSystem.namedEffects(),
+            m_worldFxSystem.namedEffectResources(),
+            *m_pAssetFileSystem,
+            transparentView,
+            viewMatrix,
+            eye);
+    }
 
     if (collectRenderDiagnostics)
     {
@@ -4588,6 +4322,17 @@ bool IndoorRenderer::hasHudRenderResources() const
     return bgfx::isValid(m_texturedProgramHandle) && bgfx::isValid(m_textureSamplerHandle);
 }
 
+bool IndoorRenderer::isWaterSupportFace(size_t faceIndex) const
+{
+    if (faceIndex >= m_faceBatchIndices.size())
+    {
+        return false;
+    }
+    const int32_t batchIndex = m_faceBatchIndices[faceIndex];
+    return batchIndex >= 0 && size_t(batchIndex) < m_texturedBatches.size()
+        && m_texturedBatches[size_t(batchIndex)].waterColorAbgr != 0;
+}
+
 WorldFxSystem &IndoorRenderer::worldFxSystem()
 {
     return m_worldFxSystem;
@@ -4596,6 +4341,11 @@ WorldFxSystem &IndoorRenderer::worldFxSystem()
 const WorldFxSystem &IndoorRenderer::worldFxSystem() const
 {
     return m_worldFxSystem;
+}
+
+const EffectRenderer::Diagnostics &IndoorRenderer::effectRenderDiagnostics() const
+{
+    return m_effectRenderer.diagnostics();
 }
 
 bgfx::ProgramHandle IndoorRenderer::hudTexturedProgramHandle() const
@@ -4738,8 +4488,8 @@ IndoorRenderer::gameplayActorPickAtCursor(
         projectionMatrix,
         60.0f,
         aspectRatio,
-        0.1f,
-        50000.0f,
+        IndoorCameraNearClipDistance,
+        IndoorCameraFarClipDistance,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
     );
@@ -5055,8 +4805,8 @@ GameplayWorldPickRequest IndoorRenderer::buildGameplayWorldPickRequest(
         projectionMatrix,
         60.0f,
         aspectRatio,
-        0.1f,
-        50000.0f,
+        IndoorCameraNearClipDistance,
+        IndoorCameraFarClipDistance,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
     );
@@ -5268,6 +5018,7 @@ uint16_t IndoorRenderer::inspectHitEventId(const InspectHit &inspectHit) const
                 m_indoorInteractiveDecorationBaseEventIdsByEntity,
                 m_indoorInteractiveDecorationEventCountsByEntity,
                 m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                m_indoorInteractiveDecorationFixedEventByEntity,
                 inspectHit.index);
 
         if (!binding)
@@ -5330,6 +5081,7 @@ std::optional<std::string> IndoorRenderer::resolveEventTargetHoverStatusText(con
                     m_indoorInteractiveDecorationBaseEventIdsByEntity,
                     m_indoorInteractiveDecorationEventCountsByEntity,
                     m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                    m_indoorInteractiveDecorationFixedEventByEntity,
                     inspectHit.index);
 
             if (binding)
@@ -6031,8 +5783,8 @@ bool IndoorRenderer::projectGameplayWorldPointToScreen(
         projectionMatrix,
         IndoorCameraVerticalFovDegrees,
         aspectRatio,
-        0.1f,
-        50000.0f,
+        IndoorCameraNearClipDistance,
+        IndoorCameraFarClipDistance,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right);
     bx::mtxMul(viewProjectionMatrix, viewMatrix, projectionMatrix);
@@ -6094,8 +5846,8 @@ std::optional<size_t> IndoorRenderer::gameplayClosestVisibleHostileActorIndex() 
         projectionMatrix,
         60.0f,
         aspectRatio,
-        0.1f,
-        50000.0f,
+        IndoorCameraNearClipDistance,
+        IndoorCameraFarClipDistance,
         bgfx::getCaps()->homogeneousDepth,
         bx::Handedness::Right
     );
@@ -6121,7 +5873,7 @@ std::optional<size_t> IndoorRenderer::gameplayClosestVisibleHostileActorIndex() 
         const bx::Vec3 actorPoint = {
             actorState.preciseX,
             actorState.preciseY,
-            actorState.preciseZ + std::max(48.0f, float(actorState.height) * 0.6f)
+            actorState.preciseZ + GameMechanics::actorTargetHeight(actorState.height)
         };
         ProjectedPoint projected = {};
 
@@ -6182,8 +5934,143 @@ std::optional<bx::Vec3> IndoorRenderer::gameplayActorTargetPoint(size_t actorInd
     return bx::Vec3 {
         actorState.preciseX,
         actorState.preciseY,
-        actorState.preciseZ + std::max(48.0f, float(actorState.height) * 0.6f)
+        actorState.preciseZ + GameMechanics::actorTargetHeight(actorState.height)
     };
+}
+
+std::optional<bx::Vec3> IndoorRenderer::gameplayActorNearestOpaquePoint(
+    size_t actorIndex,
+    const GameplayPartyAttackFallbackQuery &query) const
+{
+    if (query.viewWidth <= 0
+        || query.viewHeight <= 0
+        || !m_monsterTable
+        || !m_indoorActorPreviewBillboardSet
+        || m_pSceneRuntime == nullptr
+        || !runtimeMapDeltaData())
+    {
+        return std::nullopt;
+    }
+
+    const std::optional<RuntimeActorBillboard> actor = buildRuntimeActorBillboard(
+        *m_monsterTable,
+        m_indoorActorPreviewBillboardSet->spriteFrameTable,
+        *runtimeMapDeltaData(),
+        actorIndex,
+        &m_pSceneRuntime->worldRuntime());
+    if (!actor)
+    {
+        return std::nullopt;
+    }
+
+    const IndoorWorldRuntime::MapActorAiState *pActorAiState =
+        m_pSceneRuntime->worldRuntime().mapActorAiState(actorIndex);
+    uint16_t spriteFrameIndex = actor->spriteFrameIndex;
+    uint32_t frameTimeTicks = actor->useStaticFrame ? 0U : currentAnimationTicks();
+    if (pActorAiState != nullptr)
+    {
+        const size_t animationIndex = static_cast<size_t>(pActorAiState->animationState);
+        if (animationIndex < actor->actionSpriteFrameIndices.size()
+            && actor->actionSpriteFrameIndices[animationIndex] != 0)
+        {
+            spriteFrameIndex = actor->actionSpriteFrameIndices[animationIndex];
+        }
+        frameTimeTicks = static_cast<uint32_t>(std::max(0.0f, pActorAiState->animationTimeTicks));
+    }
+
+    const SpriteFrameEntry *pFrame =
+        m_indoorActorPreviewBillboardSet->spriteFrameTable.getFrame(spriteFrameIndex, frameTimeTicks);
+    if (pFrame == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    const float angleToCamera = std::atan2(
+        static_cast<float>(actor->y) - m_cameraPositionY,
+        static_cast<float>(actor->x) - m_cameraPositionX);
+    const float actorYawRadians = pActorAiState != nullptr ? pActorAiState->yawRadians : 0.0f;
+    const float octantAngle = actorYawRadians - angleToCamera + Pi + (Pi / 8.0f);
+    const int octant = static_cast<int>(std::floor(octantAngle / (Pi / 4.0f))) & 7;
+    const ResolvedSpriteTexture resolvedTexture = SpriteFrameTable::resolveTexture(*pFrame, octant);
+    const BillboardTextureHandle *pTexture = findBillboardTexture(resolvedTexture.textureName, pFrame->paletteId);
+    if (pTexture == nullptr || pTexture->width <= 0.0f || pTexture->height <= 0.0f)
+    {
+        return std::nullopt;
+    }
+
+    const float spriteScale = std::max(pFrame->scale * actor->heightScale, 0.01f);
+    const float worldWidth = pTexture->width * spriteScale;
+    const float worldHeight = pTexture->height * spriteScale;
+    const bx::Vec3 cameraRight = {
+        query.viewMatrix[0],
+        query.viewMatrix[4],
+        query.viewMatrix[8],
+    };
+    const bx::Vec3 cameraUp = {
+        query.viewMatrix[1],
+        query.viewMatrix[5],
+        query.viewMatrix[9],
+    };
+    const BillboardQuad quad = billboardQuad(
+        spriteBillboardCenter(
+            static_cast<float>(actor->x),
+            static_cast<float>(actor->y),
+            static_cast<float>(actor->z),
+            cameraRight,
+            cameraUp,
+            *pTexture,
+            spriteScale,
+            resolvedTexture.mirrored),
+        cameraRight,
+        cameraUp,
+        worldWidth,
+        worldHeight);
+    const bx::Vec3 topLeft = bx::add(bx::sub(quad.center, quad.right), quad.up);
+    const bx::Vec3 topRight = bx::add(bx::add(quad.center, quad.right), quad.up);
+    const bx::Vec3 bottomLeft = bx::sub(bx::sub(quad.center, quad.right), quad.up);
+    const bx::Vec3 bottomRight = bx::sub(bx::add(quad.center, quad.right), quad.up);
+    float viewProjectionMatrix[16] = {};
+    bx::mtxMul(viewProjectionMatrix, query.viewMatrix.data(), query.projectionMatrix.data());
+    ProjectedPoint projectedTopLeft = {};
+    ProjectedPoint projectedTopRight = {};
+    ProjectedPoint projectedBottomLeft = {};
+    ProjectedPoint projectedBottomRight = {};
+
+    if (!projectWorldPointToScreen(
+            topLeft, query.viewWidth, query.viewHeight, viewProjectionMatrix, projectedTopLeft)
+        || !projectWorldPointToScreen(
+            topRight, query.viewWidth, query.viewHeight, viewProjectionMatrix, projectedTopRight)
+        || !projectWorldPointToScreen(
+            bottomLeft, query.viewWidth, query.viewHeight, viewProjectionMatrix, projectedBottomLeft)
+        || !projectWorldPointToScreen(
+            bottomRight, query.viewWidth, query.viewHeight, viewProjectionMatrix, projectedBottomRight))
+    {
+        return std::nullopt;
+    }
+
+    const float left = std::min(
+        std::min(projectedTopLeft.x, projectedTopRight.x),
+        std::min(projectedBottomLeft.x, projectedBottomRight.x));
+    const float right = std::max(
+        std::max(projectedTopLeft.x, projectedTopRight.x),
+        std::max(projectedBottomLeft.x, projectedBottomRight.x));
+    const float top = std::min(
+        std::min(projectedTopLeft.y, projectedTopRight.y),
+        std::min(projectedBottomLeft.y, projectedBottomRight.y));
+    const float bottom = std::max(
+        std::max(projectedTopLeft.y, projectedTopRight.y),
+        std::max(projectedBottomLeft.y, projectedBottomRight.y));
+    if (right <= left || bottom <= top)
+    {
+        return std::nullopt;
+    }
+
+    return nearestOpaqueBillboardPoint(
+        quad,
+        pTexture->opacityMask,
+        resolvedTexture.mirrored,
+        (query.screenX - left) / (right - left),
+        (query.screenY - top) / (bottom - top));
 }
 
 std::optional<bx::Vec3> IndoorRenderer::gameplayGroundTargetPoint(float screenX, float screenY) const
@@ -6391,7 +6278,11 @@ bool IndoorRenderer::canActivateGameplayWorldHit(const GameplayWorldHit &hit) co
 
     if (inspectHit->kind == "entity")
     {
-        return inspectHitEventId(*inspectHit) != 0;
+        return inspectHitEventId(*inspectHit) != 0
+            || (m_pIndoorMapData && m_indoorDecorationBillboardSet && runtimeEventRuntimeState() != nullptr
+                && indoorDecorationLightToggleTarget(*m_pIndoorMapData,
+                    m_indoorDecorationBillboardSet->decorationTable, inspectHit->index,
+                    runtimeEventRuntimeState()) != nullptr);
     }
 
     if (inspectHit->kind == "face")
@@ -6421,7 +6312,16 @@ bool IndoorRenderer::activateGameplayWorldHit(const GameplayWorldHit &hit)
 
 void IndoorRenderer::shutdown()
 {
-    m_spriteAtlasCache.clear(Engine::BgfxContext::isBgfxInitialized());
+    m_waterRenderer.shutdown();
+    m_waterResourcesInitialized = false;
+    m_waterGeometryDirty = true;
+    if (Engine::BgfxContext::isBgfxInitialized() && bgfx::isValid(m_worldClipPlaneUniform))
+    {
+        bgfx::destroy(m_worldClipPlaneUniform);
+    }
+    m_worldClipPlaneUniform = BGFX_INVALID_HANDLE;
+    m_effectRenderer.shutdown(Engine::BgfxContext::isBgfxInitialized());
+    m_modelRenderer.shutdown(Engine::BgfxContext::isBgfxInitialized());
     m_pIndoorMapData = nullptr;
     m_indoorPortalGraph.reset();
     m_indoorLightingRuntime.clearStaticCache();
@@ -6444,6 +6344,7 @@ void IndoorRenderer::shutdown()
     m_indoorInteractiveDecorationBaseEventIdsByEntity.clear();
     m_indoorInteractiveDecorationEventCountsByEntity.clear();
     m_indoorInteractiveDecorationHideWhenClearedByEntity.clear();
+    m_indoorInteractiveDecorationFixedEventByEntity.clear();
     m_decorationBillboardIndicesBySector.clear();
     m_staticSpriteObjectBillboardIndicesBySector.clear();
     m_houseTable.reset();
@@ -6488,6 +6389,7 @@ void IndoorRenderer::shutdown()
         m_indoorLightingSelectionCache.clear();
         m_indoorLightingSelectionFrame = 0;
         m_faceBatchIndices.clear();
+        m_faceSubdivisionTriangles.clear();
         m_texturedBatchGeometryRevision = std::numeric_limits<uint64_t>::max();
         m_bakedStaticLightRevision = std::numeric_limits<uint64_t>::max();
         m_bakedStaticLightEnabledStates.clear();
@@ -6658,7 +6560,7 @@ void IndoorRenderer::shutdown()
 
     for (BillboardTextureHandle &textureHandle : m_billboardTextureHandles)
     {
-        if (!textureHandle.atlas && bgfx::isValid(textureHandle.textureHandle))
+        if (!textureHandle.atlas && !textureHandle.retained && bgfx::isValid(textureHandle.textureHandle))
         {
             bgfx::destroy(textureHandle.textureHandle);
         }
@@ -6893,6 +6795,19 @@ void IndoorRenderer::registerBillboardTextureIndex(size_t textureIndex)
     m_billboardTextureIndexByKey[makeBillboardTextureLookupKey(texture.textureName, texture.paletteId)] = textureIndex;
 }
 
+const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::restoreBillboardTexture(
+    const std::string &name, int16_t palette, const std::string &resourceIdentity)
+{
+    const SpriteBillboardTexture *pCached = m_nativeSpriteCache.find(name, palette, resourceIdentity);
+    if (pCached == nullptr)
+    {
+        return nullptr;
+    }
+    m_billboardTextureHandles.push_back(*pCached);
+    registerBillboardTextureIndex(m_billboardTextureHandles.size() - 1);
+    return &m_billboardTextureHandles.back();
+}
+
 const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillboardTexture(
     const std::string &textureName,
     int16_t paletteId)
@@ -6904,9 +6819,18 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
         return pExistingTexture;
     }
 
+    if (const SpriteBillboardTexture *pCached = restoreBillboardTexture(textureName, paletteId))
+    {
+        return pCached;
+    }
+
     if (textureName.starts_with("atlas:"))
     {
         BillboardTextureHandle texture;
+        if (m_pAssetFileSystem != nullptr)
+        {
+            m_spriteAtlasCache.preloadPackage(*m_pAssetFileSystem, textureName);
+        }
         if (m_pAssetFileSystem == nullptr || !m_spriteAtlasCache.load(*m_pAssetFileSystem, textureName, paletteId, texture))
         {
             return nullptr;
@@ -6938,8 +6862,11 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
 
     int textureWidth = 0;
     int textureHeight = 0;
-    const std::optional<std::vector<uint8_t>> pixels =
-        GameplayHudCommon::loadSpriteBitmapPixelsBgraCached(
+    std::optional<OutdoorBitmapTexture> restored = loadRestoredDecorationTexture(
+        *m_pAssetFileSystem, textureName, paletteId);
+    const std::optional<std::vector<uint8_t>> pixels = restored
+        ? std::optional<std::vector<uint8_t>>(std::move(restored->pixels))
+        : GameplayHudCommon::loadSpriteBitmapPixelsBgraCached(
             m_pAssetFileSystem,
             m_spriteLoadCache,
             textureName,
@@ -6947,6 +6874,11 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
             textureWidth,
             textureHeight,
             m_map.has_value() ? m_map->worldId : std::string());
+    if (restored)
+    {
+        textureWidth = restored->physicalWidth;
+        textureHeight = restored->physicalHeight;
+    }
 
     if (!pixels || textureWidth <= 0 || textureHeight <= 0)
     {
@@ -6957,8 +6889,10 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
     BillboardTextureHandle billboardTexture = {};
     billboardTexture.textureName = toLowerCopy(textureName);
     billboardTexture.paletteId = paletteId;
-    billboardTexture.width = Engine::scalePhysicalPixelsToLogical(textureWidth, m_assetScaleTier);
-    billboardTexture.height = Engine::scalePhysicalPixelsToLogical(textureHeight, m_assetScaleTier);
+    billboardTexture.width = restored
+        ? restored->width : Engine::scalePhysicalPixelsToLogical(textureWidth, m_assetScaleTier);
+    billboardTexture.height = restored
+        ? restored->height : Engine::scalePhysicalPixelsToLogical(textureHeight, m_assetScaleTier);
     billboardTexture.physicalWidth = textureWidth;
     billboardTexture.physicalHeight = textureHeight;
     billboardTexture.opacityMask.assignFromBgra(*pixels, textureWidth, textureHeight);
@@ -6976,6 +6910,7 @@ const IndoorRenderer::BillboardTextureHandle *IndoorRenderer::ensureSpriteBillbo
         return nullptr;
     }
 
+    m_nativeSpriteCache.retain(billboardTexture);
     m_billboardTextureHandles.push_back(std::move(billboardTexture));
     registerBillboardTextureIndex(m_billboardTextureHandles.size() - 1);
     logLoadResult("loaded", textureWidth, textureHeight);
@@ -7210,7 +7145,8 @@ void IndoorRenderer::renderDecorationBillboards(
     const std::vector<std::vector<IndoorVisibilityFrustum>> &visibleSectorFrustums,
     const IndoorLightingFrame &lightingFrame,
     const GameplayContextActionState *pContextActionState,
-    LightingStats *pLightingStats
+    LightingStats *pLightingStats,
+    const WaterRenderer::Reflection *pReflection
 )
 {
     if (!m_indoorDecorationBillboardSet
@@ -7226,6 +7162,7 @@ void IndoorRenderer::renderDecorationBillboards(
         return;
     }
 
+    const bx::Vec3 cameraRight = {pViewMatrix[0], pViewMatrix[4], pViewMatrix[8]};
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
     float billboardModelMatrix[16] = {};
     bx::mtxInverse(billboardModelMatrix, pViewMatrix);
@@ -7235,6 +7172,15 @@ void IndoorRenderer::renderDecorationBillboards(
         : 1.0f;
     const std::array<IndoorVisibilityPlane, 4> frustumPlanes =
         buildIndoorBillboardFrustumPlanes(cameraPosition, m_cameraYawRadians, m_cameraPitchRadians, aspectRatio);
+    std::optional<ViewFrustum> reflectionFrustum;
+    if (pReflection != nullptr)
+    {
+        reflectionFrustum.emplace(pReflection->view.data(), pReflection->projection.data(),
+            bgfx::getCaps()->homogeneousDepth);
+    }
+    const std::array<float, 4> clip = pReflection != nullptr
+        ? std::array<float, 4>{0.0f, 0.0f, 1.0f, -pReflection->height} : std::array<float, 4>{};
+    bgfx::setUniform(m_worldClipPlaneUniform, clip.data());
     const uint32_t animationTimeTicks = currentAnimationTicks();
 
     struct BillboardDrawItem
@@ -7269,6 +7215,7 @@ void IndoorRenderer::renderDecorationBillboards(
                 m_indoorInteractiveDecorationBaseEventIdsByEntity,
                 m_indoorInteractiveDecorationEventCountsByEntity,
                 m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                m_indoorInteractiveDecorationFixedEventByEntity,
                 billboard.entityIndex);
 
         if (binding
@@ -7316,6 +7263,15 @@ void IndoorRenderer::renderDecorationBillboards(
         [&](const DecorationBillboard &billboard)
     {
         if (!isRenderSectorVisible(billboard.sectorId, visibleSectorMask))
+        {
+            return;
+        }
+
+        const float deltaX = static_cast<float>(billboard.x) - cameraPosition.x;
+        const float deltaY = static_cast<float>(billboard.y) - cameraPosition.y;
+        const float deltaZ = static_cast<float>(billboard.z) - cameraPosition.z;
+        if (pReflection != nullptr
+            && waterBillboardFade(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ) == 0.0f)
         {
             return;
         }
@@ -7368,7 +7324,11 @@ void IndoorRenderer::renderDecorationBillboards(
         const float radius = std::sqrt((worldWidth * 0.5f) * (worldWidth * 0.5f)
             + (worldHeight * 0.5f) * (worldHeight * 0.5f));
 
-        if (!billboardSphereInFrustum(center, radius, frustumPlanes))
+        const bool visible = pReflection != nullptr
+            ? waterBillboardVisible(billboardQuad(center, cameraRight, cameraUp, worldWidth, worldHeight),
+                *reflectionFrustum, pReflection->height)
+            : billboardSphereInFrustum(center, radius, frustumPlanes);
+        if (!visible)
         {
             return;
         }
@@ -7377,10 +7337,6 @@ void IndoorRenderer::renderDecorationBillboards(
         {
             return;
         }
-
-        const float deltaX = static_cast<float>(billboard.x) - cameraPosition.x;
-        const float deltaY = static_cast<float>(billboard.y) - cameraPosition.y;
-        const float deltaZ = static_cast<float>(billboard.z) - cameraPosition.z;
 
         BillboardDrawItem drawItem = {};
         drawItem.pBillboard = &billboard;
@@ -7420,6 +7376,10 @@ void IndoorRenderer::renderDecorationBillboards(
         }
     }
 
+    if (pReflection != nullptr)
+    {
+        limitWaterBillboards(drawItems, MaxWaterBillboards / 2);
+    }
     std::sort(
         drawItems.begin(),
         drawItems.end(),
@@ -7429,7 +7389,7 @@ void IndoorRenderer::renderDecorationBillboards(
         }
     );
 
-    if (m_logIndoorPerformanceDiagnostics)
+    if (pReflection == nullptr && m_logIndoorPerformanceDiagnostics)
     {
         m_indoorPerformanceDiagnostics.renderDecorationSpriteItems += drawItems.size();
 
@@ -7463,7 +7423,8 @@ void IndoorRenderer::renderDecorationBillboards(
         const bx::Vec3 up = {0.0f, worldHeight * 0.5f, 0.0f};
         const float u0 = drawItem.mirrored ? 1.0f : 0.0f;
         const float u1 = drawItem.mirrored ? 0.0f : 1.0f;
-        const uint32_t vertexColorAbgr = makeAbgr(0, 0, 0);
+        const uint32_t vertexColorAbgr = pReflection != nullptr
+            ? waterBillboardColor(makeAbgr(0, 0, 0), drawItem.distanceSquared) : makeAbgr(0, 0, 0);
         const std::array<float, 4> ambient =
             billboardLightingUniform(
                 lightingFrame,
@@ -7595,7 +7556,7 @@ void IndoorRenderer::renderDecorationBillboards(
                     IndoorBillboardDrawState);
                 bgfx::submit(viewId, m_billboardProgramHandle);
 
-                if (m_logIndoorPerformanceDiagnostics)
+                if (pReflection == nullptr && m_logIndoorPerformanceDiagnostics)
                 {
                     ++m_indoorPerformanceDiagnostics.renderDecorationSpriteOutlineSubmits;
                 }
@@ -7692,7 +7653,7 @@ void IndoorRenderer::renderDecorationBillboards(
         );
         bgfx::submit(viewId, m_billboardProgramHandle);
 
-        if (m_logIndoorPerformanceDiagnostics)
+        if (pReflection == nullptr && m_logIndoorPerformanceDiagnostics)
         {
             ++m_indoorPerformanceDiagnostics.renderDecorationSpriteSubmits;
         }
@@ -7702,6 +7663,7 @@ void IndoorRenderer::renderDecorationBillboards(
 void IndoorRenderer::renderActorPreviewBillboards(
     uint16_t viewId,
     const float *pViewMatrix,
+    const float *pProjectionMatrix,
     const bx::Vec3 &cameraPosition,
     const std::vector<uint8_t> &visibleSectorMask,
     const IndoorLightingFrame &lightingFrame,
@@ -7709,7 +7671,8 @@ void IndoorRenderer::renderActorPreviewBillboards(
     const GameplayContextActionState *pContextActionState,
     const GameSession *pGameSession,
     const GameSettings *pSettings,
-    LightingStats *pLightingStats
+    LightingStats *pLightingStats,
+    const WaterRenderer::Reflection *pReflection
 )
 {
     if (!m_indoorActorPreviewBillboardSet
@@ -7735,6 +7698,15 @@ void IndoorRenderer::renderActorPreviewBillboards(
         : 1.0f;
     const std::array<IndoorVisibilityPlane, 4> frustumPlanes =
         buildIndoorBillboardFrustumPlanes(cameraPosition, m_cameraYawRadians, m_cameraPitchRadians, aspectRatio);
+    std::optional<ViewFrustum> reflectionFrustum;
+    if (pReflection != nullptr)
+    {
+        reflectionFrustum.emplace(pReflection->view.data(), pReflection->projection.data(),
+            bgfx::getCaps()->homogeneousDepth);
+    }
+    const std::array<float, 4> clip = pReflection != nullptr
+        ? std::array<float, 4>{0.0f, 0.0f, 1.0f, -pReflection->height} : std::array<float, 4>{};
+    bgfx::setUniform(m_worldClipPlaneUniform, clip.data());
     const uint32_t animationTimeTicks = currentAnimationTicks();
 
     struct BillboardDrawItem
@@ -7752,9 +7724,9 @@ void IndoorRenderer::renderActorPreviewBillboards(
         float heightScale = 1.0f;
         float distanceSquared = 0.0f;
         bool hasHealthBar = false;
-        float healthRatio = 1.0f;
-        float healthBarZ = 0.0f;
-        float healthBarScale = 1.0f;
+        bool healthBarFocused = false;
+        bool healthBarAttacking = false;
+        uint16_t healthBarStandingFrame = 0;
         float questMarkerZ = 0.0f;
         uint64_t lightingCacheKey = 0;
     };
@@ -7765,7 +7737,16 @@ void IndoorRenderer::renderActorPreviewBillboards(
         ? std::optional<size_t>(m_cachedInspectHit.index)
         : std::nullopt;
     const GameplayWorldHit *pContextActionHit = selectedContextActionWorldHit(pContextActionState);
-    const bool renderCombatActorHealthBars = pSettings != nullptr && pSettings->combatActorHealthBars;
+    const bool renderCombatActorHealthBars = pReflection == nullptr && pGameSession != nullptr
+        && pSettings != nullptr && pSettings->enemyHealthBarMode != "off"
+        && pGameSession->gameplayScreenRuntime().currentHudScreenState() == GameplayHudScreenState::Gameplay;
+    CombatActorHealthBarRuntime *pHealthBars = renderCombatActorHealthBars
+        ? &pGameSession->gameplayScreenRuntime().enemyHealthBars() : nullptr;
+    const std::optional<size_t> pointedActor = pContextActionHit != nullptr
+        && pContextActionHit->kind == GameplayWorldHitKind::Actor
+        && pContextActionHit->actor.has_value()
+        ? std::optional<size_t>(pContextActionHit->actor->actorIndex) : hoveredActorIndex;
+    const std::optional<size_t> focusedActor = pHealthBars != nullptr ? pHealthBars->focus(pointedActor) : std::nullopt;
     const std::vector<RuntimeActorBillboard> runtimeBillboards =
         mapDeltaData && m_monsterTable
         ? buildRuntimeActorBillboards(
@@ -7788,6 +7769,15 @@ void IndoorRenderer::renderActorPreviewBillboards(
         for (const RuntimeActorBillboard &billboard : runtimeBillboards)
         {
             if (!isRenderSectorVisible(billboard.sectorId, visibleSectorMask))
+            {
+                continue;
+            }
+
+            const float deltaX = static_cast<float>(billboard.x) - cameraPosition.x;
+            const float deltaY = static_cast<float>(billboard.y) - cameraPosition.y;
+            const float deltaZ = static_cast<float>(billboard.z) - cameraPosition.z;
+            if (pReflection != nullptr
+                && waterBillboardFade(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ) == 0.0f)
             {
                 continue;
             }
@@ -7847,14 +7837,14 @@ void IndoorRenderer::renderActorPreviewBillboards(
             const float radius = std::sqrt((worldWidth * 0.5f) * (worldWidth * 0.5f)
                 + (worldHeight * 0.5f) * (worldHeight * 0.5f));
 
-            if (!billboardSphereInFrustum(center, radius, frustumPlanes))
+            const bool visible = pReflection != nullptr
+                ? waterBillboardVisible(billboardQuad(center, cameraRight, cameraUp, worldWidth, worldHeight),
+                    *reflectionFrustum, pReflection->height)
+                : billboardSphereInFrustum(center, radius, frustumPlanes);
+            if (!visible)
             {
                 continue;
             }
-
-            const float deltaX = static_cast<float>(billboard.x) - cameraPosition.x;
-            const float deltaY = static_cast<float>(billboard.y) - cameraPosition.y;
-            const float deltaZ = static_cast<float>(billboard.z) - cameraPosition.z;
 
             BillboardDrawItem drawItem = {};
             drawItem.actorIndex = billboard.actorIndex;
@@ -7889,14 +7879,22 @@ void IndoorRenderer::renderActorPreviewBillboards(
                 && billboard.actorIndex < mapDeltaData->actors.size()
                 && mapDeltaData->actors[billboard.actorIndex].hp > 0)
             {
-                considerCombatActorHealthBarCandidate(
-                    healthBarSelection,
-                    drawItems.size(),
-                    drawItem.distanceSquared);
+                const bool attacking = pActorAiState->hasDetectedParty
+                    && (pActorAiState->motionState == ActorAiMotionState::Pursuing
+                        || pActorAiState->motionState == ActorAiMotionState::Attacking);
+                if (drawItem.distanceSquared <= MaximumCombatActorHealthBarDistanceSquared)
+                {
+                    pHealthBars->observeActivity(billboard.actorIndex, attacking);
+                }
+                considerCombatActorHealthBarCandidate(healthBarSelection,
+                    {drawItems.size(), drawItem.distanceSquared, billboard.actorIndex,
+                        focusedActor == billboard.actorIndex,
+                        attacking || pHealthBars->inCombat(billboard.actorIndex)}, pSettings->enemyHealthBarMode);
+                drawItem.healthBarAttacking = attacking;
             }
 
-            drawItem.healthBarZ = drawItem.z + worldHeight + pTexture->offsetY * spriteScale
-                + 26.0f * drawItem.heightScale;
+            drawItem.healthBarStandingFrame = billboard.actionSpriteFrameIndices[0] != 0
+                ? billboard.actionSpriteFrameIndices[0] : billboard.spriteFrameIndex;
             drawItem.questMarkerZ = drawItem.z + pTexture->offsetY * spriteScale
                 + worldHeight * (1.0f - pTexture->opacityMask.opaqueTopNormalized());
             drawItems.push_back(drawItem);
@@ -7906,6 +7904,15 @@ void IndoorRenderer::renderActorPreviewBillboards(
     {
         for (const ActorPreviewBillboard &billboard : m_indoorActorPreviewBillboardSet->billboards)
         {
+            const float deltaX = static_cast<float>(billboard.x) - cameraPosition.x;
+            const float deltaY = static_cast<float>(billboard.y) - cameraPosition.y;
+            const float deltaZ = static_cast<float>(billboard.z) - cameraPosition.z;
+            if (pReflection != nullptr
+                && waterBillboardFade(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ) == 0.0f)
+            {
+                continue;
+            }
+
             const uint32_t frameTimeTicks = billboard.useStaticFrame ? 0U : animationTimeTicks;
             const SpriteFrameEntry *pFrame =
                 m_indoorActorPreviewBillboardSet->spriteFrameTable.getFrame(billboard.spriteFrameIndex, frameTimeTicks);
@@ -7941,14 +7948,14 @@ void IndoorRenderer::renderActorPreviewBillboards(
             const float radius = std::sqrt((worldWidth * 0.5f) * (worldWidth * 0.5f)
                 + (worldHeight * 0.5f) * (worldHeight * 0.5f));
 
-            if (!billboardSphereInFrustum(center, radius, frustumPlanes))
+            const bool visible = pReflection != nullptr
+                ? waterBillboardVisible(billboardQuad(center, cameraRight, cameraUp, worldWidth, worldHeight),
+                    *reflectionFrustum, pReflection->height)
+                : billboardSphereInFrustum(center, radius, frustumPlanes);
+            if (!visible)
             {
                 continue;
             }
-
-            const float deltaX = static_cast<float>(billboard.x) - cameraPosition.x;
-            const float deltaY = static_cast<float>(billboard.y) - cameraPosition.y;
-            const float deltaZ = static_cast<float>(billboard.z) - cameraPosition.z;
 
             BillboardDrawItem drawItem = {};
             drawItem.x = billboard.x;
@@ -7962,37 +7969,17 @@ void IndoorRenderer::renderActorPreviewBillboards(
         }
     }
 
-    for (size_t selectionIndex = 0; selectionIndex < healthBarSelection.count; ++selectionIndex)
+    for (size_t index = 0; index < healthBarSelection.count; ++index)
     {
-        const CombatActorHealthBarCandidate &candidate = healthBarSelection.candidates[selectionIndex];
-
-        if (candidate.drawItemIndex >= drawItems.size()
-            || !mapDeltaData
-            || drawItems[candidate.drawItemIndex].actorIndex >= mapDeltaData->actors.size())
-        {
-            continue;
-        }
-
-        BillboardDrawItem &drawItem = drawItems[candidate.drawItemIndex];
-        GameplayActorInspectState inspectState = {};
-        const bool hasInspectState =
-            m_pSceneRuntime != nullptr
-            && m_pSceneRuntime->worldRuntime().actorInspectState(drawItem.actorIndex, 0, inspectState);
-        const int fallbackHp = static_cast<int>(mapDeltaData->actors[drawItem.actorIndex].hp);
-        const int maxHp = hasInspectState && inspectState.maxHp > 0 ? inspectState.maxHp : fallbackHp;
-        const int currentHp = hasInspectState ? inspectState.currentHp : fallbackHp;
-
-        if (maxHp <= 0 || currentHp <= 0)
-        {
-            continue;
-        }
-
-        drawItem.hasHealthBar = true;
-        drawItem.healthRatio =
-            std::clamp(static_cast<float>(currentHp) / static_cast<float>(maxHp), 0.0f, 1.0f);
-        drawItem.healthBarScale = combatActorHealthBarScale(candidate.distanceSquared);
+        const CombatActorHealthBarCandidate &candidate = healthBarSelection.candidates[index];
+        drawItems[candidate.drawItemIndex].hasHealthBar = true;
+        drawItems[candidate.drawItemIndex].healthBarFocused = candidate.focused;
     }
 
+    if (pReflection != nullptr)
+    {
+        limitWaterBillboards(drawItems, MaxWaterBillboards / 2);
+    }
     std::sort(
         drawItems.begin(),
         drawItems.end(),
@@ -8002,7 +7989,7 @@ void IndoorRenderer::renderActorPreviewBillboards(
         }
     );
 
-    if (m_logIndoorPerformanceDiagnostics)
+    if (pReflection == nullptr && m_logIndoorPerformanceDiagnostics)
     {
         m_indoorPerformanceDiagnostics.renderActorSpriteItems += drawItems.size();
 
@@ -8019,6 +8006,14 @@ void IndoorRenderer::renderActorPreviewBillboards(
 
     for (const BillboardDrawItem &drawItem : drawItems)
     {
+        if (m_worldFxSystem.hasActorModel(drawItem.actorIndex))
+        {
+            if (pReflection == nullptr)
+            {
+                m_worldFxSystem.setActorModelOutline(drawItem.actorIndex, drawItem.hoveredOutlineColorAbgr);
+            }
+            continue;
+        }
         const SpriteFrameEntry &frame = *drawItem.pFrame;
         const BillboardTextureHandle &texture = *drawItem.pTexture;
         const float spriteScale = std::max(frame.scale * drawItem.heightScale, 0.01f);
@@ -8035,7 +8030,8 @@ void IndoorRenderer::renderActorPreviewBillboards(
         const bx::Vec3 up = {0.0f, worldHeight * 0.5f, 0.0f};
         const float u0 = drawItem.mirrored ? 1.0f : 0.0f;
         const float u1 = drawItem.mirrored ? 0.0f : 1.0f;
-        const uint32_t vertexColorAbgr = makeAbgr(0, 0, 0);
+        const uint32_t vertexColorAbgr = pReflection != nullptr
+            ? waterBillboardColor(makeAbgr(0, 0, 0), drawItem.distanceSquared) : makeAbgr(0, 0, 0);
         const std::array<float, 4> ambient =
             billboardLightingUniform(
                 lightingFrame,
@@ -8052,14 +8048,12 @@ void IndoorRenderer::renderActorPreviewBillboards(
 
         if (drawItem.hovered)
         {
-            const float paddingU = HoveredActorOutlineThicknessPixels / static_cast<float>(texture.width);
-            const float paddingV = HoveredActorOutlineThicknessPixels / static_cast<float>(texture.height);
-            const float outlinedHalfWidth =
-                (static_cast<float>(texture.width) * spriteScale
-                    + HoveredActorOutlineThicknessPixels * 2.0f * spriteScale) * 0.5f;
-            const float outlinedHalfHeight =
-                (static_cast<float>(texture.height) * spriteScale
-                    + HoveredActorOutlineThicknessPixels * 2.0f * spriteScale) * 0.5f;
+            const float outlinePadding = spriteOutlineWorldPadding(texture, spriteScale, viewCenter.z,
+                pProjectionMatrix[5], m_lastRenderHeight);
+            const float paddingU = outlinePadding / worldWidth;
+            const float paddingV = outlinePadding / worldHeight;
+            const float outlinedHalfWidth = worldWidth * 0.5f + outlinePadding;
+            const float outlinedHalfHeight = worldHeight * 0.5f + outlinePadding;
             const bx::Vec3 outlineRight = {outlinedHalfWidth, 0.0f, 0.0f};
             const bx::Vec3 outlineUp = {0.0f, outlinedHalfHeight, 0.0f};
             const float outlineU0 = drawItem.mirrored ? 1.0f + paddingU : -paddingU;
@@ -8163,11 +8157,12 @@ void IndoorRenderer::renderActorPreviewBillboards(
                 bgfx::setUniform(m_billboardFogColorUniformHandle, fogColor);
                 bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
                 bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
-                bgfx::setState(
-                    IndoorBillboardDrawState);
-                bgfx::submit(viewId, m_spriteAtlasCache.bind(texture, m_billboardProgramHandle));
+                // Test world depth without letting soft outline pixels block the coplanar body draw.
+                bgfx::setState(texture.atlas
+                    ? IndoorBillboardDrawState & ~BGFX_STATE_WRITE_Z : IndoorBillboardDrawState);
+                bgfx::submit(viewId, m_spriteAtlasCache.bindOutline(texture, m_billboardProgramHandle));
 
-                if (m_logIndoorPerformanceDiagnostics)
+                if (pReflection == nullptr && m_logIndoorPerformanceDiagnostics)
                 {
                     ++m_indoorPerformanceDiagnostics.renderActorSpriteOutlineSubmits;
                 }
@@ -8249,128 +8244,42 @@ void IndoorRenderer::renderActorPreviewBillboards(
         );
         bgfx::submit(viewId, m_spriteAtlasCache.bind(texture, m_billboardProgramHandle));
 
-        if (m_logIndoorPerformanceDiagnostics)
+        if (pReflection == nullptr && m_logIndoorPerformanceDiagnostics)
         {
             ++m_indoorPerformanceDiagnostics.renderActorSpriteSubmits;
         }
     }
 
-    const auto appendWorldQuadVertices =
-        [](std::vector<TerrainVertex> &vertices,
-            const bx::Vec3 &center,
-            const bx::Vec3 &right,
-            const bx::Vec3 &up,
-            uint32_t colorAbgr)
-        {
-            vertices.push_back(
-                {center.x - right.x - up.x, center.y - right.y - up.y, center.z - right.z - up.z, colorAbgr});
-            vertices.push_back(
-                {center.x - right.x + up.x, center.y - right.y + up.y, center.z - right.z + up.z, colorAbgr});
-            vertices.push_back(
-                {center.x + right.x + up.x, center.y + right.y + up.y, center.z + right.z + up.z, colorAbgr});
-            vertices.push_back(
-                {center.x - right.x - up.x, center.y - right.y - up.y, center.z - right.z - up.z, colorAbgr});
-            vertices.push_back(
-                {center.x + right.x + up.x, center.y + right.y + up.y, center.z + right.z + up.z, colorAbgr});
-            vertices.push_back(
-                {center.x + right.x - up.x, center.y + right.y - up.y, center.z + right.z - up.z, colorAbgr});
-        };
-
-    std::vector<TerrainVertex> healthBarVertices;
-
-    for (const BillboardDrawItem &drawItem : drawItems)
+    if (pReflection != nullptr)
     {
-        if (!drawItem.hasHealthBar)
-        {
-            continue;
-        }
-
-        const float barScale = std::max(0.65f, drawItem.healthBarScale);
-        const float barWidth = 92.0f * barScale;
-        const float barHeight = 11.0f * barScale;
-        const bx::Vec3 center = {
-            static_cast<float>(drawItem.x),
-            static_cast<float>(drawItem.y),
-            drawItem.healthBarZ
-        };
-        const bx::Vec3 shadowCenter = {
-            center.x - cameraUp.x * 3.0f * barScale,
-            center.y - cameraUp.y * 3.0f * barScale,
-            center.z - cameraUp.z * 3.0f * barScale
-        };
-        const bx::Vec3 frameRight = {
-            cameraRight.x * barWidth * 0.5f,
-            cameraRight.y * barWidth * 0.5f,
-            cameraRight.z * barWidth * 0.5f
-        };
-        const bx::Vec3 frameUp = {
-            cameraUp.x * barHeight * 0.5f,
-            cameraUp.y * barHeight * 0.5f,
-            cameraUp.z * barHeight * 0.5f
-        };
-        appendWorldQuadVertices(healthBarVertices, shadowCenter, frameRight, frameUp, makeAbgrAlpha(0, 0, 0, 150));
-        appendWorldQuadVertices(healthBarVertices, center, frameRight, frameUp, makeAbgrAlpha(18, 12, 10, 230));
-
-        const float innerWidth = std::max(2.0f, barWidth - 6.0f * barScale);
-        const float innerHeight = std::max(2.0f, barHeight - 4.0f * barScale);
-        const float fillWidth = std::max(1.0f, innerWidth * drawItem.healthRatio);
-        const float fillOffset = (innerWidth - fillWidth) * 0.5f;
-        const bx::Vec3 fillCenter = {
-            center.x - cameraRight.x * fillOffset,
-            center.y - cameraRight.y * fillOffset,
-            center.z - cameraRight.z * fillOffset
-        };
-        const bx::Vec3 fillRight = {
-            cameraRight.x * fillWidth * 0.5f,
-            cameraRight.y * fillWidth * 0.5f,
-            cameraRight.z * fillWidth * 0.5f
-        };
-        const bx::Vec3 fillUp = {
-            cameraUp.x * innerHeight * 0.5f,
-            cameraUp.y * innerHeight * 0.5f,
-            cameraUp.z * innerHeight * 0.5f
-        };
-        appendWorldQuadVertices(healthBarVertices, fillCenter, fillRight, fillUp, makeAbgrAlpha(177, 25, 28, 245));
-
-        const bx::Vec3 glossCenter = {
-            fillCenter.x + cameraUp.x * innerHeight * 0.22f,
-            fillCenter.y + cameraUp.y * innerHeight * 0.22f,
-            fillCenter.z + cameraUp.z * innerHeight * 0.22f
-        };
-        const bx::Vec3 glossUp = {
-            cameraUp.x * innerHeight * 0.16f,
-            cameraUp.y * innerHeight * 0.16f,
-            cameraUp.z * innerHeight * 0.16f
-        };
-        appendWorldQuadVertices(healthBarVertices, glossCenter, fillRight, glossUp, makeAbgrAlpha(255, 108, 82, 155));
+        return;
     }
-
-    if (!healthBarVertices.empty()
-        && bgfx::isValid(m_programHandle)
-        && bgfx::getAvailTransientVertexBuffer(
-            static_cast<uint32_t>(healthBarVertices.size()),
-            TerrainVertex::ms_layout) >= healthBarVertices.size())
+    for (const BillboardDrawItem &item : drawItems)
     {
-        bgfx::TransientVertexBuffer transientVertexBuffer = {};
-        bgfx::allocTransientVertexBuffer(
-            &transientVertexBuffer,
-            static_cast<uint32_t>(healthBarVertices.size()),
-            TerrainVertex::ms_layout);
-        std::memcpy(
-            transientVertexBuffer.data,
-            healthBarVertices.data(),
-            healthBarVertices.size() * sizeof(TerrainVertex));
-
-        float modelMatrix[16] = {};
-        bx::mtxIdentity(modelMatrix);
-        bgfx::setTransform(modelMatrix);
-        bgfx::setVertexBuffer(0, &transientVertexBuffer, 0, static_cast<uint32_t>(healthBarVertices.size()));
-        bgfx::setState(
-            BGFX_STATE_WRITE_RGB
-            | BGFX_STATE_WRITE_A
-            | BGFX_STATE_DEPTH_TEST_LEQUAL
-            | BGFX_STATE_BLEND_ALPHA);
-        bgfx::submit(viewId, m_programHandle);
+        if (item.hasHealthBar && pGameSession != nullptr)
+        {
+            const SpriteFrameEntry *pStandingFrame =
+                m_indoorActorPreviewBillboardSet->spriteFrameTable.getFrame(item.healthBarStandingFrame, 0);
+            if (pStandingFrame == nullptr)
+            {
+                continue;
+            }
+            const ResolvedSpriteTexture standing = SpriteFrameTable::resolveTexture(*pStandingFrame, 0);
+            const BillboardTextureHandle *pStandingTexture =
+                ensureSpriteBillboardTexture(standing.textureName, pStandingFrame->paletteId);
+            if (pStandingTexture == nullptr)
+            {
+                continue;
+            }
+            const float standingTop = pStandingTexture->offsetY + pStandingTexture->height
+                * (1.0f - pStandingTexture->opacityMask.opaqueTopNormalized());
+            const float anchorZ = item.z + (standingTop * pStandingFrame->scale + 26.0f) * item.heightScale;
+            EnemyHealthBarRenderer::render(pGameSession->gameplayScreenRuntime(), item.actorIndex,
+                {float(item.x), float(item.y), float(item.z)}, {float(item.x), float(item.y), anchorZ},
+                item.distanceSquared,
+                item.healthBarFocused, item.healthBarAttacking, viewId,
+                cameraPosition, pViewMatrix, pProjectionMatrix, m_lastRenderHeight);
+        }
     }
 
     struct QuestMarkerBatch
@@ -8631,6 +8540,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     }
 
     const bx::Vec3 cameraUp = {pViewMatrix[1], pViewMatrix[5], pViewMatrix[9]};
+    const bx::Vec3 cameraForward = {-pViewMatrix[2], -pViewMatrix[6], -pViewMatrix[10]};
     float billboardModelMatrix[16] = {};
     bx::mtxInverse(billboardModelMatrix, pViewMatrix);
     const float aspectRatio =
@@ -8677,7 +8587,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         bool projectile = false;
         bool impact = false;
         uint32_t hoveredOutlineColorAbgr = 0;
-        float distanceSquared = 0.0f;
+        float cameraDepth = 0.0f;
         uint64_t lightingCacheKey = 0;
     };
 
@@ -8839,7 +8749,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
             drawItem.mirrored = resolvedTexture.mirrored;
             drawItem.projectile = !impact;
             drawItem.impact = impact;
-            drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
+            drawItem.cameraDepth = deltaX * cameraForward.x + deltaY * cameraForward.y + deltaZ * cameraForward.z;
             drawItems.push_back(drawItem);
         };
 
@@ -8904,7 +8814,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 drawItem.hovered
                     ? (contextHighlighted ? contextActionHighlightOutlineColor() : hoveredIndoorWorldItemOutlineColor())
                     : 0;
-            drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
+            drawItem.cameraDepth = deltaX * cameraForward.x + deltaY * cameraForward.y + deltaZ * cameraForward.z;
             drawItem.lightingCacheKey = billboardLightingCacheKey(3, billboard.objectIndex);
             drawItems.push_back(drawItem);
         }
@@ -8963,7 +8873,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 drawItem.pFrame = pFrame;
                 drawItem.pTexture = pTexture;
                 drawItem.mirrored = resolvedTexture.mirrored;
-                drawItem.distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
+                drawItem.cameraDepth = deltaX * cameraForward.x + deltaY * cameraForward.y + deltaZ * cameraForward.z;
                 drawItem.lightingCacheKey = billboardLightingCacheKey(4, billboardIndex);
                 drawItems.push_back(drawItem);
             };
@@ -9036,8 +8946,9 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 impact.sourceObjectSpriteName,
                 impact.sourceObjectFlags);
 
-            if (FxRecipes::projectileRecipeUsesDedicatedImpactFx(recipe)
-                && !FxRecipes::projectileRecipeShowsImpactBillboard(recipe))
+            if (m_worldFxSystem.hasProjectileImpactEffectRebind(recipe)
+                || (FxRecipes::projectileRecipeUsesDedicatedImpactFx(recipe)
+                    && !FxRecipes::projectileRecipeShowsImpactBillboard(recipe)))
             {
                 continue;
             }
@@ -9063,7 +8974,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         drawItems.end(),
         [](const BillboardDrawItem &left, const BillboardDrawItem &right)
         {
-            return left.distanceSquared > right.distanceSquared;
+            return left.cameraDepth > right.cameraDepth;
         }
     );
 
@@ -9095,6 +9006,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     struct LitSpriteObjectBillboardBatch
     {
         const BillboardTextureHandle *pTexture = nullptr;
+        uint64_t drawState = IndoorBillboardDrawState;
         std::vector<LitBillboardVertex> vertices;
     };
 
@@ -9152,7 +9064,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
                 bgfx::setUniform(m_billboardFogColorUniformHandle, fogColor);
                 bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
                 bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
-                bgfx::setState(IndoorBillboardDrawState);
+                bgfx::setState(litBillboardBatch.drawState);
                 bgfx::submit(viewId, m_billboardProgramHandle);
 
                 if (m_logIndoorPerformanceDiagnostics)
@@ -9171,6 +9083,8 @@ void IndoorRenderer::renderSpriteObjectBillboards(
     {
         const SpriteFrameEntry &frame = *drawItem.pFrame;
         const BillboardTextureHandle &texture = *drawItem.pTexture;
+        const uint64_t drawState = drawItem.projectile || drawItem.impact
+            ? IndoorBillboardOverlayDrawState : IndoorBillboardDrawState;
         const float spriteScale = std::max(frame.scale, 0.01f);
         const float worldWidth = float(texture.width) * spriteScale;
         const float worldHeight = float(texture.height) * spriteScale;
@@ -9376,10 +9290,11 @@ void IndoorRenderer::renderSpriteObjectBillboards(
 
         if (batchableLitBillboard)
         {
-            if (litBillboardBatch.pTexture != &texture)
+            if (litBillboardBatch.pTexture != &texture || litBillboardBatch.drawState != drawState)
             {
                 flushLitBillboardBatch();
                 litBillboardBatch.pTexture = &texture;
+                litBillboardBatch.drawState = drawState;
             }
 
             litBillboardBatch.vertices.insert(
@@ -9434,9 +9349,7 @@ void IndoorRenderer::renderSpriteObjectBillboards(
         bgfx::setUniform(m_billboardFogColorUniformHandle, fogColor);
         bgfx::setUniform(m_billboardFogDensitiesUniformHandle, fogDensities);
         bgfx::setUniform(m_billboardFogDistancesUniformHandle, fogDistances);
-        bgfx::setState(
-            IndoorBillboardDrawState
-        );
+        bgfx::setState(drawState);
         bgfx::submit(viewId, m_billboardProgramHandle);
 
         if (m_logIndoorPerformanceDiagnostics)
@@ -9912,8 +9825,230 @@ std::vector<uint8_t> IndoorRenderer::collectMechanismFaceMask() const
     return faceMask;
 }
 
+bool IndoorRenderer::updateWaterGeometry()
+{
+    std::vector<WaterSurfaceGeometry> geometry;
+    for (size_t batchIndex = 0; batchIndex < m_texturedBatches.size(); ++batchIndex)
+    {
+        const TexturedBatch &batch = m_texturedBatches[batchIndex];
+        if (batch.waterColorAbgr == 0)
+        {
+            continue;
+        }
+        std::vector<WaterVertex> vertices;
+        vertices.reserve(batch.indices.size());
+        for (size_t index = 0; index + 2 < batch.indices.size(); index += 3)
+        {
+            std::array<bx::Vec3, 3> positions = {
+                bx::Vec3{0.0f, 0.0f, 0.0f}, bx::Vec3{0.0f, 0.0f, 0.0f}, bx::Vec3{0.0f, 0.0f, 0.0f}};
+            std::array<std::array<float, 2>, 3> uvs = {};
+            for (size_t corner = 0; corner < 3; ++corner)
+            {
+                const TexturedVertex &vertex = batch.vertices[batch.indices[index + corner]];
+                positions[corner] = {vertex.x, vertex.y, vertex.z};
+                uvs[corner] = {vertex.u, vertex.v};
+            }
+            const TexturedVertex &first = batch.vertices[batch.indices[index]];
+            const std::array<float, 2> flow =
+                waterFaceFlow(positions, uvs, first.flowUPerSecond, first.flowVPerSecond);
+            for (const bx::Vec3 &position : positions)
+            {
+                vertices.push_back({position.x, position.y, position.z, 0.0f, 0.0f, 1.0f,
+                    flow[0], flow[1], 0.0f, 0.0f, batch.waterColorAbgr});
+            }
+        }
+        std::vector<WaterSurfaceGeometry> surfaces =
+            buildWaterFaceGeometry(vertices, batch.sectorId, batch.backSectorId);
+        for (WaterSurfaceGeometry &surface : surfaces)
+        {
+            geometry.push_back(std::move(surface));
+        }
+    }
+    bool success = true;
+    if (m_waterResourcesInitialized)
+    {
+        success = m_waterRenderer.updateGeometry(std::move(geometry));
+    }
+    else if (!geometry.empty() && m_pAssetFileSystem != nullptr)
+    {
+        success = m_waterRenderer.initialize(*m_pAssetFileSystem, std::move(geometry), {}, true);
+        m_waterResourcesInitialized = success;
+    }
+    m_waterGeometryDirty = false;
+    return success;
+}
+
+void IndoorRenderer::renderWaterReflections(const bx::Vec3 &forward,
+    const IndoorLightingFrameInput &lightingInput, int width, int height, bool billboards)
+{
+    if (m_pIndoorMapData == nullptr)
+    {
+        return;
+    }
+    const bx::Vec3 reflectedForward = {forward.x, forward.y, -forward.z};
+    for (const WaterRenderer::Reflection &reflection : m_waterRenderer.reflections())
+    {
+        if (!reflection.update)
+        {
+            continue;
+        }
+        // Reflections use their own portal query. They must never reveal the map or mark actors as seen.
+        IndoorPortalVisibilityInput visibilityInput = {};
+        visibilityInput.pMapData = m_pIndoorMapData;
+        visibilityInput.pPortalGraph = m_indoorPortalGraph ? &m_indoorPortalGraph.value() : nullptr;
+        visibilityInput.pVertices = &m_renderVertices;
+        visibilityInput.pMapDeltaData = runtimeMapDeltaData() ? &runtimeMapDeltaData().value() : nullptr;
+        visibilityInput.pEventRuntimeState = &runtimeEventRuntimeStateStorage();
+        visibilityInput.cameraPosition = reflection.camera;
+        visibilityInput.cameraForward = reflectedForward;
+        visibilityInput.cameraUp = {0.0f, 0.0f, -1.0f};
+        visibilityInput.startSectorId = reflection.sectorId;
+        visibilityInput.collectPortalTraces = false;
+        visibilityInput.verticalFovDegrees = 2.0f * std::atan(1.0f / reflection.projection[5]) * 180.0f / Pi;
+        visibilityInput.aspectRatio = float(width) / float(height);
+        visibilityInput.viewportHeight = reflection.size;
+        const IndoorPortalVisibilityResult visibility = buildIndoorPortalVisibility(visibilityInput);
+        IndoorLightingFrameInput reflectedLightingInput = lightingInput;
+        reflectedLightingInput.cameraPosition = reflection.camera;
+        reflectedLightingInput.pVisibleSectorMask = &visibility.visibleSectorMask;
+        reflectedLightingInput.pVisibleSectorFrustums = &visibility.frustumsBySector;
+        const IndoorLightingFrame lighting = m_indoorLightingRuntime.buildFrame(reflectedLightingInput);
+        const ViewFrustum frustum(reflection.view.data(), reflection.projection.data(),
+            bgfx::getCaps()->homogeneousDepth);
+        const std::array<float, 4> clip = {0.0f, 0.0f, 1.0f, -reflection.height};
+        for (const TexturedBatch &batch : m_texturedBatches)
+        {
+            if (batch.waterColorAbgr != 0
+                || !indoorGeometrySectorsVisible(visibility.visibleSectorMask, batch.sectorId, batch.backSectorId)
+                || (batch.hasBounds && (batch.boundsMax.z < reflection.height
+                    || !frustum.intersectsBounds(batch.boundsMin, batch.boundsMax))))
+            {
+                continue;
+            }
+            const IndoorLightSelectionBounds bounds = {batch.boundsMin, batch.boundsMax, batch.hasBounds};
+            const IndoorDrawLightSet lights = IndoorLightingRuntime::selectDrawLightSetForBounds(
+                lighting, reflection.camera, reflectedForward, batch.sectorId, batch.backSectorId,
+                bounds, nullptr, nullptr, false);
+            submitTexturedBatch(batch, reflection.worldView, lights, reflection.camera,
+                m_cameraYawRadians, -m_cameraPitchRadians, width, height, false, clip,
+                reflection.projectionScale);
+        }
+        bgfx::setUniform(m_worldClipPlaneUniform, clip.data());
+        m_waterRenderer.renderIndoor(reflection.worldView, m_elapsedTime, lighting,
+            reflection.camera, reflectedForward, nullptr, &reflection, visibility.visibleSectorMask);
+        if (billboards)
+        {
+            float billboardView[16];
+            waterReflectionView(billboardView, reflection.view.data(), reflection.height);
+            renderDecorationBillboards(reflection.worldView, billboardView, reflection.camera,
+                visibility.visibleSectorMask, visibility.frustumsBySector, lighting, nullptr, nullptr, &reflection);
+            renderActorPreviewBillboards(reflection.worldView, billboardView, reflection.projection.data(), reflection.camera,
+                visibility.visibleSectorMask, lighting, false, nullptr, nullptr, nullptr, nullptr, &reflection);
+        }
+    }
+}
+
+bool IndoorRenderer::submitTexturedBatch(const TexturedBatch &batch, uint16_t viewId,
+    const IndoorDrawLightSet &lights, const bx::Vec3 &eye, float yaw, float pitch, int width, int height,
+    bool secretFacesDetected, const std::array<float, 4> &clipPlane, float projectionScale)
+{
+    const std::array<float, 4> secretPulseParams = {secretFacesDetected ? 1.0f : 0.0f, m_elapsedTime, 0.0f, 0.0f};
+    if (!bgfx::isValid(batch.vertexBufferHandle) || batch.frameTextureHandles.empty() || batch.vertexCount == 0)
+    {
+        return false;
+    }
+
+    const size_t frameIndex = frameIndexForAnimation(
+        batch.frameLengthTicks,
+        batch.animationLengthTicks,
+        currentAnimationTicks());
+
+    if (frameIndex >= batch.frameTextureHandles.size()
+        || !bgfx::isValid(batch.frameTextureHandles[frameIndex]))
+    {
+        return false;
+    }
+
+    float modelMatrix[16];
+    bx::mtxIdentity(modelMatrix);
+    bgfx::setTransform(modelMatrix);
+    bgfx::setUniform(m_worldClipPlaneUniform, clipPlane.data());
+    bgfx::setVertexBuffer(0, batch.vertexBufferHandle, 0, batch.vertexCount);
+    if (bgfx::isValid(batch.indexBufferHandle))
+    {
+        bgfx::setIndexBuffer(batch.indexBufferHandle, 0, batch.indexCount);
+    }
+    bindTexture(
+        0,
+        m_textureSamplerHandle,
+        batch.frameTextureHandles[frameIndex],
+        TextureFilterProfile::BModel);
+    bgfx::setUniform(
+        m_indoorLightPositionsUniformHandle,
+        lights.positions.data(),
+        MaxIndoorShaderLights);
+    bgfx::setUniform(
+        m_indoorLightColorsUniformHandle,
+        lights.colors.data(),
+        MaxIndoorShaderLights);
+    bgfx::setUniform(m_indoorLightParamsUniformHandle, lights.params.data());
+    std::array<float, 4> batchSecretPulseParams = secretPulseParams;
+
+    if (batch.textureWidth > 0 && batch.textureHeight > 0)
+    {
+        batchSecretPulseParams[2] =
+            -eye.x * 0.25f / static_cast<float>(batch.textureWidth);
+        batchSecretPulseParams[3] =
+            eye.y * 0.25f / static_cast<float>(batch.textureHeight);
+    }
+
+    bgfx::setUniform(m_secretPulseParamsUniformHandle, batchSecretPulseParams.data());
+    const std::array<float, 4> indoorSkyParams = {
+        batchSecretPulseParams[2],
+        batchSecretPulseParams[3],
+        yaw,
+        pitch
+    };
+    bgfx::setUniform(m_indoorSkyParamsUniformHandle, indoorSkyParams.data());
+    const float viewPlaneDistancePixels =
+        (static_cast<float>(height) * 0.5f)
+        / (std::tan((IndoorCameraVerticalFovDegrees * Pi / 180.0f) * 0.5f) * projectionScale);
+    const float horizonHeightOffset =
+        (viewPlaneDistancePixels * eye.z)
+        / (viewPlaneDistancePixels + IndoorSkyProjectionFarClipDistance)
+        + static_cast<float>(height) * 0.5f;
+    const std::array<float, 4> indoorSkyProjectionParams = {
+        static_cast<float>(width) * 0.5f,
+        horizonHeightOffset,
+        1.0f / viewPlaneDistancePixels,
+        IndoorSkyProjectionPitchOffsetRadians
+    };
+    bgfx::setUniform(m_indoorSkyProjectionParamsUniformHandle, indoorSkyProjectionParams.data());
+    if (viewId == MainViewId && m_indoorGeometryTranslucent)
+    {
+        bgfx::setState(
+            BGFX_STATE_WRITE_RGB
+            | BGFX_STATE_WRITE_A
+            | BGFX_STATE_DEPTH_TEST_LEQUAL
+            | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_FACTOR, BGFX_STATE_BLEND_INV_FACTOR),
+            0x80808080u);
+    }
+    else
+    {
+        bgfx::setState(
+            BGFX_STATE_WRITE_RGB
+            | BGFX_STATE_WRITE_A
+            | BGFX_STATE_WRITE_Z
+            | BGFX_STATE_DEPTH_TEST_LEQUAL);
+    }
+
+    bgfx::submit(viewId, m_indoorLitProgramHandle);
+    return true;
+}
+
 bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanoseconds)
 {
+    m_waterGeometryDirty = true;
     if (!m_indoorTextureSet || !m_pIndoorMapData)
     {
         m_texturedBatches.clear();
@@ -9921,11 +10056,13 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
         m_faceBatchIndices.clear();
         m_faceVertexOffsets.clear();
         m_faceVertexCounts.clear();
+        m_faceSubdivisionTriangles.clear();
         m_texturedBatchGeometryRevision = currentTexturedBatchGeometryRevision();
         m_bakedStaticLightRevision = currentBakedStaticLightRevision();
         m_bakedStaticLightEnabledStates =
             m_pIndoorMapData
-                ? bakedStaticLightEnabledStates(*m_pIndoorMapData, runtimeEventRuntimeState())
+                ? bakedStaticLightEnabledStates(*m_pIndoorMapData, runtimeEventRuntimeState(),
+                    m_indoorDecorationBillboardSet ? &*m_indoorDecorationBillboardSet : nullptr)
                 : std::vector<uint8_t>();
         return true;
     }
@@ -9936,6 +10073,7 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
     m_faceBatchIndices.assign(m_pIndoorMapData->faces.size(), -1);
     m_faceVertexOffsets.assign(m_pIndoorMapData->faces.size(), 0);
     m_faceVertexCounts.assign(m_pIndoorMapData->faces.size(), 0);
+    m_faceSubdivisionTriangles.assign(m_pIndoorMapData->faces.size(), {});
 
     std::unordered_map<std::string, size_t> batchIndicesByTexture;
     const std::optional<EventRuntimeState> &eventRuntimeState = runtimeEventRuntimeStateStorage();
@@ -9952,6 +10090,12 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
             eventRuntimeState ? &eventRuntimeState.value() : nullptr,
             m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
             true);
+
+    std::unordered_map<std::string, const OutdoorBitmapTexture *> texturesByName;
+    for (const OutdoorBitmapTexture &texture : m_indoorTextureSet->textures)
+    {
+        texturesByName.emplace(texture.textureName, &texture);
+    }
 
     for (size_t faceIndex = 0; faceIndex < m_pIndoorMapData->faces.size(); ++faceIndex)
     {
@@ -9975,9 +10119,20 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
             face.roomBehindNumber < m_pIndoorMapData->sectors.size()
                 ? static_cast<int16_t>(face.roomBehindNumber)
                 : int16_t(-1);
+        uint32_t waterColorAbgr = 0;
+        const uint32_t attributes = runtimeMapDeltaData() && faceIndex < runtimeMapDeltaData()->faceAttributes.size()
+            ? runtimeMapDeltaData()->faceAttributes[faceIndex] : face.attributes;
+        const auto materialTexture = texturesByName.find(normalizedTextureName);
+        if (materialTexture != texturesByName.end()
+            && materialTexture->second->waterColorAbgr != 0
+            && isWaterSurface(attributes, materialTexture->second->surfaceSemantic))
+        {
+            waterColorAbgr = materialTexture->second->waterColorAbgr;
+        }
         const std::string batchKey = normalizedTextureName
             + "#" + std::to_string(sectorId)
-            + "#" + std::to_string(backSectorId);
+            + "#" + std::to_string(backSectorId)
+            + "#" + std::to_string(waterColorAbgr);
         size_t batchIndex = 0;
         const std::unordered_map<std::string, size_t>::const_iterator batchIterator =
             batchIndicesByTexture.find(batchKey);
@@ -9988,12 +10143,14 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
             batch.textureName = normalizedTextureName;
             batch.sectorId = sectorId;
             batch.backSectorId = backSectorId;
+            batch.waterColorAbgr = waterColorAbgr;
 
             for (TexturedBatch &previousBatch : previousBatches)
             {
                 if (previousBatch.textureName == normalizedTextureName
                     && previousBatch.sectorId == sectorId
-                    && previousBatch.backSectorId == backSectorId)
+                    && previousBatch.backSectorId == backSectorId
+                    && previousBatch.waterColorAbgr == waterColorAbgr)
                 {
                     batch.vertexBufferHandle = previousBatch.vertexBufferHandle;
                     batch.vertexCapacity = previousBatch.vertexCapacity;
@@ -10100,11 +10257,11 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
         TexturedBatch &batch = m_texturedBatches[batchIndex];
         batch.textureWidth = pTexture->width;
         batch.textureHeight = pTexture->height;
-        const bool allowBakedLightSubdivision =
-            faceIndex >= mechanismFaceMask.size() || mechanismFaceMask[faceIndex] == 0;
+        const bool useBaseSubdivisionGeometry =
+            faceIndex < mechanismFaceMask.size() && mechanismFaceMask[faceIndex] != 0;
 
         const uint64_t faceBuildBeginTickCount = SDL_GetTicksNS();
-        const std::vector<TexturedVertex> faceVertices = buildFaceTexturedVertices(
+        TexturedFaceMesh faceMesh = buildFaceTexturedMesh(
             *m_pIndoorMapData,
             m_renderVertices,
             *pTexture,
@@ -10115,24 +10272,34 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
             m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
             &bakedStaticLightSources,
             &bakedStaticLightSubdivisionSources,
-            allowBakedLightSubdivision
+            useBaseSubdivisionGeometry
         );
         texturedBuildNanoseconds += SDL_GetTicksNS() - faceBuildBeginTickCount;
 
-        if (faceVertices.empty())
+        if (faceMesh.vertices.empty())
         {
             continue;
         }
 
         m_faceBatchIndices[faceIndex] = static_cast<int32_t>(batchIndex);
         m_faceVertexOffsets[faceIndex] = static_cast<uint32_t>(batch.vertices.size());
-        m_faceVertexCounts[faceIndex] = static_cast<uint32_t>(faceVertices.size());
-        batch.vertices.insert(batch.vertices.end(), faceVertices.begin(), faceVertices.end());
+        m_faceVertexCounts[faceIndex] = static_cast<uint32_t>(faceMesh.vertices.size());
+        const uint32_t vertexOffset = static_cast<uint32_t>(batch.vertices.size());
+        for (uint32_t index : faceMesh.indices)
+        {
+            batch.indices.push_back(vertexOffset + index);
+        }
+        batch.vertices.insert(batch.vertices.end(), faceMesh.vertices.begin(), faceMesh.vertices.end());
+        if (useBaseSubdivisionGeometry)
+        {
+            m_faceSubdivisionTriangles[faceIndex] = std::move(faceMesh.triangles);
+        }
     }
 
     for (TexturedBatch &batch : m_texturedBatches)
     {
         batch.vertexCount = static_cast<uint32_t>(batch.vertices.size());
+        batch.indexCount = static_cast<uint32_t>(batch.indices.size());
         rebuildTexturedBatchBounds(batch);
 
         if (batch.vertices.empty())
@@ -10148,6 +10315,29 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
         {
             return false;
         }
+        // Unique references are already in triangle-list order. Index only batches that actually share vertices.
+        if (batch.vertexCount < batch.indexCount)
+        {
+            if (batch.vertexCount <= std::numeric_limits<uint16_t>::max())
+            {
+                const std::vector<uint16_t> compactIndices(batch.indices.begin(), batch.indices.end());
+                batch.indexBufferHandle = bgfx::createIndexBuffer(
+                    bgfx::copy(compactIndices.data(), batch.indexCount * sizeof(uint16_t)));
+            }
+            else
+            {
+                batch.indexBufferHandle = bgfx::createIndexBuffer(
+                    bgfx::copy(batch.indices.data(), batch.indexCount * sizeof(uint32_t)), BGFX_BUFFER_INDEX32);
+            }
+            if (!bgfx::isValid(batch.indexBufferHandle))
+            {
+                return false;
+            }
+        }
+        else if (batch.waterColorAbgr == 0)
+        {
+            std::vector<uint32_t>().swap(batch.indices);
+        }
     }
 
     for (TexturedBatch &previousBatch : previousBatches)
@@ -10156,12 +10346,17 @@ bool IndoorRenderer::rebuildAllTexturedBatches(uint64_t &texturedBuildNanosecond
         {
             bgfx::destroy(previousBatch.vertexBufferHandle);
         }
+        if (bgfx::isValid(previousBatch.indexBufferHandle))
+        {
+            bgfx::destroy(previousBatch.indexBufferHandle);
+        }
     }
 
     m_texturedBatchGeometryRevision = currentTexturedBatchGeometryRevision();
     m_bakedStaticLightRevision = currentBakedStaticLightRevision();
     m_bakedStaticLightEnabledStates =
-        bakedStaticLightEnabledStates(*m_pIndoorMapData, runtimeEventRuntimeState());
+        bakedStaticLightEnabledStates(*m_pIndoorMapData, runtimeEventRuntimeState(),
+            m_indoorDecorationBillboardSet ? &*m_indoorDecorationBillboardSet : nullptr);
     return true;
 }
 
@@ -10180,7 +10375,8 @@ bool IndoorRenderer::refreshBakedStaticLighting(
 
     const EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
     std::vector<uint8_t> enabledStates =
-        bakedStaticLightEnabledStates(*m_pIndoorMapData, pEventRuntimeState);
+        bakedStaticLightEnabledStates(*m_pIndoorMapData, pEventRuntimeState,
+            m_indoorDecorationBillboardSet ? &*m_indoorDecorationBillboardSet : nullptr);
     std::vector<BakedStaticLightSource> changedLightSources;
 
     if (enabledStates.size() != m_bakedStaticLightEnabledStates.size())
@@ -10196,8 +10392,18 @@ bool IndoorRenderer::refreshBakedStaticLighting(
                 continue;
             }
 
-            changedLightSources.push_back(
-                bakedStaticLightSourceForIndoorLight(m_pIndoorMapData->lights[lightId]));
+            if (lightId < m_pIndoorMapData->lights.size())
+            {
+                changedLightSources.push_back(
+                    bakedStaticLightSourceForIndoorLight(m_pIndoorMapData->lights[lightId]));
+            }
+            else if (m_indoorDecorationBillboardSet)
+            {
+                const auto source = bakedStaticLightSourceForDecoration(*m_indoorDecorationBillboardSet,
+                    m_indoorDecorationBillboardSet->billboards[lightId - m_pIndoorMapData->lights.size()],
+                    pEventRuntimeState, true);
+                if (source) changedLightSources.push_back(*source);
+            }
         }
     }
 
@@ -10414,7 +10620,7 @@ bool IndoorRenderer::updateMechanismFaceVertices(
             }
 
             const uint64_t faceBuildBeginTickCount = SDL_GetTicksNS();
-            const std::vector<TexturedVertex> faceVertices = buildFaceTexturedVertices(
+            const TexturedFaceMesh faceMesh = buildFaceTexturedMesh(
                 *m_pIndoorMapData,
                 m_renderVertices,
                 *pTexture,
@@ -10425,11 +10631,11 @@ bool IndoorRenderer::updateMechanismFaceVertices(
                 m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
                 &bakedStaticLightSources,
                 nullptr,
-                false
+                true
             );
             texturedBuildNanoseconds += SDL_GetTicksNS() - faceBuildBeginTickCount;
 
-            if (!faceVertices.empty())
+            if (!faceMesh.vertices.empty())
             {
                 return false;
             }
@@ -10463,7 +10669,7 @@ bool IndoorRenderer::updateMechanismFaceVertices(
         }
 
         const uint64_t faceBuildBeginTickCount = SDL_GetTicksNS();
-        const std::vector<TexturedVertex> faceVertices = buildFaceTexturedVertices(
+        const TexturedFaceMesh faceMesh = buildFaceTexturedMesh(
             *m_pIndoorMapData,
             m_renderVertices,
             *pTexture,
@@ -10474,31 +10680,37 @@ bool IndoorRenderer::updateMechanismFaceVertices(
             m_indoorDecorationBillboardSet ? &m_indoorDecorationBillboardSet.value() : nullptr,
             &bakedStaticLightSources,
             nullptr,
-            false
+            true,
+            std::span<const TexturedVertex>(batch.vertices).subspan(vertexOffset, vertexCount),
+            m_faceSubdivisionTriangles[faceIndex]
         );
         texturedBuildNanoseconds += SDL_GetTicksNS() - faceBuildBeginTickCount;
 
-        if (faceVertices.size() != vertexCount)
+        if (faceMesh.vertices.size() != vertexCount)
         {
             std::cerr
                 << "IndoorRenderer: moving mechanism face rebuild changed vertex count"
                 << " face=" << faceIndex
                 << " batch=" << batchIndex
                 << " old=" << vertexCount
-                << " new=" << faceVertices.size()
+                << " new=" << faceMesh.vertices.size()
                 << '\n';
             return false;
         }
 
-        std::copy(faceVertices.begin(), faceVertices.end(), batch.vertices.begin() + vertexOffset);
+        std::copy(faceMesh.vertices.begin(), faceMesh.vertices.end(), batch.vertices.begin() + vertexOffset);
         dirtyBatchBounds[static_cast<size_t>(batchIndex)] = 1;
+        if (batch.waterColorAbgr != 0)
+        {
+            m_waterGeometryDirty = true;
+        }
         ++updatedFaceCount;
 
         const uint64_t uploadBeginTickCount = SDL_GetTicksNS();
         bgfx::update(
             batch.vertexBufferHandle,
             vertexOffset,
-            bgfx::copy(faceVertices.data(), static_cast<uint32_t>(faceVertices.size() * sizeof(TexturedVertex)))
+            bgfx::copy(faceMesh.vertices.data(), static_cast<uint32_t>(faceMesh.vertices.size() * sizeof(TexturedVertex)))
         );
         uploadNanoseconds += SDL_GetTicksNS() - uploadBeginTickCount;
     }
@@ -10541,6 +10753,7 @@ std::vector<IndoorVertex> IndoorRenderer::buildMechanismAdjustedVertices(
 
 void IndoorRenderer::destroyDerivedGeometryResources()
 {
+    m_waterGeometryDirty = true;
     if (bgfx::isValid(m_wireframeVertexBufferHandle))
     {
         bgfx::destroy(m_wireframeVertexBufferHandle);
@@ -10572,6 +10785,10 @@ void IndoorRenderer::destroyDerivedGeometryResources()
         {
             bgfx::destroy(batch.vertexBufferHandle);
         }
+        if (bgfx::isValid(batch.indexBufferHandle))
+        {
+            bgfx::destroy(batch.indexBufferHandle);
+        }
     }
 
     m_texturedBatches.clear();
@@ -10580,6 +10797,7 @@ void IndoorRenderer::destroyDerivedGeometryResources()
     m_faceBatchIndices.clear();
     m_faceVertexOffsets.clear();
     m_faceVertexCounts.clear();
+    m_faceSubdivisionTriangles.clear();
     m_texturedBatchGeometryRevision = std::numeric_limits<uint64_t>::max();
     m_bakedStaticLightRevision = std::numeric_limits<uint64_t>::max();
     m_bakedStaticLightEnabledStates.clear();
@@ -10958,6 +11176,7 @@ bool IndoorRenderer::tryActivateInspectEvent(const InspectHit &inspectHit)
                 m_indoorInteractiveDecorationBaseEventIdsByEntity,
                 m_indoorInteractiveDecorationEventCountsByEntity,
                 m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                m_indoorInteractiveDecorationFixedEventByEntity,
                 inspectHit.index);
 
         if (binding && eventId != 0)
@@ -10972,7 +11191,7 @@ bool IndoorRenderer::tryActivateInspectEvent(const InspectHit &inspectHit)
         }
     }
 
-    if (eventId == 0)
+    if (eventId == 0 && inspectHit.kind != "entity")
     {
         EventRuntimeState *pEventRuntimeState = runtimeEventRuntimeState();
 
@@ -11004,68 +11223,7 @@ bool IndoorRenderer::tryActivateInspectEvent(const InspectHit &inspectHit)
     return true;
 }
 
-std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildTexturedVertices(
-    const IndoorMapData &indoorMapData,
-    const std::vector<IndoorVertex> &transformedVertices,
-    const OutdoorBitmapTexture &texture,
-    const std::vector<size_t> *pFaceIndices,
-    const std::optional<MapDeltaData> &indoorMapDeltaData,
-    const std::optional<EventRuntimeState> &eventRuntimeState,
-    bool coloredLights,
-    const DecorationBillboardSet *pDecorationBillboardSet,
-    const std::vector<BakedStaticLightSource> *pBakedStaticLightSources,
-    const std::vector<BakedStaticLightSource> *pBakedStaticLightSubdivisionSources,
-    bool allowBakedLightSubdivision
-)
-{
-    std::vector<TexturedVertex> vertices;
-    const std::string normalizedTextureName = toLowerCopy(texture.textureName);
-    std::vector<size_t> allFaceIndices;
-
-    if (pFaceIndices == nullptr)
-    {
-        allFaceIndices.resize(indoorMapData.faces.size());
-
-        for (size_t faceIndex = 0; faceIndex < indoorMapData.faces.size(); ++faceIndex)
-        {
-            allFaceIndices[faceIndex] = faceIndex;
-        }
-
-        pFaceIndices = &allFaceIndices;
-    }
-
-    for (size_t faceIndex : *pFaceIndices)
-    {
-        if (faceIndex >= indoorMapData.faces.size())
-        {
-            continue;
-        }
-
-        const std::vector<TexturedVertex> faceVertices =
-            buildFaceTexturedVertices(
-                indoorMapData,
-                transformedVertices,
-                texture,
-                faceIndex,
-                indoorMapDeltaData,
-                eventRuntimeState,
-                coloredLights,
-                pDecorationBillboardSet,
-                pBakedStaticLightSources,
-                pBakedStaticLightSubdivisionSources,
-                allowBakedLightSubdivision
-            );
-
-        if (!faceVertices.empty())
-        {
-            vertices.insert(vertices.end(), faceVertices.begin(), faceVertices.end());
-        }
-    }
-
-    return vertices;
-}
-
-std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVertices(
+IndoorRenderer::TexturedFaceMesh IndoorRenderer::buildFaceTexturedMesh(
     const IndoorMapData &indoorMapData,
     const std::vector<IndoorVertex> &transformedVertices,
     const OutdoorBitmapTexture &texture,
@@ -11076,14 +11234,16 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
     const DecorationBillboardSet *pDecorationBillboardSet,
     const std::vector<BakedStaticLightSource> *pBakedStaticLightSources,
     const std::vector<BakedStaticLightSource> *pBakedStaticLightSubdivisionSources,
-    bool allowBakedLightSubdivision
+    bool useBaseSubdivisionGeometry,
+    std::span<const TexturedVertex> subdivisionTemplate,
+    std::span<const TexturedFaceTriangle> triangleTemplate
 )
 {
-    std::vector<TexturedVertex> vertices;
+    TexturedFaceMesh mesh;
 
     if (faceIndex >= indoorMapData.faces.size())
     {
-        return vertices;
+        return mesh;
     }
 
     const IndoorFace &face = indoorMapData.faces[faceIndex];
@@ -11095,17 +11255,17 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
 
     if (face.isPortal || effectiveTextureName.empty() || face.vertexIndices.size() < 3)
     {
-        return vertices;
+        return mesh;
     }
 
     if (!isFaceVisible(faceIndex, face, indoorMapDeltaData, eventRuntimeState))
     {
-        return vertices;
+        return mesh;
     }
 
     if (toLowerCopy(effectiveTextureName) != toLowerCopy(texture.textureName))
     {
-        return vertices;
+        return mesh;
     }
 
     std::vector<BakedStaticLightSource> localBakedStaticLightSources;
@@ -11122,25 +11282,84 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
         pBakedStaticLightSources = &localBakedStaticLightSources;
     }
 
-    if (pBakedStaticLightSubdivisionSources == nullptr)
+    if (pBakedStaticLightSubdivisionSources == nullptr && triangleTemplate.empty())
     {
-        if (allowBakedLightSubdivision)
-        {
-            localBakedStaticLightSubdivisionSources =
-                buildBakedStaticLightSources(
-                    indoorMapData,
-                    eventRuntimeState ? &eventRuntimeState.value() : nullptr,
-                    pDecorationBillboardSet,
-                    true);
-            pBakedStaticLightSubdivisionSources = &localBakedStaticLightSubdivisionSources;
-        }
-        else
-        {
-            pBakedStaticLightSubdivisionSources = pBakedStaticLightSources;
-        }
+        localBakedStaticLightSubdivisionSources =
+            buildBakedStaticLightSources(
+                indoorMapData,
+                eventRuntimeState ? &eventRuntimeState.value() : nullptr,
+                pDecorationBillboardSet,
+                true);
+        pBakedStaticLightSubdivisionSources = &localBakedStaticLightSubdivisionSources;
     }
 
-    const bx::Vec3 faceNormal = computeFaceNormal(transformedVertices, face);
+    if (pBakedStaticLightSubdivisionSources == nullptr)
+    {
+        pBakedStaticLightSubdivisionSources = &localBakedStaticLightSubdivisionSources;
+    }
+
+    // A face's descendants stay inside its bounds. Cull unrelated sources once before sampling or subdivision.
+    bx::Vec3 faceMin = {
+        std::numeric_limits<float>::infinity(),
+        std::numeric_limits<float>::infinity(),
+        std::numeric_limits<float>::infinity()
+    };
+    bx::Vec3 faceMax = {-faceMin.x, -faceMin.y, -faceMin.z};
+    bx::Vec3 subdivisionMin = faceMin;
+    bx::Vec3 subdivisionMax = faceMax;
+    // Door-linked walls can deform. Their base geometry fixes triangulation and the split tree throughout motion.
+    const std::vector<IndoorVertex> &subdivisionVertices =
+        useBaseSubdivisionGeometry ? indoorMapData.vertices : transformedVertices;
+    for (uint16_t vertexIndex : face.vertexIndices)
+    {
+        if (vertexIndex >= transformedVertices.size() || vertexIndex >= subdivisionVertices.size())
+        {
+            return mesh;
+        }
+
+        const IndoorVertex &vertex = transformedVertices[vertexIndex];
+        faceMin.x = std::min(faceMin.x, static_cast<float>(vertex.x));
+        faceMin.y = std::min(faceMin.y, static_cast<float>(vertex.y));
+        faceMin.z = std::min(faceMin.z, static_cast<float>(vertex.z));
+        faceMax.x = std::max(faceMax.x, static_cast<float>(vertex.x));
+        faceMax.y = std::max(faceMax.y, static_cast<float>(vertex.y));
+        faceMax.z = std::max(faceMax.z, static_cast<float>(vertex.z));
+        const bx::Vec3 subdivisionPosition = indoorVertexToWorld(subdivisionVertices[vertexIndex]);
+        subdivisionMin = bx::min(subdivisionMin, subdivisionPosition);
+        subdivisionMax = bx::max(subdivisionMax, subdivisionPosition);
+    }
+
+    const auto sourcesForFace = [](const std::vector<BakedStaticLightSource> &sources,
+        const bx::Vec3 &minBounds, const bx::Vec3 &maxBounds)
+    {
+        std::vector<BakedStaticLightSource> result;
+        for (const BakedStaticLightSource &source : sources)
+        {
+            if (source.radius > 0.0f
+                && pointAabbDistanceSquared(source.position, minBounds, maxBounds) <= source.radius * source.radius)
+            {
+                result.push_back(source);
+            }
+        }
+        return result;
+    };
+    const std::vector<BakedStaticLightSource> faceBakedStaticLightSources =
+        sourcesForFace(*pBakedStaticLightSources, faceMin, faceMax);
+    const std::vector<BakedStaticLightSource> faceBakedStaticLightSubdivisionSources =
+        sourcesForFace(*pBakedStaticLightSubdivisionSources, subdivisionMin, subdivisionMax);
+    pBakedStaticLightSources = &faceBakedStaticLightSources;
+    pBakedStaticLightSubdivisionSources = &faceBakedStaticLightSubdivisionSources;
+
+    bx::Vec3 faceNormal = computeFaceNormal(transformedVertices, face);
+    if (useBaseSubdivisionGeometry && vecDot(faceNormal, faceNormal) <= 0.0001f && face.planeNormal)
+    {
+        // A closed door's side face can collapse to an edge. Retain its authored plane and vertices for reopening.
+        faceNormal = {
+            static_cast<float>((*face.planeNormal)[0]),
+            static_cast<float>((*face.planeNormal)[1]),
+            static_cast<float>((*face.planeNormal)[2])
+        };
+    }
     const std::array<float, 4> flowInfo =
         indoorFaceFlowInfo(effectiveAttributes, face.facetType, texture.width, texture.height);
     const float textureCoordinateScale = indoorFaceTextureCoordinateScale(effectiveAttributes, face.facetType);
@@ -11161,7 +11380,7 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
         if (vecDot(faceNormal, faceNormal) <= 0.0001f
             || !calculateFaceTextureAxes(face, vecNormalize(faceNormal), axisU, axisV))
         {
-            return vertices;
+            return mesh;
         }
 
         geometryUs.reserve(face.vertexIndices.size());
@@ -11175,7 +11394,7 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
         {
             if (vertexIndex >= transformedVertices.size())
             {
-                return vertices;
+                return mesh;
             }
 
             const IndoorVertex &vertex = transformedVertices[vertexIndex];
@@ -11236,7 +11455,14 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
 
     std::vector<std::array<size_t, 3>> triangleVertexOrders;
 
-    if (!triangulateFaceProjected(transformedVertices, face, triangleVertexOrders))
+    if (!triangleTemplate.empty())
+    {
+        for (const TexturedFaceTriangle &triangle : triangleTemplate)
+        {
+            triangleVertexOrders.push_back(triangle.faceVertexIndices);
+        }
+    }
+    else if (!triangulateFaceProjected(subdivisionVertices, face, triangleVertexOrders))
     {
         for (size_t triangleIndex = 1; triangleIndex + 1 < face.vertexIndices.size(); ++triangleIndex)
         {
@@ -11244,8 +11470,9 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
         }
     }
 
-    for (const std::array<size_t, 3> &triangleVertexIndices : triangleVertexOrders)
+    for (size_t triangleIndex = 0; triangleIndex < triangleVertexOrders.size(); ++triangleIndex)
     {
+        const std::array<size_t, 3> &triangleVertexIndices = triangleVertexOrders[triangleIndex];
         TexturedVertex triangleVertices[3] = {};
         bool isTriangleValid = true;
         const auto faceVerticesAreAdjacent =
@@ -11337,42 +11564,74 @@ std::vector<IndoorRenderer::TexturedVertex> IndoorRenderer::buildFaceTexturedVer
             continue;
         }
 
-        const bx::Vec3 triangleEdge1 = {
-            triangleVertices[1].x - triangleVertices[0].x,
-            triangleVertices[1].y - triangleVertices[0].y,
-            triangleVertices[1].z - triangleVertices[0].z
+        std::array<bx::Vec3, 3> subdivisionPositions = {
+            bx::Vec3{0.0f, 0.0f, 0.0f}, bx::Vec3{0.0f, 0.0f, 0.0f}, bx::Vec3{0.0f, 0.0f, 0.0f}
         };
-        const bx::Vec3 triangleEdge2 = {
-            triangleVertices[2].x - triangleVertices[0].x,
-            triangleVertices[2].y - triangleVertices[0].y,
-            triangleVertices[2].z - triangleVertices[0].z
-        };
+        for (size_t slot = 0; slot < 3; ++slot)
+        {
+            subdivisionPositions[slot] =
+                indoorVertexToWorld(subdivisionVertices[face.vertexIndices[triangleVertexIndices[slot]]]);
+        }
+        const bx::Vec3 triangleEdge1 = bx::sub(subdivisionPositions[1], subdivisionPositions[0]);
+        const bx::Vec3 triangleEdge2 = bx::sub(subdivisionPositions[2], subdivisionPositions[0]);
         const bx::Vec3 triangleNormal = vecCross(triangleEdge1, triangleEdge2);
 
-        if (vecDot(triangleNormal, triangleNormal) <= 0.0001f)
+        if (!useBaseSubdivisionGeometry && vecDot(triangleNormal, triangleNormal) <= 0.0001f)
         {
             continue;
         }
 
-        if (allowBakedLightSubdivision)
+        TexturedFaceTriangle triangle = {};
+        triangle.faceVertexIndices = triangleVertexIndices;
+        triangle.vertexOffset = static_cast<uint32_t>(mesh.vertices.size());
+        if (!triangleTemplate.empty())
         {
+            // Reuse the split weights during motion; light curvature and topology were already baked at map load.
+            const TexturedFaceTriangle &previousTriangle = triangleTemplate[triangleIndex];
+            const std::span<const TexturedVertex> previousVertices =
+                subdivisionTemplate.subspan(previousTriangle.vertexOffset, previousTriangle.vertexCount);
+            for (const TexturedVertex &previousVertex : previousVertices)
+            {
+                TexturedVertex vertex = previousVertex;
+                const float first = vertex.barycentric0;
+                const float second = vertex.barycentric1;
+                const float third = vertex.barycentric2;
+                const TexturedVertex &a = triangleVertices[0];
+                const TexturedVertex &b = triangleVertices[1];
+                const TexturedVertex &c = triangleVertices[2];
+                vertex.x = a.x * first + b.x * second + c.x * third;
+                vertex.y = a.y * first + b.y * second + c.y * third;
+                vertex.z = a.z * first + b.z * second + c.z * third;
+                vertex.u = a.u * first + b.u * second + c.u * third;
+                vertex.v = a.v * first + b.v * second + c.v * third;
+                vertex.secretPulse = a.secretPulse;
+                vertex.boundaryEdgeMask = a.boundaryEdgeMask;
+                vertex.flowUPerSecond = a.flowUPerSecond;
+                vertex.flowVPerSecond = a.flowVPerSecond;
+                vertex.lavaFlow = a.lavaFlow;
+                vertex.fluidFlow = a.fluidFlow;
+                refreshBakedStaticLight(*pBakedStaticLightSources, coloredLights, vertex);
+                mesh.vertices.push_back(vertex);
+            }
+        }
+        else
+        {
+            std::unordered_map<uint64_t, uint32_t> vertexIndices;
             appendBakedStaticLightSubdividedTriangle(
-                vertices,
+                mesh,
+                vertexIndices,
                 *pBakedStaticLightSources,
                 *pBakedStaticLightSubdivisionSources,
                 coloredLights,
                 triangleVertices,
+                subdivisionPositions,
                 0);
         }
-        else
-        {
-            vertices.push_back(triangleVertices[0]);
-            vertices.push_back(triangleVertices[1]);
-            vertices.push_back(triangleVertices[2]);
-        }
+        triangle.vertexCount = static_cast<uint32_t>(mesh.vertices.size()) - triangle.vertexOffset;
+        mesh.triangles.push_back(triangle);
     }
 
-    return vertices;
+    return mesh;
 }
 
 std::vector<IndoorRenderer::TerrainVertex> IndoorRenderer::buildEntityMarkerVertices(
@@ -11621,6 +11880,7 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
                     m_indoorInteractiveDecorationBaseEventIdsByEntity,
                     m_indoorInteractiveDecorationEventCountsByEntity,
                     m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                    m_indoorInteractiveDecorationFixedEventByEntity,
                     entityIndex)
                 : std::nullopt;
 
@@ -11704,6 +11964,7 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
                         m_indoorInteractiveDecorationBaseEventIdsByEntity,
                         m_indoorInteractiveDecorationEventCountsByEntity,
                         m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                        m_indoorInteractiveDecorationFixedEventByEntity,
                         billboard.entityIndex);
 
                 if (binding
@@ -11761,11 +12022,20 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
                     return false;
                 }
 
+                if (m_pIndoorMapData && m_indoorDecorationBillboardSet
+                    && indoorDecorationLightToggleTarget(*m_pIndoorMapData,
+                        m_indoorDecorationBillboardSet->decorationTable, billboard.entityIndex,
+                        &*eventRuntimeState) != nullptr)
+                {
+                    return true;
+                }
+
                 return resolveIndoorInteractiveDecorationBinding(
                     m_indoorInteractiveDecorationDecorVarIndicesByEntity,
                     m_indoorInteractiveDecorationBaseEventIdsByEntity,
                     m_indoorInteractiveDecorationEventCountsByEntity,
                     m_indoorInteractiveDecorationHideWhenClearedByEntity,
+                    m_indoorInteractiveDecorationFixedEventByEntity,
                     billboard.entityIndex).has_value();
             };
 
@@ -11941,6 +12211,29 @@ IndoorRenderer::InspectHit IndoorRenderer::inspectAtCursor(
             [&](const RuntimeActorBillboard &actor, float &distance, bool &billboardTested) -> bool
             {
                 billboardTested = false;
+                const Engine::ModelBounds *pBounds = m_worldFxSystem.actorModelCullingBounds(actor.actorIndex);
+                if (pBounds != nullptr && pBounds->valid)
+                {
+                    billboardTested = true;
+                    if (!intersectRayAabb(rayOrigin, rayDirection,
+                        {pBounds->min[0], pBounds->min[1], pBounds->min[2]},
+                        {pBounds->max[0], pBounds->max[1], pBounds->max[2]}, distance))
+                    {
+                        return false;
+                    }
+                    pBounds = m_worldFxSystem.actorModelPoseBounds(actor.actorIndex);
+                    if (!pBounds->valid || !intersectRayAabb(rayOrigin, rayDirection,
+                        {pBounds->min[0], pBounds->min[1], pBounds->min[2]},
+                        {pBounds->max[0], pBounds->max[1], pBounds->max[2]}, distance))
+                    {
+                        return false;
+                    }
+                    pBounds = m_worldFxSystem.actorModelBounds(actor.actorIndex);
+                    return intersectRayAabb(rayOrigin, rayDirection,
+                        {pBounds->min[0], pBounds->min[1], pBounds->min[2]},
+                        {pBounds->max[0], pBounds->max[1], pBounds->max[2]}, distance);
+                }
+
                 const IndoorWorldRuntime::MapActorAiState *pActorAiState =
                     m_pSceneRuntime != nullptr
                         ? m_pSceneRuntime->worldRuntime().mapActorAiState(actor.actorIndex)
@@ -12878,8 +13171,7 @@ void IndoorRenderer::updateCameraFromInput(
     const bx::Vec3 right = {sinYaw, -cosYaw, 0.0f};
     const bool runWalkModifier =
         pKeyboardState[SDL_SCANCODE_LSHIFT] || pKeyboardState[SDL_SCANCODE_RSHIFT];
-    const bool turboPressed =
-        pKeyboardState[SDL_SCANCODE_LCTRL] || pKeyboardState[SDL_SCANCODE_RCTRL];
+    const bool turboPressed = input.turboMovementHeld();
     const bool jumpPressed = input.action(KeyboardAction::Jump).held;
     const bool jumpRequested = allowWorldInput && jumpPressed && !m_jumpHeld;
     m_jumpHeld = jumpPressed;

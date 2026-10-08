@@ -40,9 +40,9 @@ std::vector<OutdoorActorCollision> buildRuntimeActorColliders(const OutdoorWorld
         collider.source = OutdoorActorCollisionSource::MapDelta;
         collider.radius = pActor->radius;
         collider.height = pActor->height;
-        collider.worldX = pActor->x;
-        collider.worldY = pActor->y;
-        collider.worldZ = pActor->z;
+        collider.worldX = pActor->preciseX;
+        collider.worldY = pActor->preciseY;
+        collider.worldZ = pActor->preciseZ;
         collider.group = pActor->group;
         collider.name = pActor->displayName;
         colliders.push_back(std::move(collider));
@@ -372,7 +372,12 @@ OutdoorSceneRuntime::AdvanceFrameResult OutdoorSceneRuntime::advanceFrame(
             const OutdoorBModelFace &face =
                 pMapData->bmodels[moveState.supportBModelIndex].faces[moveState.supportFaceIndex];
 
-            if (hasFaceAttribute(face.attributes, FaceAttribute::PressurePlate) && face.cogTriggeredNumber != 0)
+            const bool bypassedByLevitate = m_pPartyRuntime->party().hasPartyBuff(PartyBuffId::Levitate)
+                && m_localEventProgram
+                && m_localEventProgram->isLevitateSensitivePressurePlate(face.cogTriggeredNumber, face.attributes);
+
+            if (hasFaceAttribute(face.attributes, FaceAttribute::PressurePlate)
+                && face.cogTriggeredNumber != 0 && !bypassedByLevitate)
             {
                 pEventRuntimeState->lastPressurePlateTrigger = EventRuntimeState::PressurePlateTrigger{
                     .world = "outdoor",

@@ -1745,6 +1745,42 @@ std::string buildNormalizedOutdoorAuthoredSnapshot(const OpenYAMM::Game::MapAsse
 }
 }
 
+TEST_CASE("levitate does not suppress direct scripted trap spell execution")
+{
+    using namespace OpenYAMM::Game;
+    struct TrapScript
+    {
+        const char *path;
+        uint16_t eventId;
+        size_t castCount;
+    };
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> support = readSourceTextFile(
+        sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    REQUIRE(support);
+    for (const TrapScript &trap : {
+             TrapScript{"mm6/events/maps/6t7.lua", 61, 1},
+             TrapScript{"mm7/events/maps/7d10.lua", 452, 1},
+             TrapScript{"mm8/events/maps/d26.lua", 101, 10}})
+    {
+        INFO(trap.path);
+        const std::optional<std::string> source = readSourceTextFile(sourceRoot / "assets_dev/worlds" / trap.path);
+        REQUIRE(source);
+        std::string error;
+        const std::optional<ScriptedEventProgram> program = ScriptedEventProgram::loadFromLuaText(
+            *support + "\n" + *source, trap.path, ScriptedEventScope::Map, error);
+        REQUIRE_MESSAGE(program, error);
+        CHECK(program->isLevitateSensitivePressurePlate(trap.eventId, 0x8c000102));
+        Party party = makeScriptedRegressionParty();
+        party.applyPartyBuff(PartyBuffId::Levitate, 600.0f, 0, 112, 1, SkillMastery::Expert, 0);
+        EventRuntimeState state;
+        RecordingSceneEventContext scene;
+        EventRuntime runtime;
+        REQUIRE(runtime.executeEventById(program, std::nullopt, trap.eventId, state, &party, &scene));
+        CHECK(scene.castSpellCalls.size() == trap.castCount);
+    }
+}
+
 TEST_CASE("generated_lua_event_scripts_are_loaded_from_files")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
@@ -2086,6 +2122,103 @@ TEST_CASE("mmmerge shared Breach maps are mounted and scripted")
     CHECK_EQ(brAlvarRuntimeState.npcHouseOverrides[1092], 0u);
 }
 
+TEST_CASE("mm7 and mm8 ore crafting consumes one ore from any party member and cannot repeat for free")
+{
+    using namespace OpenYAMM;
+    REQUIRE_MESSAGE(Tests::regressionGameDataLoaded(), Tests::regressionGameDataFailure().c_str());
+    const Tests::RegressionGameData &gameData = Tests::regressionGameData();
+    REQUIRE(gameData.globalEventProgram.has_value());
+    Game::EventRuntime eventRuntime;
+
+    for (uint16_t eventId : {501, 502, 503, 594, 595, 596})
+    {
+        for (uint32_t grade = 0; grade < 6; ++grade)
+        {
+            const uint32_t oreId = (eventId < 594 ? 1488u : 686u) + grade;
+            CAPTURE(eventId);
+            CAPTURE(oreId);
+            Game::PartySeed seed;
+            seed.members = {makeScriptedRegressionMember(), makeScriptedRegressionMember()};
+            Game::Party party;
+            party.setItemTable(&gameData.itemTable);
+            party.setItemEnchantTables(&gameData.standardItemEnchantTable, &gameData.specialItemEnchantTable);
+            party.seed(seed);
+            Game::InventoryItem ore = makeScriptedInventoryItem(oreId);
+            ore.quantity = 2;
+            REQUIRE(party.member(1)->addInventoryItem(ore));
+            REQUIRE_EQ(party.activeMemberIndex(), 0);
+            REQUIRE_EQ(party.inventoryItemCount(oreId, 0), 0);
+            Game::EventRuntimeState state;
+
+            for (int remaining = 1; remaining >= 0; --remaining)
+            {
+                REQUIRE(eventRuntime.executeNpcTopicEventById(
+                    std::nullopt, gameData.globalEventProgram, eventId, state, &party));
+                CHECK_EQ(party.inventoryItemCount(oreId), remaining);
+                REQUIRE_EQ(state.grantedItems.size(), 1u);
+                CHECK_NE(state.grantedItems.front().objectDescriptionId, oreId);
+                party.applyEventRuntimeState(state);
+            }
+
+            REQUIRE(eventRuntime.executeNpcTopicEventById(
+                std::nullopt, gameData.globalEventProgram, eventId, state, &party));
+            CHECK(state.grantedItems.empty());
+            CHECK_EQ(party.inventoryItemCount(oreId), 0);
+            REQUIRE_FALSE(state.messages.empty());
+            CHECK(state.messages.back().find("You need ore") != std::string::npos);
+        }
+    }
+}
+
+TEST_CASE("lua inventory removal matches default party possession and honors explicit player selection")
+{
+    using namespace OpenYAMM::Game;
+    const std::optional<std::string> supportLua = readSourceTextFile(
+        std::filesystem::path(OPENYAMM_SOURCE_DIR) / "assets_dev/engine/scripts/common/event_support.lua");
+    REQUIRE(supportLua.has_value());
+    std::string error;
+    const std::optional<ScriptedEventProgram> program = ScriptedEventProgram::loadFromLuaText(
+        *supportLua + R"(
+RegisterEvent(1, nil, function()
+    evt.ForPlayer(Players.Current)
+    RemoveItem(691)
+end)
+RegisterEvent(2, nil, function()
+    evt.ForPlayer(Players.Member1)
+    RemoveItem(691)
+end)
+RegisterEvent(3, nil, function()
+    SetValue(InventoryItem(691), 0)
+end)
+RegisterEvent(4, nil, function()
+    evt.ForPlayer(Players.All)
+    RemoveItem(691)
+end)
+)", "@inventory_selection.lua", ScriptedEventScope::Map, error);
+    REQUIRE_MESSAGE(program.has_value(), error.c_str());
+    PartySeed seed;
+    seed.members = {makeScriptedRegressionMember(), makeScriptedRegressionMember()};
+    Party party;
+    party.seed(seed);
+    InventoryItem ore = makeScriptedInventoryItem(691);
+    ore.quantity = 2;
+    REQUIRE(party.member(1)->addInventoryItem(ore));
+    EventRuntime eventRuntime;
+    EventRuntimeState state;
+    REQUIRE(eventRuntime.executeEventById(program, std::nullopt, 1, state, &party));
+    CHECK_EQ(party.inventoryItemCount(691), 2);
+    REQUIRE(eventRuntime.executeEventById(program, std::nullopt, 2, state, &party));
+    CHECK_EQ(party.inventoryItemCount(691), 1);
+    REQUIRE(eventRuntime.executeEventById(program, std::nullopt, 3, state, &party));
+    CHECK_EQ(party.inventoryItemCount(691), 0);
+    ore.quantity = 1;
+    REQUIRE(party.member(0)->addInventoryItem(ore));
+    REQUIRE(party.member(1)->addInventoryItem(ore));
+    REQUIRE(eventRuntime.executeEventById(program, std::nullopt, 4, state, &party));
+    CHECK_EQ(party.inventoryItemCount(691), 1);
+    CHECK_EQ(party.activeMemberIndex(), 0);
+}
+
 TEST_CASE("seer lost item topic recovers ever owned active quest items")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
@@ -2282,54 +2415,162 @@ TEST_CASE("mm6 new sorpigal tree event stores decoration sprite override")
     CHECK_EQ(*overrideIterator->second.textureName, "6tree06");
 }
 
-TEST_CASE("mm6 New Sorpigal obelisk applies autonote on press-any-key continuation")
+TEST_CASE("mm6 monthly shrines reward in the legacy month and respect pilgrimage completion")
+{
+    using namespace OpenYAMM::Game;
+    const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
+    const std::optional<std::string> supportLua =
+        readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
+    REQUIRE(supportLua.has_value());
+
+    struct ShrineCase
+    {
+        const char *pMapName;
+        int month;
+        EvtVariable reward;
+    };
+    const std::array<ShrineCase, 4> shrines = {{
+        {"outd2", 0, EvtVariable::BaseMight},
+        {"oute2", 1, EvtVariable::BaseIntellect},
+        {"oute3", 6, EvtVariable::BaseLuck},
+        {"outb2", 11, EvtVariable::FireResistance}
+    }};
+
+    for (const ShrineCase &shrine : shrines)
+    {
+        CAPTURE(std::string(shrine.pMapName));
+        const std::optional<std::string> mapLua = readSourceTextFile(
+            sourceRoot / "assets_dev/worlds/mm6/events/maps" / (std::string(shrine.pMapName) + ".lua"));
+        REQUIRE(mapLua.has_value());
+        std::string error;
+        const std::optional<ScriptedEventProgram> program = ScriptedEventProgram::loadFromLuaText(
+            *supportLua + "\n\n" + *mapLua, "@monthly-shrine.lua", ScriptedEventScope::Map, error);
+        REQUIRE_MESSAGE(program.has_value(), error.c_str());
+
+        PartySeed seed = {};
+        seed.members = {makeScriptedRegressionMember(), makeScriptedRegressionMember()};
+        Party party = {};
+        party.seed(seed);
+        EventRuntime runtime = {};
+        EventRuntimeState state = {};
+        RecordingSceneEventContext context = {};
+        const EventRuntime::VariableRef reward = EventRuntime::decodeVariable(static_cast<uint32_t>(shrine.reward));
+        const int32_t initialValue = EventRuntime::getVariableValue(state, reward, &party, 0);
+        const uint32_t firstVisitBit = 1231u + shrine.month;
+
+        context.setCurrentGameMinutes(((shrine.month + 11) % 12) * 28 * 1440.0f);
+        REQUIRE(runtime.executeEventById(program, std::nullopt, 261, state, &party, &context));
+        CHECK_FALSE(party.hasQuestBit(1230));
+        CHECK_FALSE(party.hasQuestBit(firstVisitBit));
+        REQUIRE_FALSE(state.statusMessages.empty());
+        CHECK_EQ(state.statusMessages.back(), "You pray at the shrine.");
+
+        context.setCurrentGameMinutes(shrine.month * 28 * 1440.0f);
+        REQUIRE(runtime.executeEventById(program, std::nullopt, 261, state, &party, &context));
+        CHECK(party.hasQuestBit(1230));
+        CHECK(party.hasQuestBit(firstVisitBit));
+        for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+        {
+            CHECK_EQ(EventRuntime::getVariableValue(state, reward, &party, memberIndex), initialValue + 10);
+        }
+
+        REQUIRE(runtime.executeEventById(program, std::nullopt, 261, state, &party, &context));
+        CHECK_EQ(EventRuntime::getVariableValue(state, reward, &party, 0), initialValue + 10);
+        CHECK_EQ(state.statusMessages.back(), "You pray at the shrine.");
+
+        // The Seer clears the shared completion bit for another eligible pilgrimage.
+        party.setQuestBit(1230, false);
+        context.setCurrentGameMinutes((336 + shrine.month * 28 + 27) * 1440.0f);
+        REQUIRE(runtime.executeEventById(program, std::nullopt, 261, state, &party, &context));
+        CHECK(party.hasQuestBit(1230));
+        for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+        {
+            CHECK_EQ(EventRuntime::getVariableValue(state, reward, &party, memberIndex), initialValue + 13);
+        }
+    }
+}
+
+TEST_CASE("mm6 obelisk dialogs reopen after collection and other dialogs")
 {
     const std::filesystem::path sourceRoot = OPENYAMM_SOURCE_DIR;
     const std::optional<std::string> supportLua =
         readSourceTextFile(sourceRoot / "assets_dev/engine/scripts/common/event_support.lua");
     const std::optional<std::string> commonLua =
         readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/common/mm6_common.lua");
-    const std::optional<std::string> outa1Lua =
-        readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6/events/maps/outa1.lua");
-
     REQUIRE(supportLua.has_value());
     REQUIRE(commonLua.has_value());
-    REQUIRE(outa1Lua.has_value());
 
-    std::string error;
-    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
-        OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
-            *supportLua + "\n\n" + *commonLua + "\n\n" + *outa1Lua,
-            "@events/maps/outa1.lua",
-            OpenYAMM::Game::ScriptedEventScope::Map,
-            error);
-    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+    struct ObeliskCase
+    {
+        const char *pMapName;
+        uint16_t eventId;
+        uint32_t questBit;
+        uint32_t autonoteId;
+    };
+    const std::array<ObeliskCase, 3> obelisks = {{
+        {"oute3", 240, 1398, 456},
+        {"oute2", 212, 1397, 455},
+        {"outa1", 210, 1384, 442}
+    }};
 
-    OpenYAMM::Game::Party party = makeScriptedRegressionParty();
-    OpenYAMM::Game::EventRuntimeState runtimeState = {};
-    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    for (const ObeliskCase &obelisk : obelisks)
+    {
+        CAPTURE(std::string(obelisk.pMapName));
+        const std::string scriptPath = std::string("events/maps/") + obelisk.pMapName + ".lua";
+        const std::optional<std::string> mapLua = readSourceTextFile(sourceRoot / "assets_dev/worlds/mm6" / scriptPath);
+        REQUIRE(mapLua.has_value());
+        std::string error;
+        const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+            OpenYAMM::Game::ScriptedEventProgram::loadFromLuaText(
+                *supportLua + "\n\n" + *commonLua + "\n\n" + *mapLua,
+                "@" + scriptPath,
+                OpenYAMM::Game::ScriptedEventScope::Map,
+                error);
+        REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
 
-    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 210, runtimeState, &party, nullptr));
-    REQUIRE(runtimeState.pendingInputPrompt.has_value());
-    CHECK_EQ(
-        runtimeState.pendingInputPrompt->kind,
-        OpenYAMM::Game::EventRuntimeState::PendingInputPrompt::Kind::PressAnyKey);
-    CHECK_EQ(runtimeState.pendingInputPrompt->eventId, 210u);
-    CHECK_EQ(runtimeState.pendingInputPrompt->continueStep, 2u);
-    CHECK_FALSE(party.hasQuestBit(1384));
+        OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+        OpenYAMM::Game::EventRuntimeState runtimeState = {};
+        OpenYAMM::Game::EventRuntime eventRuntime = {};
+        runtimeState.messages = {"Previous dialog"};
+        CHECK_FALSE(party.hasQuestBit(obelisk.questBit));
+        const uint32_t autonoteVariable = (obelisk.autonoteId << 16) | 0x00e1u;
+        CHECK(runtimeState.variables.find(autonoteVariable) == runtimeState.variables.end());
 
-    constexpr uint32_t ObeliskAutonoteVariable = (442u << 16) | 0x00e1u;
-    CHECK(runtimeState.variables.find(ObeliskAutonoteVariable) == runtimeState.variables.end());
+        for (int visit = 0; visit < 2; ++visit)
+        {
+            CAPTURE(visit);
+            const size_t previousMessageCount = runtimeState.messages.size();
+            REQUIRE(eventRuntime.executeEventById(
+                localEventProgram, std::nullopt, obelisk.eventId, runtimeState, &party, nullptr));
+            REQUIRE(runtimeState.pendingInputPrompt.has_value());
+            CHECK_EQ(
+                runtimeState.pendingInputPrompt->kind,
+                OpenYAMM::Game::EventRuntimeState::PendingInputPrompt::Kind::PressAnyKey);
+            CHECK_EQ(runtimeState.pendingInputPrompt->eventId, obelisk.eventId);
+            CHECK_EQ(runtimeState.pendingInputPrompt->continueStep, 2u);
+            REQUIRE_EQ(runtimeState.messages.size(), 1u);
+            const OpenYAMM::Game::EventDialogContent dialog = OpenYAMM::Game::buildEventDialogContent(
+                runtimeState, previousMessageCount, true,
+                nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &party, nullptr, 0.0f);
+            CHECK(dialog.isActive);
+            REQUIRE_FALSE(dialog.lines.empty());
+            CHECK(dialog.lines.front().find("surface of the obelisk") != std::string::npos);
 
-    runtimeState.pendingInputPrompt.reset();
-    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 210, runtimeState, &party, nullptr, 2));
-
-    CHECK(party.hasQuestBit(1384));
-    const auto autonoteIt = runtimeState.variables.find(ObeliskAutonoteVariable);
-    REQUIRE(autonoteIt != runtimeState.variables.end());
-    CHECK_EQ(autonoteIt->second, 442);
-    REQUIRE_EQ(runtimeState.portraitFxRequests.size(), 1u);
-    CHECK_EQ(runtimeState.portraitFxRequests.front().kind, OpenYAMM::Game::PortraitFxEventKind::AutoNote);
+            runtimeState.pendingInputPrompt.reset();
+            REQUIRE(eventRuntime.executeEventById(
+                localEventProgram, std::nullopt, obelisk.eventId, runtimeState, &party, nullptr, 2));
+            CHECK(party.hasQuestBit(obelisk.questBit));
+            const auto autonoteIt = runtimeState.variables.find(autonoteVariable);
+            REQUIRE(autonoteIt != runtimeState.variables.end());
+            CHECK_EQ(autonoteIt->second, obelisk.autonoteId);
+            if (visit == 0)
+            {
+                REQUIRE_EQ(runtimeState.portraitFxRequests.size(), 1u);
+                CHECK_EQ(runtimeState.portraitFxRequests.front().kind, OpenYAMM::Game::PortraitFxEventKind::AutoNote);
+            }
+            runtimeState.pendingDialogueContext.reset();
+        }
+    }
 }
 
 TEST_CASE("Lua quest completion feedback announces the whole party without changing quest state")
@@ -2393,10 +2634,13 @@ SetMapMetadata({
     onLeave = {10},
     openedChestIds = {
         [10] = {1},
+        [11] = {2},
     },
     contextActions = {
         [10] = { kind = "open_chest", source = "opcode", chestIds = {1} },
-        [11] = { kind = "open_door", source = "title" },
+        [11] = { kind = "open_chest", source = "opcode", chestIds = {2} },
+        [12] = { kind = "open_door", source = "title" },
+        [13] = { kind = "open_door", source = "title" },
     },
     timers = {
         { eventId = 10, repeating = true, intervalGameMinutes = 2, remainingGameMinutes = 2 },
@@ -2424,6 +2668,10 @@ end)
 RemoveMapEvent(10)
 ReplaceMapEvent(11, "Overlay", function()
 end, "Overlay hint")
+ReplaceMapEvent(12, "Repurposed", function() end)
+SetMapContextAction(12, { kind = "teleport", targetMap = "oute3.odm" })
+ReplaceMapEvent(13, "No action", function() end)
+SetMapContextAction(13, nil)
 
 )lua";
 
@@ -2469,7 +2717,17 @@ end, "Overlay hint")
     REQUIRE(replacementHint.has_value());
     CHECK_EQ(*replacementSummary, "Overlay");
     CHECK_EQ(*replacementHint, "Overlay hint");
-    CHECK_FALSE(localEventProgram->getContextActionMetadata(11).has_value());
+    REQUIRE(localEventProgram->getContextActionMetadata(11).has_value());
+    CHECK_EQ(localEventProgram->getContextActionMetadata(11)->kind, "open_chest");
+    CHECK_EQ(localEventProgram->getOpenedChestIds(11), std::vector<uint32_t>({2}));
+    CHECK(std::find(
+        localEventProgram->onLoadEventIds().begin(),
+        localEventProgram->onLoadEventIds().end(),
+        11) == localEventProgram->onLoadEventIds().end());
+    REQUIRE(localEventProgram->getContextActionMetadata(12).has_value());
+    CHECK_EQ(localEventProgram->getContextActionMetadata(12)->kind, "teleport");
+    CHECK_EQ(localEventProgram->getContextActionMetadata(12)->targetMap, std::optional<std::string>("oute3.odm"));
+    CHECK_FALSE(localEventProgram->getContextActionMetadata(13).has_value());
 }
 
 TEST_CASE("scripted event program normalizes legacy and native timer metadata")
@@ -3473,6 +3731,11 @@ TEST_CASE("mm8 mmmerge arena exit and dimension door tile hooks apply")
         const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
             loadMm8MapOverlayProgram(OPENYAMM_SOURCE_DIR, "d42", "d42_mmmerge", error);
         REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+        REQUIRE(localEventProgram->getContextActionMetadata(501).has_value());
+        CHECK_EQ(localEventProgram->getContextActionMetadata(501)->kind, "leave_dungeon");
+        CHECK_EQ(localEventProgram->getContextActionMetadata(501)->targetName,
+            std::optional<std::string>("Leave the Arena"));
+        CHECK_FALSE(localEventProgram->getContextActionMetadata(501)->targetMap.has_value());
 
         struct ArenaCase
         {
@@ -3922,6 +4185,68 @@ TEST_CASE("mm7 global mmmerge arcomage requires deck")
         executeArcomageClickHook(partyWithDeck, OpenYAMM::Game::HouseActionId::OpenTavernArcomageMenu);
     CHECK_FALSE(allowedContext.blocked);
     CHECK_FALSE(allowedContext.statusText.has_value());
+}
+
+TEST_CASE("dimensional travel fountains preserve Town Portal discovery and Harmondale restoration")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> ravenshoreProgram =
+        loadMm8MapOverlayProgram(OPENYAMM_SOURCE_DIR, "out02", "out02_mmmerge", error);
+    REQUIRE_MESSAGE(ravenshoreProgram.has_value(), error.c_str());
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::Party ravenshoreParty = makeScriptedRegressionParty();
+    OpenYAMM::Game::EventRuntimeState ravenshoreState = {};
+    const int goldBefore = ravenshoreParty.gold();
+    REQUIRE(eventRuntime.executeEventById(ravenshoreProgram, std::nullopt, 104, ravenshoreState, &ravenshoreParty));
+    CHECK(ravenshoreParty.hasQuestBit(302));
+    CHECK_EQ(ravenshoreParty.gold(), goldBefore);
+    CHECK(ravenshoreState.pendingDimensionDoorOverlay);
+
+    const OpenYAMM::Game::MapAssetInfo *pCastle = loadCachedIndoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "7d29.blv",
+        OpenYAMM::Game::MapLoadPurpose::HeadlessGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{.allowSceneYml = true, .allowLegacyCompanion = true});
+    REQUIRE(pCastle != nullptr);
+    REQUIRE(pCastle->indoorMapData.has_value());
+    REQUIRE(pCastle->indoorMapDeltaData.has_value());
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> castleProgram =
+        loadMm7MapOverlayProgram(OPENYAMM_SOURCE_DIR, "7d29", "7d29_mmmerge", error);
+    REQUIRE_MESSAGE(castleProgram.has_value(), error.c_str());
+    const std::array<size_t, 6> waterFaces = {1668, 1669, 1689, 1697, 4669, 4670};
+
+    for (size_t faceIndex : waterFaces)
+    {
+        const OpenYAMM::Game::IndoorFace &face = pCastle->indoorMapData->faces.at(faceIndex);
+        CHECK_EQ(face.cogNumber, 65031u);
+        CHECK_EQ(face.cogTriggered, 65031u);
+        CHECK_EQ(face.textureName, "7wtrtyl");
+        CHECK(OpenYAMM::Game::hasFaceAttribute(face.attributes, OpenYAMM::Game::FaceAttribute::Fluid));
+        CHECK(OpenYAMM::Game::hasFaceAttribute(face.attributes, OpenYAMM::Game::FaceAttribute::Clickable));
+        CHECK_FALSE(OpenYAMM::Game::hasFaceAttribute(face.attributes, OpenYAMM::Game::FaceAttribute::HasHint));
+    }
+    CHECK_EQ(pCastle->indoorMapData->faces.at(4229).cogTriggered, 0u);
+    CHECK_EQ(pCastle->indoorMapData->faces.at(4234).cogTriggered, 0u);
+
+    for (bool restored : {false, true})
+    {
+        OpenYAMM::Game::Party castleParty = makeScriptedRegressionParty();
+        castleParty.setQuestBit(610, restored);
+        OpenYAMM::Game::EventRuntimeState castleState = {};
+        REQUIRE(eventRuntime.buildOnLoadState(
+            castleProgram, std::nullopt, pCastle->indoorMapDeltaData, castleState, &castleParty));
+        CHECK(castleParty.hasQuestBit(718));
+        CHECK(OpenYAMM::Game::hasFaceAttribute(
+            castleState.facetSetMasks.at(65031), OpenYAMM::Game::FaceAttribute::Clickable));
+        CHECK_FALSE(castleState.textureOverrides.contains(65031));
+        castleState.namedGlobalVars["MMerge.CrossContinents.GotMainQuest"] = 1;
+        REQUIRE(eventRuntime.executeEventById(
+            castleProgram, std::nullopt, 65031, castleState, &castleParty));
+        CHECK(castleState.pendingDimensionDoorOverlay);
+        CHECK(castleParty.hasQuestBit(718));
+    }
 }
 
 TEST_CASE("mm7 castle harmondale mmmerge local quest state")
@@ -4653,6 +4978,11 @@ TEST_CASE("mm7 harmondale erathia shoals and strange temple mmmerge overlays app
         const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
             loadMm7MapOverlayProgram(OPENYAMM_SOURCE_DIR, "7nwc", "7nwc_mmmerge", error);
         REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+        REQUIRE(localEventProgram->getContextActionMetadata(501).has_value());
+        CHECK_EQ(localEventProgram->getContextActionMetadata(501)->kind, "leave_dungeon");
+        CHECK_EQ(localEventProgram->getContextActionMetadata(501)->targetName,
+            std::optional<std::string>("Leave The Strange Temple"));
+        CHECK_FALSE(localEventProgram->getContextActionMetadata(501)->targetMap.has_value());
 
         OpenYAMM::Game::EventRuntime eventRuntime = {};
         OpenYAMM::Game::Party party = makeScriptedRegressionParty();
@@ -5032,7 +5362,15 @@ TEST_CASE("mm7 global mmmerge supplement applies remaining original quest fixups
         OpenYAMM::Game::Party party = makeScriptedRegressionParty();
         party.setQuestBit(528, true);
         OpenYAMM::Game::EventRuntimeState runtimeState = {};
-        REQUIRE(eventRuntime.executeEventById(std::nullopt, globalEventProgram, 783, runtimeState, &party));
+        runtimeState.activeHistoryContinentId = 2;
+        runtimeState.variables[static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::Hour)] = 6;
+        RecordingGameplayWorldContext sceneContext = {};
+        sceneContext.setCurrentGameMinutes(360.0f);
+        REQUIRE(eventRuntime.executeEventById(
+            std::nullopt, globalEventProgram, 783, runtimeState, &party, &sceneContext));
+        CHECK_EQ(runtimeState.historyEventTimesByContinent[2][3], 360);
+        CHECK_EQ(runtimeState.historyEventTimesByContinent[2][4], 360);
+        CHECK_EQ(sceneContext.currentGameMinutes(), 360.0f + 14 * 24 * 60);
         CHECK_FALSE(party.hasQuestBit(528));
         CHECK_EQ(runtimeState.npcHouseOverrides[340], 215u);
         CHECK_EQ(runtimeState.npcGreetingOverrides[340], 320u);
@@ -5464,7 +5802,13 @@ TEST_CASE("mm7 colony zod releases Roland and restores the open pathway")
 
     OpenYAMM::Game::Party freshParty = makeScriptedRegressionParty();
     OpenYAMM::Game::EventRuntimeState freshState = {};
+    freshState.activeHistoryContinentId = 2;
+    freshState.variables[static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::Hour)] = 6;
     REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 376, freshState, &freshParty));
+    CHECK_EQ(freshState.historyEventTimesByContinent[2][26], 360);
+    freshState.variables[static_cast<uint32_t>(OpenYAMM::Game::EvtVariable::Hour)] = 7;
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 376, freshState, &freshParty));
+    CHECK_EQ(freshState.historyEventTimesByContinent[2][26], 360);
     REQUIRE_EQ(freshState.grantedItems.size(), 1u);
     CHECK_EQ(freshState.grantedItems.front().objectDescriptionId, 1463u);
     CHECK(freshParty.hasQuestBit(752));
@@ -6938,6 +7282,58 @@ TEST_CASE("mm6 and mm8 initial cutscene overlays queue intro movies once")
     }
 }
 
+TEST_CASE("mm6 Shrine of the Gods blessing follows characters and migrates older saves")
+{
+    using namespace OpenYAMM::Game;
+    std::string error;
+    const std::optional<ScriptedEventProgram> program =
+        loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "outb3", "outb3_mmmerge", error);
+    REQUIRE_MESSAGE(program.has_value(), error.c_str());
+    PartySeed seed = {};
+    seed.members = {makeScriptedRegressionMember(), makeScriptedRegressionMember(), makeScriptedRegressionMember()};
+    Party party = {};
+    party.seed(seed);
+    EventRuntime runtime = {};
+    EventRuntimeState state = {};
+    REQUIRE(party.setActiveMemberIndex(1));
+    REQUIRE(runtime.executeEventById(program, std::nullopt, 103, state, &party));
+    CHECK_EQ(party.member(1)->might, 34u);
+    CHECK(party.member(1)->playerBits.contains(70));
+    CHECK_FALSE(party.member(0)->playerBits.contains(70));
+
+    REQUIRE(party.dismissMemberToAdventurersInn(1));
+    REQUIRE(party.hireAdventurersInnMember(0));
+    // An unblessed character now occupies the old blessed slot.
+    REQUIRE(party.setActiveMemberIndex(1));
+    REQUIRE(runtime.executeEventById(program, std::nullopt, 103, state, &party));
+    CHECK_EQ(party.member(1)->might, 34u);
+    CHECK(party.member(1)->playerBits.contains(70));
+
+    // The previously blessed character moved to slot 2; repeat visits only heal.
+    REQUIRE(party.setActiveMemberIndex(2));
+    party.applyMemberCondition(2, CharacterCondition::Weak);
+    REQUIRE(runtime.executeEventById(program, std::nullopt, 103, state, &party));
+    CHECK_EQ(party.member(2)->might, 34u);
+    CHECK_FALSE(party.member(2)->conditions.test(static_cast<size_t>(CharacterCondition::Weak)));
+
+    Party oldParty = {};
+    oldParty.seed(seed);
+    oldParty.member(1)->might = 34;
+    EventRuntimeState oldState = {};
+    oldState.namedMapVars["ShrineOfGodsBlessed1"] = 1;
+    oldState.namedMapVars["ShrineOfGodsBlessed4"] = 1;
+    REQUIRE(runtime.executeOnLoadEvents(program, std::nullopt, oldState, &oldParty));
+    CHECK(oldParty.member(1)->playerBits.contains(70));
+    CHECK_FALSE(oldParty.member(0)->playerBits.contains(70));
+    CHECK_FALSE(oldParty.member(2)->playerBits.contains(70));
+    CHECK_EQ(oldState.namedMapVars["ShrineOfGodsBlessed1"], 0);
+    CHECK_EQ(oldState.namedMapVars["ShrineOfGodsBlessed4"], 0);
+    REQUIRE(runtime.executeOnLoadEvents(program, std::nullopt, oldState, &oldParty));
+    REQUIRE(oldParty.setActiveMemberIndex(1));
+    REQUIRE(runtime.executeEventById(program, std::nullopt, 103, oldState, &oldParty));
+    CHECK_EQ(oldParty.member(1)->might, 34u);
+}
+
 TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
 {
     {
@@ -7059,6 +7455,10 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
         const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
             loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "6d07", "6d07_mmmerge", error);
         REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+        REQUIRE(localEventProgram->getContextActionMetadata(16).has_value());
+        CHECK_EQ(localEventProgram->getContextActionMetadata(16)->kind, "open_chest");
+        CHECK_EQ(localEventProgram->getContextActionMetadata(16)->chestIds, std::vector<uint32_t>({1, 6}));
+        CHECK_EQ(localEventProgram->getOpenedChestIds(16), std::vector<uint32_t>({1, 6}));
 
         OpenYAMM::Game::EventRuntime eventRuntime = {};
         OpenYAMM::Game::Party noKeyParty = makeScriptedRegressionParty();
@@ -7166,6 +7566,15 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
         const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
             loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "6t7", "6t7_mmmerge", error);
         REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+        for (uint16_t eventId = 1; eventId <= 21; ++eventId)
+        {
+            if (eventId == 19)
+            {
+                continue;
+            }
+            REQUIRE(localEventProgram->getContextActionMetadata(eventId).has_value());
+            CHECK_EQ(localEventProgram->getContextActionMetadata(eventId)->kind, "open_door");
+        }
 
         OpenYAMM::Game::Party party = makeScriptedRegressionParty();
         OpenYAMM::Game::EventRuntimeState runtimeState = {};
@@ -7354,7 +7763,7 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
         REQUIRE(pMember != nullptr);
         OpenYAMM::Game::EventRuntimeState shrineState = {};
         REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 103, shrineState, &shrineParty));
-        CHECK_EQ(shrineState.namedMapVars["ShrineOfGodsBlessed0"], 1);
+        CHECK(pMember->playerBits.contains(70));
         CHECK_EQ(pMember->might, 34u);
         CHECK_EQ(pMember->intellect, 34u);
         CHECK_EQ(pMember->baseResistances.fire, 20);
@@ -7370,9 +7779,15 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
 
         OpenYAMM::Game::MapDeltaData mapDeltaData = {};
         mapDeltaData.locationInfo.respawnCount = 1;
-        shrineState.namedMapVars["ShrineOfGodsBlessed0"] = 1;
-        REQUIRE(eventRuntime.executeMapRefillHooks(localEventProgram, std::nullopt, mapDeltaData, shrineState, &party));
-        CHECK_EQ(shrineState.namedMapVars["ShrineOfGodsBlessed0"], 0);
+        eventRuntime.executeMapRefillHooks(localEventProgram, std::nullopt, mapDeltaData, shrineState, &shrineParty);
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 103, shrineState, &shrineParty));
+        CHECK(pMember->playerBits.contains(70));
+        CHECK_EQ(pMember->might, 34u);
+
+        // A map reset must not reset the character's blessing.
+        eventRuntime.initializeMapRuntimeState(mapDeltaData, shrineState);
+        REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 103, shrineState, &shrineParty));
+        CHECK_EQ(pMember->might, 34u);
     }
 
     {
@@ -7455,6 +7870,9 @@ TEST_CASE("mm6 remaining mmmerge delta overlays port map event fixes")
         const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
             loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "hive", "hive_mmmerge", error);
         REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+        REQUIRE(localEventProgram->getContextActionMetadata(60).has_value());
+        CHECK_EQ(localEventProgram->getContextActionMetadata(60)->kind, "leave_dungeon");
+        CHECK_EQ(localEventProgram->getContextActionMetadata(60)->targetMap, std::optional<std::string>("oute3.odm"));
 
         OpenYAMM::Game::EventRuntime eventRuntime = {};
         OpenYAMM::Game::Party party = makeScriptedRegressionParty();
@@ -7651,6 +8069,69 @@ TEST_CASE("mm6 castle alamos password plate keeps pressure trigger metadata")
     }
 
     CHECK_GT(passwordPlateCount, 0u);
+}
+
+TEST_CASE("mm6 ironfist sword removal updates its decoration and restores from quest progress")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedOutdoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem,
+        mapLoader.gameDataLoader,
+        "outd3.odm",
+        OpenYAMM::Game::MapLoadPurpose::HeadlessGameplay,
+        OpenYAMM::Game::MapCompanionLoadOptions{
+            .allowSceneYml = true,
+            .allowLegacyCompanion = true,
+        });
+
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->outdoorMapData.has_value());
+    REQUIRE_GT(pLoadedMap->outdoorMapData->entities.size(), 232u);
+    const OpenYAMM::Game::OutdoorEntity &swordEntity = pLoadedMap->outdoorMapData->entities[230];
+    CHECK_EQ(swordEntity.name, "swrdstn");
+    CHECK_EQ(swordEntity.eventIdSecondary, 225u);
+    const uint32_t swordKey = swordEntity.spriteOverrideKey(230);
+    const uint32_t otherRockKey = pLoadedMap->outdoorMapData->entities[232].spriteOverrideKey(232);
+    REQUIRE_NE(swordKey, otherRockKey);
+
+    std::string error;
+    const std::optional<OpenYAMM::Game::ScriptedEventProgram> localEventProgram =
+        loadMm6MapOverlayProgram(OPENYAMM_SOURCE_DIR, "outd3", "outd3_mmmerge", error);
+    REQUIRE_MESSAGE(localEventProgram.has_value(), error.c_str());
+    OpenYAMM::Game::EventRuntime eventRuntime = {};
+    OpenYAMM::Game::Party party = makeScriptedRegressionParty();
+    OpenYAMM::Game::EventRuntimeState weakState = {};
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 225, weakState, &party));
+    CHECK_FALSE(party.hasQuestBit(1327));
+    CHECK(weakState.grantedItems.empty());
+    CHECK(weakState.spriteOverrides.empty());
+
+    OpenYAMM::Game::EventRuntimeState freshLoadState = {};
+    REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, freshLoadState, &party));
+    CHECK_FALSE(freshLoadState.spriteOverrides.contains(swordKey));
+
+    REQUIRE(party.member(0) != nullptr);
+    party.member(0)->might = 40;
+    OpenYAMM::Game::EventRuntimeState removalState = {};
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 225, removalState, &party));
+    CHECK(party.hasQuestBit(1327));
+    REQUIRE_EQ(removalState.grantedItems.size(), 1u);
+    CHECK_EQ(removalState.grantedItems.front().objectDescriptionId, 1609u);
+    REQUIRE(removalState.spriteOverrides.contains(swordKey));
+    CHECK_EQ(removalState.spriteOverrides.at(swordKey).textureName, "swrdstx");
+    CHECK_FALSE(removalState.spriteOverrides.at(swordKey).hidden);
+    CHECK_FALSE(removalState.spriteOverrides.contains(otherRockKey));
+
+    OpenYAMM::Game::EventRuntimeState repeatedState = {};
+    REQUIRE(eventRuntime.executeEventById(localEventProgram, std::nullopt, 225, repeatedState, &party));
+    CHECK(repeatedState.grantedItems.empty());
+
+    OpenYAMM::Game::EventRuntimeState completedLoadState = {};
+    REQUIRE(eventRuntime.buildOnLoadState(localEventProgram, std::nullopt, std::nullopt, completedLoadState, &party));
+    REQUIRE(completedLoadState.spriteOverrides.contains(swordKey));
+    CHECK_EQ(completedLoadState.spriteOverrides.at(swordKey).textureName, "swrdstx");
+    CHECK_FALSE(completedLoadState.spriteOverrides.contains(otherRockKey));
+    CHECK(completedLoadState.grantedItems.empty());
 }
 
 TEST_CASE("mm6 castle alamos beta memory crystal sprite override targets map sprite index")
@@ -8963,6 +9444,32 @@ TEST_CASE("outdoor water bmodel faces load terrain-owned animation frames")
     }
 }
 
+TEST_CASE("MM8 lava retains liquid animation without reflective water shading")
+{
+    const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
+    const OpenYAMM::Game::MapAssetInfo *pLoadedMap = loadCachedOutdoorMapWithCompanionOptions(
+        mapLoader.assetFileSystem, mapLoader.gameDataLoader, "elemf.odm",
+        OpenYAMM::Game::MapLoadPurpose::RenderSurfaces,
+        OpenYAMM::Game::MapCompanionLoadOptions{.allowSceneYml = true, .allowLegacyCompanion = true});
+    REQUIRE(pLoadedMap != nullptr);
+    REQUIRE(pLoadedMap->outdoorTerrainTextureAtlas.has_value());
+    const OpenYAMM::Game::OutdoorTerrainTextureAtlas &atlas = *pLoadedMap->outdoorTerrainTextureAtlas;
+    size_t lavaTiles = 0;
+    for (size_t tile = 0; tile < atlas.tileRegions.size(); ++tile)
+    {
+        if (atlas.tileTextureNames[tile] != "lavtyl")
+        {
+            continue;
+        }
+        ++lavaTiles;
+        CHECK(atlas.tileRegions[tile].isValid);
+        CHECK(atlas.tileRegions[tile].isWater);
+        CHECK_FALSE(atlas.tileRegions[tile].isWaterSurface);
+        CHECK(atlas.waterCoverageMasks[tile].empty());
+    }
+    CHECK(lavaTiles > 0);
+}
+
 TEST_CASE("outdoor terrain water transition tiles do not use full-tile shader warp")
 {
     const OpenYAMM::Tests::RegressionMapLoader &mapLoader = requireRegressionMapLoader();
@@ -8979,6 +9486,8 @@ TEST_CASE("outdoor terrain water transition tiles do not use full-tile shader wa
         {"7out01.odm", 126, 138},
         {"oute3.odm", 126, 138},
     }};
+    std::array<uint32_t, 3> waterColors = {};
+    size_t colorIndex = 0;
 
     for (const WaterTransitionMapCase &waterMapCase : waterMapCases)
     {
@@ -9004,15 +9513,23 @@ TEST_CASE("outdoor terrain water transition tiles do not use full-tile shader wa
 
         REQUIRE(fullWaterRegion.isValid);
         CHECK(fullWaterRegion.isWater);
+        CHECK(fullWaterRegion.isWaterSurface);
         CHECK_FALSE(fullWaterRegion.isTransitionOverlay);
 
         REQUIRE(cachedFullWaterRegion.isValid);
         CHECK(cachedFullWaterRegion.isWater);
+        CHECK(cachedFullWaterRegion.isWaterSurface);
         CHECK_FALSE(cachedFullWaterRegion.isTransitionOverlay);
 
         REQUIRE(transitionWaterRegion.isValid);
         CHECK(transitionWaterRegion.isWater);
+        CHECK(transitionWaterRegion.isWaterSurface);
+        CHECK(atlas.waterCoverageMasks[waterMapCase.transitionWaterTileId].size() == 128 * 128);
         CHECK(transitionWaterRegion.isTransitionOverlay);
+        CHECK((fullWaterRegion.waterColorAbgr & 0xff000000u) == 0xff000000u);
+        CHECK(cachedFullWaterRegion.waterColorAbgr == fullWaterRegion.waterColorAbgr);
+        CHECK(transitionWaterRegion.waterColorAbgr == fullWaterRegion.waterColorAbgr);
+        waterColors[colorIndex++] = fullWaterRegion.waterColorAbgr;
 
         const auto findAnimatedTileSource =
             [&](const OpenYAMM::Game::OutdoorTerrainAtlasRegion &region)
@@ -9046,6 +9563,9 @@ TEST_CASE("outdoor terrain water transition tiles do not use full-tile shader wa
         CHECK(pCachedFullWaterSource->animation.frames.size() == 14);
         CHECK(pCachedFullWaterSource->animation.animationLengthTicks == 210);
     }
+    CHECK(waterColors[0] != waterColors[1]);
+    CHECK(waterColors[0] != waterColors[2]);
+    CHECK(waterColors[1] != waterColors[2]);
 }
 
 TEST_CASE("d06 indoor actor loader preserves Blackwell Cooper guaranteed key drop")

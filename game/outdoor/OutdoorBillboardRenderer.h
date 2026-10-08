@@ -11,6 +11,8 @@
 
 namespace OpenYAMM::Game
 {
+class ViewFrustum;
+
 class OutdoorBillboardRenderer
 {
 public:
@@ -32,6 +34,8 @@ public:
         int16_t paletteId,
         const char *pLoadPhase = "render");
     static void invalidateRenderAssets(OutdoorGameView &view);
+    // Decoration billboard the context action points at and its outline colour (sprites and decoration models).
+    static std::optional<std::pair<size_t, uint32_t>> highlightedDecoration(const OutdoorGameView &view);
     static void destroyRenderAssets(OutdoorGameView &view);
     static void renderDecorationBillboards(
         OutdoorGameView &view,
@@ -44,12 +48,16 @@ public:
         OutdoorGameView &view,
         uint16_t viewId,
         const float *pViewMatrix,
-        const bx::Vec3 &cameraPosition);
+        const float *pProjectionMatrix,
+        const bx::Vec3 &cameraPosition,
+        const ViewFrustum &frustum,
+        const WaterRenderer::Reflection *pReflection = nullptr);
     static void renderRuntimeWorldItems(
         OutdoorGameView &view,
         uint16_t viewId,
         const float *pViewMatrix,
-        const bx::Vec3 &cameraPosition);
+        const bx::Vec3 &cameraPosition,
+        const ViewFrustum &frustum);
     static void renderRuntimeProjectiles(
         OutdoorGameView &view,
         uint16_t viewId,
@@ -58,10 +66,6 @@ public:
     static void renderFxContactShadows(
         OutdoorGameView &view,
         uint16_t viewId);
-    static void renderFxGlowBillboards(
-        OutdoorGameView &view,
-        uint16_t viewId,
-        const float *pViewMatrix);
     static void renderFxSegmentProjectiles(
         OutdoorGameView &view,
         uint16_t viewId,
@@ -73,6 +77,8 @@ public:
         const bx::Vec3 &cameraPosition);
 
 private:
+    static const OutdoorGameView::BillboardTextureHandle *restoreBillboardTexture(
+        OutdoorGameView &view, const std::string &name, int16_t palette, const std::string &resourceIdentity = {});
     static bool uploadBillboardTexture(OutdoorGameView &view, const OutdoorBitmapTexture &texture);
     static void appendWorldQuadVertices(
         std::vector<OutdoorGameView::TerrainVertex> &vertices,

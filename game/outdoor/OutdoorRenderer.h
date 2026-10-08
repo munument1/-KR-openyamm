@@ -18,6 +18,7 @@ namespace OpenYAMM::Game
 class OutdoorRenderer
 {
 public:
+    static void destroySunReceiverResources(OutdoorGameView &view);
     static bool initializeWorldRenderResources(
         OutdoorGameView &view,
         const OutdoorMapData &outdoorMapData,
@@ -42,7 +43,8 @@ public:
         const bx::Vec3 &cameraForward,
         const bx::Vec3 &cameraRight,
         const bx::Vec3 &cameraUp,
-        const float *pViewMatrix);
+        const float *pViewMatrix,
+        const float *pProjectionMatrix);
 
     static void renderOutdoorSky(
         OutdoorGameView &view,
@@ -53,16 +55,12 @@ public:
         const bx::Vec3 &cameraForward,
         const bx::Vec3 &cameraRight,
         const bx::Vec3 &cameraUp,
-        float renderDistance);
+        float renderDistance,
+        bool reflection = false);
 
-    static void renderOutdoorDarknessOverlay(
+    static void renderOutdoorGameplayOverlay(
         OutdoorGameView &view,
         uint16_t viewId,
-        const bx::Vec3 &cameraPosition,
-        const bx::Vec3 &cameraForward,
-        const bx::Vec3 &cameraRight,
-        const bx::Vec3 &cameraUp,
-        float aspectRatio,
         float overlayAlpha,
         uint32_t overlayColorAbgr);
 
@@ -72,11 +70,24 @@ public:
         const bx::Vec3 &cameraPosition);
 
 private:
+    static bool initializeWaterResources(OutdoorGameView &view,
+        const std::vector<OutdoorGameView::TexturedTerrainVertex> &vertices,
+        const OutdoorTerrainTextureAtlas &atlas);
+    static void renderWaterReflections(OutdoorGameView &view, const float *pProjection,
+        const bx::Vec3 &cameraPosition, const bx::Vec3 &cameraForward, const bx::Vec3 &cameraRight,
+        const bx::Vec3 &cameraUp, float farClipDistance, const OutdoorLightingRuntime &bModelLighting,
+        const OutdoorSelectedFxLights &globalBModelLights, bool useLocalBModelLighting);
+    static void submitResolvedBModelDrawGroup(OutdoorGameView &view,
+        const OutdoorGameView::ResolvedBModelDrawGroup &group, uint16_t viewId, size_t frameIndex, uint32_t transform);
     static void ensureTerrainDecorations(OutdoorGameView &view, const OutdoorMapData &outdoorMapData);
+    static void ensureDecorationModels(OutdoorGameView &view);
+    // Event visibility and light of each decoration-model placement for this frame. Baked probes are sampled once.
+    static void updateDecorationModels(OutdoorGameView &view, const OutdoorLightingData *pBakedLighting,
+        const OutdoorWorldRuntime::AtmosphereState *pAtmosphereState);
     static void initializeAnimatedWaterTileState(
         OutdoorGameView &view,
         const std::optional<OutdoorTerrainTextureAtlas> &outdoorTerrainTextureAtlas);
-    static void updateAnimatedWaterTileTexture(OutdoorGameView &view);
+    static void updateAnimatedWaterTileTexture(OutdoorGameView &view, bool enhancedWater);
     static std::vector<OutdoorGameView::TerrainVertex> buildTerrainVertices(const OutdoorMapData &mapData);
     static std::vector<uint16_t> buildTerrainIndices();
     static std::vector<OutdoorGameView::TexturedTerrainVertex> buildTexturedTerrainVertices(
@@ -91,7 +102,8 @@ private:
         size_t bModelIndex,
         size_t faceIndex,
         int textureWidth,
-        int textureHeight);
+        int textureHeight,
+        bool useLightmaps);
     static std::vector<OutdoorGameView::LightmappedBModelVertex> buildLightmappedBModelFaceVertices(
         const OutdoorMapData &mapData,
         size_t bModelIndex,
@@ -112,7 +124,9 @@ private:
         OutdoorGameView &view,
         const OutdoorMapData &outdoorMapData,
         const std::optional<OutdoorBModelTextureSet> &outdoorBModelTextureSet);
-    static void applySecretPulseUniforms(OutdoorGameView &view);
+    static void applyOutdoorSurfaceUniforms(OutdoorGameView &view);
+    static void bindBakedSunShadows(OutdoorGameView &view, uint32_t sunPageIndex);
+    static void ensureSunShadowPrograms(OutdoorGameView &view);
     static void applyOutdoorFxLightUniforms(OutdoorGameView &view, const bx::Vec3 &cameraPosition);
     static void destroyResolvedBModelDrawGroups(OutdoorGameView &view);
     static void rebuildResolvedBModelDrawGroups(OutdoorGameView &view);

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Parse the complete workflow before running commands. The checkout can change during a long build.
+{
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 
@@ -21,6 +23,7 @@ install_deps_from=""
 assume_yes=1
 add_flathub=0
 clean_only=0
+bundle_only=0
 build_jobs=""
 
 usage()
@@ -38,6 +41,7 @@ Options:
   --state-dir=PATH        flatpak-builder state/cache directory.
   --source-dir=PATH       Minimal source staging directory.
   --bundle=PATH           Output bundle path.
+  --bundle-only           Bundle an existing exported repo without rebuilding or installing.
   --branch=NAME           Flatpak branch. Default: stable
   --no-install            Build and bundle without installing the app.
   --no-bundle             Build and install without creating a .flatpak bundle.
@@ -70,6 +74,9 @@ for argument in "$@"; do
             ;;
         --bundle=*)
             bundle_path="${argument#*=}"
+            ;;
+        --bundle-only)
+            bundle_only=1
             ;;
         --branch=*)
             branch="${argument#*=}"
@@ -109,6 +116,11 @@ for argument in "$@"; do
             ;;
     esac
 done
+
+if [ "$bundle_only" -eq 1 ] && { [ "$create_bundle" -eq 0 ] || [ "$clean_only" -eq 1 ]; }; then
+    printf '%s\n' '--bundle-only cannot be combined with --no-bundle or --clean-only' >&2
+    exit 2
+fi
 
 detect_default_build_jobs()
 {
@@ -209,6 +221,24 @@ require_dir()
     fi
 }
 
+create_flatpak_bundle()
+{
+    require_command flatpak
+    if [ ! -d "$repo_dir/objects" ]; then
+        printf 'No exported Flatpak repository at: %s\n' "$repo_dir" >&2
+        exit 1
+    fi
+    mkdir -p "$(dirname "$bundle_path")"
+    printf 'Creating Flatpak bundle %s\n' "$bundle_path"
+    flatpak build-bundle "$repo_dir" "$bundle_path" "$app_id" "$branch"
+    printf 'Bundle: %s\n' "$bundle_path"
+}
+
+if [ "$bundle_only" -eq 1 ]; then
+    create_flatpak_bundle
+    exit 0
+fi
+
 require_command flatpak-builder
 require_command flatpak
 require_command cmake
@@ -249,38 +279,21 @@ copy_source_entry()
     cp -a "$source_path" "$destination_path"
 }
 
-package_asset_dir()
-{
-    local source_path="$repo_root/$1"
-    local destination_path="$source_dir/$2"
-
-    if [ ! -d "$source_path" ]; then
-        printf 'Required asset package source is missing: %s\n' "$1" >&2
-        exit 1
-    fi
-
-    mkdir -p "$(dirname "$destination_path")"
-    printf 'Packaging %s -> %s\n' "$1" "$2"
-    (cd "$source_path" && cmake -E tar cf "$destination_path" --format=zip -- .) >/dev/null
-}
-
 stage_flatpak_assets()
 {
-    local world_source_root="$repo_root/assets_dev/worlds"
-    local world_path=""
-    local world_package_name=""
-
-    mkdir -p "$source_dir/assets/worlds"
-    package_asset_dir assets_dev/engine assets/engine.zip
-
-    for world_path in "$world_source_root"/*; do
-        if [ ! -d "$world_path" ]; then
-            continue
-        fi
-
-        world_package_name="$(basename "$world_path")"
-        package_asset_dir "assets_dev/worlds/$world_package_name" "assets/worlds/$world_package_name.zip"
-    done
+    local host_build_dir="${OPENYAMM_HOST_BUILD_DIR:-$repo_root/build}"
+    if [ ! -f "$host_build_dir/CMakeCache.txt" ]; then
+        cmake -S "$repo_root" -B "$host_build_dir" -DCMAKE_BUILD_TYPE=Release \
+            -DOPENYAMM_BUILD_TESTS=OFF -DOPENYAMM_BUILD_EDITOR=OFF -DOPENYAMM_BUILD_TOOLS=OFF \
+            -DOPENYAMM_BUILD_DESKTOP_EXECUTABLE=OFF \
+            -DSDL_ALSA=OFF -DSDL_JACK=OFF -DSDL_KMSDRM=OFF -DSDL_PIPEWIRE=OFF \
+            -DSDL_PULSEAUDIO=OFF -DSDL_SNDIO=OFF -DSDL_UNIX_CONSOLE_BUILD=ON \
+            -DSDL_WAYLAND=OFF -DSDL_X11=OFF
+    fi
+    cmake --build "$host_build_dir" --target openyamm_sprite_atlas_cook --parallel "$build_jobs"
+    python3 "$repo_root/tools/package_runtime_assets.py" \
+        --assets-root "$repo_root/assets_dev" --output "$source_dir/assets" \
+        --profile desktop --cooker "$host_build_dir/game/openyamm_sprite_atlas_cook"
 }
 
 prepare_source_tree()
@@ -290,13 +303,21 @@ prepare_source_tree()
     mkdir -p "$source_dir"
 
     copy_source_entry CMakeLists.txt
+    copy_source_entry LICENSE
+    copy_source_entry COPYRIGHT
     copy_source_entry settings_release.ini
     copy_source_entry cmake
     copy_source_entry engine
     copy_source_entry game
     copy_source_entry packaging/flatpak
     copy_source_entry packaging/icons
+    copy_source_entry packaging/licenses
     copy_source_entry tools/openyamm_shaderc_stubs.cpp
+    copy_source_entry tools/cook_sprite_atlases_main.cpp
+    copy_source_entry tools/SpriteAtlasEncode.cpp
+    copy_source_entry tools/SpriteAtlasEncode.h
+    copy_source_entry tools/cook_sprite_atlases.py
+    copy_source_entry tools/package_runtime_assets.py
     stage_flatpak_assets
 
     mkdir -p "$(dirname "$generated_manifest")"
@@ -359,14 +380,12 @@ printf 'Building Flatpak app %s (%s, jobs=%s)\n' "$app_id" "$branch" "$build_job
 flatpak-builder "${builder_args[@]}" "$build_dir" "$generated_manifest"
 
 if [ "$create_bundle" -eq 1 ]; then
-    printf 'Creating Flatpak bundle %s\n' "$bundle_path"
-    flatpak build-bundle "$repo_dir" "$bundle_path" "$app_id" "$branch"
+    create_flatpak_bundle
 fi
 
 if [ "$install_app" -eq 1 ]; then
     printf 'Installed app: flatpak run %s\n' "$app_id"
 fi
 
-if [ "$create_bundle" -eq 1 ]; then
-    printf 'Bundle: %s\n' "$bundle_path"
-fi
+exit 0
+}

@@ -7,6 +7,8 @@
 #include "game/fx/ParticleSystem.h"
 
 #include <algorithm>
+#include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -50,6 +52,71 @@ constexpr uint32_t ProjectileFxGreenishBrown = 0xff0f6464u;
 constexpr uint32_t ProjectileFxBloodRed = 0xff0000f0u;
 constexpr uint32_t ProjectileFxRed = 0xff0000ffu;
 constexpr uint32_t ProjectileFxWhite = 0xffffffffu;
+
+constexpr std::array<std::string_view, 43> ProjectileRecipeNames = {
+    "none",
+    "fire_bolt",
+    "fireball",
+    "fire_spike",
+    "immolation",
+    "meteor_shower",
+    "inferno",
+    "incinerate",
+    "starburst",
+    "implosion",
+    "cannonball",
+    "blaster",
+    "sparks",
+    "lightning_bolt",
+    "ice_bolt",
+    "ice_blast_fallout",
+    "poison_spray",
+    "acid_burst",
+    "light_bolt",
+    "sunray",
+    "stun",
+    "rock_blast",
+    "blades",
+    "death_blossom",
+    "harm",
+    "flying_fist",
+    "destroy_undead",
+    "sharpmetal",
+    "dragon_breath",
+    "dark_fire_bolt",
+    "toxic_cloud",
+    "monster_air_bolt",
+    "monster_earth_bolt",
+    "monster_fire_bolt",
+    "monster_water_bolt",
+    "monster_body_bolt",
+    "monster_mind_bolt",
+    "monster_spirit_bolt",
+    "monster_light_bolt",
+    "monster_dark_bolt",
+    "generic_particle_trail",
+    "generic_fire_trail",
+    "generic_line_trail",
+};
+
+static_assert(ProjectileRecipeNames.size() == static_cast<size_t>(ProjectileRecipe::GenericLineTrail) + 1);
+
+std::string normalizeRecipeName(std::string_view name)
+{
+    std::string normalized;
+    normalized.reserve(name.size());
+
+    for (char character : name)
+    {
+        const unsigned char unsignedCharacter = static_cast<unsigned char>(character);
+        if (std::isalnum(unsignedCharacter))
+        {
+            normalized.push_back(static_cast<char>(std::tolower(unsignedCharacter)));
+        }
+    }
+
+    return normalized;
+}
 
 struct LayerRecipe
 {
@@ -861,6 +928,27 @@ ProjectileRecipe classifyProjectileRecipe(
     }
 
     return ProjectileRecipe::None;
+}
+
+std::string_view projectileRecipeName(ProjectileRecipe recipe)
+{
+    const size_t index = static_cast<size_t>(recipe);
+    return index < ProjectileRecipeNames.size() ? ProjectileRecipeNames[index] : ProjectileRecipeNames[0];
+}
+
+std::optional<ProjectileRecipe> projectileRecipeFromName(std::string_view name)
+{
+    const std::string normalizedName = normalizeRecipeName(name);
+
+    for (size_t index = 0; index < ProjectileRecipeNames.size(); ++index)
+    {
+        if (normalizeRecipeName(ProjectileRecipeNames[index]) == normalizedName)
+        {
+            return static_cast<ProjectileRecipe>(index);
+        }
+    }
+
+    return std::nullopt;
 }
 
 const ProjectileFxRecipe &projectileFxRecipe(ProjectileRecipe recipe)
@@ -2985,6 +3073,49 @@ void spawnBuffSparkles(
         0.0f,
         0.0f,
         sparkleLayer);
+}
+
+void spawnActorDisintegrationParticles(ParticleSystem &particleSystem, uint32_t seed,
+    float x, float y, float z, float actorHeight, float elapsedSeconds, float durationSeconds)
+{
+    if (actorHeight <= 0 || durationSeconds <= 0 || elapsedSeconds >= durationSeconds)
+    {
+        return;
+    }
+    // One bounded burst: two existing billboard batches, no mesh morphs, lights or shadow submissions.
+    for (uint32_t i = 0; i < 80; ++i)
+    {
+        const uint32_t hash = (seed ^ (i * 2654435761u)) * 1664525u + 1013904223u;
+        const float angle = hashToUnit(hash) * TwoPi;
+        const float spread = actorHeight * (0.04f + hashToUnit(hash >> 8) * 0.18f);
+        const bool smoke = i >= 64;
+        FxParticleState particle;
+        particle.lifetimeSeconds = durationSeconds * (0.65f + hashToUnit(hash >> 4) * 0.35f);
+        if (elapsedSeconds >= particle.lifetimeSeconds)
+        {
+            continue;
+        }
+        particle.velocityX = std::cos(angle) * spread * 0.6f;
+        particle.velocityY = std::sin(angle) * spread * 0.6f;
+        particle.velocityZ = actorHeight * (smoke ? 0.14f : 0.45f);
+        particle.x = x + std::cos(angle) * spread + particle.velocityX * elapsedSeconds;
+        particle.y = y + std::sin(angle) * spread + particle.velocityY * elapsedSeconds;
+        particle.z = z + actorHeight * hashToUnit(hash >> 12) + particle.velocityZ * elapsedSeconds;
+        particle.size = actorHeight * (smoke ? 0.16f : 0.12f);
+        particle.endSize = particle.size * (smoke ? 1.6f : 0.5f);
+        particle.ageSeconds = elapsedSeconds;
+        particle.fadeInSeconds = smoke ? 0.3f : 0.04f;
+        particle.fadeOutStartSeconds = particle.lifetimeSeconds * 0.55f;
+        particle.startColorAbgr = smoke ? 0xb0211928u : 0xff829eeau;
+        particle.endColorAbgr = particle.startColorAbgr;
+        particle.motion = FxParticleMotion::VelocityTrail;
+        particle.material = smoke ? FxParticleMaterial::Smoke : FxParticleMaterial::Mist;
+        particle.tag = FxParticleTag::Impact;
+        if (!particleSystem.addParticle(particle))
+        {
+            break;
+        }
+    }
 }
 
 void spawnActorDebuffParticles(

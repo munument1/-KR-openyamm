@@ -138,6 +138,78 @@ bool hasPendingSound(const OpenYAMM::Game::Party &party, OpenYAMM::Game::SoundId
 }
 }
 
+TEST_CASE("meditation regenerates mana on Merge five-minute game ticks")
+{
+    using namespace OpenYAMM::Game;
+    Party party;
+    party.seed(createRegressionPartySeed());
+    Character *pMember = party.member(1);
+    REQUIRE(pMember != nullptr);
+    pMember->maxSpellPoints = 100;
+    pMember->spellPoints = 0;
+    pMember->skills["Meditation"] = {"Meditation", 19, SkillMastery::Normal};
+
+    SUBCASE("mastery and effective skill determine the amount")
+    {
+        pMember->itemSkillBonuses["Meditation"] = 1;
+        for (SkillMastery mastery : {SkillMastery::Normal, SkillMastery::Expert,
+                                    SkillMastery::Master, SkillMastery::Grandmaster})
+        {
+            pMember->skills["Meditation"].mastery = mastery;
+            pMember->spellPoints = 0;
+            party.advanceTimedStates(300.0f);
+            CHECK_EQ(pMember->spellPoints, static_cast<int>(mastery) + 2);
+        }
+    }
+
+    SUBCASE("partial ticks survive derived state refresh and save restoration")
+    {
+        party.advanceTimedStates(299.0f);
+        CHECK_EQ(pMember->spellPoints, 0);
+        party.refreshDerivedState();
+        Party restored;
+        restored.restoreSnapshot(party.snapshot());
+        restored.advanceTimedStates(1.0f);
+        REQUIRE(restored.member(1) != nullptr);
+        CHECK_EQ(restored.member(1)->spellPoints, 2);
+        restored.advanceTimedStates(600.0f);
+        CHECK_EQ(restored.member(1)->spellPoints, 6);
+    }
+
+    SUBCASE("waiting caps mana and crossing the weekly boundary retains the tick phase")
+    {
+        party.advanceTimedStates(7.0f * 24.0f * 3600.0f + 299.0f);
+        CHECK_EQ(pMember->spellPoints, Party::effectiveMaximumSpellPoints(*pMember));
+        pMember->spellPoints = 0;
+        party.advanceTimedStates(1.0f);
+        CHECK_EQ(pMember->spellPoints, 2);
+    }
+
+    SUBCASE("unconscious and zombie members regenerate but dead and petrified members do not")
+    {
+        for (CharacterCondition condition : {CharacterCondition::Unconscious, CharacterCondition::Zombie,
+                                            CharacterCondition::Dead, CharacterCondition::Petrified,
+                                            CharacterCondition::Eradicated})
+        {
+            pMember->conditions.reset();
+            pMember->conditions.set(static_cast<size_t>(condition));
+            pMember->spellPoints = 0;
+            party.advanceTimedStates(300.0f);
+            const bool eligible =
+                condition == CharacterCondition::Unconscious || condition == CharacterCondition::Zombie;
+            CHECK_EQ(pMember->spellPoints, eligible ? 2 : 0);
+        }
+    }
+
+    SUBCASE("unlearned meditation does not grant mana")
+    {
+        pMember->skills["Meditation"].mastery = SkillMastery::None;
+        party.advanceTimedStates(300.0f);
+        CHECK_EQ(pMember->spellPoints, 0);
+        CHECK_EQ(party.member(0)->spellPoints, 20);
+    }
+}
+
 TEST_CASE("default party seed only creates the first test member")
 {
     OpenYAMM::Game::Party party = {};
@@ -438,6 +510,40 @@ TEST_CASE("named runtime globals survive save data round trip")
     CHECK_EQ(loaded->namedGlobalVars.at("MMerge.BountyHunt.new_sorpigal.odm.MonsterId"), 10);
     CHECK_EQ(loaded->namedGlobalVars.at("MMerge.BountyHunt.new_sorpigal.odm.Done"), 1);
     CHECK_EQ(loaded->namedGlobalVars.at("MMerge.BountyHunt.new_sorpigal.odm.Claimed"), 0);
+}
+
+TEST_CASE("consumed barrel states survive save data round trip for active and visited maps")
+{
+    using namespace OpenYAMM::Game;
+    Party party;
+    party.seed(createRegressionPartySeed());
+    GameSaveData saveData;
+    saveData.mapFileName = "oute3.odm";
+    saveData.party = party.snapshot();
+    saveData.hasOutdoorRuntimeState = true;
+    saveData.outdoorWorld.eventRuntimeState = EventRuntimeState{};
+    saveData.outdoorWorldStates["mm6:oute3.odm"] = saveData.outdoorWorld;
+    saveData.indoorScene.eventRuntimeState = EventRuntimeState{};
+    saveData.indoorScene.eventRuntimeState->decorVars[0] = 4;
+    saveData.indoorSceneStates["mm6:6d01.blv"] = saveData.indoorScene;
+
+    const std::filesystem::path savePath =
+        std::filesystem::temp_directory_path() / "openyamm_consumed_barrels_roundtrip.oysav";
+    std::string error;
+    REQUIRE(saveGameDataToPath(savePath, saveData, error));
+    const std::optional<GameSaveData> loaded = loadGameDataFromPath(savePath, error);
+    std::filesystem::remove(savePath);
+
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->outdoorWorld.eventRuntimeState.has_value());
+    const std::array<uint8_t, 125> emptyBarrels = {};
+    CHECK_EQ(loaded->outdoorWorld.eventRuntimeState->decorVars, emptyBarrels);
+    REQUIRE(loaded->outdoorWorldStates.at("mm6:oute3.odm").eventRuntimeState.has_value());
+    CHECK_EQ(loaded->outdoorWorldStates.at("mm6:oute3.odm").eventRuntimeState->decorVars,
+        emptyBarrels);
+    REQUIRE(loaded->indoorSceneStates.at("mm6:6d01.blv").eventRuntimeState.has_value());
+    CHECK_EQ(loaded->indoorSceneStates.at("mm6:6d01.blv").eventRuntimeState->decorVars[0], 4);
+    CHECK_EQ(loaded->indoorSceneStates.at("mm6:6d01.blv").eventRuntimeState->decorVars[1], 0);
 }
 
 TEST_CASE("outdoor location reset metadata survives save data round trip")
@@ -1038,6 +1144,57 @@ TEST_CASE("inventory identify and repair use best party utility skill")
     pItem = pActiveMember->inventoryItemAt(0, 0);
     REQUIRE(pItem != nullptr);
     CHECK_FALSE(pItem->broken);
+}
+
+TEST_CASE("Scholar hireling identifies inventory and equipment without character skills")
+{
+    REQUIRE_MESSAGE(
+        OpenYAMM::Tests::regressionGameDataLoaded(),
+        OpenYAMM::Tests::regressionGameDataFailure().c_str());
+
+    const OpenYAMM::Game::ItemTable &itemTable = OpenYAMM::Tests::regressionGameData().itemTable;
+    const OpenYAMM::Game::ItemDefinition *pDefinition = nullptr;
+    for (const OpenYAMM::Game::ItemDefinition &definition : itemTable.entries())
+    {
+        if (definition.itemId != 0 && definition.equipStat == "Armor" && definition.identifyRepairDifficulty > 20
+            && OpenYAMM::Game::ItemRuntime::requiresIdentification(definition))
+        {
+            pDefinition = &definition;
+            break;
+        }
+    }
+    REQUIRE(pDefinition != nullptr);
+
+    OpenYAMM::Game::Party party = makeInventoryParty();
+    party.setItemTable(&itemTable);
+    for (size_t memberIndex = 0; memberIndex < party.members().size(); ++memberIndex)
+    {
+        party.member(memberIndex)->skills.clear();
+    }
+    OpenYAMM::Game::InventoryItem item = {};
+    item.objectDescriptionId = pDefinition->itemId;
+    item.quantity = 1;
+    item.width = std::max<uint8_t>(1, pDefinition->inventoryWidth);
+    item.height = std::max<uint8_t>(1, pDefinition->inventoryHeight);
+    item.identified = false;
+    REQUIRE(party.member(0)->addInventoryItemAt(item, 0, 0));
+
+    std::string statusText;
+    CHECK_FALSE(party.tryIdentifyMemberInventoryItem(0, 0, 0, 0, statusText));
+    party.addHiredNpcFollower({1001, 1, 100});
+    CHECK_FALSE(party.canIdentifyItem(*pDefinition));
+    party.addHiredNpcFollower({1002, 4, 100});
+    CHECK(party.tryIdentifyMemberInventoryItem(0, 0, 0, 0, statusText));
+    CHECK(party.memberInventoryItem(0, 0, 0)->identified);
+    CHECK_FALSE(party.tryIdentifyMemberInventoryItem(0, 0, 0, 0, statusText));
+    party.member(0)->equipment.armor = pDefinition->itemId;
+    party.member(0)->equipmentRuntime.armor.identified = false;
+    CHECK(party.tryIdentifyEquippedItem(0, OpenYAMM::Game::EquipmentSlot::Armor, 0, statusText));
+    CHECK(party.member(0)->equipmentRuntime.armor.identified);
+    party.removeHiredNpcFollower(1002);
+    CHECK_FALSE(party.canIdentifyItem(*pDefinition));
+    party.member(0)->equipmentRuntime.armor.identified = false;
+    CHECK_FALSE(party.tryIdentifyEquippedItem(0, OpenYAMM::Game::EquipmentSlot::Armor, 0, statusText));
 }
 
 TEST_CASE("member experience mutation clamps like OE")

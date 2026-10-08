@@ -6,9 +6,12 @@ FetchContent_GetProperties(imgui SOURCE_DIR OPENYAMM_IMGUI_SOURCE_DIR)
 FetchContent_GetProperties(bgfx SOURCE_DIR OPENYAMM_BGFX_FETCH_SOURCE_DIR)
 
 add_library(openyamm_game STATIC
+    render/RuntimeShader.cpp
+    render/CinematicGrading.cpp
+    render/WaterRenderer.cpp
     app/ScreenManager.cpp
     app/GameInputSystem.cpp
-    app/GprofControl.cpp
+    app/ProfilingControl.cpp
     arcomage/ArcomageAi.cpp
     arcomage/ArcomageLoader.cpp
     arcomage/ArcomageRules.cpp
@@ -16,6 +19,9 @@ add_library(openyamm_game STATIC
     debug/DebugConsole.cpp
     debug/GameplayDebugTrace.cpp
     debug/GameImGuiBgfxRenderer.cpp
+    debug/ScreenshotCaptureService.cpp
+    debug/ScreenshotTour.cpp
+    debug/MenuInputTour.cpp
     data/GameDataRepository.cpp
     app/GameSession.cpp
     audio/GameAudioSystem.cpp
@@ -34,6 +40,10 @@ add_library(openyamm_game STATIC
     events/ScriptedEventTimer.cpp
     tables/FaceAnimationTable.cpp
     fx/ParticleRecipes.cpp
+    fx/EffectSystem.cpp
+    fx/EffectRenderer.cpp
+    fx/import/EffectDefinitionLoader.cpp
+    fx/import/EffectResourceLibrary.cpp
     fx/ParticleRenderer.cpp
     fx/ParticleSystem.cpp
     fx/WorldFxRenderer.cpp
@@ -49,6 +59,7 @@ add_library(openyamm_game STATIC
     gameplay/CorpseLootRuntime.cpp
     gameplay/ChestRuntime.cpp
     gameplay/BountyHuntRuntime.cpp
+    gameplay/ArenaRuntime.cpp
     gameplay/AwardRuntime.cpp
     gameplay/GameplayBolsterRuntime.cpp
     gameplay/GameplayActorAiSystem.cpp
@@ -130,6 +141,7 @@ add_library(openyamm_game STATIC
     indoor/IndoorPortalVisibility.cpp
     indoor/IndoorWorldRuntime.cpp
     maps/MapAssetLoader.cpp
+    maps/DecorationModelSet.cpp
     maps/MapDecorationTextures.cpp
     maps/MapIdentity.cpp
     maps/MapRegistry.cpp
@@ -140,7 +152,9 @@ add_library(openyamm_game STATIC
     tables/MergedBaseTables.cpp
     tables/NpcDialogTable.cpp
     tables/ObjectTable.cpp
+    render/SpriteAtlasCook.cpp
     render/SpriteAtlasCache.cpp
+    render/NativeSpriteTextureCache.cpp
     render/SpriteAtlasMipmaps.cpp
     outdoor/OutdoorBillboardRenderer.cpp
     outdoor/OutdoorSpatialFxRuntime.cpp
@@ -195,7 +209,10 @@ add_library(openyamm_game STATIC
     tables/TextureFrameTable.cpp
     outdoor/OutdoorGameView.cpp
     ui/GameplayDialogueRenderer.cpp
+    ui/EnemyHealthBarRenderer.cpp
     ui/GameplayHudRenderer.cpp
+    ui/GameplayUiSkin.cpp
+    ui/GameplayBuffHud.cpp
     ui/GameplayHudCommon.cpp
     ui/GameplayHudOverlaySupport.cpp
     ui/GameplayHudOverlayRenderer.cpp
@@ -211,6 +228,8 @@ add_library(openyamm_game STATIC
     ui/MenuScreenBase.cpp
     ui/GameplayUiController.cpp
     ui/UiLayoutManager.cpp
+    ui/MenuSettingsModel.cpp
+    ui/MenuDesignScreen.cpp
     ui/screens/MainMenuScreen.cpp
     ui/screens/ArcomageScreen.cpp
     ui/screens/CutsceneVideoScreen.cpp
@@ -287,6 +306,7 @@ if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
     target_link_libraries(openyamm
         PRIVATE
             openyamm_game
+            SDL3::SDL3
     )
 
     target_include_directories(openyamm
@@ -336,8 +356,31 @@ if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
         RUNTIME DESTINATION bin
     )
 
+    if (UNIX AND NOT APPLE)
+        set(openyammDesktopId "io.github.openyamm.OpenYAMM")
+        set(openyammIconRoot "${CMAKE_SOURCE_DIR}/packaging/icons/hicolor")
+        foreach(openyammIconSize IN ITEMS 16 24 32 48 64 128 256 512)
+            install(FILES
+                "${openyammIconRoot}/${openyammIconSize}x${openyammIconSize}/apps/${openyammDesktopId}.png"
+                DESTINATION "share/icons/hicolor/${openyammIconSize}x${openyammIconSize}/apps"
+                COMPONENT DesktopIntegration
+            )
+        endforeach()
+        install(FILES "${CMAKE_SOURCE_DIR}/packaging/flatpak/${openyammDesktopId}.svg"
+            DESTINATION share/icons/hicolor/scalable/apps
+            COMPONENT DesktopIntegration
+        )
+    endif()
+
+    install(FILES
+        "${CMAKE_SOURCE_DIR}/LICENSE"
+        "${CMAKE_SOURCE_DIR}/COPYRIGHT"
+        DESTINATION "share/licenses/openyamm"
+    )
+
     install(DIRECTORY "${OPENYAMM_RUNTIME_SHADER_DIR}/"
         DESTINATION "share/openyamm/runtime/shaders"
+        PATTERN "dxbc" EXCLUDE
     )
 
     if (IS_DIRECTORY "${CMAKE_SOURCE_DIR}/assets")
@@ -348,3 +391,37 @@ if (OPENYAMM_BUILD_DESKTOP_EXECUTABLE)
         )
     endif()
 endif()
+
+# Host-side preparation shares the runtime format/filtering code, without requiring a graphics context.
+if (NOT CMAKE_CROSSCOMPILING)
+    add_executable(openyamm_sprite_atlas_cook EXCLUDE_FROM_ALL
+        ../tools/cook_sprite_atlases_main.cpp
+        ../tools/SpriteAtlasEncode.cpp
+        render/SpriteAtlasCook.cpp
+        render/SpriteAtlasMipmaps.cpp)
+    target_include_directories(openyamm_sprite_atlas_cook PRIVATE ${CMAKE_SOURCE_DIR})
+    target_link_libraries(openyamm_sprite_atlas_cook PRIVATE openyamm_engine libzstd_static openyamm_atlas_encoders)
+    if (IS_DIRECTORY "${CMAKE_SOURCE_DIR}/assets_source/engine/sprites_new")
+        add_custom_target(openyamm_cook_sprite_atlases
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tools/cook_sprite_atlases.py"
+                --source "${CMAKE_SOURCE_DIR}/assets_source/engine/sprites_new"
+                --output "${OPENYAMM_DEV_ASSETS_DIR}/engine/sprites_new"
+                --profile desktop --cooker "$<TARGET_FILE:openyamm_sprite_atlas_cook>"
+            DEPENDS openyamm_sprite_atlas_cook
+            COMMENT "Preparing changed sprite atlas runtime pages"
+            VERBATIM)
+    endif()
+    if (IS_DIRECTORY "${OPENYAMM_DEV_ASSETS_DIR}/engine/sprites_new")
+        add_custom_target(openyamm_verify_sprite_atlases
+            COMMAND "$<TARGET_FILE:openyamm_sprite_atlas_cook>"
+                --verify "${OPENYAMM_DEV_ASSETS_DIR}/engine/sprites_new" desktop
+            DEPENDS openyamm_sprite_atlas_cook
+            COMMENT "Validating prebuilt sprite atlas runtime pages"
+            VERBATIM)
+        if (TARGET openyamm)
+            add_dependencies(openyamm openyamm_verify_sprite_atlases)
+        endif()
+    endif()
+endif()
+
+target_link_libraries(openyamm_game PRIVATE libzstd_static)

@@ -14,18 +14,21 @@ Use this for sideload releases hosted outside Google Play.
 
 ## Versioning Policy
 
-- `versionName` is human-readable semver.
+- Tagged `versionName` uses the `X.Y` release tag; other CI builds use `nightly-<run>.<attempt>`.
 - `versionCode` must strictly increase for every hosted update.
-- Use `versionCode = major * 10000 + minor * 100 + patch`.
-- Current default: `versionName=0.1.0`, `versionCode=100`.
-- For the next small update, use `0.1.1` / `101`.
-- For the next larger preview, use `0.2.0` / `200`.
+- CI uses `versionCode = 10000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT` for every build type.
+- Original release 1.0 used `10000`; every new CI build exceeds it. Reruns reserve attempts 1–99 per run.
+- Later tagged builds follow the same sequence so they can update installed nightlies.
+- Keep this workflow's run sequence intact. Rerunning an older run does not make it newer than subsequent runs.
+- Local defaults are `versionName=1.0`, `versionCode=10000`. Publish through CI to keep every public APK in
+  the shared sequence. Manual public builds must coordinate their codes with that sequence.
 
-Edit these in `android/gradle.properties` before building:
+For a manual public build, edit `android/gradle.properties` or supply these overrides:
 
-```properties
-openyamm.android.versionName=0.1.0
-openyamm.android.versionCode=100
+```text
+OPENYAMM_ANDROID_VERSION_NAME=<display-version> \
+OPENYAMM_ANDROID_VERSION_CODE=<reserved-increasing-code> \
+android/build_release_apk.sh
 ```
 
 ## Build And Verify
@@ -61,4 +64,6 @@ Publish:
 4. Install the APK.
 5. For updates, install the newer APK over the existing one.
 
-If Android refuses an update, the installed APK was signed with a different key or the new `versionCode` is not higher.
+If Android refuses an update, compare the signing certificates and version codes of both APKs.
+Android rejects a lower version code; an equal code can be reinstalled when sideloading, but published updates
+should use a higher code. A different signing certificate also prevents an in-place update.
