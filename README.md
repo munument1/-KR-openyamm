@@ -4,6 +4,7 @@
 > 게임 번역은 `korean-localization` 브랜치에서 별도로 관리하며 용어 통일·누락 재검토가 필요합니다.
 > `KOREAN_RELEASE_HOLD=true` 동안 정기·수동·태그 빌드의 공개 게시를 막습니다.
 > 아래 최신 원본 문서의 영어 부분도 아직 번역 재검토 전입니다.
+> 재검토 근거와 이식 충돌 목록은 [한국어판 재번역 상태](docs/KOREAN_RETRANSLATION_STATUS.md)에 정리했습니다.
 
 OpenYAMM은 **Open Yet Another Might and Magic**의 약자로, MMMerge에서 영감을 받아 개발된
 Might and Magic VI, VII, VIII의 현대적인 C++ 재구현 프로젝트입니다. 엔진은 처음에
