@@ -250,6 +250,7 @@ jobs:
           export ANDROID_EMULATOR_HOME="$ANDROID_USER_HOME"
           export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
           mkdir -p "$ANDROID_AVD_HOME"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           sdkmanager --install "emulator" "system-images;android-35;google_apis;x86_64"
           echo no | avdmanager create avd --force --name release-test \
             --package "system-images;android-35;google_apis;x86_64" --device pixel_7 \
