@@ -263,12 +263,15 @@ jobs:
           echo no | avdmanager create avd --force --name release-test \
             --package "system-images;android-35;google_apis;x86_64" --device pixel_7 \
             --path "$ANDROID_AVD_HOME/release-test.avd"
+          # An in-place upgrade temporarily needs space for both 1+ GB APKs.
+          # Explicitly size the guest /data image; the AVD device default is too small.
+          echo 'disk.dataPartition.size=16G' >> "$ANDROID_AVD_HOME/release-test.avd/config.ini"
           "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx release-test
           sudo chmod a+rw /dev/kvm
           mkdir -p android-release-test
           "$ANDROID_HOME/emulator/emulator" -avd release-test -no-window -no-audio \
-            -no-snapshot -gpu swiftshader_indirect -memory 4096 -cores 2 \
-            -partition-size 8192 -port 5554 > android-release-test/emulator.log 2>&1 &
+            -no-snapshot -wipe-data -gpu swiftshader_indirect -memory 4096 -cores 2 \
+            -partition-size 16384 -port 5554 > android-release-test/emulator.log 2>&1 &
           emulator_pid=$!
           trap 'kill "$emulator_pid" 2>/dev/null || true' EXIT
           booted=false
@@ -283,6 +286,7 @@ jobs:
             cat android-release-test/emulator.log
             exit 1
           fi
+          adb -s emulator-5554 shell df -h /data /sdcard
           baseline_apk="$RUNNER_TEMP/OpenYAMM-0.11-korean-r10-android-arm64.apk"
           curl --fail --location --retry 3 \
             https://github.com/munument1/-KR-openyamm/releases/download/0.11-korean-r10/OpenYAMM-0.11-korean-r10-android-arm64.apk \
