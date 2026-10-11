@@ -242,6 +242,14 @@ jobs:
       - name: Build signed Android package
         run: android/build_release_apk.sh --repack-assets
 
+      - name: Set up Android smoke test Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Android smoke test Python dependencies
+        run: python3 -m pip install Pillow==11.3.0
+
       - name: Load a rendered map in the signed Android APK
         timeout-minutes: 15
         run: |
